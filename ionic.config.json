@@ -1,0 +1,7 @@
+{
+  "name": "deendesk",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "angular"
+}

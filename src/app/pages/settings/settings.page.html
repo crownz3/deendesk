@@ -1,0 +1,46 @@
+<ion-content>
+  <main class="page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Settings</p>
+        <h1>Platform settings</h1>
+        <p>Global defaults for Firebase, generated credentials, courses, and permissions.</p>
+      </div>
+      <button mat-flat-button color="primary" type="button" (click)="seedDefaults()" [disabled]="seeding">
+        <ion-icon name="cloud-upload-outline"></ion-icon>
+        Seed defaults
+      </button>
+    </header>
+
+    <section class="settings-grid">
+      <article>
+        <h2>Firebase project</h2>
+        <dl>
+          <div><dt>Project ID</dt><dd>{{ firebase.projectId }}</dd></div>
+          <div><dt>Auth domain</dt><dd>{{ firebase.authDomain }}</dd></div>
+          <div><dt>Storage bucket</dt><dd>{{ firebase.storageBucket }}</dd></div>
+        </dl>
+      </article>
+
+      <article>
+        <h2>Access defaults</h2>
+        <dl>
+          <div><dt>Initial Super Admin</dt><dd>{{ superAdminEmail }}</dd></div>
+          <div><dt>Generated email domain</dt><dd>{{ generatedEmailDomain }}</dd></div>
+          <div><dt>Database</dt><dd>Cloud Firestore</dd></div>
+        </dl>
+      </article>
+    </section>
+
+    <section class="course-list">
+      <h2>Default course templates</h2>
+      <div class="course-grid">
+        <article *ngFor="let course of defaultCourses">
+          <strong>{{ course.name }}</strong>
+          <span>{{ course.description }}</span>
+          <small>{{ course.stages.length ? course.stages.join(', ') : course.levels.join(', ') || 'Custom structure' }}</small>
+        </article>
+      </div>
+    </section>
+  </main>
+</ion-content>

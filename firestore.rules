@@ -1,0 +1,217 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function superEmail() {
+      return signedIn() && request.auth.token.email == 'mohamedibrahim010425@gmail.com';
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function userExists() {
+      return signedIn() && exists(userPath(request.auth.uid));
+    }
+
+    function currentUser() {
+      return get(userPath(request.auth.uid)).data;
+    }
+
+    function isActive() {
+      return superEmail() || (userExists() && currentUser().status == 'active');
+    }
+
+    function isSuper() {
+      return superEmail() || (isActive() && currentUser().role == 'superAdmin');
+    }
+
+    function hasPermission(permission) {
+      return isSuper() || (isActive() && permission in currentUser().permissions);
+    }
+
+    function sameOrg(data) {
+      return isActive()
+        && data.organizationId != null
+        && currentUser().organizationId != null
+        && data.organizationId == currentUser().organizationId;
+    }
+
+    function ownOrgDoc(orgId) {
+      return isActive() && currentUser().organizationId == orgId;
+    }
+
+    function assignedMadrasa(data) {
+      return isActive()
+        && data.madrasaId != null
+        && currentUser().madrasaIds != null
+        && data.madrasaId in currentUser().madrasaIds;
+    }
+
+    function assignedClass(data) {
+      return isActive()
+        && data.classId != null
+        && currentUser().classIds != null
+        && data.classId in currentUser().classIds;
+    }
+
+    function ownUserData(data) {
+      return signedIn() && (data.uid == request.auth.uid || data.userId == request.auth.uid);
+    }
+
+    function linkedStudent(data) {
+      return isActive()
+        && currentUser().linkedStudentIds != null
+        && data.studentId != null
+        && data.studentId in currentUser().linkedStudentIds;
+    }
+
+    function scopedRead(data) {
+      return isSuper()
+        || sameOrg(data)
+        || assignedMadrasa(data)
+        || assignedClass(data)
+        || ownUserData(data)
+        || linkedStudent(data);
+    }
+
+    function canWriteScoped(data, permission) {
+      return hasPermission(permission) && (isSuper() || sameOrg(data) || assignedMadrasa(data) || assignedClass(data));
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (isSuper() || uid == request.auth.uid || sameOrg(resource.data) || assignedMadrasa(resource.data));
+      allow list: if isActive();
+      allow create: if signedIn() && (
+        isSuper()
+        || (superEmail() && uid == request.auth.uid)
+        || (uid == request.auth.uid && request.resource.data.role == 'student' && request.resource.data.status == 'pending')
+        || (hasPermission('manageUsers') && request.resource.data.role != 'superAdmin' && sameOrg(request.resource.data))
+        || (hasPermission('manageCoordinators') && request.resource.data.role == 'coordinator' && sameOrg(request.resource.data))
+        || (hasPermission('manageIncharges') && request.resource.data.role == 'madrasaIncharge' && sameOrg(request.resource.data))
+        || (hasPermission('manageStaff') && request.resource.data.role == 'teacher' && sameOrg(request.resource.data))
+        || (hasPermission('manageStudents') && request.resource.data.role == 'student' && sameOrg(request.resource.data))
+        || (hasPermission('manageParents') && request.resource.data.role == 'parent' && sameOrg(request.resource.data))
+      );
+      allow update: if signedIn() && (
+        isSuper()
+        || (uid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'phone', 'photoURL', 'updatedAt', 'updatedBy', 'lastLoginAt', 'email']))
+        || (hasPermission('manageUsers') && sameOrg(request.resource.data))
+      );
+      allow delete: if isSuper();
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isSuper() || ownOrgDoc(orgId);
+      allow create: if isSuper();
+      allow update: if isSuper() || (hasPermission('manageOrganizations') && ownOrgDoc(orgId));
+      allow delete: if isSuper();
+    }
+
+    match /madrasas/{id} {
+      allow read: if scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageMadrasas');
+      allow delete: if canWriteScoped(resource.data, 'manageMadrasas');
+    }
+
+    match /courses/{id} {
+      allow read: if scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageCourses');
+      allow delete: if canWriteScoped(resource.data, 'manageCourses');
+    }
+
+    match /classes/{id} {
+      allow read: if scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageClasses');
+      allow delete: if canWriteScoped(resource.data, 'manageClasses');
+    }
+
+    match /subjects/{id} {
+      allow read: if scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageSubjects');
+      allow delete: if canWriteScoped(resource.data, 'manageSubjects');
+    }
+
+    match /staff/{id} {
+      allow read: if scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageStaff');
+      allow delete: if canWriteScoped(resource.data, 'manageStaff');
+    }
+
+    match /students/{id} {
+      allow read: if scopedRead(resource.data) || (isActive() && id in currentUser().linkedStudentIds);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageStudents');
+      allow delete: if canWriteScoped(resource.data, 'manageStudents');
+    }
+
+    match /parents/{id} {
+      allow read: if scopedRead(resource.data) || ownUserData(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageParents');
+      allow delete: if canWriteScoped(resource.data, 'manageParents');
+    }
+
+    match /attendance/{id} {
+      allow read: if hasPermission('viewAttendance') && scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'takeAttendance');
+      allow delete: if isSuper() || canWriteScoped(resource.data, 'takeAttendance');
+    }
+
+    match /promotionHistory/{id} {
+      allow read: if hasPermission('generateReports') && scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'managePromotions');
+      allow delete: if canWriteScoped(resource.data, 'managePromotions');
+    }
+
+    match /academicPlans/{id} {
+      allow read: if scopedRead(resource.data);
+      allow create, update: if canWriteScoped(request.resource.data, 'manageAcademicPlans');
+      allow delete: if canWriteScoped(resource.data, 'manageAcademicPlans');
+    }
+
+    match /notifications/{id} {
+      allow read: if isSuper()
+        || (isActive() && request.auth.uid in resource.data.recipientUserIds)
+        || scopedRead(resource.data);
+      allow create: if hasPermission('manageNotifications') && scopedRead(request.resource.data);
+      allow update: if isSuper()
+        || (isActive() && request.auth.uid in resource.data.recipientUserIds && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'updatedAt', 'updatedBy']))
+        || (hasPermission('manageNotifications') && scopedRead(request.resource.data));
+      allow delete: if isSuper() || (hasPermission('manageNotifications') && scopedRead(resource.data));
+    }
+
+    match /csvImports/{id} {
+      allow read: if hasPermission('importCsv') && scopedRead(resource.data);
+      allow create: if canWriteScoped(request.resource.data, 'importCsv');
+      allow update, delete: if isSuper();
+    }
+
+    match /permissionTemplates/{role} {
+      allow read: if isActive();
+      allow write: if hasPermission('managePermissions');
+    }
+
+    match /defaultCourses/{id} {
+      allow read: if isActive();
+      allow write: if hasPermission('manageSettings');
+    }
+
+    match /accessRequests/{uid} {
+      allow create: if signedIn() && uid == request.auth.uid;
+      allow read, update, delete: if isSuper() || hasPermission('manageUsers');
+    }
+
+    match /reports/{id} {
+      allow read: if hasPermission('generateReports') && scopedRead(resource.data);
+      allow create: if canWriteScoped(request.resource.data, 'generateReports');
+      allow update, delete: if isSuper();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

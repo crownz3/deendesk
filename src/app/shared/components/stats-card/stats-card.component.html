@@ -1,0 +1,11 @@
+<div class="stat-card" [class]="'stat-card-' + tone">
+  <div class="stat-icon">
+    <ion-icon [name]="icon"></ion-icon>
+  </div>
+
+  <div class="stat-content">
+    <p class="stat-label">{{ label }}</p>
+    <h3 class="stat-value">{{ value }}</h3>
+    <span class="stat-helper" *ngIf="helper">{{ helper }}</span>
+  </div>
+</div>

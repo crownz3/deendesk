@@ -1,0 +1,195 @@
+import { Injectable } from '@angular/core';
+import {
+  GoogleAuthProvider,
+  User,
+  getAuth,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import {
+  doc,
+  getFirestore,
+  getDoc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  onSnapshot,
+} from 'firebase/firestore';
+import { Router } from '@angular/router';
+import { BehaviorSubject, Observable, from, map, shareReplay, switchMap, of } from 'rxjs';
+import { ALL_PERMISSIONS, ROLE_LABELS, SUPER_ADMIN_EMAIL, permissionsForRole } from '../constants/defaults';
+import { AppUser, PermissionKey, UserRole } from '../models/domain.model';
+import { getDeenDeskFirebaseApp } from './firebase-app';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly firebaseApp = getDeenDeskFirebaseApp();
+  private readonly auth = getAuth(this.firebaseApp);
+  private readonly firestore = getFirestore(this.firebaseApp);
+  private readonly loadingProfileSubject = new BehaviorSubject<boolean>(true);
+
+  readonly authUser$ = new Observable<User | null>((subscriber) => {
+    const unsubscribe = onAuthStateChanged(this.auth, (user) => subscriber.next(user), (error) => subscriber.error(error));
+    return unsubscribe;
+  }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+  readonly profile$: Observable<AppUser | null> = this.authUser$.pipe(
+    switchMap((user) => {
+      if (!user) {
+        return of(null);
+      }
+      return from(this.resolveProfile(user)).pipe(
+        switchMap((resolvedProfile) => {
+          if (!resolvedProfile) {
+            return of(null);
+          }
+          const userRef = doc(this.firestore, `users/${user.uid}`);
+          return new Observable<AppUser>((subscriber) => {
+            const unsubscribe = onSnapshot(userRef, (snapshot) => {
+              if (snapshot.exists()) {
+                const data = snapshot.data() as AppUser;
+                subscriber.next({
+                  id: snapshot.id,
+                  ...data,
+                  email: user.email?.toLowerCase() || data.email,
+                  photoURL: data.photoURL || user.photoURL || '',
+                });
+              } else {
+                subscriber.next(resolvedProfile);
+              }
+            }, (error) => subscriber.error(error));
+            return unsubscribe;
+          });
+        })
+      );
+    }),
+    map((profile) => {
+      this.loadingProfileSubject.next(false);
+      return profile;
+    }),
+    shareReplay({ bufferSize: 1, refCount: true }),
+  );
+  readonly loadingProfile$ = this.loadingProfileSubject.asObservable();
+
+  constructor(
+    private readonly router: Router,
+  ) {}
+
+  async loginWithEmail(email: string, password: string): Promise<void> {
+    await signInWithEmailAndPassword(this.auth, email.trim(), password);
+  }
+
+  async loginWithGoogle(): Promise<void> {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    await signInWithPopup(this.auth, provider);
+  }
+
+  async logout(): Promise<void> {
+    await signOut(this.auth);
+    localStorage.removeItem('deendesk.lastProfile');
+    await this.router.navigateByUrl('/login');
+  }
+
+  async sendReset(email: string): Promise<void> {
+    await sendPasswordResetEmail(this.auth, email.trim());
+  }
+
+  hasPermission(user: AppUser | null | undefined, permission: PermissionKey): boolean {
+    if (!user || user.status !== 'active') {
+      return false;
+    }
+
+    return user.role === 'superAdmin' || user.permissions.includes(permission);
+  }
+
+  hasAnyPermission(user: AppUser | null | undefined, permissions: PermissionKey[]): boolean {
+    return permissions.some((permission) => this.hasPermission(user, permission));
+  }
+
+  hasRole(user: AppUser | null | undefined, roles: UserRole[]): boolean {
+    return Boolean(user && user.status === 'active' && roles.includes(user.role));
+  }
+
+  private async resolveProfile(firebaseUser: User | null): Promise<AppUser | null> {
+    if (!firebaseUser || !firebaseUser.email) {
+      return null;
+    }
+
+    this.loadingProfileSubject.next(true);
+    const userRef = doc(this.firestore, `users/${firebaseUser.uid}`);
+    const snapshot = await getDoc(userRef);
+    const normalizedEmail = firebaseUser.email.toLowerCase();
+
+    if (snapshot.exists()) {
+      const profile = { id: snapshot.id, ...(snapshot.data() as AppUser) };
+      await updateDoc(userRef, {
+        lastLoginAt: serverTimestamp(),
+        email: normalizedEmail,
+        photoURL: profile.photoURL || firebaseUser.photoURL || '',
+      });
+      localStorage.setItem('deendesk.lastProfile', JSON.stringify({
+        displayName: profile.displayName,
+        email: profile.email,
+        role: ROLE_LABELS[profile.role],
+      }));
+      return { ...profile, email: normalizedEmail, photoURL: profile.photoURL || firebaseUser.photoURL || '' };
+    }
+
+    if (normalizedEmail === SUPER_ADMIN_EMAIL) {
+      const superProfile: AppUser = {
+        uid: firebaseUser.uid,
+        email: normalizedEmail,
+        displayName: firebaseUser.displayName || 'Mohamed Ibrahim',
+        role: 'superAdmin',
+        permissions: ALL_PERMISSIONS,
+        status: 'active',
+        madrasaIds: [],
+        classIds: [],
+        subjectIds: [],
+        studentIds: [],
+        linkedStudentIds: [],
+        authProvider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'password',
+        photoURL: firebaseUser.photoURL ?? '',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+      };
+      await setDoc(userRef, superProfile);
+      return { ...superProfile, id: firebaseUser.uid };
+    }
+
+    const pendingProfile: AppUser = {
+      uid: firebaseUser.uid,
+      email: normalizedEmail,
+      displayName: firebaseUser.displayName || normalizedEmail.split('@')[0],
+      role: 'student',
+      permissions: permissionsForRole('student'),
+      status: 'pending',
+      madrasaIds: [],
+      classIds: [],
+      subjectIds: [],
+      studentIds: [],
+      linkedStudentIds: [],
+      authProvider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'password',
+      photoURL: firebaseUser.photoURL ?? '',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      lastLoginAt: serverTimestamp(),
+    };
+
+    await setDoc(userRef, pendingProfile);
+    await setDoc(doc(this.firestore, `accessRequests/${firebaseUser.uid}`), {
+      userId: firebaseUser.uid,
+      email: normalizedEmail,
+      displayName: pendingProfile.displayName,
+      status: 'pending',
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    return { ...pendingProfile, id: firebaseUser.uid };
+  }
+}

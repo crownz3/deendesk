@@ -1,0 +1,95 @@
+.page {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.eyebrow {
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--app-text-main);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+}
+
+.page-header p {
+  color: #60726d;
+}
+
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-card {
+  align-items: center;
+  background: var(--app-surface);
+  border: 1px solid #dde8e3;
+  border-left: 5px solid var(--app-primary);
+  border-radius: 8px;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 38px 1fr auto;
+  padding: 16px;
+}
+
+.notification-card ion-icon {
+  color: var(--app-primary);
+  font-size: 26px;
+}
+
+.notification-card span {
+  color: #71827d;
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.notification-card h2 {
+  color: var(--app-text-main);
+  font-size: 18px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.notification-card p {
+  color: #60726d;
+  line-height: 1.6;
+  margin-top: 4px;
+}
+
+.severity-warning {
+  border-left-color: #c78318;
+}
+
+.severity-danger {
+  border-left-color: #b43a52;
+}
+
+.severity-success {
+  border-left-color: var(--app-primary);
+}
+
+.is-read {
+  opacity: 0.68;
+}
+
+@media (max-width: 720px) {
+  .notification-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,30 @@
+<ion-content>
+  <main class="page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Permissions</p>
+        <h1>Roles and permissions</h1>
+        <p>Default permissions are inherited by role and can be customized while creating each user.</p>
+      </div>
+    </header>
+
+    <section class="role-grid">
+      <article *ngFor="let role of roles">
+        <div class="role-heading">
+          <app-role-badge [role]="role"></app-role-badge>
+          <button mat-stroked-button type="button" (click)="save(role)" [disabled]="role === 'superAdmin'">Save</button>
+        </div>
+        <mat-selection-list>
+          <mat-list-option
+            *ngFor="let permission of permissions"
+            [selected]="checked(role, permission)"
+            [disabled]="role === 'superAdmin'"
+            (selectedChange)="toggle(role, permission, $event)"
+          >
+            {{ permissionLabels[permission] }}
+          </mat-list-option>
+        </mat-selection-list>
+      </article>
+    </section>
+  </main>
+</ion-content>

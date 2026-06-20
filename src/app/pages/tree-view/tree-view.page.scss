@@ -1,0 +1,70 @@
+.page {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.eyebrow {
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--app-text-main);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+}
+
+p {
+  color: #60726d;
+}
+
+.tree {
+  background: var(--app-surface);
+  border: 1px solid #dde8e3;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+  padding: 18px;
+}
+
+.tree-node,
+.tree-leaf {
+  min-width: 240px;
+}
+
+.node-label,
+.tree-leaf {
+  align-items: center;
+  background: #f5f8f7;
+  border: 1px solid #dce7e2;
+  border-radius: 8px;
+  color: var(--app-text-main);
+  display: inline-flex;
+  font-weight: 700;
+  gap: 8px;
+  min-height: 42px;
+  padding: 9px 12px;
+}
+
+.branch {
+  border-left: 2px solid #dce7e2;
+  display: grid;
+  gap: 10px;
+  margin: 10px 0 0 18px;
+  padding-left: 16px;
+}
+
+ion-icon {
+  color: var(--app-primary);
+  font-size: 18px;
+}

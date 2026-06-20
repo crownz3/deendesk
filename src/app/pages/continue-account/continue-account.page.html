@@ -1,0 +1,30 @@
+<ion-content fullscreen>
+  <main class="continue-shell">
+    <section class="account-panel" *ngIf="profile$ | async as profile; else noAccount">
+      <div class="avatar">{{ profile.displayName.charAt(0) }}</div>
+      <p class="eyebrow">Signed in</p>
+      <h1>{{ profile.displayName }}</h1>
+      <p>{{ profile.email }}</p>
+      <app-role-badge [role]="profile.role"></app-role-badge>
+      <app-status-badge [status]="profile.status"></app-status-badge>
+
+      <div class="actions">
+        <button mat-flat-button color="primary" type="button" [disabled]="profile.status !== 'active'" (click)="continue(profile)">
+          Continue
+        </button>
+        <button mat-stroked-button type="button" (click)="switchAccount()">Switch account</button>
+      </div>
+
+      <p class="pending-note" *ngIf="profile.status !== 'active'">
+        This account exists but is not active. The correct authority must approve or map the user to an organization and role.
+      </p>
+    </section>
+
+    <ng-template #noAccount>
+      <section class="account-panel">
+        <h1>No active session</h1>
+        <button mat-flat-button color="primary" routerLink="/login">Go to login</button>
+      </section>
+    </ng-template>
+  </main>
+</ion-content>

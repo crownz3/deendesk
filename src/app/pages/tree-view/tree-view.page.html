@@ -1,0 +1,172 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as state">
+
+    <!-- Loading State -->
+    <ng-container *ngIf="state.loading">
+      <div class="loading-state">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading tree view...</p>
+      </div>
+    </ng-container>
+
+    <!-- Error State -->
+    <ng-container *ngIf="!state.loading && state.error">
+      <div class="error-state">
+        <app-empty-state 
+          icon="alert-circle-outline" 
+          title="Unable to load data" 
+          [message]="state.error"
+        ></app-empty-state>
+      </div>
+    </ng-container>
+
+    <!-- Data State -->
+    <ng-container *ngIf="!state.loading && !state.error && state.data as vm">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Hierarchy</p>
+          <h1>{{ vm.type === 'academic' ? 'Academic Tree' : 'People Hierarchy' }}</h1>
+          <p>{{ vm.type === 'academic' ? 'View the complete academic structure from organization to madrasa, course, class, subject, and students.' : 'View the full user hierarchy from Super Admin to organization admins, coordinators, madrasa incharges, teachers, students, and parents.' }}</p>
+        </div>
+      </header>
+
+      <ng-container *ngIf="vm.type === 'academic'; else peopleTree">
+        <section class="tree" *ngIf="vm.organizations.length; else academicEmpty">
+          <article class="tree-node" *ngFor="let org of vm.organizations; trackBy: trackById">
+            <div class="node-label"><ion-icon name="business-outline"></ion-icon>{{ org['name'] }}</div>
+            <div class="branch">
+              <ng-container *ngIf="by(vm.madrasas, 'organizationId', org.id) as orgMadrasas">
+                <ng-container *ngIf="orgMadrasas.length; else noMadrasas">
+                  <article class="tree-node" *ngFor="let madrasa of orgMadrasas; trackBy: trackById">
+                    <div class="node-label"><ion-icon name="school-outline"></ion-icon>{{ madrasa['name'] }}</div>
+                    <div class="branch">
+                      <ng-container *ngIf="by(vm.courses, 'madrasaId', madrasa.id).concat(by(vm.courses, 'organizationId', org.id)) as mCourses">
+                        <ng-container *ngIf="mCourses.length; else noCourses">
+                          <article class="tree-node" *ngFor="let course of mCourses; trackBy: trackById">
+                            <div class="node-label"><ion-icon name="library-outline"></ion-icon>{{ course['name'] }}</div>
+                            <div class="branch">
+                              <ng-container *ngIf="by(vm.classes, 'courseId', course.id) as cClasses">
+                                <ng-container *ngIf="cClasses.length; else noClasses">
+                                  <article class="tree-node" *ngFor="let classItem of cClasses; trackBy: trackById">
+                                    <div class="node-label"><ion-icon name="easel-outline"></ion-icon>{{ classItem['name'] }}</div>
+                                    <div class="branch">
+                                      <article class="tree-leaf" *ngFor="let subject of by(vm.subjects, 'classId', classItem.id); trackBy: trackById">
+                                        <ion-icon name="book-outline"></ion-icon>{{ subject['name'] }}
+                                      </article>
+                                      <article class="tree-leaf" *ngFor="let student of by(vm.students, 'classId', classItem.id); trackBy: trackById">
+                                        <ion-icon name="person-outline"></ion-icon>{{ student['name'] }}
+                                      </article>
+                                      <article class="tree-leaf empty-leaf" *ngIf="!by(vm.subjects, 'classId', classItem.id).length && !by(vm.students, 'classId', classItem.id).length">
+                                        No subjects or students added
+                                      </article>
+                                    </div>
+                                  </article>
+                                </ng-container>
+                                <ng-template #noClasses><article class="tree-leaf empty-leaf">No classes added yet</article></ng-template>
+                              </ng-container>
+                            </div>
+                          </article>
+                        </ng-container>
+                        <ng-template #noCourses><article class="tree-leaf empty-leaf">No courses added yet</article></ng-template>
+                      </ng-container>
+                    </div>
+                  </article>
+                </ng-container>
+                <ng-template #noMadrasas><article class="tree-leaf empty-leaf">No madrasas added yet</article></ng-template>
+              </ng-container>
+            </div>
+          </article>
+        </section>
+
+        <ng-template #academicEmpty>
+          <app-empty-state 
+            icon="file-tray-stacked-outline" 
+            title="No academic structure found" 
+            message="Start by creating an organization, then add madrasas, courses, classes, subjects, and students. Once these records are mapped, the academic tree will appear here."
+          >
+            <div actions>
+              <button mat-stroked-button routerLink="/management/organizations">Create Organization</button>
+              <button mat-stroked-button routerLink="/management/madrasas">Add Madrasa</button>
+              <button mat-stroked-button routerLink="/management/courses">Add Course</button>
+            </div>
+            <div guide>
+              <strong>Academic tree order:</strong><br>
+              Organization &rarr; Madrasa &rarr; Course &rarr; Class &rarr; Subject &rarr; Student
+            </div>
+          </app-empty-state>
+        </ng-template>
+      </ng-container>
+
+      <ng-template #peopleTree>
+        <section class="tree" *ngIf="vm.organizations.length || vm.users.length; else peopleEmpty">
+          <article class="tree-node">
+            <div class="node-label"><ion-icon name="shield-checkmark-outline"></ion-icon>Super Admin</div>
+            <div class="branch">
+              <ng-container *ngIf="usersByRole(vm.users, 'organizationAdmin') as admins">
+                <ng-container *ngIf="admins.length; else noAdmins">
+                  <article class="tree-node" *ngFor="let admin of admins; trackBy: trackById">
+                    <div class="node-label"><ion-icon name="person-circle-outline"></ion-icon>{{ admin['displayName'] }}</div>
+                    <div class="branch">
+                      <ng-container *ngIf="usersByRole(by(vm.users, 'organizationId', admin['organizationId']), 'coordinator') as coordinators">
+                        <ng-container *ngIf="coordinators.length; else noCoordinators">
+                          <article class="tree-node" *ngFor="let coordinator of coordinators; trackBy: trackById">
+                            <div class="node-label"><ion-icon name="git-network-outline"></ion-icon>{{ coordinator['displayName'] }}</div>
+                            <div class="branch">
+                              <ng-container *ngIf="usersByRole(by(vm.users, 'organizationId', admin['organizationId']), 'madrasaIncharge') as incharges">
+                                <ng-container *ngIf="incharges.length; else noIncharges">
+                                  <article class="tree-node" *ngFor="let incharge of incharges; trackBy: trackById">
+                                    <div class="node-label"><ion-icon name="school-outline"></ion-icon>{{ incharge['displayName'] }}</div>
+                                    <div class="branch">
+                                      <article class="tree-leaf" *ngFor="let teacher of by(vm.staff, 'organizationId', admin['organizationId']); trackBy: trackById">
+                                        <ion-icon name="briefcase-outline"></ion-icon>{{ teacher['name'] }}
+                                      </article>
+                                      <article class="tree-leaf" *ngFor="let student of by(vm.students, 'organizationId', admin['organizationId']); trackBy: trackById">
+                                        <ion-icon name="person-outline"></ion-icon>{{ student['name'] }}
+                                      </article>
+                                      <article class="tree-leaf" *ngFor="let parent of by(vm.parents, 'organizationId', admin['organizationId']); trackBy: trackById">
+                                        <ion-icon name="people-outline"></ion-icon>{{ parent['name'] }}
+                                      </article>
+                                      <article class="tree-leaf empty-leaf" *ngIf="!by(vm.staff, 'organizationId', admin['organizationId']).length && !by(vm.students, 'organizationId', admin['organizationId']).length && !by(vm.parents, 'organizationId', admin['organizationId']).length">
+                                        No teachers, students, or parents added
+                                      </article>
+                                    </div>
+                                  </article>
+                                </ng-container>
+                                <ng-template #noIncharges><article class="tree-leaf empty-leaf">No incharges assigned</article></ng-template>
+                              </ng-container>
+                            </div>
+                          </article>
+                        </ng-container>
+                        <ng-template #noCoordinators><article class="tree-leaf empty-leaf">No coordinators assigned</article></ng-template>
+                      </ng-container>
+                    </div>
+                  </article>
+                </ng-container>
+                <ng-template #noAdmins><article class="tree-leaf empty-leaf">No organization admins found</article></ng-template>
+              </ng-container>
+            </div>
+          </article>
+        </section>
+
+        <ng-template #peopleEmpty>
+          <app-empty-state 
+            icon="people-outline" 
+            title="No people hierarchy found" 
+            message="Create organizations and users to build the people hierarchy. Once users are assigned to their roles and madrasas, the hierarchy will appear here."
+          >
+            <div actions>
+              <button mat-stroked-button routerLink="/management/organizations">Add Organization</button>
+              <button mat-stroked-button routerLink="/management/users">Add User</button>
+            </div>
+            <div guide>
+              <strong>People hierarchy order:</strong><br>
+              Super Admin &rarr; Organization Admin &rarr; Coordinator &rarr; Madrasa Incharge &rarr; Teacher &rarr; Student / Parent
+            </div>
+          </app-empty-state>
+        </ng-template>
+      </ng-template>
+
+    </ng-container>
+
+  </section>
+</ion-content>

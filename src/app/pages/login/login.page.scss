@@ -1,0 +1,172 @@
+.login-shell {
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.88)),
+    url('/assets/shapes.svg');
+  background-size: cover;
+  display: grid;
+  gap: 32px;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 430px);
+  min-height: 100%;
+  padding: clamp(24px, 5vw, 72px);
+}
+
+.brand-panel {
+  align-content: center;
+  color: #18352f;
+  display: grid;
+  gap: 18px;
+  max-width: 680px;
+}
+
+.brand-mark {
+  align-items: center;
+  background: var(--app-text-main);
+  border-radius: 8px;
+  color: var(--app-surface);
+  display: flex;
+  font-size: 28px;
+  font-weight: 800;
+  height: 58px;
+  justify-content: center;
+  width: 58px;
+}
+
+.eyebrow {
+  color: var(--app-primary);
+  font-size: 13px;
+  font-weight: 800;
+  margin: 0 0 10px;
+  text-transform: uppercase;
+}
+
+h1 {
+  font-size: clamp(38px, 6vw, 72px);
+  font-weight: 800;
+  line-height: 0.95;
+  margin: 0;
+  max-width: 760px;
+}
+
+.brand-copy {
+  color: #51665f;
+  font-size: 18px;
+  line-height: 1.7;
+  margin: 0;
+  max-width: 640px;
+}
+
+.login-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.login-metrics span {
+  background: var(--app-surface);
+  border: 1px solid #d7e3de;
+  border-radius: 999px;
+  color: #274740;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 14px;
+}
+
+.login-card {
+  align-self: center;
+  background: var(--app-surface);
+  border: 1px solid #d7e3de;
+  border-radius: 8px;
+  box-shadow: 0 18px 60px rgba(31, 54, 48, 0.12);
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+}
+
+.continue-account,
+.last-account {
+  align-items: center;
+  background: #f4faf7;
+  border: 1px solid #d8e9e2;
+  border-radius: 8px;
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+}
+
+.continue-account {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+}
+
+.avatar {
+  align-items: center;
+  background: var(--app-primary);
+  border-radius: 50%;
+  color: var(--app-surface);
+  display: flex;
+  font-weight: 800;
+  height: 48px;
+  justify-content: center;
+  width: 48px;
+}
+
+.continue-account p,
+.continue-account h2,
+.continue-account span,
+.form-heading h2,
+.form-heading p,
+.last-account span,
+.last-account small {
+  margin: 0;
+}
+
+.continue-account p,
+.last-account small,
+.form-heading p {
+  color: #657973;
+  font-size: 13px;
+}
+
+.continue-account h2,
+.form-heading h2 {
+  color: var(--app-text-main);
+  font-size: 24px;
+  font-weight: 800;
+}
+
+form {
+  display: grid;
+  gap: 12px;
+}
+
+mat-form-field,
+.full-button {
+  width: 100%;
+}
+
+.full-button {
+  height: 46px;
+}
+
+ion-icon {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.reset-button {
+  justify-self: center;
+}
+
+@media (max-width: 860px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .continue-account {
+    grid-template-columns: 48px 1fr;
+  }
+
+  .continue-account button {
+    grid-column: 1 / -1;
+  }
+}

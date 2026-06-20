@@ -1,0 +1,58 @@
+<ng-container *ngIf="rows.length > 0; else empty">
+  <div class="table-wrap">
+    <table mat-table [dataSource]="rows" class="data-table" [trackBy]="trackByRow">
+      <ng-container *ngFor="let column of columns; trackBy: trackByColumn" [matColumnDef]="column.key">
+        <th mat-header-cell *matHeaderCellDef>{{ column.label }}</th>
+        <td mat-cell *matCellDef="let row">
+          <app-status-badge *ngIf="column.type === 'status'; else roleOrText" [status]="text(row, column.key)"></app-status-badge>
+          <ng-template #roleOrText>
+            <app-role-badge *ngIf="column.type === 'role'; else plainText" [role]="text(row, column.key)"></app-role-badge>
+          </ng-template>
+          <ng-template #plainText>
+            <span>{{ text(row, column.key) }}</span>
+          </ng-template>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions" *ngIf="showActions">
+        <th mat-header-cell *matHeaderCellDef></th>
+        <td mat-cell *matCellDef="let row" class="actions-cell">
+          <button mat-icon-button type="button" [matMenuTriggerFor]="rowMenu" aria-label="Record actions">
+            <ion-icon name="ellipsis-horizontal"></ion-icon>
+          </button>
+          <mat-menu #rowMenu="matMenu">
+            <button mat-menu-item type="button" (click)="edit.emit(row)">
+              <ion-icon name="create-outline"></ion-icon>
+              <span>Edit</span>
+            </button>
+            <button *ngIf="allowCredentials" mat-menu-item type="button" (click)="credentials.emit(row)">
+              <ion-icon name="key-outline"></ion-icon>
+              <span>Credentials</span>
+            </button>
+            <button *ngIf="allowPromotion" mat-menu-item type="button" (click)="promote.emit(row)">
+              <ion-icon name="trending-up-outline"></ion-icon>
+              <span>Promote / demote</span>
+            </button>
+            <button mat-menu-item type="button" class="danger-item" (click)="remove.emit(row)">
+              <ion-icon name="trash-outline"></ion-icon>
+              <span>Delete</span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+      <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+    </table>
+  </div>
+</ng-container>
+
+<ng-template #empty>
+  <app-empty-state 
+    [icon]="emptyIcon" 
+    [title]="emptyTitle" 
+    [message]="emptyText"
+    [actionLabel]="emptyButton || ''"
+    (action)="emptyAction.emit()"
+  ></app-empty-state>
+</ng-template>

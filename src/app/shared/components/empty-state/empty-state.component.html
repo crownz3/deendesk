@@ -1,0 +1,16 @@
+<section class="empty-state">
+  <ion-icon [name]="icon"></ion-icon>
+  <h3>{{ title }}</h3>
+  <p>{{ message }}</p>
+  <div class="empty-state-actions" *ngIf="actionLabel">
+    <button mat-flat-button color="primary" type="button" (click)="action.emit()">
+      {{ actionLabel }}
+    </button>
+  </div>
+  <div class="empty-state-custom-actions">
+    <ng-content select="[actions]"></ng-content>
+  </div>
+  <div class="empty-state-guide">
+    <ng-content select="[guide]"></ng-content>
+  </div>
+</section>

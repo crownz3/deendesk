@@ -1,0 +1,20 @@
+.dialog-content {
+  display: grid;
+  gap: 12px;
+  min-width: min(560px, 82vw);
+  padding-top: 8px;
+}
+
+.field-row {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.full-field {
+  flex: 1;
+}
+
+.quick-add-button ion-icon {
+  font-size: 22px;
+}

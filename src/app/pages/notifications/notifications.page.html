@@ -1,0 +1,57 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as state">
+
+    <!-- Loading State -->
+    <ng-container *ngIf="state.loading">
+      <div class="loading-state">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading notifications...</p>
+      </div>
+    </ng-container>
+
+    <!-- Error State -->
+    <ng-container *ngIf="!state.loading && state.error">
+      <div class="error-state">
+        <app-empty-state 
+          icon="alert-circle-outline" 
+          title="Unable to load notifications" 
+          [message]="state.error"
+        ></app-empty-state>
+      </div>
+    </ng-container>
+
+    <!-- Data State -->
+    <ng-container *ngIf="!state.loading && !state.error && state.data as vm">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Inbox</p>
+          <h1>Notifications</h1>
+          <p>Important updates, announcements, and alerts regarding your madrasas and courses.</p>
+        </div>
+      </header>
+
+      <section class="notification-list" *ngIf="vm.notifications.length; else empty">
+        <article class="notification-card" *ngFor="let item of vm.notifications; trackBy: trackById" [class.unread]="!isRead(item, vm.profile?.uid)">
+          <div class="header">
+            <ion-icon [name]="item.severity === 'warning' || item.severity === 'danger' ? 'warning-outline' : 'notifications-outline'"></ion-icon>
+            <strong>{{ item.title }}</strong>
+            <time>{{ createdAtDate(item) | date:'short' }}</time>
+          </div>
+          <p>{{ item.message }}</p>
+          <div class="actions" *ngIf="!isRead(item, vm.profile?.uid)">
+            <button mat-stroked-button type="button" (click)="markRead(item, vm.profile?.uid)">Mark as read</button>
+          </div>
+        </article>
+      </section>
+
+      <ng-template #empty>
+        <app-empty-state 
+          icon="notifications-off-outline" 
+          title="No notifications" 
+          message="You are all caught up! There are no new announcements or alerts at this time."
+        ></app-empty-state>
+      </ng-template>
+    </ng-container>
+
+  </section>
+</ion-content>

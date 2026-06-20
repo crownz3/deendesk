@@ -1,0 +1,408 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+@import '@angular/material/prebuilt-themes/azure-blue.css';
+@import 'theme/variables.scss';
+
+
+/*
+ * App Global CSS
+ * ----------------------------------------------------------------------------
+ * Put style rules here that you want to apply globally. These styles are for
+ * the entire app and not just one component. Additionally, this file can be
+ * used as an entry point to import other CSS/Sass files to be included in the
+ * output CSS.
+ * For more information on global stylesheets, visit the documentation:
+ * https://ionicframework.com/docs/layout/global-stylesheets
+ */
+
+/* Core CSS required for Ionic components to work properly */
+@import "@ionic/angular/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import "@ionic/angular/css/display.css";
+
+/* Optional CSS utils that can be commented out */
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+/**
+ * Ionic Dark Mode
+ * -----------------------------------------------------
+ * For more info, please see:
+ * https://ionicframework.com/docs/theming/dark-mode
+ */
+
+/* @import "@ionic/angular/css/palettes/dark.always.css"; */
+/* @import "@ionic/angular/css/palettes/dark.class.css"; */
+/* @import "@ionic/angular/css/palettes/dark.system.css"; Disable dark mode completely */
+
+/* Variables are now managed in theme/variables.scss */
+
+html,
+body,
+ion-app {
+  background: var(--app-bg) !important;
+  color: var(--app-text-main);
+  font-family: var(--app-font-family) !important;
+}
+
+*,
+*::before,
+*::after {
+  font-family: var(--app-font-family) !important;
+}
+
+mat-icon,
+.material-icons,
+.material-icons-outlined,
+.material-symbols-outlined {
+  font-family: 'Material Icons' !important;
+}
+
+ion-icon {
+  font-family: 'Ionicons' !important;
+}
+
+ion-content {
+  --background: var(--app-bg) !important;
+}
+
+.page-wrapper,
+.app-content,
+.main-content,
+.dashboard-page,
+.dashboard-container {
+  background: var(--app-bg) !important;
+  color: var(--app-text-main);
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+}
+
+.mat-mdc-dialog-container,
+.mat-mdc-menu-panel,
+.mat-mdc-form-field,
+.mat-mdc-button,
+.mat-mdc-unelevated-button,
+.mat-mdc-outlined-button {
+  font-family: var(--app-font-family) !important;
+}
+
+.mat-mdc-dialog-container,
+.mat-mdc-dialog-container *,
+.mat-mdc-dialog-title,
+.mat-mdc-dialog-content,
+.mat-mdc-dialog-actions,
+.cdk-overlay-container,
+.cdk-overlay-container * {
+  font-family: var(--app-font-family) !important;
+}
+
+ion-modal,
+ion-modal *,
+ion-alert,
+ion-alert *,
+ion-popover,
+ion-popover *,
+ion-action-sheet,
+ion-action-sheet *,
+ion-toast,
+ion-toast * {
+  font-family: var(--app-font-family) !important;
+}
+
+input,
+textarea,
+select,
+button,
+mat-form-field,
+.mat-mdc-form-field,
+.mat-mdc-input-element,
+.mat-mdc-select,
+.mat-mdc-option,
+.mat-mdc-button-base {
+  font-family: var(--app-font-family) !important;
+}
+
+.mat-mdc-dialog-title,
+.dialog-title {
+  font-family: var(--app-font-family) !important;
+  color: var(--app-text-main);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary {
+  --mdc-filled-button-container-color: var(--app-primary);
+  --mdc-filled-button-label-text-color: var(--app-text-inverse);
+}
+
+.mat-mdc-outlined-button {
+  --mdc-outlined-button-outline-color: var(--app-primary);
+  --mdc-outlined-button-label-text-color: var(--app-primary);
+}
+
+/* Premium Google-like UI Styles */
+ion-card,
+.mat-mdc-card,
+.card,
+.panel,
+.custom-card {
+  background: var(--app-surface) !important;
+  color: var(--app-text-main) !important;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-md);
+  margin-bottom: 16px;
+}
+
+ion-toolbar,
+.app-toolbar,
+.topbar,
+.header {
+  --background: var(--app-surface) !important;
+  background: var(--app-surface) !important;
+  color: var(--app-text-main) !important;
+  border-bottom: 1px solid var(--app-border);
+}
+
+ion-button {
+  --border-radius: var(--app-radius-md);
+  text-transform: none;
+  font-weight: 500;
+}
+
+.mat-mdc-raised-button.mat-primary,
+.mat-mdc-unelevated-button.mat-primary,
+.primary-button {
+  background: var(--app-primary) !important;
+  color: var(--app-text-inverse) !important;
+  border-radius: var(--app-radius-md) !important;
+}
+
+ion-input,
+ion-textarea,
+.mat-mdc-form-field {
+  --border-radius: var(--app-radius-sm);
+  --background: var(--app-surface);
+}
+
+table,
+.mat-mdc-table {
+  background: var(--app-surface) !important;
+  color: var(--app-text-main) !important;
+}
+
+.mat-mdc-header-row {
+  background: var(--app-bg) !important;
+}
+
+.mat-mdc-row {
+  background: var(--app-surface) !important;
+}
+
+.mat-mdc-form-field,
+.mat-mdc-text-field-wrapper {
+  background: var(--app-surface);
+}
+
+.mat-mdc-dialog-container {
+  border-radius: var(--app-radius-lg) !important;
+  box-shadow: var(--app-shadow-lg) !important;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--app-text-main) !important;
+  font-weight: 600;
+}
+
+p,
+.subtitle {
+  color: var(--app-text-muted);
+  line-height: 1.6;
+}
+
+.empty-state {
+  background: var(--app-surface);
+  border: 1px dashed var(--app-border-strong);
+  border-radius: var(--app-radius-lg);
+  color: var(--app-text-muted);
+  padding: 32px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state mat-icon,
+.empty-state ion-icon {
+  font-size: 48px;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  color: var(--app-text-light);
+}
+
+/* Global Page Spacing Layout */
+.page-shell,
+.page,
+.page-container,
+.main-page,
+.feature-page,
+.academic-tree-page {
+  padding: 75px 28px;
+  min-height: calc(100vh - 64px);
+  background: var(--app-bg);
+}
+
+.page {
+  padding: 75px 24px !important;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h1,
+.page-title {
+  margin: 0 0 8px 0;
+  color: var(--app-text-main);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.page-header p,
+.page-subtitle {
+  margin: 0;
+  color: var(--app-text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 768px) {
+
+  .page-shell,
+  .page,
+  .page-container,
+  .main-page,
+  .feature-page,
+  .academic-tree-page {
+    padding: 24px 16px;
+  }
+}
+
+/* Global custom scrollbar */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    var(--app-scrollbar-thumb),
+    var(--app-scrollbar-thumb-secondary)
+  );
+  border-radius: 999px;
+  border: 2px solid var(--app-scrollbar-track);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(
+    180deg,
+    var(--app-scrollbar-thumb-hover),
+    var(--app-scrollbar-thumb-secondary)
+  );
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--app-scrollbar-track);
+}
+
+/* Ionic Scroll Areas */
+ion-content::part(scroll) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+}
+
+ion-content::part(scroll)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+ion-content::part(scroll)::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+}
+
+ion-content::part(scroll)::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    var(--app-scrollbar-thumb),
+    var(--app-scrollbar-thumb-secondary)
+  );
+  border-radius: 999px;
+  border: 2px solid var(--app-scrollbar-track);
+}
+
+/* Tables and Dialog Scrollbars */
+.table-wrapper,
+.dialog-content,
+.mat-mdc-dialog-content,
+.scroll-container,
+.page-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-scrollbar-thumb) var(--app-scrollbar-track);
+}
+
+.table-wrapper::-webkit-scrollbar,
+.dialog-content::-webkit-scrollbar,
+.mat-mdc-dialog-content::-webkit-scrollbar,
+.scroll-container::-webkit-scrollbar,
+.page-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.table-wrapper::-webkit-scrollbar-track,
+.dialog-content::-webkit-scrollbar-track,
+.mat-mdc-dialog-content::-webkit-scrollbar-track,
+.scroll-container::-webkit-scrollbar-track,
+.page-scroll::-webkit-scrollbar-track {
+  background: var(--app-scrollbar-track);
+  border-radius: 999px;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb,
+.dialog-content::-webkit-scrollbar-thumb,
+.mat-mdc-dialog-content::-webkit-scrollbar-thumb,
+.scroll-container::-webkit-scrollbar-thumb,
+.page-scroll::-webkit-scrollbar-thumb {
+  background: linear-gradient(
+    180deg,
+    var(--app-scrollbar-thumb),
+    var(--app-scrollbar-thumb-secondary)
+  );
+  border-radius: 999px;
+  border: 2px solid var(--app-scrollbar-track);
+}

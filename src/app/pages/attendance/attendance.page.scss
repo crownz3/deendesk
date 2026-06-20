@@ -1,0 +1,96 @@
+.page {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.page-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--app-text-main);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+}
+
+.page-header p {
+  color: #60726d;
+}
+
+button ion-icon {
+  margin-right: 8px;
+}
+
+.filters {
+  background: var(--app-surface);
+  border: 1px solid #dde8e3;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  padding: 16px;
+}
+
+.attendance-list {
+  display: grid;
+  gap: 10px;
+}
+
+.student-row {
+  align-items: center;
+  background: var(--app-surface);
+  border: 1px solid #dde8e3;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr auto;
+  padding: 14px;
+}
+
+.student-row strong,
+.student-row span {
+  display: block;
+}
+
+.student-row strong {
+  color: var(--app-text-main);
+}
+
+.student-row span {
+  color: #667872;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+mat-button-toggle-group {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 780px) {
+  .page-header,
+  .student-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .page-header {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,73 @@
+<ion-content fullscreen>
+  <main class="login-shell">
+    <section class="brand-panel">
+      <div class="brand-mark">D</div>
+      <div>
+        <p class="eyebrow">DeenDesk SaaS</p>
+        <h1>Madrasa Management</h1>
+      </div>
+      <p class="brand-copy">
+        Role-based operations for organizations, madrasas, students, staff, attendance, academic plans, and reports.
+      </p>
+      <div class="login-metrics" aria-label="Platform modules">
+        <span>Organizations</span>
+        <span>Attendance</span>
+        <span>Reports</span>
+        <span>Hierarchy</span>
+      </div>
+    </section>
+
+    <section class="login-card">
+      <ng-container *ngIf="profile$ | async as profile">
+        <div class="continue-account" *ngIf="profile.status === 'active'">
+          <div class="avatar">{{ profile.displayName.charAt(0) }}</div>
+          <div>
+            <p>Continue as</p>
+            <h2>{{ profile.displayName }}</h2>
+            <span>{{ profile.email }}</span>
+          </div>
+          <button mat-flat-button color="primary" type="button" (click)="continue(profile)">Continue</button>
+        </div>
+      </ng-container>
+
+      <div class="form-heading">
+        <h2>Sign in</h2>
+        <p>Use an account created by your authority.</p>
+      </div>
+
+      <div class="last-account" *ngIf="lastProfile">
+        <span>{{ lastProfile.displayName }}</span>
+        <small>{{ lastProfile.role }}</small>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="login()">
+        <mat-form-field appearance="outline">
+          <mat-label>Email</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="email" />
+          <mat-error *ngIf="form.controls.email.hasError('required')">Email is required</mat-error>
+          <mat-error *ngIf="form.controls.email.hasError('email')">Enter a valid email</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Password</mat-label>
+          <input matInput type="password" formControlName="password" autocomplete="current-password" />
+          <mat-error>Password is required</mat-error>
+        </mat-form-field>
+
+        <button mat-flat-button color="primary" class="full-button" type="submit" [disabled]="loading">
+          <ion-icon name="log-in-outline"></ion-icon>
+          Sign in
+        </button>
+      </form>
+
+      <button mat-stroked-button class="full-button google-button" type="button" (click)="googleLogin()" [disabled]="loading">
+        <ion-icon name="logo-google"></ion-icon>
+        Continue with Google
+      </button>
+
+      <button mat-button type="button" class="reset-button" (click)="resetPassword()">
+        Forgot password
+      </button>
+    </section>
+  </main>
+</ion-content>

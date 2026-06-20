@@ -1,0 +1,101 @@
+.page {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.page-header {
+  align-items: center;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.eyebrow {
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0 0 8px;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--app-text-main);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+}
+
+h2 {
+  color: var(--app-text-main);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.page-header p,
+.credential-panel p {
+  color: #60726d;
+  line-height: 1.6;
+}
+
+button ion-icon {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.credential-panel {
+  background: #fff8e8;
+  border: 1px solid #ead8a8;
+  border-radius: 8px;
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+}
+
+.credential-panel > button {
+  justify-self: start;
+}
+
+.credential-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.credential-grid article {
+  background: var(--app-surface);
+  border: 1px solid #ead8a8;
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.credential-grid strong {
+  color: var(--app-text-main);
+}
+
+.credential-grid span {
+  color: #4e625b;
+  overflow-wrap: anywhere;
+}
+
+code {
+  background: var(--app-text-main);
+  border-radius: 6px;
+  color: var(--app-surface);
+  font-family: Consolas, monospace;
+  padding: 8px;
+}
+
+@media (max-width: 720px) {
+  .page-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

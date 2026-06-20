@@ -1,0 +1,116 @@
+<ion-content>
+  <main class="page" *ngIf="vm$ | async as vm">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">{{ vm.roleTitle }} Dashboard</p>
+        <h1>Operational overview</h1>
+      </div>
+      <div class="attendance-ring" [style.--rate]="vm.attendance.rate">
+        <strong>{{ vm.attendance.rate }}%</strong>
+        <span>Attendance</span>
+      </div>
+    </header>
+
+    <div class="dashboard-welcome-card">
+      <div>
+        <p class="welcome-eyebrow">Welcome back</p>
+        <h2>Hi {{ vm.displayName }}, you are {{ vm.formattedRole }}!</h2>
+        <p>Here is your role-based overview for today.</p>
+      </div>
+    </div>
+
+    <section class="stats-grid">
+      <app-stats-card
+        *ngFor="let stat of vm.stats; trackBy: trackByLabel"
+        [label]="stat.label"
+        [value]="stat.value"
+        [icon]="stat.icon"
+        [tone]="stat.tone"
+      ></app-stats-card>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Attendance summary</h2>
+          <span>{{ vm.attendance.total }} records</span>
+        </div>
+        <div class="status-bars">
+          <div>
+            <span>Present</span>
+            <strong>{{ vm.attendance.present }}</strong>
+            <i [style.width.%]="vm.attendance.total ? (vm.attendance.present / vm.attendance.total) * 100 : 0"></i>
+          </div>
+          <div>
+            <span>Absent</span>
+            <strong>{{ vm.attendance.absent }}</strong>
+            <i class="danger" [style.width.%]="vm.attendance.total ? (vm.attendance.absent / vm.attendance.total) * 100 : 0"></i>
+          </div>
+          <div>
+            <span>Late</span>
+            <strong>{{ vm.attendance.late }}</strong>
+            <i class="warn" [style.width.%]="vm.attendance.total ? (vm.attendance.late / vm.attendance.total) * 100 : 0"></i>
+          </div>
+          <div>
+            <span>Leave</span>
+            <strong>{{ vm.attendance.leave }}</strong>
+            <i class="blue" [style.width.%]="vm.attendance.total ? (vm.attendance.leave / vm.attendance.total) * 100 : 0"></i>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Course distribution</h2>
+          <span>Students by course</span>
+        </div>
+        <div class="chart-list" *ngIf="vm.courseDistribution.length; else noCourses">
+          <div class="chart-row" *ngFor="let item of vm.courseDistribution; trackBy: trackByLabel">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <i [style.width.%]="item.percent"></i>
+          </div>
+        </div>
+        <ng-template #noCourses>
+          <app-empty-state icon="library-outline" title="No course data" message="Course analytics will appear after students are mapped."></app-empty-state>
+        </ng-template>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>User roles</h2>
+          <span>Access distribution</span>
+        </div>
+        <div class="chart-list" *ngIf="vm.usersByRole.length; else noUsers">
+          <div class="chart-row" *ngFor="let item of vm.usersByRole; trackBy: trackByLabel">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+            <i [style.width.%]="item.percent"></i>
+          </div>
+        </div>
+        <ng-template #noUsers>
+          <app-empty-state icon="people-outline" title="No user data" message="Role analytics will appear after users are created."></app-empty-state>
+        </ng-template>
+      </article>
+
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Notifications</h2>
+          <span>{{ vm.notifications.length }} recent</span>
+        </div>
+        <div class="notification-list" *ngIf="vm.notifications.length; else noNotifications">
+          <div class="notification-item" *ngFor="let item of vm.notifications; trackBy: trackByNotification">
+            <ion-icon name="notifications-outline"></ion-icon>
+            <div>
+              <strong>{{ item.title }}</strong>
+              <span>{{ item.message }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noNotifications>
+          <app-empty-state icon="notifications-off-outline" title="No notifications" message="New approvals, reports, and attendance alerts will appear here."></app-empty-state>
+        </ng-template>
+      </article>
+    </section>
+  </main>
+</ion-content>

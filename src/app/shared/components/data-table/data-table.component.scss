@@ -1,0 +1,42 @@
+.table-wrap {
+  background: var(--app-surface);
+  border: 1px solid #dde8e3;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.data-table {
+  min-width: 760px;
+  width: 100%;
+}
+
+th {
+  color: #5d6f6a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+td {
+  color: #203b36;
+  font-size: 14px;
+}
+
+.actions-cell {
+  text-align: right;
+  width: 56px;
+}
+
+ion-icon {
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.actions-cell ion-icon {
+  margin-right: 0;
+}
+
+.danger-item {
+  color: #9b2842;
+}

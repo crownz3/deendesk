@@ -1,0 +1,115 @@
+:root {
+  /* Font */
+  --app-font-family: 'Poppins', Arial, sans-serif;
+
+  /* Brand colors */
+  --app-primary: #1a73e8;
+  --app-primary-hover: #1765cc;
+  --app-primary-soft: #e8f0fe;
+
+  --app-secondary: #34a853;
+  --app-secondary-soft: #e6f4ea;
+
+  --app-warning: #fbbc04;
+  --app-warning-soft: #fff7db;
+
+  --app-danger: #ea4335;
+  --app-danger-soft: #fce8e6;
+
+  /* Background and surfaces */
+  --app-bg: #f8fafc;
+  --app-surface: #ffffff;
+  --app-surface-soft: #f1f5f9;
+  --app-surface-hover: #f8fbff;
+
+  /* Text colors */
+  --app-text-main: #202124;
+  --app-text-muted: #5f6368;
+  --app-text-light: #80868b;
+  --app-text-inverse: #ffffff;
+
+  /* Borders and shadows */
+  --app-border: #e8eaed;
+  --app-border-strong: #dadce0;
+  --app-shadow-sm: 0 1px 3px rgba(60, 64, 67, 0.12);
+  --app-shadow-md: 0 8px 24px rgba(60, 64, 67, 0.08);
+  --app-shadow-lg: 0 16px 36px rgba(60, 64, 67, 0.12);
+
+  /* Radius and spacing */
+  --app-radius-sm: 8px;
+  --app-radius-md: 12px;
+  --app-radius-lg: 18px;
+  --app-radius-xl: 24px;
+
+  /* Ionic mapping */
+  --ion-font-family: var(--app-font-family);
+
+  --ion-color-primary: var(--app-primary);
+  --ion-color-primary-rgb: 26, 115, 232;
+  --ion-color-primary-contrast: var(--app-text-inverse);
+  --ion-color-primary-shade: var(--app-primary-hover);
+  --ion-color-primary-tint: #4285f4;
+
+  --ion-color-secondary: var(--app-secondary);
+  --ion-color-secondary-rgb: 52, 168, 83;
+  --ion-color-secondary-contrast: var(--app-text-inverse);
+
+  --ion-color-tertiary: var(--app-warning);
+  --ion-color-tertiary-rgb: 251, 188, 4;
+  --ion-color-tertiary-contrast: var(--app-text-main);
+
+  --ion-background-color: var(--app-bg);
+  --ion-text-color: var(--app-text-main);
+  --ion-card-background: var(--app-surface);
+  --ion-item-background: var(--app-surface);
+  --ion-toolbar-background: var(--app-surface);
+  --ion-tab-bar-background: var(--app-surface);
+
+  /* Angular Material mapping */
+  --mat-sys-primary: var(--app-primary);
+  --mat-sys-on-primary: var(--app-text-inverse);
+  --mat-sys-secondary: var(--app-secondary);
+  --mat-sys-on-secondary: var(--app-text-inverse);
+  --mat-sys-tertiary: var(--app-warning);
+  --mat-sys-on-tertiary: var(--app-text-main);
+
+  --mat-sys-background: var(--app-bg);
+  --mat-sys-surface: var(--app-surface);
+  --mat-sys-surface-container: var(--app-surface);
+  --mat-sys-surface-container-low: var(--app-bg);
+  --mat-sys-surface-container-high: var(--app-surface-soft);
+
+  --mat-sys-on-surface: var(--app-text-main);
+  --mat-sys-on-surface-variant: var(--app-text-muted);
+  --mat-sys-outline: var(--app-border-strong);
+  --mat-sys-outline-variant: var(--app-border);
+
+  --mat-sys-body-large-font: var(--app-font-family);
+  --mat-sys-body-medium-font: var(--app-font-family);
+  --mat-sys-body-small-font: var(--app-font-family);
+
+  --mat-sys-label-large-font: var(--app-font-family);
+  --mat-sys-label-medium-font: var(--app-font-family);
+  --mat-sys-label-small-font: var(--app-font-family);
+
+  --mat-sys-title-large-font: var(--app-font-family);
+  --mat-sys-title-medium-font: var(--app-font-family);
+  --mat-sys-title-small-font: var(--app-font-family);
+
+  --mat-sys-headline-large-font: var(--app-font-family);
+  --mat-sys-headline-medium-font: var(--app-font-family);
+  --mat-sys-headline-small-font: var(--app-font-family);
+
+  /* Scrollbar */
+  --app-scrollbar-track: var(--app-bg);
+  --app-scrollbar-thumb: rgba(26, 115, 232, 0.28);
+  --app-scrollbar-thumb-hover: rgba(26, 115, 232, 0.45);
+  --app-scrollbar-thumb-secondary: rgba(52, 168, 83, 0.22);
+
+  /* Sidebar and Header */
+  --app-sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f7fbff 48%, #f8fafc 100%);
+  --app-header-bg: rgba(255, 255, 255, 0.92);
+  --app-header-border: rgba(218, 220, 224, 0.8);
+  --app-active-menu-bg: linear-gradient(135deg, rgba(26, 115, 232, 0.10), rgba(52, 168, 83, 0.10));
+  --app-active-menu-border: rgba(26, 115, 232, 0.18);
+}

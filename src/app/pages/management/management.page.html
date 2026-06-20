@@ -1,0 +1,74 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as state">
+    
+    <!-- Loading State -->
+    <ng-container *ngIf="state.loading">
+      <div class="loading-state">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading data...</p>
+      </div>
+    </ng-container>
+
+    <!-- Error State -->
+    <ng-container *ngIf="!state.loading && state.error">
+      <div class="error-state">
+        <app-empty-state 
+          icon="alert-circle-outline" 
+          title="Unable to load data" 
+          [message]="state.error"
+        ></app-empty-state>
+      </div>
+    </ng-container>
+
+    <!-- Data State -->
+    <ng-container *ngIf="!state.loading && !state.error && state.data as vm">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Management</p>
+          <h1>{{ vm.config.title }}</h1>
+          <p>{{ vm.config.subtitle }}</p>
+        </div>
+        <button mat-flat-button color="primary" type="button" (click)="openCreate(vm.config)">
+          <ion-icon name="add-outline"></ion-icon>
+          Add
+        </button>
+      </header>
+
+      <section class="credential-panel" *ngIf="credentials.length">
+        <div>
+          <h2>Generated credentials</h2>
+          <p>These passwords are shown only in this browser session. Download or print them before leaving this page.</p>
+        </div>
+        <button mat-stroked-button type="button" (click)="downloadCredentials()">
+          <ion-icon name="download-outline"></ion-icon>
+          Download CSV
+        </button>
+        <div class="credential-grid">
+          <article *ngFor="let credential of credentials; trackBy: trackCredential">
+            <app-role-badge [role]="credential.role"></app-role-badge>
+            <strong>{{ credential.label }}</strong>
+            <span>{{ credential.email }}</span>
+            <code>{{ credential.password }}</code>
+          </article>
+        </div>
+      </section>
+
+      <app-data-table
+        [columns]="vm.config.columns"
+        [rows]="vm.rows"
+        [emptyTitle]="vm.config.emptyTitle || 'No data found'"
+        [emptyText]="vm.config.emptyText"
+        [emptyButton]="vm.config.emptyButton"
+        [emptyIcon]="vm.config.emptyIcon || 'file-tray-outline'"
+        [allowCredentials]="vm.config.allowCredentials || false"
+        [allowPromotion]="vm.config.allowPromotion || false"
+        (edit)="edit(vm.config, $event)"
+        (remove)="remove(vm.config, $event)"
+        (credentials)="showCredentials($event)"
+        (promote)="promote($event)"
+        (emptyAction)="openCreate(vm.config)"
+      ></app-data-table>
+    </ng-container>
+
+  </section>
+</ion-content>

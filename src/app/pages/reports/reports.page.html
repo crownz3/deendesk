@@ -1,0 +1,61 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as state">
+
+    <!-- Loading State -->
+    <ng-container *ngIf="state.loading">
+      <div class="loading-state">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading reports...</p>
+      </div>
+    </ng-container>
+
+    <!-- Error State -->
+    <ng-container *ngIf="!state.loading && state.error">
+      <div class="error-state">
+        <app-empty-state 
+          icon="alert-circle-outline" 
+          title="Unable to load reports" 
+          [message]="state.error"
+        ></app-empty-state>
+      </div>
+    </ng-container>
+
+    <!-- Data State -->
+    <ng-container *ngIf="!state.loading && !state.error && state.data as vm">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Insights</p>
+          <h1>System Reports</h1>
+          <p>Generate, filter, and view key operational reports across all modules.</p>
+        </div>
+      </header>
+
+      <form class="filters" [formGroup]="form">
+        <mat-form-field appearance="outline">
+          <mat-label>Report type</mat-label>
+          <mat-select formControlName="report">
+            <mat-option *ngFor="let config of reportConfigs" [value]="config.key">{{ config.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Date from</mat-label>
+          <input matInput type="date" formControlName="from" />
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Date to</mat-label>
+          <input matInput type="date" formControlName="to" />
+        </mat-form-field>
+      </form>
+
+      <app-data-table
+        [columns]="activeConfig().columns"
+        [rows]="rows(vm)"
+        [emptyTitle]="'No records found'"
+        [emptyText]="activeConfig().emptyText"
+        [emptyIcon]="'document-text-outline'"
+        [showActions]="false"
+      ></app-data-table>
+    </ng-container>
+
+  </section>
+</ion-content>

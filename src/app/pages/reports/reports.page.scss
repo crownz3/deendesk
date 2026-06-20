@@ -1,0 +1,49 @@
+.page {
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+}
+
+.page-header {
+  display: grid;
+  gap: 6px;
+}
+
+.eyebrow {
+  color: var(--app-primary);
+  font-size: 12px;
+  font-weight: 800;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+h1,
+p {
+  margin: 0;
+}
+
+h1 {
+  color: var(--app-text-main);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 800;
+}
+
+p {
+  color: #60726d;
+}
+
+.filters {
+  background: var(--app-surface);
+  border: 1px solid #dde8e3;
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 2fr 1fr 1fr;
+  padding: 16px;
+}
+
+@media (max-width: 760px) {
+  .filters {
+    grid-template-columns: 1fr;
+  }
+}

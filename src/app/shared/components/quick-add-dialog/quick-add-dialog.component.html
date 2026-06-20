@@ -1,0 +1,49 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+<form [formGroup]="form" (ngSubmit)="submit()">
+  <mat-dialog-content class="dialog-content">
+    <div class="field-row" *ngFor="let field of data.fields">
+      <mat-form-field appearance="outline" class="full-field" *ngIf="field.type !== 'textarea'; else textareaField">
+        <mat-label>{{ field.label }}</mat-label>
+        <input
+          *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'date'"
+          matInput
+          [type]="field.type === 'password' ? 'password' : field.type"
+          [placeholder]="field.placeholder || ''"
+          [formControlName]="field.key"
+        />
+        <mat-select
+          *ngIf="field.type === 'select' || field.type === 'multiselect'"
+          [multiple]="field.type === 'multiselect'"
+          [formControlName]="field.key"
+        >
+          <mat-option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</mat-option>
+        </mat-select>
+        <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>
+      </mat-form-field>
+
+      <ng-template #textareaField>
+        <mat-form-field appearance="outline" class="full-field">
+          <mat-label>{{ field.label }}</mat-label>
+          <textarea matInput rows="4" [formControlName]="field.key"></textarea>
+          <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>
+        </mat-form-field>
+      </ng-template>
+
+      <button
+        *ngIf="field.quickAddResource"
+        mat-icon-button
+        color="primary"
+        type="button"
+        class="quick-add-button"
+        [attr.aria-label]="'Add ' + field.label"
+        (click)="requestQuickAdd(field.quickAddResource)"
+      >
+        <ion-icon name="add-circle-outline"></ion-icon>
+      </button>
+    </div>
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button mat-button mat-dialog-close type="button">Cancel</button>
+    <button mat-flat-button color="primary" type="submit">{{ data.submitLabel || 'Save' }}</button>
+  </mat-dialog-actions>
+</form>

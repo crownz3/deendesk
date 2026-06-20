@@ -1,0 +1,57 @@
+<ion-content>
+  <main class="page" *ngIf="profile$ | async as profile">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">Profile</p>
+        <h1>{{ profile.displayName }}</h1>
+        <p>{{ profile.email }}</p>
+      </div>
+      <app-role-badge [role]="profile.role"></app-role-badge>
+    </header>
+
+    <section class="profile-panel">
+      <div class="photo-area">
+        <div class="profile-avatar-wrapper">
+          <div class="avatar-loading-overlay" *ngIf="isProfileImageLoading && profile.photoURL && !imageLoadFailed">
+            <mat-spinner diameter="28"></mat-spinner>
+          </div>
+
+          <img
+            *ngIf="shouldShowFirebaseImage(profile); else defaultAvatar"
+            class="profile-avatar"
+            [src]="profile.photoURL"
+            alt="Profile image"
+            (load)="onProfileImageLoad()"
+            (error)="onProfileImageError()"
+          />
+
+          <ng-template #defaultAvatar>
+            <img
+              class="profile-avatar"
+              [src]="getDefaultAvatar(profile.gender)"
+              alt="Default avatar"
+            />
+          </ng-template>
+        </div>
+        <label class="upload-button">
+          <input type="file" accept="image/*" (change)="upload($event, profile)" />
+          <ion-icon name="camera-outline"></ion-icon>
+          {{ uploading ? 'Uploading...' : 'Upload image' }}
+        </label>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="save(profile)">
+        <mat-form-field appearance="outline">
+          <mat-label>Display name</mat-label>
+          <input matInput formControlName="displayName" />
+          <mat-error>Display name is required</mat-error>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput formControlName="phone" />
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="submit">Save profile</button>
+      </form>
+    </section>
+  </main>
+</ion-content>

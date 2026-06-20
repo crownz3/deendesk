@@ -1,0 +1,22 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isSuperEmail() {
+      return signedIn() && request.auth.token.email == 'mohamedibrahim010425@gmail.com';
+    }
+
+    match /profileImages/{uid}/{fileName} {
+      allow read: if signedIn();
+      allow write: if signedIn() && (request.auth.uid == uid || isSuperEmail());
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

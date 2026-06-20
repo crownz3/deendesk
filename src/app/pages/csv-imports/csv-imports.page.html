@@ -1,0 +1,52 @@
+<ion-content>
+  <main class="page">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">CSV Imports</p>
+        <h1>Bulk import data</h1>
+        <p>Download a template, upload CSV, validate rows, then import only valid records.</p>
+      </div>
+    </header>
+
+    <section class="import-panel">
+      <form [formGroup]="form" class="module-form">
+        <mat-form-field appearance="outline">
+          <mat-label>Module</mat-label>
+          <mat-select formControlName="module">
+            <mat-option *ngFor="let module of modules" [value]="module.key">{{ module.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <button mat-stroked-button type="button" (click)="downloadTemplate()">
+          <ion-icon name="download-outline"></ion-icon>
+          Template
+        </button>
+        <label class="upload-button">
+          <input type="file" accept=".csv,text/csv" (change)="handleFile($event)" />
+          <ion-icon name="cloud-upload-outline"></ion-icon>
+          Upload CSV
+        </label>
+      </form>
+
+      <div class="summary-grid" *ngIf="validation">
+        <app-stats-card label="Rows" [value]="parsedRows.length" icon="document-text-outline" tone="primary"></app-stats-card>
+        <app-stats-card label="Valid" [value]="validation.validRows.length" icon="checkmark-circle-outline" tone="success"></app-stats-card>
+        <app-stats-card label="Skipped" [value]="validation.skippedRows" icon="play-skip-forward-outline" tone="warning"></app-stats-card>
+        <app-stats-card label="Errors" [value]="validation.errors.length" icon="warning-outline" tone="danger"></app-stats-card>
+      </div>
+
+      <div class="actions" *ngIf="validation">
+        <button mat-flat-button color="primary" type="button" (click)="importRows()" [disabled]="importing || validation.validRows.length === 0">
+          Import valid rows
+        </button>
+        <button mat-button type="button" (click)="downloadErrors()" [disabled]="validation.errors.length === 0">
+          Download errors
+        </button>
+      </div>
+
+      <section class="errors" *ngIf="validation?.errors?.length">
+        <h2>Validation errors</h2>
+        <p *ngFor="let error of validation?.errors">{{ error }}</p>
+      </section>
+    </section>
+  </main>
+</ion-content>

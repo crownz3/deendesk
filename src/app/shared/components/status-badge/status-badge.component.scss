@@ -1,0 +1,26 @@
+.status-badge {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 600;
+  height: 26px;
+  padding: 0 10px;
+  text-transform: capitalize;
+}
+
+.status-active {
+  background: #dff7ec;
+  color: #13734a;
+}
+
+.status-pending {
+  background: #fff0cc;
+  color: #8a5b00;
+}
+
+.status-disabled,
+.status-archived {
+  background: #f4dfe3;
+  color: #9a263d;
+}
