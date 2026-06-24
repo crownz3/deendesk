@@ -1,0 +1,19 @@
+<div class="name-with-copy-wrapper" [class.has-label]="!!label">
+  <ng-container *ngIf="label">
+    <span class="label">{{ label }}:</span>
+  </ng-container>
+  
+  <ng-container *ngIf="name$ | async as resolvedName">
+    <span class="name-text">{{ resolvedName }}</span>
+  </ng-container>
+
+  <button 
+    *ngIf="!hideIcon && id && id !== '-'" 
+    mat-icon-button 
+    class="copy-btn" 
+    type="button" 
+    matTooltip="Copy ID" 
+    (click)="copyId($event)">
+    <ion-icon name="copy-outline"></ion-icon>
+  </button>
+</div>

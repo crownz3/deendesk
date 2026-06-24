@@ -18,56 +18,79 @@
     </section>
 
     <section class="login-card">
-      <ng-container *ngIf="profile$ | async as profile">
-        <div class="continue-account" *ngIf="profile.status === 'active'">
-          <div class="avatar">{{ profile.displayName.charAt(0) }}</div>
-          <div>
-            <p>Continue as</p>
-            <h2>{{ profile.displayName }}</h2>
-            <span>{{ profile.email }}</span>
+      <ng-container *ngIf="authReady$ | async; else checkingSession">
+        <ng-container *ngIf="profile$ | async as profile">
+          <div class="continue-card" *ngIf="profile.status === 'active'">
+            <div class="avatar">{{ profile.displayName.charAt(0) }}</div>
+            <div class="continue-card-content">
+              <p class="continue-card-label">Continue as</p>
+              <h2 class="continue-card-name">{{ profile.displayName }}</h2>
+              <p class="continue-card-email">{{ profile.email }}</p>
+            </div>
+            <button mat-flat-button color="primary" type="button" (click)="continue(profile)">Continue</button>
           </div>
-          <button mat-flat-button color="primary" type="button" (click)="continue(profile)">Continue</button>
+        </ng-container>
+
+        <div class="auth-header">
+          <h2>Sign in</h2>
+          <p>Use an account created by your authority.</p>
+        </div>
+
+        <div class="last-account" *ngIf="lastProfile">
+          <span>{{ lastProfile.displayName }}</span>
+          <small>{{ lastProfile.role }}</small>
+        </div>
+
+        <form [formGroup]="form" (ngSubmit)="login()">
+          <mat-form-field appearance="outline" class="auth-field">
+            <mat-label>Email</mat-label>
+            <input matInput type="email" formControlName="email" autocomplete="email" />
+            <mat-error *ngIf="form.controls.email.hasError('required')">Email is required</mat-error>
+            <mat-error *ngIf="form.controls.email.hasError('email')">Enter a valid email</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="auth-field">
+            <mat-label>Password</mat-label>
+            <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" autocomplete="current-password" />
+            <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hidePassword">
+              <ion-icon [name]="hidePassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+            </button>
+            <mat-error>Password is required</mat-error>
+          </mat-form-field>
+
+          <div class="auth-actions">
+            <button mat-flat-button color="primary" class="auth-primary-button" type="submit" [disabled]="loading">
+              <ion-icon name="log-in-outline"></ion-icon>
+              Sign in
+            </button>
+
+            <button mat-stroked-button class="auth-google-button" type="button" (click)="googleLogin()" [disabled]="loading">
+              <ion-icon name="logo-google"></ion-icon>
+              Continue with Google
+            </button>
+          </div>
+        </form>
+
+        <div class="reset-actions">
+          <button mat-button type="button" class="reset-button" (click)="resetPassword()">
+            Forgot password
+          </button>
+          
+          <div class="custom-email-reset">
+            <p class="reset-info">Your account uses an internal/custom email. If you cannot receive reset email, send a request to your admin.</p>
+            <button mat-stroked-button color="warn" type="button" class="request-reset-button" (click)="requestPasswordReset()" [disabled]="loading">
+              Send Request
+            </button>
+          </div>
         </div>
       </ng-container>
 
-      <div class="form-heading">
-        <h2>Sign in</h2>
-        <p>Use an account created by your authority.</p>
-      </div>
-
-      <div class="last-account" *ngIf="lastProfile">
-        <span>{{ lastProfile.displayName }}</span>
-        <small>{{ lastProfile.role }}</small>
-      </div>
-
-      <form [formGroup]="form" (ngSubmit)="login()">
-        <mat-form-field appearance="outline">
-          <mat-label>Email</mat-label>
-          <input matInput type="email" formControlName="email" autocomplete="email" />
-          <mat-error *ngIf="form.controls.email.hasError('required')">Email is required</mat-error>
-          <mat-error *ngIf="form.controls.email.hasError('email')">Enter a valid email</mat-error>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline">
-          <mat-label>Password</mat-label>
-          <input matInput type="password" formControlName="password" autocomplete="current-password" />
-          <mat-error>Password is required</mat-error>
-        </mat-form-field>
-
-        <button mat-flat-button color="primary" class="full-button" type="submit" [disabled]="loading">
-          <ion-icon name="log-in-outline"></ion-icon>
-          Sign in
-        </button>
-      </form>
-
-      <button mat-stroked-button class="full-button google-button" type="button" (click)="googleLogin()" [disabled]="loading">
-        <ion-icon name="logo-google"></ion-icon>
-        Continue with Google
-      </button>
-
-      <button mat-button type="button" class="reset-button" (click)="resetPassword()">
-        Forgot password
-      </button>
+      <ng-template #checkingSession>
+        <div class="session-checking">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Checking your secure session...</p>
+        </div>
+      </ng-template>
     </section>
   </main>
 </ion-content>

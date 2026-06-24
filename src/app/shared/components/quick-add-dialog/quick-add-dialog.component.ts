@@ -23,6 +23,7 @@ export interface QuickAddResult {
 })
 export class QuickAddDialogComponent {
   readonly form: FormGroup;
+  readonly hidePasswords: Record<string, boolean> = {};
 
   constructor(
     private readonly fb: FormBuilder,
@@ -30,8 +31,11 @@ export class QuickAddDialogComponent {
     @Inject(MAT_DIALOG_DATA) public readonly data: QuickAddDialogData,
   ) {
     const controls = data.fields.reduce<Record<string, unknown[]>>((group, field) => {
+      if (field.type === 'password') {
+        this.hidePasswords[field.key] = true;
+      }
       const defaultValue = field.type === 'multiselect' ? [] : '';
-      group[field.key] = [data.initialValue?.[field.key] ?? defaultValue, field.required ? Validators.required : []];
+      group[field.key] = [{ value: data.initialValue?.[field.key] ?? defaultValue, disabled: field.type === 'info' }, field.required && field.type !== 'info' ? Validators.required : []];
       return group;
     }, {});
     this.form = this.fb.group(controls);

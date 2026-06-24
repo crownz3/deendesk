@@ -1,60 +1,76 @@
 <ion-app>
+  <app-global-loader></app-global-loader>
   <ng-container *ngIf="isAuthPage$ | async; else appShell">
     <ion-router-outlet></ion-router-outlet>
   </ng-container>
 
   <ng-template #appShell>
-    <ion-menu contentId="main-content" type="overlay" class="app-sidebar">
-      <ion-content>
-        <div class="menu-header">
-          <div class="app-logo">
-            <span>D</span>
+    <!-- Single layout to guarantee router outlet survives mode changes.
+         Split pane behavior is disabled via [when]=false for overlay/push -->
+    <ion-split-pane contentId="main-content" [when]="splitPaneWhen$ | async">
+      <ion-menu contentId="main-content" [type]="menuType$ | async" class="app-sidebar"
+                (ionWillOpen)="onMenuWillOpen()"
+                (ionDidClose)="onMenuDidClose()">
+        <ion-content>
+          <div class="menu-header">
+            <div class="app-logo">
+              <span>D</span>
+            </div>
+            <div>
+              <h2 class="app-name">DeenDesk</h2>
+              <p class="app-subtitle">Madrasa Management</p>
+            </div>
           </div>
-          <div>
-            <h2 class="app-name">DeenDesk</h2>
-            <p class="app-subtitle">Madrasa Management</p>
-          </div>
-        </div>
 
-        <ion-list class="menu-list" *ngIf="profile$ | async as profile">
-          <ng-container *ngFor="let item of navItems">
-            <ion-menu-toggle auto-hide="false" *ngIf="visible(item, profile)">
-              <ion-item class="menu-item" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
-                <ion-icon slot="start" [name]="item.icon"></ion-icon>
-                <ion-label>{{ item.label }}</ion-label>
-              </ion-item>
-            </ion-menu-toggle>
-          </ng-container>
-        </ion-list>
-      </ion-content>
-    </ion-menu>
+          <ion-list class="menu-list" *ngIf="profile$ | async as profile">
+            <ng-container *ngFor="let item of navItems">
+              <ion-menu-toggle auto-hide="false" *ngIf="visible(item, profile)">
+                <ion-item class="menu-item" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
+                  <ion-icon slot="start" [name]="item.icon"></ion-icon>
+                  <ion-label>{{ item.label }}</ion-label>
+                </ion-item>
+              </ion-menu-toggle>
+            </ng-container>
+          </ion-list>
+        </ion-content>
+      </ion-menu>
 
-    <div class="app-frame" id="main-content">
-      <ion-header class="app-header">
-        <ion-toolbar>
-          <div class="toolbar-left" slot="start">
-            <ion-menu-button class="menu-toggle"></ion-menu-button>
-            <ion-title class="header-title">DeenDesk</ion-title>
-          </div>
-          <div class="toolbar-actions" slot="end" *ngIf="profile$ | async as profile">
-            <button class="notification-button" routerLink="/notifications" type="button" aria-label="Notifications">
-              <ion-icon name="notifications-outline"></ion-icon>
-            </button>
-            <button class="header-user user-chip" routerLink="/profile" type="button">
-              <img *ngIf="shouldShowFirebaseImage(profile); else defaultHeaderAvatar" [src]="profile.photoURL" alt="Profile" class="user-avatar-small header-avatar-img" (error)="onHeaderImageError()" />
-              <ng-template #defaultHeaderAvatar>
-                <img [src]="getDefaultAvatar(profile.gender)" alt="Default avatar" class="user-avatar-small header-avatar-img" />
-              </ng-template>
-              <span>{{ profile.displayName }}</span>
-            </button>
-            <button class="logout-button" type="button" (click)="logout()" aria-label="Logout">
-              <ion-icon name="log-out-outline"></ion-icon>
-            </button>
-          </div>
-        </ion-toolbar>
-      </ion-header>
+      <!-- Adding ion-page guarantees it has absolute position and 100% dimensions,
+           fixing the bug where overlay/push modes shrank or disappeared -->
+      <div class="app-frame ion-page" id="main-content"
+           [class.menu-overlay-active]="(sidebarSettings.sidebarMode$ | async) === 'overlay' && isMenuOpen">
+        <ion-header class="app-header">
+          <ion-toolbar>
+            <div class="toolbar-left" slot="start">
+              <ion-menu-button class="menu-toggle" [class.ion-hide-lg-up]="(sidebarSettings.sidebarMode$ | async) === 'split'"></ion-menu-button>
+              <ion-title class="header-title">DeenDesk</ion-title>
+            </div>
+            <div class="toolbar-actions" slot="end" *ngIf="profile$ | async as profile">
+              <button class="settings-button notification-button" type="button" aria-label="Settings" (click)="openSettings()">
+                <ion-icon name="settings-outline"></ion-icon>
+              </button>
+              <button class="notification-button" routerLink="/notifications" type="button" aria-label="Notifications">
+                <ion-icon name="notifications-outline"></ion-icon>
+              </button>
+              <button class="header-user user-chip" routerLink="/profile" type="button">
+                <img
+                  class="user-avatar-small header-avatar-img"
+                  [src]="getAvatarUrl(profile)"
+                  alt="User avatar"
+                  (load)="onAvatarLoad()"
+                  (error)="onAvatarError(profile)"
+                />
+                <span>{{ profile.displayName }}</span>
+              </button>
+              <button class="logout-button" type="button" (click)="logout()" aria-label="Logout">
+                <ion-icon name="log-out-outline"></ion-icon>
+              </button>
+            </div>
+          </ion-toolbar>
+        </ion-header>
 
-      <ion-router-outlet></ion-router-outlet>
-    </div>
+        <ion-router-outlet></ion-router-outlet>
+      </div>
+    </ion-split-pane>
   </ng-template>
 </ion-app>

@@ -31,15 +31,20 @@
       </header>
 
       <section class="notification-list" *ngIf="vm.notifications.length; else empty">
-        <article class="notification-card" *ngFor="let item of vm.notifications; trackBy: trackById" [class.unread]="!isRead(item, vm.profile?.uid)">
-          <div class="header">
+        <article class="notification-card" *ngFor="let item of vm.notifications; trackBy: trackById" [class.unread]="!isRead(item, vm.profile?.uid)" [ngClass]="'severity-' + (item.severity || 'info')">
+          <div class="icon-wrapper">
             <ion-icon [name]="item.severity === 'warning' || item.severity === 'danger' ? 'warning-outline' : 'notifications-outline'"></ion-icon>
-            <strong>{{ item.title }}</strong>
-            <time>{{ createdAtDate(item) | date:'short' }}</time>
           </div>
-          <p>{{ item.message }}</p>
-          <div class="actions" *ngIf="!isRead(item, vm.profile?.uid)">
-            <button mat-stroked-button type="button" (click)="markRead(item, vm.profile?.uid)">Mark as read</button>
+          
+          <div class="content">
+            <h2 class="title">{{ item.title }}</h2>
+            <p class="message">{{ item.message }}</p>
+            <time class="date">{{ createdAtDate(item) | date:'short' }}</time>
+          </div>
+
+          <div class="actions" *ngIf="!isRead(item, vm.profile?.uid) || item.type === 'passwordResetRequest'">
+            <button mat-stroked-button type="button" (click)="markRead(item, vm.profile?.uid)" *ngIf="!isRead(item, vm.profile?.uid)">Mark as read</button>
+            <button mat-flat-button color="primary" type="button" *ngIf="item.type === 'passwordResetRequest'" routerLink="/password-requests">View Request</button>
           </div>
         </article>
       </section>

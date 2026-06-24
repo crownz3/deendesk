@@ -1,0 +1,253 @@
+.staff-dialog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--app-background, #f9fbfa);
+}
+
+.dialog-header {
+  padding: 24px 24px 16px;
+  background: #fff;
+  border-bottom: 1px solid #dde8e3;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+
+  h2 {
+    margin: 0 0 4px;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--app-text-main, #1a1a1a);
+  }
+
+  .dialog-subtitle {
+    margin: 0;
+    color: #60726d;
+    font-size: 14px;
+    font-weight: 500;
+  }
+}
+
+.dialog-summary-cards {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .summary-card {
+    background: #f5f8f7;
+    border: 1px solid #dde8e3;
+    border-radius: 8px;
+    padding: 10px 16px;
+    display: flex;
+    flex-direction: column;
+
+    .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #60726d;
+      margin-bottom: 4px;
+    }
+
+    .value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--app-primary, #0c4d36);
+    }
+  }
+}
+
+mat-dialog-content {
+  padding: 24px !important;
+  background: var(--app-background, #f9fbfa);
+  flex: 1;
+}
+
+.staff-toolbar {
+  margin-bottom: 20px;
+
+  .search-box {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #dde8e3;
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 48px;
+
+    ion-icon {
+      color: #60726d;
+      font-size: 20px;
+      margin-right: 12px;
+    }
+
+    input {
+      border: none;
+      outline: none;
+      flex: 1;
+      font-size: 15px;
+      color: var(--app-text-main, #1a1a1a);
+      background: transparent;
+
+      &::placeholder {
+        color: #8fa09b;
+      }
+    }
+  }
+}
+
+.staff-list {
+  display: grid;
+  gap: 16px;
+}
+
+.staff-card {
+  background: #fff;
+  border: 1px solid #dde8e3;
+  border-radius: 12px;
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 768px) {
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+  }
+}
+
+.staff-main {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  .staff-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #1976d2;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 700;
+  }
+
+  .staff-info {
+    h3 {
+      margin: 0 0 4px;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--app-text-main, #1a1a1a);
+    }
+
+    p {
+      margin: 0 0 6px;
+      font-size: 14px;
+      color: #60726d;
+    }
+
+    .role-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      display: inline-block;
+
+      &.role-teacher { background: #e3f5eb; color: #0c4d36; }
+      &.role-staff { background: #e8f4fc; color: #005f9e; }
+    }
+  }
+}
+
+.staff-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  @media (min-width: 768px) {
+    flex-direction: row;
+    gap: 24px;
+    justify-content: flex-end;
+  }
+
+  .meta-group {
+    display: flex;
+    flex-direction: column;
+
+    .meta-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: #8fa09b;
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--app-text-main, #1a1a1a);
+      margin-bottom: 2px;
+    }
+
+    .meta-subvalue {
+      font-size: 12px;
+      color: #60726d;
+    }
+
+    .status-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      display: inline-block;
+      margin-top: 4px;
+
+      &.status-active { background: #e3f5eb; color: #0c4d36; }
+      &.status-inactive { background: #fce8e8; color: #a10000; }
+    }
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 64px 24px;
+  text-align: center;
+  background: #fff;
+  border: 1px dashed #dde8e3;
+  border-radius: 12px;
+
+  ion-icon {
+    font-size: 64px;
+    color: #8fa09b;
+    margin-bottom: 16px;
+  }
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--app-text-main, #1a1a1a);
+  }
+
+  p {
+    margin: 0;
+    color: #60726d;
+    max-width: 300px;
+  }
+}
+
+.dialog-footer {
+  padding: 16px 24px;
+  background: #fff;
+  border-top: 1px solid #dde8e3;
+  margin: 0;
+}

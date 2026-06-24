@@ -47,6 +47,7 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'managePermissions',
   'manageAcademicPlans',
   'managePromotions',
+  'managePasswordRequests',
 ];
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -73,13 +74,13 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   managePermissions: 'Manage permissions',
   manageAcademicPlans: 'Manage academic plans',
   managePromotions: 'Manage promotions and demotions',
+  managePasswordRequests: 'Manage password requests',
 };
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
   superAdmin: ALL_PERMISSIONS,
   organizationAdmin: [
     'viewDashboard',
-    'manageOrganizations',
     'manageMadrasas',
     'manageUsers',
     'manageCoordinators',
@@ -100,6 +101,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'managePermissions',
     'manageAcademicPlans',
     'managePromotions',
+    'managePasswordRequests',
   ],
   coordinator: [
     'viewDashboard',
@@ -119,6 +121,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'viewAnalytics',
     'manageAcademicPlans',
     'managePromotions',
+    'managePasswordRequests',
   ],
   madrasaIncharge: [
     'viewDashboard',
@@ -137,6 +140,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'viewAnalytics',
     'manageAcademicPlans',
     'managePromotions',
+    'managePasswordRequests',
   ],
   teacher: [
     'viewDashboard',

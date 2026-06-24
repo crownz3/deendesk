@@ -35,6 +35,10 @@ p {
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 8px;
+
+  &:empty {
+    display: none;
+  }
 }
 
 .empty-state-guide {
@@ -47,4 +51,8 @@ p {
   max-width: 600px;
   padding: 16px;
   text-align: left;
+
+  &:empty {
+    display: none;
+  }
 }

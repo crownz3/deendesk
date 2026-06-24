@@ -12,13 +12,13 @@
       <article *ngFor="let role of roles">
         <div class="role-heading">
           <app-role-badge [role]="role"></app-role-badge>
-          <button mat-stroked-button type="button" (click)="save(role)" [disabled]="role === 'superAdmin'">Save</button>
+          <button mat-stroked-button type="button" (click)="save(role)" [disabled]="role === 'superAdmin' || role === currentUserRole">Save</button>
         </div>
         <mat-selection-list>
           <mat-list-option
             *ngFor="let permission of permissions"
             [selected]="checked(role, permission)"
-            [disabled]="role === 'superAdmin'"
+            [disabled]="role === 'superAdmin' || role === currentUserRole"
             (selectedChange)="toggle(role, permission, $event)"
           >
             {{ permissionLabels[permission] }}

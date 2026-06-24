@@ -45,30 +45,51 @@ h1 {
   padding: 16px;
 }
 
+.notification-card .icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .notification-card ion-icon {
   color: var(--app-primary);
   font-size: 26px;
 }
 
-.notification-card span {
+.notification-card .content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0; /* Prevents flex children from pushing grid boundary */
+}
+
+.notification-card h2.title {
+  color: var(--app-text-main);
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  word-wrap: break-word;
+}
+
+.notification-card p.message {
+  color: #60726d;
+  line-height: 1.5;
+  margin: 0;
+  font-size: 14px;
+}
+
+.notification-card time.date {
   color: #71827d;
-  display: block;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
-.notification-card h2 {
-  color: var(--app-text-main);
-  font-size: 18px;
-  font-weight: 800;
-  margin-top: 4px;
-}
-
-.notification-card p {
-  color: #60726d;
-  line-height: 1.6;
-  margin-top: 4px;
+.notification-card .actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .severity-warning {

@@ -5,6 +5,7 @@ import { catchError, combineLatest, firstValueFrom, map, of, startWith, switchMa
 import { AttendanceStatus } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
+import { LoaderService } from '../../core/services/loader.service';
 
 export interface PageState<T> {
   data?: T;
@@ -63,6 +64,7 @@ export class AttendancePage {
     private readonly auth: AuthService,
     private readonly repo: RepositoryService,
     private readonly snackBar: MatSnackBar,
+    private readonly loader: LoaderService,
   ) {}
 
   filteredStudents(vm: AttendanceVm): EntityRecord[] {
@@ -95,19 +97,25 @@ export class AttendancePage {
       return;
     }
 
-    await this.repo.batchCreate('attendance', students.map((student) => ({
-      date: filter.date,
-      organizationId: student.organizationId,
-      madrasaId: String(student.madrasaId || filter.madrasaId || ''),
-      courseId: String(student['courseId'] || filter.courseId || ''),
-      classId: String(student['classId'] || filter.classId || ''),
-      studentId: String(student.id),
-      teacherId: profile?.uid,
-      status: this.selections[String(student.id)] || 'present',
-      notes: filter.notes,
-    })), profile ?? null);
+    try {
+      await this.loader.withLoader('Saving attendance...', async () => {
+        await this.repo.batchCreate('attendance', students.map((student) => ({
+          date: filter.date,
+          organizationId: student.organizationId,
+          madrasaId: String(student.madrasaId || filter.madrasaId || ''),
+          courseId: String(student['courseId'] || filter.courseId || ''),
+          classId: String(student['classId'] || filter.classId || ''),
+          studentId: String(student.id),
+          teacherId: profile?.uid,
+          status: this.selections[String(student.id)] || 'present',
+          notes: filter.notes,
+        })), profile ?? null);
+      });
 
-    this.snackBar.open('Attendance saved.', 'Close', { duration: 3000 });
+      this.snackBar.open('Attendance saved.', 'Close', { duration: 3000 });
+    } catch (e) {
+      this.snackBar.open('Unable to save attendance. Please try again.', 'Close', { duration: 4000 });
+    }
   }
 
   nameOf(rows: EntityRecord[], id: string): string {

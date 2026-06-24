@@ -1,0 +1,91 @@
+<div class="assign-dialog">
+  <div class="assign-dialog-header">
+    <div class="title-section">
+      <h2 mat-dialog-title>Assign Students</h2>
+      <p class="dialog-subtitle">{{ node.title }}</p>
+    </div>
+    
+    <div class="assign-summary-cards">
+      <div class="summary-card">
+        <span class="label">Type</span>
+        <span class="value">{{ node.type | titlecase }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Current Assigned</span>
+        <span class="value">{{ selectedUsers.length }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Available Students</span>
+        <span class="value">{{ availableUsers.length }}</span>
+      </div>
+    </div>
+  </div>
+
+  <mat-dialog-content>
+    <div *ngIf="errorMsg" class="error-banner">
+      {{ errorMsg }}
+    </div>
+
+    <div class="transfer-layout" cdkDropListGroup>
+      
+      <!-- Unassigned / Available Panel -->
+      <div class="transfer-panel">
+        <div class="panel-header">
+          <h3>Available Students</h3>
+          <button mat-button color="primary" (click)="addAll()" [disabled]="availableUsers.length === 0">Add All</button>
+        </div>
+        
+        <div class="transfer-list" cdkDropList [cdkDropListData]="availableUsers" (cdkDropListDropped)="drop($event)">
+          <div *ngIf="availableUsers.length === 0" class="empty-transfer-state">
+            No more available students
+          </div>
+          
+          <div class="transfer-item" *ngFor="let student of availableUsers" cdkDrag>
+            <div class="item-avatar">{{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}</div>
+            <div class="item-info">
+              <h4>{{ student.name || student.displayName || 'N/A' }}</h4>
+              <p>{{ student.email || student.parentName || 'No email' }}</p>
+            </div>
+            <ion-icon name="add-circle-outline" class="action-icon add-icon" (click)="selectedUsers.push(student); availableUsers.splice(availableUsers.indexOf(student), 1)"></ion-icon>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons (desktop only visual hint) -->
+      <div class="transfer-actions">
+        <ion-icon name="swap-horizontal-outline"></ion-icon>
+      </div>
+
+      <!-- Selected / Assigned Panel -->
+      <div class="transfer-panel">
+        <div class="panel-header">
+          <h3>Selected Students</h3>
+          <button mat-button color="warn" (click)="removeAll()" [disabled]="selectedUsers.length === 0">Remove All</button>
+        </div>
+        
+        <div class="transfer-list selected-list" cdkDropList [cdkDropListData]="selectedUsers" (cdkDropListDropped)="drop($event)">
+          <div *ngIf="selectedUsers.length === 0" class="empty-transfer-state">
+            No students selected
+          </div>
+          
+          <div class="transfer-item" *ngFor="let student of selectedUsers" cdkDrag>
+            <div class="item-avatar">{{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}</div>
+            <div class="item-info">
+              <h4>{{ student.name || student.displayName || 'N/A' }}</h4>
+              <p>{{ student.email || student.parentName || 'No email' }}</p>
+            </div>
+            <ion-icon name="remove-circle-outline" class="action-icon remove-icon" (click)="availableUsers.push(student); selectedUsers.splice(selectedUsers.indexOf(student), 1)"></ion-icon>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="dialog-footer" align="end">
+    <button mat-button mat-dialog-close [disabled]="isSaving">Cancel</button>
+    <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving">
+      {{ isSaving ? 'Saving...' : 'Save Assignments' }}
+    </button>
+  </mat-dialog-actions>
+</div>

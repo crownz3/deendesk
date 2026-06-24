@@ -4,6 +4,7 @@ import { catchError, combineLatest, map, of, startWith, switchMap } from 'rxjs';
 import { NotificationItem } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
+import { LoaderService } from '../../core/services/loader.service';
 
 export interface PageState<T> {
   data?: T;
@@ -47,6 +48,7 @@ export class NotificationsPage {
     private readonly auth: AuthService,
     private readonly repo: RepositoryService,
     private readonly snackBar: MatSnackBar,
+    private readonly loader: LoaderService,
   ) {}
 
   trackById(_: number, item: EntityRecord): string {
@@ -70,9 +72,15 @@ export class NotificationsPage {
       return;
     }
 
-    await this.repo.update('notifications', item.id, {
-      readBy: Array.from(new Set([...item.readBy, uid])),
-    }, null);
-    this.snackBar.open('Notification marked as read.', 'Close', { duration: 2500 });
+    try {
+      await this.loader.withLoader('Marking notification as read...', async () => {
+        await this.repo.update('notifications', item.id!, {
+          readBy: Array.from(new Set([...item.readBy, uid])),
+        }, null);
+      });
+      this.snackBar.open('Notification marked as read.', 'Close', { duration: 2500 });
+    } catch (e) {
+      this.snackBar.open('Unable to update notification.', 'Close', { duration: 2500 });
+    }
   }
 }

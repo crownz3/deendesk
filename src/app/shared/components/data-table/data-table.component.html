@@ -4,12 +4,96 @@
       <ng-container *ngFor="let column of columns; trackBy: trackByColumn" [matColumnDef]="column.key">
         <th mat-header-cell *matHeaderCellDef>{{ column.label }}</th>
         <td mat-cell *matCellDef="let row">
-          <app-status-badge *ngIf="column.type === 'status'; else roleOrText" [status]="text(row, column.key)"></app-status-badge>
+          <app-status-badge *ngIf="column.type === 'status'; else temporaryPasswordOrStatus" [status]="text(row, column.key)"></app-status-badge>
+          
+          <ng-template #temporaryPasswordOrStatus>
+            <ng-container *ngIf="column.type === 'temporaryPassword' || column.type === 'credentialStatus'; else roleOrText">
+              <ng-container [ngSwitch]="row['credentialStatus']">
+
+                <div *ngSwitchCase="'TEMP_PASSWORD_PENDING'" class="password-cell">
+                  <code *ngIf="row['temporaryPasswordDisplay'] && row['temporaryPasswordDisplay'] !== 'Temporary password pending' && column.type === 'temporaryPassword'; else pendingPassword">
+                    {{ row['temporaryPasswordDisplay'] }}
+                  </code>
+
+                  <button
+                    *ngIf="row['temporaryPasswordDisplay'] && row['temporaryPasswordDisplay'] !== 'Temporary password pending' && column.type === 'temporaryPassword'"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Copy full credentials"
+                    (click)="copyTemporaryPassword(row)">
+                    <ion-icon name="clipboard-outline"></ion-icon>
+                  </button>
+
+                  <button
+                    *ngIf="row['temporaryPasswordDisplay'] && row['temporaryPasswordDisplay'] !== 'Temporary password pending' && column.type === 'temporaryPassword'"
+                    mat-icon-button
+                    type="button"
+                    matTooltip="Copy password only"
+                    (click)="copyRawPassword(row)">
+                    <ion-icon name="copy-outline"></ion-icon>
+                  </button>
+
+                  <ng-template #pendingPassword>
+                    <span class="status-chip warning">{{ row['temporaryPasswordDisplay'] || 'Temporary password pending' }}</span>
+                  </ng-template>
+                </div>
+
+                <span *ngSwitchCase="'PASSWORD_CHANGED'" class="status-chip success">
+                  Password changed
+                </span>
+
+                <span *ngSwitchDefault class="status-chip danger">
+                  Login not created
+                </span>
+
+              </ng-container>
+            </ng-container>
+          </ng-template>
+
           <ng-template #roleOrText>
             <app-role-badge *ngIf="column.type === 'role'; else plainText" [role]="text(row, column.key)"></app-role-badge>
           </ng-template>
           <ng-template #plainText>
-            <span>{{ text(row, column.key) }}</span>
+            <ng-container [ngSwitch]="column.type">
+              <span *ngSwitchCase="'avatar'" class="avatar-cell">
+                <img [src]="row[column.key] || '/assets/images/avatars/default-neutral.png'" alt="Avatar" class="avatar-image" />
+              </span>
+              <span *ngSwitchCase="'boolean'">
+                <ion-icon [name]="row[column.key] ? 'checkmark-circle' : 'close-circle'" 
+                          [color]="row[column.key] ? 'success' : 'medium'"></ion-icon>
+              </span>
+              <span *ngSwitchCase="'date'" class="date-cell">
+                {{ (getDate(row, column.key) | date:'mediumDate') || 'N/A' }}
+              </span>
+              <span *ngSwitchCase="'idRef'">
+                <ng-container *ngIf="isArray(value(row, column.key)); else singleIdRef">
+                  <span class="id-list">
+                    <ng-container *ngFor="let id of asArray(value(row, column.key)); let last = last">
+                      <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)"></app-name-with-copy>
+                      <span *ngIf="!last">, </span>
+                    </ng-container>
+                  </span>
+                </ng-container>
+                <ng-template #singleIdRef>
+                  <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)"></app-name-with-copy>
+                </ng-template>
+              </span>
+              <ng-container *ngSwitchDefault>
+                <div *ngIf="column.key.toLowerCase().includes('email'); else plainContent" class="email-wrapper">
+                  <span class="email-text" [matTooltip]="text(row, column.key)">
+                    {{ text(row, column.key) }}
+                  </span>
+                  <button *ngIf="text(row, column.key) !== 'N/A'"
+                    mat-icon-button type="button" class="inline-copy-btn" (click)="copyEmail(row, column.key); $event.stopPropagation()"
+                    matTooltip="Copy email" aria-label="Copy exact email">
+                    <ion-icon name="copy-outline"></ion-icon>
+                  </button>
+                </div>
+                <ng-template #plainContent>
+                  <span>{{ text(row, column.key) }}</span>
+                </ng-template>
+              </ng-container>
+            </ng-container>
           </ng-template>
         </td>
       </ng-container>
@@ -21,19 +105,26 @@
             <ion-icon name="ellipsis-horizontal"></ion-icon>
           </button>
           <mat-menu #rowMenu="matMenu">
+            <button *ngIf="allowDetails" mat-menu-item type="button" (click)="viewDetails.emit(row)">
+              <ion-icon name="eye-outline"></ion-icon>
+              <span>View details</span>
+            </button>
             <button mat-menu-item type="button" (click)="edit.emit(row)">
               <ion-icon name="create-outline"></ion-icon>
               <span>Edit</span>
             </button>
-            <button *ngIf="allowCredentials" mat-menu-item type="button" (click)="credentials.emit(row)">
+            <button *ngIf="allowCredentials" mat-menu-item type="button" (click)="resetPassword.emit(row)">
               <ion-icon name="key-outline"></ion-icon>
-              <span>Credentials</span>
+              <span>Set temporary password</span>
             </button>
             <button *ngIf="allowPromotion" mat-menu-item type="button" (click)="promote.emit(row)">
               <ion-icon name="trending-up-outline"></ion-icon>
               <span>Promote / demote</span>
             </button>
-            <button mat-menu-item type="button" class="danger-item" (click)="remove.emit(row)">
+            <button mat-menu-item type="button" class="danger-item" 
+                    [disabled]="isSelf(row)"
+                    [attr.title]="isSelf(row) ? 'You cannot delete your own profile.' : null"
+                    (click)="remove.emit(row)">
               <ion-icon name="trash-outline"></ion-icon>
               <span>Delete</span>
             </button>

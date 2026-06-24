@@ -82,7 +82,6 @@ h1 {
   padding: 28px;
 }
 
-.continue-account,
 .last-account {
   align-items: center;
   background: #f4faf7;
@@ -91,11 +90,6 @@ h1 {
   display: flex;
   gap: 14px;
   padding: 14px;
-}
-
-.continue-account {
-  display: grid;
-  grid-template-columns: 48px 1fr auto;
 }
 
 .avatar {
@@ -110,42 +104,122 @@ h1 {
   width: 48px;
 }
 
-.continue-account p,
-.continue-account h2,
-.continue-account span,
-.form-heading h2,
-.form-heading p,
+.auth-header h2,
+.auth-header p,
 .last-account span,
 .last-account small {
   margin: 0;
 }
 
-.continue-account p,
 .last-account small,
-.form-heading p {
+.auth-header p {
   color: #657973;
   font-size: 13px;
 }
 
-.continue-account h2,
-.form-heading h2 {
+.auth-header h2 {
   color: var(--app-text-main);
   font-size: 24px;
   font-weight: 800;
+  margin-bottom: 4px;
 }
 
+.auth-header {
+  margin-bottom: 24px;
+}
+
+/* Continue Card */
+.continue-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  margin-bottom: 24px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(26, 115, 232, 0.06), rgba(52, 168, 83, 0.06));
+  border: 1px solid var(--app-border, #e0e0e0);
+  box-shadow: var(--app-shadow-sm, 0 2px 4px rgba(0,0,0,0.05));
+}
+
+.continue-card-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.continue-card-label {
+  margin: 0;
+  color: var(--app-text-muted, #666);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.continue-card-name {
+  margin: 2px 0;
+  color: var(--app-text-main, #333);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.continue-card-email {
+  margin: 0;
+  color: var(--app-text-muted, #666);
+  font-size: 14px;
+  word-break: break-word;
+}
+
+.continue-card button {
+  flex: 0 0 auto;
+}
+
+/* Form Styling */
 form {
-  display: grid;
-  gap: 12px;
+  display: flex;
+  flex-direction: column;
 }
 
-mat-form-field,
-.full-button {
+/* Fix Input Fields */
+.auth-field {
   width: 100%;
+  margin-bottom: 16px;
 }
 
-.full-button {
-  height: 46px;
+::ng-deep .auth-field .mat-mdc-text-field-wrapper {
+  background: var(--app-surface, #fff);
+  border-radius: 14px;
+}
+
+::ng-deep .auth-field .mat-mdc-form-field-flex {
+  min-height: 56px;
+}
+
+::ng-deep .auth-field input {
+  font-size: 15px;
+  color: var(--app-text-main, #333);
+}
+
+.auth-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 20px;
+}
+
+.auth-primary-button {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 14px;
+  font-weight: 700;
+}
+
+.auth-google-button {
+  width: 100%;
+  min-height: 52px;
+  border-radius: 999px;
+  border: 1px solid var(--app-border, #e0e0e0);
+  background: var(--app-surface, #fff);
+  color: var(--app-primary);
+  font-weight: 600;
 }
 
 ion-icon {
@@ -153,20 +227,65 @@ ion-icon {
   margin-right: 8px;
 }
 
+.reset-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  margin-top: 16px;
+  border-top: 1px solid var(--border-light, #f0f0f0);
+  padding-top: 16px;
+}
+
 .reset-button {
-  justify-self: center;
+  align-self: center;
+}
+
+.custom-email-reset {
+  background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.05);
+  border: 1px solid rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.2);
+  border-radius: var(--radius-md, 8px);
+  padding: 16px;
+  text-align: center;
+  width: 100%;
+}
+
+.reset-info {
+  font-size: 0.8125rem;
+  color: var(--text-secondary, #666);
+  line-height: 1.4;
+  margin: 0 0 12px;
+}
+
+.request-reset-button {
+  width: 100%;
+}
+
+/* Session Checking */
+.session-checking {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 0;
+  text-align: center;
+  color: var(--app-text-muted, #666);
 }
 
 @media (max-width: 860px) {
   .login-shell {
     grid-template-columns: 1fr;
   }
+}
 
-  .continue-account {
-    grid-template-columns: 48px 1fr;
+@media (max-width: 520px) {
+  .continue-card {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
-  .continue-account button {
-    grid-column: 1 / -1;
+  .continue-card button {
+    width: 100%;
   }
 }

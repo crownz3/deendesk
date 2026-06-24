@@ -12,26 +12,17 @@
     <section class="profile-panel">
       <div class="photo-area">
         <div class="profile-avatar-wrapper">
-          <div class="avatar-loading-overlay" *ngIf="isProfileImageLoading && profile.photoURL && !imageLoadFailed">
+          <div class="avatar-loading-overlay" *ngIf="isAvatarLoading && profile.photoURL && !avatarLoadFailed">
             <mat-spinner diameter="28"></mat-spinner>
           </div>
 
           <img
-            *ngIf="shouldShowFirebaseImage(profile); else defaultAvatar"
             class="profile-avatar"
-            [src]="profile.photoURL"
+            [src]="getAvatarUrl(profile)"
             alt="Profile image"
-            (load)="onProfileImageLoad()"
-            (error)="onProfileImageError()"
+            (load)="onAvatarLoad()"
+            (error)="onAvatarError(profile)"
           />
-
-          <ng-template #defaultAvatar>
-            <img
-              class="profile-avatar"
-              [src]="getDefaultAvatar(profile.gender)"
-              alt="Default avatar"
-            />
-          </ng-template>
         </div>
         <label class="upload-button">
           <input type="file" accept="image/*" (change)="upload($event, profile)" />

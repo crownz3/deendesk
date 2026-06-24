@@ -15,6 +15,7 @@ interface ReportConfig {
   key: string;
   label: string;
   collection: string;
+  roles?: string[];
   emptyText: string;
   columns: TableColumn[];
 }
@@ -31,35 +32,35 @@ interface ReportsVm {
 })
 export class ReportsPage {
   readonly reportConfigs: ReportConfig[] = [
-    { key: 'students', label: 'Student report', collection: 'students', emptyText: 'No students found for the selected filter.', columns: [
-      { key: 'name', label: 'Student' }, { key: 'fatherName', label: 'Father' }, { key: 'courseId', label: 'Course' }, { key: 'classId', label: 'Class' }, { key: 'status', label: 'Status', type: 'status' },
+    { key: 'students', label: 'Student report', collection: 'users', roles: ['student'], emptyText: 'No students found for the selected filter.', columns: [
+      { key: 'name', label: 'Student' }, { key: 'fatherName', label: 'Father' }, { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' }, { key: 'classId', label: 'Class', type: 'idRef', referenceType: 'class' }, { key: 'status', label: 'Status', type: 'status' },
     ] },
     { key: 'attendance', label: 'Attendance report', collection: 'attendance', emptyText: 'No attendance records found for the selected filter.', columns: [
-      { key: 'date', label: 'Date' }, { key: 'studentId', label: 'Student' }, { key: 'classId', label: 'Class' }, { key: 'status', label: 'Status', type: 'status' }, { key: 'notes', label: 'Notes' },
+      { key: 'date', label: 'Date' }, { key: 'studentId', label: 'Student', type: 'idRef', referenceType: 'student' }, { key: 'classId', label: 'Class', type: 'idRef', referenceType: 'class' }, { key: 'status', label: 'Status', type: 'status' }, { key: 'notes', label: 'Notes' },
     ] },
     { key: 'courses', label: 'Course report', collection: 'courses', emptyText: 'No courses found for the selected filter.', columns: [
       { key: 'name', label: 'Course' }, { key: 'code', label: 'Code' }, { key: 'type', label: 'Type' }, { key: 'status', label: 'Status', type: 'status' },
     ] },
     { key: 'classes', label: 'Class report', collection: 'classes', emptyText: 'No classes found for the selected filter.', columns: [
-      { key: 'name', label: 'Class' }, { key: 'courseId', label: 'Course' }, { key: 'stageOrLevel', label: 'Stage / Level' }, { key: 'status', label: 'Status', type: 'status' },
+      { key: 'name', label: 'Class' }, { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' }, { key: 'stageOrLevel', label: 'Stage / Level' }, { key: 'status', label: 'Status', type: 'status' },
     ] },
     { key: 'subjects', label: 'Subject report', collection: 'subjects', emptyText: 'No subjects found for the selected filter.', columns: [
-      { key: 'name', label: 'Subject' }, { key: 'code', label: 'Code' }, { key: 'courseId', label: 'Course' }, { key: 'status', label: 'Status', type: 'status' },
+      { key: 'name', label: 'Subject' }, { key: 'code', label: 'Code' }, { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' }, { key: 'status', label: 'Status', type: 'status' },
     ] },
-    { key: 'staff', label: 'Staff report', collection: 'staff', emptyText: 'No staff found for the selected filter.', columns: [
+    { key: 'staff', label: 'Staff report', collection: 'users', roles: ['teacher', 'staff'], emptyText: 'No staff found for the selected filter.', columns: [
       { key: 'name', label: 'Name' }, { key: 'email', label: 'Email' }, { key: 'role', label: 'Role', type: 'role' }, { key: 'status', label: 'Status', type: 'status' },
     ] },
     { key: 'madrasas', label: 'Madrasa report', collection: 'madrasas', emptyText: 'No madrasas found for the selected filter.', columns: [
-      { key: 'name', label: 'Madrasa' }, { key: 'code', label: 'Code' }, { key: 'organizationId', label: 'Organization' }, { key: 'status', label: 'Status', type: 'status' },
+      { key: 'name', label: 'Madrasa' }, { key: 'code', label: 'Code' }, { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' }, { key: 'status', label: 'Status', type: 'status' },
     ] },
-    { key: 'parents', label: 'Parent report', collection: 'parents', emptyText: 'No parents found for the selected filter.', columns: [
-      { key: 'name', label: 'Parent' }, { key: 'email', label: 'Email' }, { key: 'linkedStudentIds', label: 'Students', type: 'list' }, { key: 'status', label: 'Status', type: 'status' },
+    { key: 'parents', label: 'Parent report', collection: 'users', roles: ['parent'], emptyText: 'No parents found for the selected filter.', columns: [
+      { key: 'name', label: 'Parent' }, { key: 'email', label: 'Email' }, { key: 'linkedStudentIds', label: 'Students', type: 'idRef', referenceType: 'student' }, { key: 'status', label: 'Status', type: 'status' },
     ] },
     { key: 'promotionHistory', label: 'Promotion / demotion report', collection: 'promotionHistory', emptyText: 'No promotion or demotion records found.', columns: [
-      { key: 'actionDate', label: 'Date' }, { key: 'studentId', label: 'Student' }, { key: 'action', label: 'Action' }, { key: 'reason', label: 'Reason' },
+      { key: 'actionDate', label: 'Date' }, { key: 'studentId', label: 'Student', type: 'idRef', referenceType: 'student' }, { key: 'action', label: 'Action' }, { key: 'reason', label: 'Reason' },
     ] },
     { key: 'academicPlans', label: 'Hifz progress report', collection: 'academicPlans', emptyText: 'No Hifz progress plans found.', columns: [
-      { key: 'studentId', label: 'Student' }, { key: 'planType', label: 'Plan type' }, { key: 'status', label: 'Status', type: 'status' }, { key: 'targetDate', label: 'Target date' },
+      { key: 'studentId', label: 'Student', type: 'idRef', referenceType: 'student' }, { key: 'planType', label: 'Plan type' }, { key: 'status', label: 'Status', type: 'status' }, { key: 'targetDate', label: 'Target date' },
     ] },
     { key: 'csvImports', label: 'CSV import result report', collection: 'csvImports', emptyText: 'No CSV import logs found.', columns: [
       { key: 'module', label: 'Module' }, { key: 'totalRows', label: 'Total' }, { key: 'validRows', label: 'Valid' }, { key: 'failedRows', label: 'Failed' },
@@ -74,7 +75,7 @@ export class ReportsPage {
 
   readonly vm$ = this.auth.profile$.pipe(
     switchMap((profile) => combineLatest(
-      this.reportConfigs.map((config) => this.repo.list<EntityRecord>(config.collection, profile).pipe(
+      this.reportConfigs.map((config) => this.repo.list<EntityRecord>(config.collection, profile, [], config.roles ? { roles: config.roles } : undefined).pipe(
         map((rows) => ({ key: config.key, rows })),
       )),
     )),

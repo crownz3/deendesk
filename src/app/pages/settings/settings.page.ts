@@ -5,6 +5,7 @@ import { environment } from '../../../environments/environment';
 import { DEFAULT_COURSES, GENERATED_EMAIL_DOMAIN, SUPER_ADMIN_EMAIL } from '../../core/constants/defaults';
 import { AuthService } from '../../core/services/auth.service';
 import { SeedService } from '../../core/services/seed.service';
+import { LoaderService } from '../../core/services/loader.service';
 
 @Component({
   selector: 'app-settings',
@@ -23,14 +24,19 @@ export class SettingsPage {
     private readonly seedService: SeedService,
     private readonly auth: AuthService,
     private readonly snackBar: MatSnackBar,
+    private readonly loader: LoaderService,
   ) {}
 
   async seedDefaults(): Promise<void> {
     this.seeding = true;
     try {
       const profile = await firstValueFrom(this.auth.profile$);
-      await this.seedService.seedDefaults(profile);
+      await this.loader.withLoader('Applying default system settings...', async () => {
+        await this.seedService.seedDefaults(profile);
+      });
       this.snackBar.open('Default courses and permission templates seeded.', 'Close', { duration: 4000 });
+    } catch (e) {
+      this.snackBar.open('Failed to apply settings.', 'Close', { duration: 4000 });
     } finally {
       this.seeding = false;
     }

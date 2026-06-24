@@ -9,6 +9,7 @@ import { ProfileImageService } from '../../core/services/profile-image.service';
 import { RepositoryService } from '../../core/services/repository.service';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { getAuth, updateProfile } from 'firebase/auth';
+import { LoaderService } from '../../core/services/loader.service';
 
 @Component({
   selector: 'app-profile',
@@ -23,28 +24,31 @@ export class ProfilePage {
     phone: [''],
   });
   uploading = false;
-  isProfileImageLoading = false;
-  imageLoadFailed = false;
+  isAvatarLoading = false;
+  avatarLoadFailed = false;
 
   getDefaultAvatar(gender?: string | null): string {
-    const normalizedGender = (gender || '').toLowerCase();
-    if (normalizedGender === 'male') return 'assets/images/avatars/default-male.png';
-    if (normalizedGender === 'female') return 'assets/images/avatars/default-female.png';
-    return 'assets/images/avatars/default-neutral.png';
+    const normalizedGender = (gender || '').toLowerCase().trim();
+    if (normalizedGender === 'male') return '/assets/images/avatars/default-male.png';
+    if (normalizedGender === 'female') return '/assets/images/avatars/default-female.png';
+    return '/assets/images/avatars/default-neutral.png';
   }
 
-  shouldShowFirebaseImage(profile: AppUser | null): boolean {
-    return !!profile?.photoURL && !this.imageLoadFailed;
+  getAvatarUrl(user: AppUser | null | undefined): string {
+    if (user?.photoURL && !this.avatarLoadFailed) {
+      return user.photoURL;
+    }
+    return this.getDefaultAvatar(user?.gender);
   }
 
-  onProfileImageLoad(): void {
-    this.isProfileImageLoading = false;
-    this.imageLoadFailed = false;
+  onAvatarLoad(): void {
+    this.isAvatarLoading = false;
+    this.avatarLoadFailed = false;
   }
 
-  onProfileImageError(): void {
-    this.isProfileImageLoading = false;
-    this.imageLoadFailed = true;
+  onAvatarError(user?: AppUser | null): void {
+    this.isAvatarLoading = false;
+    this.avatarLoadFailed = true;
   }
 
   constructor(
@@ -53,6 +57,7 @@ export class ProfilePage {
     private readonly repo: RepositoryService,
     private readonly imageService: ProfileImageService,
     private readonly snackBar: MatSnackBar,
+    private readonly loader: LoaderService,
     destroyRef: DestroyRef,
   ) {
     this.profile$.pipe(takeUntilDestroyed(destroyRef)).subscribe((profile) => {
@@ -71,9 +76,15 @@ export class ProfilePage {
       return;
     }
 
-    await this.repo.update('users', profile.uid, this.form.getRawValue(), profile);
-    this.form.markAsPristine();
-    this.snackBar.open('Profile updated.', 'Close', { duration: 3000 });
+    try {
+      await this.loader.withLoader('Saving profile changes...', async () => {
+        await this.repo.update('users', profile.uid, this.form.getRawValue(), profile);
+      });
+      this.form.markAsPristine();
+      this.snackBar.open('Profile updated.', 'Close', { duration: 3000 });
+    } catch (e) {
+      this.snackBar.open('Unable to save changes. Please check the details and try again.', 'Close', { duration: 4000 });
+    }
   }
 
   async upload(event: Event, profile: AppUser): Promise<void> {
@@ -85,17 +96,23 @@ export class ProfilePage {
 
     this.uploading = true;
     try {
-      this.isProfileImageLoading = true;
-      this.imageLoadFailed = false;
-      const url = await this.imageService.uploadProfileImage(profile.uid, file);
+      this.isAvatarLoading = true;
+      this.avatarLoadFailed = false;
 
-      const auth = getAuth(getDeenDeskFirebaseApp());
-      if (auth.currentUser) {
-        await updateProfile(auth.currentUser, { photoURL: url });
-      }
+      await this.loader.withLoader('Uploading profile image...', async () => {
+        const url = await this.imageService.uploadProfileImage(profile.uid, file);
 
-      await this.repo.update('users', profile.uid, { photoURL: url }, profile);
+        const auth = getAuth(getDeenDeskFirebaseApp());
+        if (auth.currentUser) {
+          await updateProfile(auth.currentUser, { photoURL: url });
+        }
+
+        await this.repo.update('users', profile.uid, { photoURL: url }, profile);
+      });
+
       this.snackBar.open('Profile image uploaded.', 'Close', { duration: 3000 });
+    } catch (e) {
+      this.snackBar.open('Unable to upload image. Please try a smaller file or check your connection.', 'Close', { duration: 4000 });
     } finally {
       this.uploading = false;
     }

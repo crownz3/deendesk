@@ -1,5 +1,5 @@
 <ion-content>
-  <main class="page" *ngIf="vm$ | async as vm">
+  <main class="page" *ngIf="vm$ | async as vm; else loading">
     <header class="page-header">
       <div>
         <p class="eyebrow">{{ vm.roleTitle }} Dashboard</p>
@@ -20,14 +20,78 @@
     </div>
 
     <section class="stats-grid">
-      <app-stats-card
-        *ngFor="let stat of vm.stats; trackBy: trackByLabel"
-        [label]="stat.label"
-        [value]="stat.value"
-        [icon]="stat.icon"
-        [tone]="stat.tone"
-      ></app-stats-card>
+      <app-stats-card *ngFor="let stat of vm.stats; trackBy: trackByLabel" [label]="stat.label" [value]="stat.value"
+        [icon]="stat.icon" [tone]="stat.tone"></app-stats-card>
     </section>
+
+
+    <section class="access-overview" *ngIf="vm.accessOverview">
+      <header class="section-header">
+        <h2>{{ vm.accessOverview.title }}</h2>
+      </header>
+
+      <ng-template #cardTemplate let-card="card">
+        <div class="card-header">
+          <div class="icon-box" [ngClass]="card.tone || 'primary'">
+            <ion-icon [name]="card.icon || 'folder-outline'"></ion-icon>
+          </div>
+          <div class="title-box">
+            <h3>{{ card.title }}</h3>
+            <p *ngIf="card.subtitle">{{ card.subtitle }}</p>
+          </div>
+        </div>
+        <div class="card-stats">
+          <div class="stat-item" *ngFor="let item of card.items">
+            <span>{{ item.label }}</span>
+            <strong>{{ item.value }}</strong>
+          </div>
+        </div>
+        <div class="card-actions" *ngIf="card.actions && card.actions.length > 0">
+          <ion-button fill="clear" size="small" [routerLink]="action.link" *ngFor="let action of card.actions">
+            <ion-icon slot="start" [name]="action.icon"></ion-icon>
+            {{ action.label }}
+          </ion-button>
+        </div>
+      </ng-template>
+
+      <ng-container *ngIf="vm.accessOverview.cards.length > 0; else emptyState">
+        <ng-container *ngIf="vm.accessOverview.title === 'My Assigned Madrasas' && vm.accessOverview.cards.length > 1; else defaultGrid">
+          <div class="carousel-container">
+            <ion-button fill="clear" class="carousel-nav-btn" (click)="prevCard()" [disabled]="currentCardIndex === 0">
+              <ion-icon name="chevron-back-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+
+            <div class="carousel-viewport">
+              <div class="carousel-track" [style.transform]="'translateX(' + (-currentCardIndex * 100) + '%)'">
+                <article class="access-card carousel-card" *ngFor="let card of vm.accessOverview.cards">
+                  <ng-container [ngTemplateOutlet]="cardTemplate" [ngTemplateOutletContext]="{ card: card }"></ng-container>
+                </article>
+              </div>
+            </div>
+
+            <ion-button fill="clear" class="carousel-nav-btn" (click)="nextCard(vm.accessOverview.cards.length)" [disabled]="currentCardIndex >= vm.accessOverview.cards.length - 1">
+              <ion-icon name="chevron-forward-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+        </ng-container>
+
+        <ng-template #defaultGrid>
+          <div class="access-grid">
+            <article class="access-card" *ngFor="let card of vm.accessOverview.cards">
+              <ng-container [ngTemplateOutlet]="cardTemplate" [ngTemplateOutletContext]="{ card: card }"></ng-container>
+            </article>
+          </div>
+        </ng-template>
+      </ng-container>
+
+      <ng-template #emptyState>
+        <app-empty-state *ngIf="vm.accessOverview.emptyState" [icon]="vm.accessOverview.emptyState.icon"
+          [title]="vm.accessOverview.emptyState.title" [message]="vm.accessOverview.emptyState.message">
+        </app-empty-state>
+      </ng-template>
+    </section>
+
+    <app-setup-map [steps]="vm.setupSteps"></app-setup-map>
 
     <section class="dashboard-grid">
       <article class="panel">
@@ -44,17 +108,20 @@
           <div>
             <span>Absent</span>
             <strong>{{ vm.attendance.absent }}</strong>
-            <i class="danger" [style.width.%]="vm.attendance.total ? (vm.attendance.absent / vm.attendance.total) * 100 : 0"></i>
+            <i class="danger"
+              [style.width.%]="vm.attendance.total ? (vm.attendance.absent / vm.attendance.total) * 100 : 0"></i>
           </div>
           <div>
             <span>Late</span>
             <strong>{{ vm.attendance.late }}</strong>
-            <i class="warn" [style.width.%]="vm.attendance.total ? (vm.attendance.late / vm.attendance.total) * 100 : 0"></i>
+            <i class="warn"
+              [style.width.%]="vm.attendance.total ? (vm.attendance.late / vm.attendance.total) * 100 : 0"></i>
           </div>
           <div>
             <span>Leave</span>
             <strong>{{ vm.attendance.leave }}</strong>
-            <i class="blue" [style.width.%]="vm.attendance.total ? (vm.attendance.leave / vm.attendance.total) * 100 : 0"></i>
+            <i class="blue"
+              [style.width.%]="vm.attendance.total ? (vm.attendance.leave / vm.attendance.total) * 100 : 0"></i>
           </div>
         </div>
       </article>
@@ -72,7 +139,8 @@
           </div>
         </div>
         <ng-template #noCourses>
-          <app-empty-state icon="library-outline" title="No course data" message="Course analytics will appear after students are mapped."></app-empty-state>
+          <app-empty-state icon="library-outline" title="No course data"
+            message="Course analytics will appear after students are mapped."></app-empty-state>
         </ng-template>
       </article>
 
@@ -89,7 +157,8 @@
           </div>
         </div>
         <ng-template #noUsers>
-          <app-empty-state icon="people-outline" title="No user data" message="Role analytics will appear after users are created."></app-empty-state>
+          <app-empty-state icon="people-outline" title="No user data"
+            message="Role analytics will appear after users are created."></app-empty-state>
         </ng-template>
       </article>
 
@@ -108,9 +177,29 @@
           </div>
         </div>
         <ng-template #noNotifications>
-          <app-empty-state icon="notifications-off-outline" title="No notifications" message="New approvals, reports, and attendance alerts will appear here."></app-empty-state>
+          <app-empty-state icon="notifications-off-outline" title="No notifications"
+            message="New approvals, reports, and attendance alerts will appear here."></app-empty-state>
         </ng-template>
       </article>
     </section>
   </main>
+
+  <ng-template #loading>
+    <main class="page">
+      <header class="page-header" style="display: flex; gap: 20px;">
+        <div class="skeleton-card" style="width: 250px; height: 60px;"></div>
+        <div class="skeleton-card" style="width: 100px; height: 100px; border-radius: 50%;"></div>
+      </header>
+
+      <div class="skeleton-card" style="height: 120px; margin-bottom: 24px;"></div>
+
+      <section class="stats-grid">
+        <div class="skeleton-card" style="height: 100px;" *ngFor="let i of [1,2,3,4]"></div>
+      </section>
+
+      <section class="dashboard-grid" style="margin-top: 24px;">
+        <div class="skeleton-card" style="height: 300px;" *ngFor="let i of [1,2,3,4]"></div>
+      </section>
+    </main>
+  </ng-template>
 </ion-content>

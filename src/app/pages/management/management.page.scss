@@ -11,6 +11,13 @@
   justify-content: space-between;
 }
 
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .eyebrow {
   color: var(--app-primary);
   font-size: 12px;

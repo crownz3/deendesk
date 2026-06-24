@@ -9,6 +9,27 @@ ion-menu {
   border-right: 1px solid var(--app-border);
 }
 
+ion-split-pane {
+  --side-width: 286px;
+  --side-min-width: 286px;
+  --side-max-width: 286px;
+  contain: none !important;
+  overflow: visible !important;
+}
+
+/* Custom premium backdrop for overlay menu */
+ion-menu::part(backdrop) {
+  background-color: rgba(255, 255, 255, 0.4) !important;
+  opacity: 1 !important;
+}
+
+/* Prevent any Ionic default hiding of the content during menu open */
+#main-content {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
 ion-menu ion-content {
   --background: transparent;
 }
@@ -211,7 +232,7 @@ ion-toolbar {
   place-items: center;
   color: var(--app-primary);
   background: transparent;
-align-items: center;
+  align-items: center;
   gap: 14px;
   border-bottom: 1px solid var(--app-border);
   background:
@@ -338,6 +359,14 @@ ion-menu ion-content::part(scroll) {
 .app-frame {
   background: var(--app-bg);
   min-height: 100%;
+  transition: filter 0.3s cubic-bezier(0.4, 0.0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* When overlay menu is open, blur the main content */
+.menu-overlay-active {
+  filter: blur(8px) saturate(1.2);
+  transform: scale(0.995);
+  pointer-events: none; /* Disable clicks on background while open */
 }
 
 /* ===============================
@@ -448,10 +477,15 @@ ion-toolbar {
   color: var(--app-text-inverse);
   font-size: 12px;
   font-weight: 700;
+  overflow: hidden;
+  flex: 0 0 auto;
 }
 
 img.user-avatar-small {
+  width: 32px;
+  height: 100%;
   object-fit: cover;
+  display: block;
   background: transparent;
 }
 

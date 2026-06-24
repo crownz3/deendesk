@@ -32,7 +32,8 @@ export type PermissionKey =
   | 'manageSettings'
   | 'managePermissions'
   | 'manageAcademicPlans'
-  | 'managePromotions';
+  | 'managePromotions'
+  | 'managePasswordRequests';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'leave';
 
@@ -59,9 +60,11 @@ export interface AppUser extends AuditFields {
   permissions: PermissionKey[];
   status: EntityStatus;
   organizationId?: string;
+  madrasaId?: string;
   madrasaIds: string[];
   classIds: string[];
   subjectIds: string[];
+  teacherIds?: string[];
   studentIds: string[];
   linkedStudentIds: string[];
   parentId?: string;
@@ -72,6 +75,9 @@ export interface AppUser extends AuditFields {
   photoURL?: string;
   gender?: string;
   lastLoginAt?: unknown;
+  mustChangePassword?: boolean;
+  passwordChangedAt?: unknown;
+  temporaryPasswordForAdminView?: string;
 }
 
 export interface Organization extends ScopedEntity {
@@ -81,6 +87,11 @@ export interface Organization extends ScopedEntity {
   phone?: string;
   address?: string;
   adminUserIds: string[];
+  primaryOrganizerId?: string;
+  primaryOrganizerEmail?: string;
+  primaryOrganizerName?: string;
+  /** @deprecated Legacy field. Temporary passwords are now stored in AppUser.temporaryPasswordForAdminView */
+  organizerPassword?: string;
 }
 
 export interface Madrasa extends ScopedEntity {
@@ -164,15 +175,18 @@ export interface NotificationItem extends ScopedEntity {
   title: string;
   message: string;
   type:
-    | 'approval'
-    | 'passwordReset'
-    | 'attendance'
-    | 'promotion'
-    | 'hifzPlan'
-    | 'report'
-    | 'csvImport'
-    | 'profile';
+  | 'approval'
+  | 'passwordReset'
+  | 'passwordResetRequest'
+  | 'attendance'
+  | 'promotion'
+  | 'hifzPlan'
+  | 'report'
+  | 'csvImport'
+  | 'profile';
   recipientUserIds: string[];
+  recipientRole?: UserRole;
+  relatedRequestId?: string;
   readBy: string[];
   severity: 'info' | 'success' | 'warning' | 'danger';
 }
@@ -200,7 +214,8 @@ export interface CsvImportLog extends ScopedEntity {
 export interface TableColumn {
   key: string;
   label: string;
-  type?: 'text' | 'date' | 'status' | 'role' | 'list';
+  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef';
+  referenceType?: 'organization' | 'madrasa' | 'user' | 'course' | 'class' | 'subject' | 'student' | 'parent' | 'staff' | 'teacher' | 'coordinator' | 'incharge';
 }
 
 export interface SelectOption {
@@ -211,7 +226,7 @@ export interface SelectOption {
 export interface QuickAddField {
   key: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'date' | 'textarea' | 'select' | 'multiselect';
+  type: 'text' | 'email' | 'password' | 'date' | 'textarea' | 'select' | 'multiselect' | 'info';
   required?: boolean;
   options?: SelectOption[];
   quickAddResource?: string;
@@ -224,4 +239,19 @@ export interface GeneratedCredential {
   email: string;
   password: string;
   role: UserRole;
+}
+
+export interface PasswordResetRequest extends ScopedEntity {
+  requesterEmail: string;
+  normalizedEmail?: string;
+  source?: 'LOGIN_PAGE' | 'DASHBOARD';
+  requesterUid?: string | null;
+  requesterName?: string | null;
+  requesterRole?: UserRole | null;
+  assignedToUid?: string | null;
+  assignedToName?: string | null;
+  assignedToRole?: UserRole | null;
+  status: 'PENDING' | 'ASSIGNED' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+  requestMessage?: string;
+  emailType?: 'CUSTOM_INTERNAL_EMAIL' | 'REAL_EMAIL' | 'UNKNOWN';
 }

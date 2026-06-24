@@ -13,6 +13,7 @@ import { AuthService } from '../../core/services/auth.service';
 })
 export class ContinueAccountPage {
   readonly profile$: Observable<AppUser | null> = this.auth.profile$;
+  readonly authReady$: Observable<boolean> = this.auth.authReady$;
   readonly roleLabels = ROLE_LABELS;
 
   constructor(
@@ -26,7 +27,11 @@ export class ContinueAccountPage {
 
   async continue(profile: AppUser): Promise<void> {
     if (profile.status === 'active') {
-      await this.router.navigateByUrl('/dashboard');
+      if (profile.mustChangePassword) {
+        await this.router.navigateByUrl('/change-password');
+      } else {
+        await this.router.navigateByUrl('/dashboard');
+      }
     }
   }
 

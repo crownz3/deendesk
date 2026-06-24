@@ -23,86 +23,243 @@ service cloud.firestore {
     }
 
     function isActive() {
-      return superEmail() || (userExists() && currentUser().status == 'active');
+      return superEmail() || (userExists() && currentUser().get('status', null) == 'active');
     }
 
     function isSuper() {
-      return superEmail() || (isActive() && currentUser().role == 'superAdmin');
+      return superEmail() || (isActive() && currentUser().get('role', null) == 'superAdmin');
+    }
+
+    function isOrgAdmin() {
+      return isActive() && (currentUser().get('role', null) in ['organizationAdmin', 'ORGANIZATION_ADMIN']);
+    }
+
+    function isCoordinator() {
+      return isActive() && (currentUser().get('role', null) in ['coordinator', 'COORDINATOR']);
+    }
+
+    function isMadrasaIncharge() {
+      return isActive() && (currentUser().get('role', null) in ['madrasaIncharge', 'MADRASA_INCHARGE']);
+    }
+
+    function isTeacherOrStaff() {
+      return isActive() && (currentUser().get('role', null) in ['teacher', 'TEACHER', 'staff', 'STAFF']);
     }
 
     function hasPermission(permission) {
-      return isSuper() || (isActive() && permission in currentUser().permissions);
+      return isSuper() || (isActive() && permission in currentUser().get('permissions', []));
     }
 
     function sameOrg(data) {
-      return isActive()
-        && data.organizationId != null
-        && currentUser().organizationId != null
-        && data.organizationId == currentUser().organizationId;
+      return isActive() 
+        && data.get('organizationId', null) != null 
+        && currentUser().get('organizationId', null) != null 
+        && data.get('organizationId', null) == currentUser().get('organizationId', null);
     }
 
     function ownOrgDoc(orgId) {
-      return isActive() && currentUser().organizationId == orgId;
+      return isActive() && currentUser().get('organizationId', null) == orgId;
     }
 
     function assignedMadrasa(data) {
-      return isActive()
-        && data.madrasaId != null
-        && currentUser().madrasaIds != null
-        && data.madrasaId in currentUser().madrasaIds;
+      return isActive() 
+        && data.get('madrasaId', null) != null 
+        && (
+          data.get('madrasaId', null) in currentUser().get('madrasaIds', [])
+          || (currentUser().get('madrasaId', null) != null && currentUser().get('madrasaId', null) == data.get('madrasaId', null))
+        );
+    }
+
+    function assignedMadrasaArray(data) {
+      return isActive() 
+        && data.get('madrasaIds', []) != [] 
+        && (
+          data.get('madrasaIds', []).hasAny(currentUser().get('madrasaIds', []))
+          || (currentUser().get('madrasaId', null) != null && currentUser().get('madrasaId', null) in data.get('madrasaIds', []))
+        );
     }
 
     function assignedClass(data) {
+      return isActive() 
+        && data.get('classId', null) != null 
+        && data.get('classId', null) in currentUser().get('classIds', []);
+    }
+
+    function assignedClassArray(data) {
       return isActive()
-        && data.classId != null
-        && currentUser().classIds != null
-        && data.classId in currentUser().classIds;
+        && data.get('classIds', []) != []
+        && data.get('classIds', []).hasAny(currentUser().get('classIds', []));
+    }
+
+    function assignedSubject(data) {
+      return isActive() 
+        && data.get('subjectId', null) != null 
+        && data.get('subjectId', null) in currentUser().get('subjectIds', []);
+    }
+
+    function assignedSubjectArray(data) {
+      return isActive()
+        && data.get('subjectIds', []) != []
+        && data.get('subjectIds', []).hasAny(currentUser().get('subjectIds', []));
+    }
+
+    function isAssignedTeacher(data) {
+      return isActive() 
+        && request.auth.uid in data.get('teacherIds', []);
+    }
+
+    function isGlobalOrgAcademicData(data) {
+      return sameOrg(data) && (data.get('madrasaId', null) == null || data.get('madrasaId', null) == '');
     }
 
     function ownUserData(data) {
-      return signedIn() && (data.uid == request.auth.uid || data.userId == request.auth.uid);
+      return signedIn() && (data.get('uid', null) == request.auth.uid || data.get('userId', null) == request.auth.uid);
     }
 
     function linkedStudent(data) {
-      return isActive()
-        && currentUser().linkedStudentIds != null
-        && data.studentId != null
-        && data.studentId in currentUser().linkedStudentIds;
+      return isActive() 
+        && data.get('studentId', null) != null 
+        && data.get('studentId', null) in currentUser().get('linkedStudentIds', []);
     }
 
-    function scopedRead(data) {
-      return isSuper()
-        || sameOrg(data)
-        || assignedMadrasa(data)
-        || assignedClass(data)
-        || ownUserData(data)
-        || linkedStudent(data);
+    function canReadModule(data, docId, permission) {
+      return hasPermission(permission) && (
+        isSuper() ||
+        (isOrgAdmin() && sameOrg(data)) ||
+        (isCoordinator() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data) || isGlobalOrgAcademicData(data))) ||
+        (isMadrasaIncharge() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data) || isGlobalOrgAcademicData(data))) ||
+        (isTeacherOrStaff() && sameOrg(data))
+      );
     }
 
-    function canWriteScoped(data, permission) {
-      return hasPermission(permission) && (isSuper() || sameOrg(data) || assignedMadrasa(data) || assignedClass(data));
+    function canWriteModule(data, docId, permission) {
+      return hasPermission(permission) && (
+        isSuper() ||
+        (isOrgAdmin() && sameOrg(data)) ||
+        (isCoordinator() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data))) ||
+        (isMadrasaIncharge() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data))) ||
+        (isTeacherOrStaff() && sameOrg(data))
+      );
+    }
+
+    function canReadStaff(data) {
+      return isSuper() ||
+             (isOrgAdmin() && sameOrg(data)) ||
+             (isCoordinator() && sameOrg(data) && (hasPermission('manageStaff') || hasPermission('viewDashboard')) && (assignedMadrasa(data) || assignedMadrasaArray(data))) ||
+             (isMadrasaIncharge() && sameOrg(data) && (hasPermission('manageStaff') || hasPermission('viewDashboard')) && (assignedMadrasa(data) || assignedMadrasaArray(data)));
+    }
+
+    function isLowerThanOrgAdmin(role) {
+      return role in ['coordinator', 'madrasaIncharge', 'teacher', 'staff', 'student', 'parent', 'COORDINATOR', 'MADRASA_INCHARGE', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'];
+    }
+
+    function hasRolePermission(role) {
+       return hasPermission('manageUsers') ||
+              (role in ['coordinator', 'COORDINATOR'] && hasPermission('manageCoordinators')) ||
+              (role in ['madrasaIncharge', 'MADRASA_INCHARGE'] && hasPermission('manageIncharges')) ||
+              (role in ['teacher', 'TEACHER', 'staff', 'STAFF'] && hasPermission('manageStaff')) ||
+              (role in ['student', 'STUDENT'] && hasPermission('manageStudents')) ||
+              (role in ['parent', 'PARENT'] && hasPermission('manageParents'));
+    }
+
+    function canReadUserByScope(data) {
+      let role = data.get('role', null);
+      return isSuper() ||
+             ownUserData(data) ||
+             (isOrgAdmin() && sameOrg(data)) ||
+             (
+               isCoordinator() && 
+               sameOrg(data) && 
+               (assignedMadrasa(data) || assignedMadrasaArray(data)) &&
+               role in ['coordinator', 'madrasaIncharge', 'teacher', 'staff', 'student', 'parent', 'COORDINATOR', 'MADRASA_INCHARGE', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT']
+             ) ||
+             (
+               isMadrasaIncharge() &&
+               sameOrg(data) &&
+               (assignedMadrasa(data) || assignedMadrasaArray(data)) &&
+               role in ['teacher', 'staff', 'student', 'parent', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT']
+             ) ||
+             (
+               isTeacherOrStaff() && 
+               sameOrg(data) && 
+               (
+                 data.get('classId', '') in currentUser().get('classIds', []) || 
+                 data.get('classIds', []).hasAny(currentUser().get('classIds', [])) || 
+                 data.get('subjectId', '') in currentUser().get('subjectIds', []) || 
+                 data.get('subjectIds', []).hasAny(currentUser().get('subjectIds', [])) ||
+                 isAssignedTeacher(data)
+               ) && 
+               role in ['student', 'STUDENT']
+             );
+    }
+
+    function canUpdateUserByScope(oldData, newData) {
+      let oldRole = oldData.get('role', null);
+      let newRole = newData.get('role', null);
+      return isSuper() ||
+             (ownUserData(oldData) && newData.diff(oldData).affectedKeys().hasOnly(['displayName', 'phone', 'photoURL', 'updatedAt', 'updatedBy', 'lastLoginAt', 'email', 'temporaryPasswordForAdminView', 'mustChangePassword', 'passwordChangedAt'])) ||
+             (isOrgAdmin() && sameOrg(oldData) && isLowerThanOrgAdmin(oldRole) && hasPermission('manageUsers')) ||
+             (
+               isCoordinator() && 
+               sameOrg(oldData) && 
+               (assignedMadrasa(oldData) || assignedMadrasaArray(oldData)) &&
+               !(oldRole in ['superAdmin', 'SUPER_ADMIN', 'organizationAdmin', 'ORGANIZATION_ADMIN']) &&
+               oldRole == newRole &&
+               oldData.get('organizationId', null) == newData.get('organizationId', null) &&
+               hasRolePermission(oldRole)
+             ) ||
+             (
+               isMadrasaIncharge() &&
+               sameOrg(oldData) &&
+               (assignedMadrasa(oldData) || assignedMadrasaArray(oldData)) &&
+               !(oldRole in ['superAdmin', 'SUPER_ADMIN', 'organizationAdmin', 'ORGANIZATION_ADMIN', 'coordinator', 'COORDINATOR', 'madrasaIncharge', 'MADRASA_INCHARGE']) &&
+               oldRole == newRole &&
+               oldData.get('organizationId', null) == newData.get('organizationId', null) &&
+               hasRolePermission(oldRole)
+             );
+    }
+
+    function canDeleteUserByScope(data) {
+      let role = data.get('role', null);
+      return isSuper() ||
+             (isOrgAdmin() && sameOrg(data) && isLowerThanOrgAdmin(role) && hasPermission('manageUsers')) ||
+             (
+               isCoordinator() && 
+               sameOrg(data) && 
+               (assignedMadrasa(data) || assignedMadrasaArray(data)) && 
+               !(role in ['superAdmin', 'SUPER_ADMIN', 'organizationAdmin', 'ORGANIZATION_ADMIN']) && 
+               hasRolePermission(role)
+             ) ||
+             (
+               isMadrasaIncharge() && 
+               sameOrg(data) && 
+               (assignedMadrasa(data) || assignedMadrasaArray(data)) && 
+               !(role in ['superAdmin', 'SUPER_ADMIN', 'organizationAdmin', 'ORGANIZATION_ADMIN', 'coordinator', 'COORDINATOR', 'madrasaIncharge', 'MADRASA_INCHARGE']) &&
+               hasRolePermission(role)
+             );
     }
 
     match /users/{uid} {
-      allow get: if signedIn() && (isSuper() || uid == request.auth.uid || sameOrg(resource.data) || assignedMadrasa(resource.data));
-      allow list: if isActive();
+      allow get: if signedIn() && (uid == request.auth.uid || canReadUserByScope(resource.data));
+      allow list: if signedIn() && canReadUserByScope(resource.data);
       allow create: if signedIn() && (
-        isSuper()
-        || (superEmail() && uid == request.auth.uid)
-        || (uid == request.auth.uid && request.resource.data.role == 'student' && request.resource.data.status == 'pending')
-        || (hasPermission('manageUsers') && request.resource.data.role != 'superAdmin' && sameOrg(request.resource.data))
-        || (hasPermission('manageCoordinators') && request.resource.data.role == 'coordinator' && sameOrg(request.resource.data))
-        || (hasPermission('manageIncharges') && request.resource.data.role == 'madrasaIncharge' && sameOrg(request.resource.data))
-        || (hasPermission('manageStaff') && request.resource.data.role == 'teacher' && sameOrg(request.resource.data))
-        || (hasPermission('manageStudents') && request.resource.data.role == 'student' && sameOrg(request.resource.data))
-        || (hasPermission('manageParents') && request.resource.data.role == 'parent' && sameOrg(request.resource.data))
+        isSuper() ||
+        (superEmail() && uid == request.auth.uid) ||
+        (uid == request.auth.uid && request.resource.data.get('role', null) in ['student', 'STUDENT'] && request.resource.data.get('status', null) == 'pending') ||
+        (
+          sameOrg(request.resource.data) &&
+          (
+             (hasPermission('manageUsers') && !(request.resource.data.get('role', null) in ['superAdmin', 'SUPER_ADMIN'])) ||
+             (hasPermission('manageCoordinators') && request.resource.data.get('role', null) in ['coordinator', 'COORDINATOR']) ||
+             (hasPermission('manageIncharges') && request.resource.data.get('role', null) in ['madrasaIncharge', 'MADRASA_INCHARGE']) ||
+             (hasPermission('manageStaff') && request.resource.data.get('role', null) in ['teacher', 'staff', 'TEACHER', 'STAFF']) ||
+             (hasPermission('manageStudents') && request.resource.data.get('role', null) in ['student', 'STUDENT']) ||
+             (hasPermission('manageParents') && request.resource.data.get('role', null) in ['parent', 'PARENT'])
+          )
+        )
       );
-      allow update: if signedIn() && (
-        isSuper()
-        || (uid == request.auth.uid && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'phone', 'photoURL', 'updatedAt', 'updatedBy', 'lastLoginAt', 'email']))
-        || (hasPermission('manageUsers') && sameOrg(request.resource.data))
-      );
-      allow delete: if isSuper();
+      allow update: if signedIn() && canUpdateUserByScope(resource.data, request.resource.data);
+      allow delete: if signedIn() && request.auth.uid != uid && canDeleteUserByScope(resource.data);
     }
 
     match /organizations/{orgId} {
@@ -113,79 +270,82 @@ service cloud.firestore {
     }
 
     match /madrasas/{id} {
-      allow read: if scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageMadrasas');
-      allow delete: if canWriteScoped(resource.data, 'manageMadrasas');
+      allow read: if isSuper() 
+                  || (isOrgAdmin() && sameOrg(resource.data)) 
+                  || ((isCoordinator() || isMadrasaIncharge()) && sameOrg(resource.data) && id in currentUser().get('madrasaIds', []));
+      allow create: if hasPermission('manageMadrasas') && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin());
+      allow update: if hasPermission('manageMadrasas') && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge()) && id in currentUser().get('madrasaIds', [])));
+      allow delete: if hasPermission('manageMadrasas') && sameOrg(resource.data) && (isSuper() || isOrgAdmin());
     }
 
     match /courses/{id} {
-      allow read: if scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageCourses');
-      allow delete: if canWriteScoped(resource.data, 'manageCourses');
+      allow read: if canReadModule(resource.data, id, 'manageCourses') || canReadModule(resource.data, id, 'viewDashboard');
+      allow create: if canWriteModule(request.resource.data, id, 'manageCourses');
+      allow update, delete: if canWriteModule(resource.data, id, 'manageCourses');
     }
 
     match /classes/{id} {
-      allow read: if scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageClasses');
-      allow delete: if canWriteScoped(resource.data, 'manageClasses');
+      allow read: if canReadModule(resource.data, id, 'manageClasses') || canReadModule(resource.data, id, 'viewDashboard');
+      allow create: if canWriteModule(request.resource.data, id, 'manageClasses');
+      allow update, delete: if canWriteModule(resource.data, id, 'manageClasses');
     }
 
     match /subjects/{id} {
-      allow read: if scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageSubjects');
-      allow delete: if canWriteScoped(resource.data, 'manageSubjects');
+      allow read: if canReadModule(resource.data, id, 'manageSubjects') || canReadModule(resource.data, id, 'viewDashboard');
+      allow create: if canWriteModule(request.resource.data, id, 'manageSubjects');
+      allow update, delete: if canWriteModule(resource.data, id, 'manageSubjects');
     }
 
     match /staff/{id} {
-      allow read: if scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageStaff');
-      allow delete: if canWriteScoped(resource.data, 'manageStaff');
+      allow read: if canReadStaff(resource.data);
+      allow create: if canWriteModule(request.resource.data, id, 'manageStaff');
+      allow update, delete: if canWriteModule(resource.data, id, 'manageStaff');
     }
 
     match /students/{id} {
-      allow read: if scopedRead(resource.data) || (isActive() && id in currentUser().linkedStudentIds);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageStudents');
-      allow delete: if canWriteScoped(resource.data, 'manageStudents');
+      allow read: if canReadModule(resource.data, id, 'manageStudents') || canReadModule(resource.data, id, 'viewDashboard') || (isActive() && id in currentUser().get('linkedStudentIds', []));
+      allow create: if canWriteModule(request.resource.data, id, 'manageStudents');
+      allow update, delete: if canWriteModule(resource.data, id, 'manageStudents');
     }
 
     match /parents/{id} {
-      allow read: if scopedRead(resource.data) || ownUserData(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageParents');
-      allow delete: if canWriteScoped(resource.data, 'manageParents');
+      allow read: if canReadModule(resource.data, id, 'manageParents') || canReadModule(resource.data, id, 'viewDashboard') || ownUserData(resource.data);
+      allow create: if canWriteModule(request.resource.data, id, 'manageParents');
+      allow update, delete: if canWriteModule(resource.data, id, 'manageParents');
     }
 
     match /attendance/{id} {
-      allow read: if hasPermission('viewAttendance') && scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'takeAttendance');
-      allow delete: if isSuper() || canWriteScoped(resource.data, 'takeAttendance');
+      allow read: if canReadModule(resource.data, id, 'viewAttendance') || canReadModule(resource.data, id, 'viewDashboard');
+      allow create: if canWriteModule(request.resource.data, id, 'takeAttendance');
+      allow update, delete: if canWriteModule(resource.data, id, 'takeAttendance');
     }
 
     match /promotionHistory/{id} {
-      allow read: if hasPermission('generateReports') && scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'managePromotions');
-      allow delete: if canWriteScoped(resource.data, 'managePromotions');
+      allow read: if canReadModule(resource.data, id, 'generateReports');
+      allow create: if canWriteModule(request.resource.data, id, 'managePromotions');
+      allow update, delete: if canWriteModule(resource.data, id, 'managePromotions');
     }
 
     match /academicPlans/{id} {
-      allow read: if scopedRead(resource.data);
-      allow create, update: if canWriteScoped(request.resource.data, 'manageAcademicPlans');
-      allow delete: if canWriteScoped(resource.data, 'manageAcademicPlans');
+      allow read: if canReadModule(resource.data, id, 'manageAcademicPlans') || canReadModule(resource.data, id, 'viewDashboard');
+      allow create: if canWriteModule(request.resource.data, id, 'manageAcademicPlans');
+      allow update, delete: if canWriteModule(resource.data, id, 'manageAcademicPlans');
     }
 
     match /notifications/{id} {
       allow read: if isSuper()
-        || (isActive() && request.auth.uid in resource.data.recipientUserIds)
-        || scopedRead(resource.data);
-      allow create: if hasPermission('manageNotifications') && scopedRead(request.resource.data);
+        || (isActive() && request.auth.uid in resource.data.get('recipientUserIds', []))
+        || canReadModule(resource.data, id, 'manageNotifications');
+      allow create: if canWriteModule(request.resource.data, id, 'manageNotifications');
       allow update: if isSuper()
-        || (isActive() && request.auth.uid in resource.data.recipientUserIds && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'updatedAt', 'updatedBy']))
-        || (hasPermission('manageNotifications') && scopedRead(request.resource.data));
-      allow delete: if isSuper() || (hasPermission('manageNotifications') && scopedRead(resource.data));
+        || (isActive() && request.auth.uid in resource.data.get('recipientUserIds', []) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['readBy', 'updatedAt', 'updatedBy']))
+        || canWriteModule(request.resource.data, id, 'manageNotifications');
+      allow delete: if isSuper() || canWriteModule(resource.data, id, 'manageNotifications');
     }
 
     match /csvImports/{id} {
-      allow read: if hasPermission('importCsv') && scopedRead(resource.data);
-      allow create: if canWriteScoped(request.resource.data, 'importCsv');
+      allow read: if canReadModule(resource.data, id, 'importCsv');
+      allow create: if canWriteModule(request.resource.data, id, 'importCsv');
       allow update, delete: if isSuper();
     }
 
@@ -205,9 +365,16 @@ service cloud.firestore {
     }
 
     match /reports/{id} {
-      allow read: if hasPermission('generateReports') && scopedRead(resource.data);
-      allow create: if canWriteScoped(request.resource.data, 'generateReports');
+      allow read: if canReadModule(resource.data, id, 'generateReports');
+      allow create: if canWriteModule(request.resource.data, id, 'generateReports');
       allow update, delete: if isSuper();
+    }
+
+    match /passwordResetRequests/{id} {
+      allow create: if !signedIn() || signedIn();
+      allow read: if isSuper() || (isActive() && (resource.data.get('assignedToUid', null) == request.auth.uid || resource.data.get('organizationId', null) == currentUser().get('organizationId', null)));
+      allow update: if isSuper() || (isActive() && (resource.data.get('assignedToUid', null) == request.auth.uid || resource.data.get('organizationId', null) == currentUser().get('organizationId', null)));
+      allow delete: if isSuper();
     }
 
     match /{document=**} {

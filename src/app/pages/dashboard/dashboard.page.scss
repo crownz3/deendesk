@@ -87,6 +87,174 @@ h2 {
   margin: 0;
 }
 
+.access-overview {
+  margin-bottom: 28px;
+}
+
+.section-header {
+  margin-bottom: 16px;
+}
+
+.section-header h2 {
+  font-size: 14px;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.access-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
+.access-card {
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.access-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--app-shadow-md);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface-soft);
+}
+
+.icon-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 24px;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+}
+
+.icon-box.primary { color: var(--app-primary); border-color: var(--app-primary); }
+.icon-box.success { color: var(--app-success); border-color: var(--app-success); }
+.icon-box.warning { color: var(--app-warning); border-color: var(--app-warning); }
+.icon-box.danger { color: var(--app-danger); border-color: var(--app-danger); }
+
+.title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title-box h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--app-text-main);
+}
+
+.title-box p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--app-text-muted);
+}
+
+.card-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  gap: 16px;
+  padding: 20px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-item span {
+  font-size: 12px;
+  color: var(--app-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.stat-item strong {
+  font-size: 22px;
+  color: var(--app-text-main);
+  font-weight: 800;
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 20px;
+  background: var(--app-surface-soft);
+  border-top: 1px solid var(--app-border);
+}
+
+.card-actions ion-button {
+  --color: var(--app-text-main);
+  --background-hover: var(--app-surface);
+  margin: 0;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.carousel-container {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.carousel-viewport {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  padding: 8px;
+  margin: -8px;
+}
+
+.carousel-track {
+  display: flex;
+  width: 100%;
+  transition: transform 300ms ease-in-out;
+}
+
+.carousel-card {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+
+.carousel-nav-btn {
+  --color: var(--app-primary);
+  margin: 0;
+  height: 48px;
+  width: 48px;
+  border-radius: 50%;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  box-shadow: var(--app-shadow-sm);
+}
+
+.carousel-nav-btn[disabled] {
+  opacity: 0.5;
+}
+
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));

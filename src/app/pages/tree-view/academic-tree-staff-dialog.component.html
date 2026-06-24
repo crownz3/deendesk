@@ -1,0 +1,72 @@
+<div class="staff-dialog">
+  <div class="dialog-header">
+    <div class="dialog-title-section">
+      <h2 mat-dialog-title>Assigned Staff</h2>
+      <p class="dialog-subtitle">{{ data.nodeTitle }}</p>
+    </div>
+    
+    <div class="dialog-summary-cards">
+      <div class="summary-card">
+        <span class="label">Type</span>
+        <span class="value">{{ data.nodeType | titlecase }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Total Staff</span>
+        <span class="value">{{ data.staff.length || 0 }}</span>
+      </div>
+    </div>
+  </div>
+
+  <mat-dialog-content>
+    <div class="staff-toolbar">
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input type="text" placeholder="Search staff by name, email, role, or designation" [(ngModel)]="searchQuery" (input)="onSearch()" />
+      </div>
+    </div>
+
+    <div class="staff-list" *ngIf="filteredStaff.length > 0; else emptyState">
+      <div class="staff-card" *ngFor="let staff of filteredStaff">
+        <div class="staff-main">
+          <div class="staff-avatar">
+            {{ (staff.name || staff.displayName || '?').charAt(0).toUpperCase() }}
+          </div>
+          <div class="staff-info">
+            <h3>{{ staff.name || staff.displayName || 'N/A' }}</h3>
+            <p>{{ staff.email || 'No email' }}</p>
+            <span class="role-badge" [ngClass]="staff.role === 'teacher' ? 'role-teacher' : 'role-staff'">
+              {{ staff.role | titlecase }}
+            </span>
+          </div>
+        </div>
+
+        <div class="staff-meta">
+          <div class="meta-group">
+            <span class="meta-label">Designation / Phone</span>
+            <span class="meta-value">{{ staff.designation || staff.jobTitle || 'N/A' }}</span>
+            <span class="meta-subvalue">{{ staff.phone || staff.phoneNumber || 'N/A' }}</span>
+          </div>
+          
+          <div class="meta-group">
+            <span class="meta-label">Status</span>
+            <span class="status-badge" [ngClass]="staff.status === 'active' ? 'status-active' : 'status-inactive'">
+              {{ staff.status || 'Active' | titlecase }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #emptyState>
+      <div class="empty-state">
+        <ion-icon name="people-outline"></ion-icon>
+        <h3>No staff assigned</h3>
+        <p>Staff or teachers assigned to this academic item will appear here.</p>
+      </div>
+    </ng-template>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="dialog-footer" align="end">
+    <button mat-stroked-button mat-dialog-close>Close</button>
+  </mat-dialog-actions>
+</div>

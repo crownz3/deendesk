@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom } from 'rxjs';
 import { ALL_PERMISSIONS, PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER, ROLE_PERMISSIONS } from '../../core/constants/defaults';
 import { PermissionKey, UserRole } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { RepositoryService } from '../../core/services/repository.service';
+import { LoaderService } from '../../core/services/loader.service';
 
 @Component({
   selector: 'app-permissions',
@@ -12,8 +13,9 @@ import { RepositoryService } from '../../core/services/repository.service';
   styleUrls: ['./permissions.page.scss'],
   standalone: false,
 })
-export class PermissionsPage {
-  readonly roles = ROLE_ORDER;
+export class PermissionsPage implements OnInit {
+  roles: UserRole[] = [];
+  currentUserRole?: UserRole;
   readonly permissions = ALL_PERMISSIONS;
   readonly roleLabels = ROLE_LABELS;
   readonly permissionLabels = PERMISSION_LABELS;
@@ -31,14 +33,22 @@ export class PermissionsPage {
     private readonly auth: AuthService,
     private readonly repo: RepositoryService,
     private readonly snackBar: MatSnackBar,
+    private readonly loader: LoaderService,
   ) {}
+
+  ngOnInit() {
+    this.auth.profile$.subscribe(profile => {
+      this.currentUserRole = profile?.role;
+      this.roles = ROLE_ORDER.filter(role => profile?.role === 'superAdmin' || role !== 'superAdmin');
+    });
+  }
 
   checked(role: UserRole, permission: PermissionKey): boolean {
     return this.selected[role].includes(permission);
   }
 
   toggle(role: UserRole, permission: PermissionKey, checked: boolean): void {
-    if (role === 'superAdmin') {
+    if (role === 'superAdmin' || role === this.currentUserRole) {
       return;
     }
 
@@ -49,11 +59,17 @@ export class PermissionsPage {
 
   async save(role: UserRole): Promise<void> {
     const profile = await firstValueFrom(this.auth.profile$);
-    await this.repo.create('permissionTemplates', {
-      role,
-      permissions: this.selected[role],
-      status: 'active',
-    }, profile, role);
-    this.snackBar.open(`${ROLE_LABELS[role]} permissions saved.`, 'Close', { duration: 3000 });
+    try {
+      await this.loader.withLoader('Updating permissions...', async () => {
+        await this.repo.create('permissionTemplates', {
+          role,
+          permissions: this.selected[role],
+          status: 'active',
+        }, profile, role);
+      });
+      this.snackBar.open(`${ROLE_LABELS[role]} permissions saved.`, 'Close', { duration: 3000 });
+    } catch (e) {
+      this.snackBar.open('Unable to save permissions. Please try again.', 'Close', { duration: 4000 });
+    }
   }
 }

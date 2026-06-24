@@ -1,30 +1,71 @@
+.table-wrapper,
 .table-wrap {
+  width: 100%;
+  overflow-x: auto;
   background: var(--app-surface);
   border: 1px solid #dde8e3;
   border-radius: 8px;
-  overflow: auto;
 }
 
+.organization-table,
 .data-table {
-  min-width: 760px;
+  min-width: 1400px;
   width: 100%;
 }
 
-th {
-  color: #5d6f6a;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
-  text-transform: uppercase;
+.organization-table th,
+.organization-table td,
+.data-table th,
+.data-table td,
+.mat-mdc-header-cell,
+.mat-mdc-cell {
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
-td {
-  color: #203b36;
+.organization-table th,
+.data-table th,
+.mat-mdc-header-cell {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--app-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+}
+
+.organization-table td,
+.data-table td,
+.mat-mdc-cell {
   font-size: 14px;
+  color: var(--app-text-main);
+}
+
+.email-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 240px;
+  margin: 0 auto;
+}
+
+.email-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inline-copy-btn {
+  flex-shrink: 0;
+}
+
+.inline-copy-btn ion-icon {
+  margin-right: 0;
 }
 
 .actions-cell {
-  text-align: right;
+  text-align: center !important;
   width: 56px;
 }
 
@@ -39,4 +80,72 @@ ion-icon {
 
 .danger-item {
   color: #9b2842;
+}
+
+.muted-text {
+  color: var(--app-text-muted, #757575);
+  font-size: 13px;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.password-cell {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.password-cell code {
+  background: var(--app-surface-soft);
+  border: 1px solid var(--app-border);
+  color: var(--app-text-main);
+  padding: 6px 10px;
+  border-radius: var(--app-radius-sm, 6px);
+  font-family: var(--app-font-family);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-chip.success {
+  background: var(--app-secondary-soft, #e6f4ea);
+  color: var(--app-secondary, #137333);
+}
+
+.status-chip.warning {
+  background: var(--app-warning-soft, #fef7e0);
+  color: #a15c00;
+}
+
+.status-chip.danger {
+  background: var(--app-danger-soft, #fce8e6);
+  color: var(--app-danger, #c5221f);
+}
+
+.status-chip.muted {
+  background: var(--app-surface-soft, #f1f3f4);
+  color: var(--app-text-muted, #5f6368);
+}
+
+.avatar-image {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+}
+
+.date-cell {
+  font-size: 13px;
+  color: var(--app-text-muted);
 }

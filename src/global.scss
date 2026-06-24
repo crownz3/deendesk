@@ -406,3 +406,91 @@ ion-content::part(scroll)::-webkit-scrollbar-thumb {
   border-radius: 999px;
   border: 2px solid var(--app-scrollbar-track);
 }
+
+/* Skeleton Loaders */
+.skeleton-card {
+  height: 88px;
+  border-radius: var(--app-radius-lg);
+  background: linear-gradient(
+    90deg,
+    var(--app-surface-soft, #f8f9fa) 0%,
+    var(--app-surface, #ffffff) 45%,
+    var(--app-surface-soft, #f8f9fa) 100%
+  );
+  background-size: 220% 100%;
+  animation: skeletonShimmer 1.2s ease-in-out infinite;
+  border: 1px solid var(--app-border, #e0e0e0);
+}
+
+@keyframes skeletonShimmer {
+  0% {
+    background-position: 120% 0;
+  }
+  100% {
+    background-position: -120% 0;
+  }
+}
+
+/* Fix Browser Autofill Ugly Grey/Blue Styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  -webkit-text-fill-color: var(--app-text-main) !important;
+  box-shadow: 0 0 0 1000px var(--app-surface) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--app-surface) inset !important;
+  caret-color: var(--app-text-main);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+::selection {
+  background: rgba(26, 115, 232, 0.18);
+  color: var(--app-text-main);
+}
+
+/* App Settings Full Dialog Panel */
+.app-settings-dialog-panel {
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface {
+    padding: 0 !important;
+    border-radius: var(--app-radius-lg, 16px) !important;
+    overflow: hidden !important;
+  }
+  .mat-mdc-dialog-container {
+    padding: 0 !important;
+  }
+}
+
+/* Temporary Password Dialog Specific Styles */
+.temporary-password-dialog {
+  .mat-mdc-dialog-content {
+    overflow-x: hidden !important;
+  }
+  mat-form-field,
+  .mat-mdc-form-field {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+  form {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .warning-alert {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+/* Academic Tree Students, Staff & Assign Dialogs */
+.academic-tree-students-dialog-panel,
+.academic-tree-staff-dialog-panel,
+.academic-tree-assign-dialog-panel {
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface,
+  .mat-mdc-dialog-container {
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+  }
+}

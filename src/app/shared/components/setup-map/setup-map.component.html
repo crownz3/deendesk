@@ -1,0 +1,62 @@
+<div class="setup-map-container" *ngIf="steps.length > 0">
+  <div class="map-header">
+    <div class="header-content" *ngIf="isVisible">
+      <h2>Your DeenDesk Setup Journey</h2>
+      <p>Use this optional guide to build your madrasa management structure step by step.</p>
+    </div>
+    <div class="header-content compact" *ngIf="!isVisible">
+      <div class="compact-info">
+        <ion-icon name="map-outline"></ion-icon>
+        <span>Setup Journey</span>
+      </div>
+      <span class="progress-text" *ngIf="totalCount > 0">
+        {{ completedCount }} of {{ totalCount }} suggested steps explored
+      </span>
+    </div>
+    <button mat-button class="toggle-btn" (click)="toggleVisibility()">
+      <ion-icon [name]="isVisible ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+      <span>{{ isVisible ? 'Hide Map' : 'Show Setup Map' }}</span>
+    </button>
+  </div>
+
+  <div class="map-body" *ngIf="isVisible">
+    <div class="progress-summary">
+      <div class="progress-bar">
+        <div class="progress-fill" [style.width.%]="totalCount ? (completedCount / totalCount) * 100 : 0"></div>
+      </div>
+      <span class="progress-text">
+        {{ completedCount }} of {{ totalCount }} suggested steps explored
+      </span>
+    </div>
+
+    <div class="success-state" *ngIf="isAllCompleted">
+      <div class="icon-circle">
+        <ion-icon name="trophy-outline"></ion-icon>
+      </div>
+      <h3>Great work! Your madrasa workspace setup is complete.</h3>
+      <p>You can still revisit these sections anytime.</p>
+    </div>
+
+    <div class="journey-roadmap">
+      <div class="roadmap-line"></div>
+      
+      <div class="step-card" *ngFor="let step of steps; let i = index" [class.completed]="step.completed" [class.active]="i === firstIncompleteIndex">
+        <div class="step-connector">
+          <div class="step-node">
+            <ion-icon [name]="step.completed ? 'checkmark-outline' : step.icon"></ion-icon>
+          </div>
+        </div>
+        <div class="step-content">
+          <div class="step-header">
+            <h3>{{ step.title }}</h3>
+            <span class="status-badge" [ngClass]="step.statusLabel.toLowerCase()">{{ step.statusLabel }}</span>
+          </div>
+          <p>{{ step.description }}</p>
+          <button mat-stroked-button class="step-action-btn" (click)="navigateTo(step.route)">
+            {{ step.actionLabel }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -3,9 +3,10 @@
 
     <!-- Loading State -->
     <ng-container *ngIf="state.loading">
-      <div class="loading-state">
-        <mat-spinner diameter="48"></mat-spinner>
-        <p>Loading reports...</p>
+      <div class="loading-state skeleton-container">
+        <div class="skeleton-card" style="margin-bottom: 16px;"></div>
+        <div class="skeleton-card" style="margin-bottom: 16px;"></div>
+        <div class="skeleton-card"></div>
       </div>
     </ng-container>
 

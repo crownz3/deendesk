@@ -8,8 +8,12 @@ import {
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
+  updatePassword,
 } from 'firebase/auth';
 import {
+  deleteField,
   doc,
   getFirestore,
   getDoc,
@@ -19,7 +23,7 @@ import {
   onSnapshot,
 } from 'firebase/firestore';
 import { Router } from '@angular/router';
-import { BehaviorSubject, Observable, from, map, shareReplay, switchMap, of } from 'rxjs';
+import { BehaviorSubject, Observable, from, map, shareReplay, switchMap, of, combineLatest, catchError, startWith, timeout } from 'rxjs';
 import { ALL_PERMISSIONS, ROLE_LABELS, SUPER_ADMIN_EMAIL, permissionsForRole } from '../constants/defaults';
 import { AppUser, PermissionKey, UserRole } from '../models/domain.model';
 import { getDeenDeskFirebaseApp } from './firebase-app';
@@ -35,12 +39,14 @@ export class AuthService {
     const unsubscribe = onAuthStateChanged(this.auth, (user) => subscriber.next(user), (error) => subscriber.error(error));
     return unsubscribe;
   }).pipe(shareReplay({ bufferSize: 1, refCount: true }));
+
   readonly profile$: Observable<AppUser | null> = this.authUser$.pipe(
     switchMap((user) => {
       if (!user) {
         return of(null);
       }
       return from(this.resolveProfile(user)).pipe(
+        timeout(10000),
         switchMap((resolvedProfile) => {
           if (!resolvedProfile) {
             return of(null);
@@ -61,7 +67,16 @@ export class AuthService {
               }
             }, (error) => subscriber.error(error));
             return unsubscribe;
-          });
+          }).pipe(
+            catchError(error => {
+              console.error('[Auth] profile$ snapshot failed:', error);
+              return of(null);
+            })
+          );
+        }),
+        catchError(error => {
+          console.error('[Auth] profile$ failed:', error);
+          return of(null);
         })
       );
     }),
@@ -71,14 +86,20 @@ export class AuthService {
     }),
     shareReplay({ bufferSize: 1, refCount: true }),
   );
+
+  readonly authReady$: Observable<boolean> = combineLatest([this.authUser$, this.profile$]).pipe(
+    map(() => true),
+    catchError(() => of(true)),
+    startWith(false)
+  );
   readonly loadingProfile$ = this.loadingProfileSubject.asObservable();
 
   constructor(
     private readonly router: Router,
-  ) {}
+  ) { }
 
   async loginWithEmail(email: string, password: string): Promise<void> {
-    await signInWithEmailAndPassword(this.auth, email.trim(), password);
+    await signInWithEmailAndPassword(this.auth, email.trim().toLowerCase(), password);
   }
 
   async loginWithGoogle(): Promise<void> {
@@ -95,6 +116,34 @@ export class AuthService {
 
   async sendReset(email: string): Promise<void> {
     await sendPasswordResetEmail(this.auth, email.trim());
+  }
+
+  async changeTemporaryPassword(currentPassword: string, newPassword: string): Promise<void> {
+    const user = this.auth.currentUser;
+    if (!user || !user.email) {
+      throw new Error('Not logged in');
+    }
+
+    const credential = EmailAuthProvider.credential(user.email, currentPassword.trim());
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPassword.trim());
+
+    const userRef = doc(this.firestore, `users/${user.uid}`);
+    await updateDoc(userRef, {
+      mustChangePassword: false,
+      temporaryPasswordForAdminView: deleteField(),
+      passwordChangedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+
+    const userSnap = await getDoc(userRef);
+    if (userSnap.exists()) {
+      const data = userSnap.data();
+      if (data['organizationId']) {
+        const orgRef = doc(this.firestore, `organizations/${data['organizationId']}`);
+        await updateDoc(orgRef, { organizerPassword: deleteField() }).catch(() => { });
+      }
+    }
   }
 
   hasPermission(user: AppUser | null | undefined, permission: PermissionKey): boolean {
@@ -118,34 +167,63 @@ export class AuthService {
       return null;
     }
 
-    this.loadingProfileSubject.next(true);
-    const userRef = doc(this.firestore, `users/${firebaseUser.uid}`);
-    const snapshot = await getDoc(userRef);
-    const normalizedEmail = firebaseUser.email.toLowerCase();
+    try {
+      console.log('[Auth] Auth user changed:', firebaseUser.uid, firebaseUser.email);
+      console.log('[Auth] Resolving profile for uid:', firebaseUser.uid);
 
-    if (snapshot.exists()) {
-      const profile = { id: snapshot.id, ...(snapshot.data() as AppUser) };
-      await updateDoc(userRef, {
-        lastLoginAt: serverTimestamp(),
-        email: normalizedEmail,
-        photoURL: profile.photoURL || firebaseUser.photoURL || '',
-      });
-      localStorage.setItem('deendesk.lastProfile', JSON.stringify({
-        displayName: profile.displayName,
-        email: profile.email,
-        role: ROLE_LABELS[profile.role],
-      }));
-      return { ...profile, email: normalizedEmail, photoURL: profile.photoURL || firebaseUser.photoURL || '' };
-    }
+      this.loadingProfileSubject.next(true);
+      const userRef = doc(this.firestore, `users/${firebaseUser.uid}`);
+      const snapshot = await getDoc(userRef);
+      const normalizedEmail = firebaseUser.email.toLowerCase();
 
-    if (normalizedEmail === SUPER_ADMIN_EMAIL) {
-      const superProfile: AppUser = {
+      console.log('[Auth] Profile doc exists:', snapshot.exists());
+
+      if (snapshot.exists()) {
+        const profile = { id: snapshot.id, ...(snapshot.data() as AppUser) };
+        console.log('[Auth] Profile data:', profile);
+        await updateDoc(userRef, {
+          lastLoginAt: serverTimestamp(),
+          email: normalizedEmail,
+          photoURL: profile.photoURL || firebaseUser.photoURL || '',
+        });
+        localStorage.setItem('deendesk.lastProfile', JSON.stringify({
+          displayName: profile.displayName,
+          email: profile.email,
+          role: ROLE_LABELS[profile.role],
+        }));
+        return { ...profile, email: normalizedEmail, photoURL: profile.photoURL || firebaseUser.photoURL || '' };
+      }
+
+      if (normalizedEmail === SUPER_ADMIN_EMAIL) {
+        const superProfile: AppUser = {
+          uid: firebaseUser.uid,
+          email: normalizedEmail,
+          displayName: firebaseUser.displayName || 'Mohamed Ibrahim',
+          role: 'superAdmin',
+          permissions: ALL_PERMISSIONS,
+          status: 'active',
+          madrasaIds: [],
+          classIds: [],
+          subjectIds: [],
+          studentIds: [],
+          linkedStudentIds: [],
+          authProvider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'password',
+          photoURL: firebaseUser.photoURL ?? '',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+        };
+        await setDoc(userRef, superProfile);
+        return { ...superProfile, id: firebaseUser.uid };
+      }
+
+      const pendingProfile: AppUser = {
         uid: firebaseUser.uid,
         email: normalizedEmail,
-        displayName: firebaseUser.displayName || 'Mohamed Ibrahim',
-        role: 'superAdmin',
-        permissions: ALL_PERMISSIONS,
-        status: 'active',
+        displayName: firebaseUser.displayName || normalizedEmail.split('@')[0],
+        role: 'student',
+        permissions: permissionsForRole('student'),
+        status: 'pending',
         madrasaIds: [],
         classIds: [],
         subjectIds: [],
@@ -157,39 +235,21 @@ export class AuthService {
         updatedAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
       };
-      await setDoc(userRef, superProfile);
-      return { ...superProfile, id: firebaseUser.uid };
+
+      await setDoc(userRef, pendingProfile);
+      await setDoc(doc(this.firestore, `accessRequests/${firebaseUser.uid}`), {
+        userId: firebaseUser.uid,
+        email: normalizedEmail,
+        displayName: pendingProfile.displayName,
+        status: 'pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      return { ...pendingProfile, id: firebaseUser.uid };
+    } catch (error) {
+      console.error('[Auth] Failed to resolve profile:', error);
+      return null;
     }
-
-    const pendingProfile: AppUser = {
-      uid: firebaseUser.uid,
-      email: normalizedEmail,
-      displayName: firebaseUser.displayName || normalizedEmail.split('@')[0],
-      role: 'student',
-      permissions: permissionsForRole('student'),
-      status: 'pending',
-      madrasaIds: [],
-      classIds: [],
-      subjectIds: [],
-      studentIds: [],
-      linkedStudentIds: [],
-      authProvider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'password',
-      photoURL: firebaseUser.photoURL ?? '',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastLoginAt: serverTimestamp(),
-    };
-
-    await setDoc(userRef, pendingProfile);
-    await setDoc(doc(this.firestore, `accessRequests/${firebaseUser.uid}`), {
-      userId: firebaseUser.uid,
-      email: normalizedEmail,
-      displayName: pendingProfile.displayName,
-      status: 'pending',
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    });
-
-    return { ...pendingProfile, id: firebaseUser.uid };
   }
 }

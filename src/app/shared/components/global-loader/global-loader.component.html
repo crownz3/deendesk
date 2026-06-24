@@ -1,0 +1,13 @@
+<div class="global-loader-backdrop" *ngIf="loading$ | async">
+  <div class="global-loader-card">
+    <div class="loader-orbit">
+      <span class="orbit-dot dot-blue"></span>
+      <span class="orbit-dot dot-green"></span>
+      <span class="orbit-dot dot-yellow"></span>
+      <span class="orbit-dot dot-red"></span>
+    </div>
+
+    <h3>{{ message$ | async }}</h3>
+    <p>We are preparing everything securely for you.</p>
+  </div>
+</div>

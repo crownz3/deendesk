@@ -1,29 +1,39 @@
 <ion-content fullscreen>
   <main class="continue-shell">
-    <section class="account-panel" *ngIf="profile$ | async as profile; else noAccount">
-      <div class="avatar">{{ profile.displayName.charAt(0) }}</div>
-      <p class="eyebrow">Signed in</p>
-      <h1>{{ profile.displayName }}</h1>
-      <p>{{ profile.email }}</p>
-      <app-role-badge [role]="profile.role"></app-role-badge>
-      <app-status-badge [status]="profile.status"></app-status-badge>
+    <ng-container *ngIf="authReady$ | async; else checkingSession">
+      <section class="account-panel" *ngIf="profile$ | async as profile; else noAccount">
+        <div class="avatar">{{ profile.displayName.charAt(0) }}</div>
+        <p class="eyebrow">Signed in</p>
+        <h1>{{ profile.displayName }}</h1>
+        <p>{{ profile.email }}</p>
+        <app-role-badge [role]="profile.role"></app-role-badge>
+        <app-status-badge [status]="profile.status"></app-status-badge>
 
-      <div class="actions">
-        <button mat-flat-button color="primary" type="button" [disabled]="profile.status !== 'active'" (click)="continue(profile)">
-          Continue
-        </button>
-        <button mat-stroked-button type="button" (click)="switchAccount()">Switch account</button>
-      </div>
+        <div class="actions">
+          <button mat-flat-button color="primary" type="button" [disabled]="profile.status !== 'active'" (click)="continue(profile)">
+            Continue
+          </button>
+          <button mat-stroked-button type="button" (click)="switchAccount()">Switch account</button>
+        </div>
 
-      <p class="pending-note" *ngIf="profile.status !== 'active'">
-        This account exists but is not active. The correct authority must approve or map the user to an organization and role.
-      </p>
-    </section>
+        <p class="pending-note" *ngIf="profile.status !== 'active'">
+          This account exists but is not active. The correct authority must approve or map the user to an organization and role.
+        </p>
+      </section>
 
-    <ng-template #noAccount>
-      <section class="account-panel">
-        <h1>No active session</h1>
-        <button mat-flat-button color="primary" routerLink="/login">Go to login</button>
+      <ng-template #noAccount>
+        <section class="account-panel">
+          <h1>Your previous session has expired.</h1>
+          <p style="margin-top: 0; color: var(--app-text-muted);">Please sign in again.</p>
+          <button mat-flat-button color="primary" routerLink="/login" style="margin-top: 16px;">Go to login</button>
+        </section>
+      </ng-template>
+    </ng-container>
+
+    <ng-template #checkingSession>
+      <section class="account-panel" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 48px 0; color: var(--app-text-muted); text-align: center;">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Checking your secure session...</p>
       </section>
     </ng-template>
   </main>

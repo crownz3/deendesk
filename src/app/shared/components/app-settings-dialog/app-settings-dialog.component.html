@@ -1,0 +1,90 @@
+<div class="settings-dialog-container">
+  <!-- Sidebar Navigation -->
+  <div class="settings-sidebar">
+    <div class="sidebar-header">
+      <h2>Settings</h2>
+    </div>
+    <ul class="settings-nav">
+      <li [class.active]="activeTab === 'general'" (click)="activeTab = 'general'">
+        <ion-icon name="options-outline"></ion-icon> General
+      </li>
+      <li class="disabled">
+        <ion-icon name="person-outline"></ion-icon> Profile
+      </li>
+      <li class="disabled">
+        <ion-icon name="notifications-outline"></ion-icon> Notifications
+      </li>
+      <li class="disabled">
+        <ion-icon name="globe-outline"></ion-icon> Language
+      </li>
+      <li class="disabled">
+        <ion-icon name="shield-checkmark-outline"></ion-icon> Security
+      </li>
+      <li class="disabled">
+        <ion-icon name="color-palette-outline"></ion-icon> Theme / Display
+      </li>
+    </ul>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="settings-main">
+    <div class="main-header">
+      <div class="header-titles">
+        <h2>App Settings</h2>
+        <p>Manage your application preferences</p>
+      </div>
+      <button mat-icon-button (click)="close()" class="close-button" type="button" aria-label="Close">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+
+    <div class="main-content scrollable">
+      <ng-container *ngIf="activeTab === 'general'">
+        
+        <!-- Setting Block 1: Menu Type -->
+        <div class="setting-block">
+          <div class="block-header">
+            <h3>Side Menu Open Type</h3>
+            <p class="section-description">Choose how the sidebar menu opens when toggled.</p>
+          </div>
+          
+          <mat-radio-group [(ngModel)]="selectedMode" class="menu-mode-group">
+            <mat-radio-button value="split" class="mode-option">
+              <div class="option-title">Split / Fixed Sidebar (Default)</div>
+              <div class="option-desc">Sidebar stays visible on desktop and content is not hidden.</div>
+            </mat-radio-button>
+            
+            <mat-radio-button value="overlay" class="mode-option">
+              <div class="option-title">Overlay</div>
+              <div class="option-desc">Menu opens over the page content with a backdrop.</div>
+            </mat-radio-button>
+
+            <mat-radio-button value="push" class="mode-option">
+              <div class="option-title">Push</div>
+              <div class="option-desc">Menu pushes the page content to the side.</div>
+            </mat-radio-button>
+          </mat-radio-group>
+        </div>
+
+        <!-- Setting Block 2: Future Placeholder -->
+        <div class="setting-block placeholder-block">
+          <div class="block-header">
+            <h3>Advanced Layout (Coming Soon)</h3>
+            <p class="section-description">More layout configuration options will be added here in the future.</p>
+          </div>
+          <div class="placeholder-content">
+            <ion-icon name="construct-outline"></ion-icon>
+            <span>Under Development</span>
+          </div>
+        </div>
+
+      </ng-container>
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="main-footer">
+      <button mat-button (click)="close()">Cancel</button>
+      <button mat-flat-button color="primary" class="primary-button" (click)="saveSettings()">Save Changes</button>
+    </div>
+  </div>
+</div>

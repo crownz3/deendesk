@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { CsvService, CsvValidationResult } from '../../core/services/csv.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
+import { LoaderService } from '../../core/services/loader.service';
 
 interface CsvModuleConfig {
   key: string;
@@ -47,6 +48,7 @@ export class CsvImportsPage {
     private readonly repo: RepositoryService,
     private readonly auth: AuthService,
     private readonly snackBar: MatSnackBar,
+    private readonly loader: LoaderService,
   ) {}
 
   activeModule(): CsvModuleConfig {
@@ -96,18 +98,22 @@ export class CsvImportsPage {
     }));
 
     try {
-      await this.repo.batchCreate(active.collection, rows, profile);
-      await this.repo.create('csvImports', {
-        module: active.key,
-        totalRows: this.parsedRows.length,
-        validRows: rows.length,
-        failedRows: this.validation.errors.length,
-        skippedRows: this.validation.skippedRows,
-        errors: this.validation.errors,
-        organizationId: profile?.organizationId,
-        status: 'active',
-      }, profile);
+      await this.loader.withLoader('Importing valid records...', async () => {
+        await this.repo.batchCreate(active.collection, rows, profile);
+        await this.repo.create('csvImports', {
+          module: active.key,
+          totalRows: this.parsedRows.length,
+          validRows: rows.length,
+          failedRows: this.validation!.errors.length,
+          skippedRows: this.validation!.skippedRows,
+          errors: this.validation!.errors,
+          organizationId: profile?.organizationId,
+          status: 'active',
+        }, profile);
+      });
       this.snackBar.open(`Imported ${rows.length} rows.`, 'Close', { duration: 4000 });
+    } catch (e) {
+      this.snackBar.open('Unable to import CSV. Please check the file and try again.', 'Close', { duration: 4000 });
     } finally {
       this.importing = false;
     }

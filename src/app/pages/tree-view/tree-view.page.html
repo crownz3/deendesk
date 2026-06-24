@@ -3,9 +3,11 @@
 
     <!-- Loading State -->
     <ng-container *ngIf="state.loading">
-      <div class="loading-state">
-        <mat-spinner diameter="48"></mat-spinner>
-        <p>Loading tree view...</p>
+      <div class="loading-state skeleton-container">
+        <div class="skeleton-card" style="margin-bottom: 16px;"></div>
+        <div class="skeleton-card" style="margin-bottom: 16px;"></div>
+        <div class="skeleton-card" style="margin-bottom: 16px;"></div>
+        <div class="skeleton-card"></div>
       </div>
     </ng-container>
 
@@ -31,51 +33,71 @@
       </header>
 
       <ng-container *ngIf="vm.type === 'academic'; else peopleTree">
-        <section class="tree" *ngIf="vm.organizations.length; else academicEmpty">
-          <article class="tree-node" *ngFor="let org of vm.organizations; trackBy: trackById">
-            <div class="node-label"><ion-icon name="business-outline"></ion-icon>{{ org['name'] }}</div>
-            <div class="branch">
-              <ng-container *ngIf="by(vm.madrasas, 'organizationId', org.id) as orgMadrasas">
-                <ng-container *ngIf="orgMadrasas.length; else noMadrasas">
-                  <article class="tree-node" *ngFor="let madrasa of orgMadrasas; trackBy: trackById">
-                    <div class="node-label"><ion-icon name="school-outline"></ion-icon>{{ madrasa['name'] }}</div>
-                    <div class="branch">
-                      <ng-container *ngIf="by(vm.courses, 'madrasaId', madrasa.id).concat(by(vm.courses, 'organizationId', org.id)) as mCourses">
-                        <ng-container *ngIf="mCourses.length; else noCourses">
-                          <article class="tree-node" *ngFor="let course of mCourses; trackBy: trackById">
-                            <div class="node-label"><ion-icon name="library-outline"></ion-icon>{{ course['name'] }}</div>
-                            <div class="branch">
-                              <ng-container *ngIf="by(vm.classes, 'courseId', course.id) as cClasses">
-                                <ng-container *ngIf="cClasses.length; else noClasses">
-                                  <article class="tree-node" *ngFor="let classItem of cClasses; trackBy: trackById">
-                                    <div class="node-label"><ion-icon name="easel-outline"></ion-icon>{{ classItem['name'] }}</div>
-                                    <div class="branch">
-                                      <article class="tree-leaf" *ngFor="let subject of by(vm.subjects, 'classId', classItem.id); trackBy: trackById">
-                                        <ion-icon name="book-outline"></ion-icon>{{ subject['name'] }}
-                                      </article>
-                                      <article class="tree-leaf" *ngFor="let student of by(vm.students, 'classId', classItem.id); trackBy: trackById">
-                                        <ion-icon name="person-outline"></ion-icon>{{ student['name'] }}
-                                      </article>
-                                      <article class="tree-leaf empty-leaf" *ngIf="!by(vm.subjects, 'classId', classItem.id).length && !by(vm.students, 'classId', classItem.id).length">
-                                        No subjects or students added
-                                      </article>
-                                    </div>
-                                  </article>
-                                </ng-container>
-                                <ng-template #noClasses><article class="tree-leaf empty-leaf">No classes added yet</article></ng-template>
-                              </ng-container>
-                            </div>
-                          </article>
-                        </ng-container>
-                        <ng-template #noCourses><article class="tree-leaf empty-leaf">No courses added yet</article></ng-template>
-                      </ng-container>
-                    </div>
-                  </article>
+        <div class="tree-controls" *ngIf="vm.academicTree?.length" style="margin-bottom: 12px; display: flex; gap: 12px;">
+          <button mat-stroked-button (click)="expandAll(vm.academicTree!)">Expand All</button>
+          <button mat-stroked-button (click)="collapseAll(vm.academicTree!)">Collapse All</button>
+        </div>
+
+        <section class="tree" *ngIf="vm.academicTree?.length; else academicEmpty">
+          
+          <ng-template #recursiveNode let-node>
+            <article class="tree-node">
+              <div class="node-label" (click)="toggleNode(node, $event)" style="cursor: pointer; display: flex; align-items: center;">
+                <ion-icon [name]="node.expanded ? 'chevron-down-outline' : 'chevron-forward-outline'"></ion-icon>
+                <ion-icon [name]="getIconForType(node.type)"></ion-icon>
+                {{ node.title }}
+                <span class="student-count" *ngIf="['course', 'class'].includes(node.type)" style="font-size: 0.9em; color: #60726d; margin-left: 8px;">
+                  (Students: {{ node.studentCount || 0 }}) (Staff: {{ node.staffCount || 0 }})
+                </span>
+                <div style="margin-left: auto; display: flex; gap: 8px;">
+                  <!-- Course Buttons -->
+                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'course'" (click)="viewStudents(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    View Students
+                  </button>
+                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'course'" (click)="viewStaff(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    View Staff
+                  </button>
+
+                  <!-- Class Buttons -->
+                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'class' && node.studentCount > 0" (click)="viewStudents(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    View Students
+                  </button>
+                  <button mat-flat-button color="primary" class="add-btn" *ngIf="node.type === 'class' && (!node.studentCount || node.studentCount === 0)" (click)="assignStudents(node, vm.students || [], $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    Add Students
+                  </button>
+                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'class' && node.staffCount > 0" (click)="viewStaff(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    View Staff
+                  </button>
+                  <button mat-flat-button color="primary" class="add-btn" *ngIf="node.type === 'class' && (!node.staffCount || node.staffCount === 0)" (click)="assignStaff(node, vm.staff || [], $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    Add Staff
+                  </button>
+
+                  <!-- Subject Buttons -->
+                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'subject'" (click)="viewLessons(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    View Lessons
+                  </button>
+                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'subject'" (click)="viewTopics(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
+                    View Topics
+                  </button>
+                </div>
+              </div>
+              
+              <div class="branch" *ngIf="node.expanded && node.children?.length">
+                <ng-container *ngFor="let child of node.children">
+                  <ng-container *ngTemplateOutlet="recursiveNode; context:{ $implicit: child }"></ng-container>
                 </ng-container>
-                <ng-template #noMadrasas><article class="tree-leaf empty-leaf">No madrasas added yet</article></ng-template>
-              </ng-container>
-            </div>
-          </article>
+              </div>
+              
+              <div class="branch" *ngIf="node.expanded && !node.children?.length && node.type !== 'subject'">
+                <article class="tree-leaf empty-leaf">No items added yet</article>
+              </div>
+            </article>
+          </ng-template>
+
+          <ng-container *ngFor="let org of vm.academicTree">
+            <ng-container *ngTemplateOutlet="recursiveNode; context:{ $implicit: org }"></ng-container>
+          </ng-container>
+
         </section>
 
         <ng-template #academicEmpty>

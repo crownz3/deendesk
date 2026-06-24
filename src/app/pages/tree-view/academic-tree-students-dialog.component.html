@@ -1,0 +1,86 @@
+<div class="students-dialog">
+  <div class="dialog-header">
+    <div class="dialog-title-section">
+      <h2 mat-dialog-title>Assigned Students</h2>
+      <p class="dialog-subtitle">{{ data.nodeTitle }}</p>
+    </div>
+    
+    <div class="dialog-summary-cards">
+      <div class="summary-card">
+        <span class="label">Type</span>
+        <span class="value">{{ data.nodeType | titlecase }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Total Students</span>
+        <span class="value">{{ data.students.length || 0 }}</span>
+      </div>
+      <div class="summary-card">
+        <span class="label">Average Attendance</span>
+        <span class="value">{{ getAverageAttendance() }}{{ getAverageAttendance() !== 'No Data' ? '%' : '' }}</span>
+      </div>
+    </div>
+  </div>
+
+  <mat-dialog-content>
+    <div class="students-toolbar">
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input type="text" placeholder="Search students by name, email, or parent name" [(ngModel)]="searchQuery" (input)="onSearch()" />
+      </div>
+    </div>
+
+    <div class="students-list" *ngIf="filteredStudents.length > 0; else emptyState">
+      <div class="student-card" *ngFor="let student of filteredStudents">
+        <div class="student-main">
+          <div class="student-avatar">
+            {{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}
+          </div>
+          <div class="student-info">
+            <h3>{{ student.name || student.displayName || 'N/A' }}</h3>
+            <p>{{ student.email || 'No email' }}</p>
+          </div>
+        </div>
+
+        <div class="student-meta">
+          <div class="meta-group">
+            <span class="meta-label">Parent / Father</span>
+            <span class="meta-value">{{ student.fatherName || student.parentName || student.guardianName || 'N/A' }}</span>
+            <span class="meta-subvalue" *ngIf="student.parentEmail">{{ student.parentEmail }}</span>
+          </div>
+          
+          <div class="meta-group">
+            <span class="meta-label">Academic Info</span>
+            <span class="meta-value">{{ student.courseName || 'N/A' }}</span>
+            <span class="meta-subvalue">{{ student.className || 'N/A' }} • {{ student.stageLevel || 'N/A' }}</span>
+          </div>
+        </div>
+
+        <div class="attendance-box">
+          <div class="attendance-header">
+            <span class="attendance-percent">{{ getStudentAttendancePercentage(student) }}%</span>
+            <span class="attendance-badge" [ngClass]="getAttendanceStatusClass(student)">
+              {{ getAttendanceStatus(student) }}
+            </span>
+          </div>
+          <div class="attendance-progress-bg">
+            <div class="attendance-progress" 
+                 [ngClass]="getAttendanceStatusClass(student)" 
+                 [style.width.%]="getStudentAttendancePercentage(student)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #emptyState>
+      <div class="empty-state">
+        <ion-icon name="people-outline"></ion-icon>
+        <h3>No students assigned</h3>
+        <p>Students assigned to this academic item will appear here.</p>
+      </div>
+    </ng-template>
+  </mat-dialog-content>
+
+  <mat-dialog-actions class="dialog-footer" align="end">
+    <button mat-stroked-button mat-dialog-close>Close</button>
+  </mat-dialog-actions>
+</div>

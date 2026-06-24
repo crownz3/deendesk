@@ -1,0 +1,335 @@
+.setup-map-container {
+  margin: 24px 0;
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  font-family: 'Poppins', sans-serif;
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(var(--ion-color-primary-rgb), 0.03) 0%, rgba(var(--ion-color-primary-rgb), 0.08) 100%);
+  border-bottom: 1px solid var(--border);
+
+  .header-content {
+    flex: 1;
+
+    h2 {
+      margin: 0 0 6px 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-dark);
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: var(--text-light);
+    }
+
+    &.compact {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .compact-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-dark);
+        font-weight: 600;
+        font-size: 1rem;
+
+        ion-icon {
+          color: var(--ion-color-primary);
+          font-size: 1.25rem;
+        }
+      }
+    }
+  }
+
+  .toggle-btn {
+    border-radius: 20px;
+    height: 36px;
+    padding: 0 16px;
+    background: white;
+    border: 1px solid var(--border);
+    color: var(--text-dark);
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-left: 16px;
+    
+    ion-icon {
+      margin-right: 6px;
+      font-size: 1.1rem;
+      color: var(--text-light);
+    }
+
+    &:hover {
+      background: var(--surface-hover);
+    }
+  }
+}
+
+.map-body {
+  padding: 24px;
+}
+
+.progress-summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 32px;
+
+  .progress-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+
+    .progress-fill {
+      height: 100%;
+      background: var(--ion-color-primary);
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+  }
+
+  .progress-text {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-light);
+    white-space: nowrap;
+  }
+}
+
+.journey-roadmap {
+  position: relative;
+  padding-left: 20px;
+
+  .roadmap-line {
+    position: absolute;
+    left: 36px;
+    top: 24px;
+    bottom: 24px;
+    width: 2px;
+    background: var(--border);
+    z-index: 0;
+  }
+
+  .step-card {
+    display: flex;
+    position: relative;
+    z-index: 1;
+    margin-bottom: 24px;
+    opacity: 0.7;
+    transition: all 0.3s ease;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &.active {
+      opacity: 1;
+      
+      .step-node {
+        background: var(--ion-color-primary);
+        border-color: rgba(var(--ion-color-primary-rgb), 0.2);
+        box-shadow: 0 0 0 6px rgba(var(--ion-color-primary-rgb), 0.1);
+        color: white;
+      }
+      
+      .step-content {
+        border-color: rgba(var(--ion-color-primary-rgb), 0.2);
+        box-shadow: 0 4px 12px rgba(var(--ion-color-primary-rgb), 0.05);
+        background: white;
+      }
+    }
+
+    &.completed {
+      opacity: 0.6;
+      
+      .step-node {
+        background: var(--ion-color-success);
+        border-color: var(--ion-color-success);
+        color: white;
+      }
+
+      .step-content {
+        background: var(--surface-hover);
+      }
+    }
+
+    .step-connector {
+      width: 60px;
+      display: flex;
+      justify-content: center;
+      flex-shrink: 0;
+
+      .step-node {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: white;
+        border: 2px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-light);
+        transition: all 0.3s ease;
+
+        ion-icon {
+          font-size: 1rem;
+        }
+      }
+    }
+
+    .step-content {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+      transition: all 0.3s ease;
+
+      .step-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+
+        h3 {
+          margin: 0;
+          font-size: 1.05rem;
+          font-weight: 600;
+          color: var(--text-dark);
+        }
+
+        .status-badge {
+          font-size: 0.75rem;
+          font-weight: 600;
+          padding: 4px 10px;
+          border-radius: 12px;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+
+          &.suggested {
+            background: rgba(var(--ion-color-primary-rgb), 0.1);
+            color: var(--ion-color-primary);
+          }
+
+          &.done {
+            background: rgba(var(--ion-color-success-rgb), 0.1);
+            color: var(--ion-color-success);
+          }
+
+          &.explore {
+            background: rgba(var(--ion-color-warning-rgb), 0.1);
+            color: var(--ion-color-warning-shade);
+          }
+        }
+      }
+
+      p {
+        margin: 0 0 16px 0;
+        font-size: 0.9rem;
+        color: var(--text-light);
+        line-height: 1.5;
+      }
+
+      .step-action-btn {
+        border-radius: 8px;
+        border-color: var(--border);
+        color: var(--text-dark);
+        font-weight: 500;
+        font-size: 0.85rem;
+
+        &:hover {
+          background: var(--surface-hover);
+        }
+      }
+    }
+  }
+}
+
+.success-state {
+  text-align: center;
+  padding: 40px 20px;
+  margin-bottom: 24px;
+  background: rgba(var(--ion-color-success-rgb), 0.03);
+  border-radius: 16px;
+  border: 1px dashed rgba(var(--ion-color-success-rgb), 0.3);
+
+  .icon-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(var(--ion-color-success-rgb), 0.1);
+    color: var(--ion-color-success);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+
+    ion-icon {
+      font-size: 2rem;
+    }
+  }
+
+  h3 {
+    margin: 0 0 8px 0;
+    color: var(--ion-color-success-shade);
+    font-size: 1.2rem;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    color: var(--text-light);
+    font-size: 0.95rem;
+    max-width: 400px;
+    margin: 0 auto;
+    line-height: 1.5;
+  }
+}
+
+@media (max-width: 768px) {
+  .map-header {
+    flex-direction: column;
+    gap: 16px;
+    
+    .toggle-btn {
+      margin-left: 0;
+      width: 100%;
+    }
+  }
+
+  .journey-roadmap {
+    padding-left: 0;
+
+    .roadmap-line {
+      left: 16px;
+    }
+
+    .step-card {
+      .step-connector {
+        width: 40px;
+      }
+
+      .step-content {
+        .step-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 8px;
+        }
+      }
+    }
+  }
+}

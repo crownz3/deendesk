@@ -5,12 +5,24 @@
       <mat-form-field appearance="outline" class="full-field" *ngIf="field.type !== 'textarea'; else textareaField">
         <mat-label>{{ field.label }}</mat-label>
         <input
-          *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'date'"
+          *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'date' || field.type === 'info'"
           matInput
-          [type]="field.type === 'password' ? 'password' : field.type"
+          [type]="field.type === 'password' ? (hidePasswords[field.key] ? 'password' : 'text') : field.type === 'info' ? 'text' : field.type"
           [placeholder]="field.placeholder || ''"
           [formControlName]="field.key"
+          [readonly]="field.type === 'info'"
         />
+        <button
+          *ngIf="field.type === 'password'"
+          mat-icon-button
+          matSuffix
+          (click)="hidePasswords[field.key] = !hidePasswords[field.key]"
+          type="button"
+          [attr.aria-label]="'Hide password'"
+          [attr.aria-pressed]="hidePasswords[field.key]"
+        >
+          <ion-icon [name]="hidePasswords[field.key] ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+        </button>
         <mat-select
           *ngIf="field.type === 'select' || field.type === 'multiselect'"
           [multiple]="field.type === 'multiselect'"
