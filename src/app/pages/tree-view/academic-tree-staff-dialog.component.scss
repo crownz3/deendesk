@@ -113,8 +113,22 @@ mat-dialog-content {
   grid-template-columns: 1fr;
 
   @media (min-width: 768px) {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1.5fr 1.5fr auto;
     align-items: center;
+  }
+}
+
+.staff-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  justify-content: center;
+
+  button {
+    text-align: left;
+    ion-icon {
+      margin-right: 8px;
+    }
   }
 }
 

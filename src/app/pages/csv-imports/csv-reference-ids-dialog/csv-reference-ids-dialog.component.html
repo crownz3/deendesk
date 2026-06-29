@@ -1,0 +1,114 @@
+<h2 mat-dialog-title>CSV Import Reference IDs</h2>
+
+<mat-dialog-content class="csv-reference-dialog">
+  
+  <section class="reference-section">
+    <h3>Organization</h3>
+    <table class="reference-table">
+      <thead>
+        <tr>
+          <th>Organization ID</th>
+          <th style="width: 80px">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="id-cell">{{ data.organizationId || '-' }}</td>
+          <td>
+            <button mat-icon-button color="primary" (click)="copy(data.organizationId || '')" [disabled]="!data.organizationId" matTooltip="Copy ID">
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="reference-section">
+    <h3>Madrasas</h3>
+    <table class="reference-table" *ngIf="data.madrasas?.length; else noMadrasas">
+      <thead>
+        <tr>
+          <th>Madrasa Name</th>
+          <th>Madrasa ID</th>
+          <th style="width: 80px">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let m of data.madrasas">
+          <td>{{ m['name'] || m['title'] || m['displayName'] || '-' }}</td>
+          <td class="id-cell">{{ m.id }}</td>
+          <td>
+            <button mat-icon-button color="primary" (click)="copy(m.id || '')" matTooltip="Copy ID">
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noMadrasas><p>No madrasas found.</p></ng-template>
+  </section>
+
+  <section class="reference-section">
+    <h3>Courses</h3>
+    <table class="reference-table" *ngIf="data.courses?.length; else noCourses">
+      <thead>
+        <tr>
+          <th>Course Name</th>
+          <th>Course Code</th>
+          <th>Madrasa</th>
+          <th>Course ID</th>
+          <th style="width: 80px">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of data.courses">
+          <td>{{ c['name'] || c['title'] || c['courseName'] || '-' }}</td>
+          <td>{{ c['code'] || '-' }}</td>
+          <td>{{ getMadrasaName(c['madrasaId']) }}</td>
+          <td class="id-cell">{{ c.id }}</td>
+          <td>
+            <button mat-icon-button color="primary" (click)="copy(c.id || '')" matTooltip="Copy ID">
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noCourses><p>No courses found.</p></ng-template>
+  </section>
+
+  <section class="reference-section">
+    <h3>Classes</h3>
+    <table class="reference-table" *ngIf="data.classes?.length; else noClasses">
+      <thead>
+        <tr>
+          <th>Class Name</th>
+          <th>Course</th>
+          <th>Madrasa</th>
+          <th>Class ID</th>
+          <th style="width: 80px">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let cl of data.classes">
+          <td>{{ cl['name'] || cl['title'] || '-' }}</td>
+          <td>{{ getCourseName(cl['courseId']) }}</td>
+          <td>{{ getMadrasaName(cl['madrasaId']) }}</td>
+          <td class="id-cell">{{ cl.id }}</td>
+          <td>
+            <button mat-icon-button color="primary" (click)="copy(cl.id || '')" matTooltip="Copy ID">
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noClasses><p>No classes found.</p></ng-template>
+  </section>
+
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Close</button>
+</mat-dialog-actions>

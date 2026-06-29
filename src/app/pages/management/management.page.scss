@@ -106,3 +106,45 @@ code {
     flex-direction: column;
   }
 }
+
+.filters-toolbar {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 16px;
+
+  mat-form-field {
+    flex: 1;
+    min-width: 200px;
+    margin-bottom: -1.25em; /* Compensate for mat-form-field padding */
+  }
+
+  .search-field {
+    flex: 2;
+  }
+}
+
+mat-paginator {
+  background: transparent;
+  margin-top: 16px;
+}
+
+.table-container {
+  position: relative;
+  min-height: 200px; /* Prevent shrinking when data is loading */
+}
+
+.table-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  border-radius: 8px;
+}

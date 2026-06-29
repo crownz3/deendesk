@@ -1,7 +1,8 @@
 .dialog-content {
   display: grid;
   gap: 12px;
-  min-width: min(560px, 82vw);
+  width: 100%;
+  box-sizing: border-box;
   padding-top: 8px;
 }
 
@@ -17,4 +18,25 @@
 
 .quick-add-button ion-icon {
   font-size: 22px;
+}
+
+.field-button-toggle {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  .toggle-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(0, 0, 0, 0.6);
+  }
+
+  mat-button-toggle-group {
+    width: 100%;
+    
+    mat-button-toggle {
+      flex: 1;
+    }
+  }
 }

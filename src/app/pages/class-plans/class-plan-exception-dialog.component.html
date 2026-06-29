@@ -1,0 +1,56 @@
+<h2 mat-dialog-title>Add Leave / Cancel Class</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" class="ion-padding-vertical" style="display: flex; flex-direction: column; gap: 16px;">
+    
+    <div style="margin-bottom: 16px;">
+      <strong>Plan:</strong> {{ data.plan.title }}<br>
+      <small class="ion-color-medium">Class: {{ data.plan.className }}</small>
+    </div>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Date to Skip/Change</mat-label>
+      <input matInput type="date" formControlName="date">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Type</mat-label>
+      <mat-select formControlName="type">
+        <mat-option *ngFor="let t of types" [value]="t.value">{{ t.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Reason</mat-label>
+      <input matInput formControlName="reason">
+    </mat-form-field>
+
+    <div *ngIf="form.get('type')?.value === 'rescheduled'" style="display: flex; flex-direction: column; gap: 16px;">
+      <mat-form-field appearance="outline">
+        <mat-label>New Rescheduled Date</mat-label>
+        <input matInput type="date" formControlName="rescheduledDate">
+      </mat-form-field>
+      
+      <div style="display: flex; gap: 16px;">
+        <mat-form-field appearance="outline" style="flex: 1">
+          <mat-label>New Start Time</mat-label>
+          <input matInput type="time" formControlName="rescheduledStartTime">
+        </mat-form-field>
+        <mat-form-field appearance="outline" style="flex: 1">
+          <mat-label>New End Time</mat-label>
+          <input matInput type="time" formControlName="rescheduledEndTime">
+        </mat-form-field>
+      </div>
+    </div>
+
+    <div>
+      <mat-checkbox formControlName="affectsAttendance">Skip/adjust auto-generated attendance</mat-checkbox>
+    </div>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cancel</button>
+  <button mat-flat-button color="primary" (click)="save()">Save Exception</button>
+</mat-dialog-actions>

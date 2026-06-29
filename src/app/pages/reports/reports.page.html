@@ -31,21 +31,165 @@
         </div>
       </header>
 
-      <form class="filters" [formGroup]="form">
-        <mat-form-field appearance="outline">
-          <mat-label>Report type</mat-label>
-          <mat-select formControlName="report">
-            <mat-option *ngFor="let config of reportConfigs" [value]="config.key">{{ config.label }}</mat-option>
-          </mat-select>
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Date from</mat-label>
-          <input matInput type="date" formControlName="from" />
-        </mat-form-field>
-        <mat-form-field appearance="outline">
-          <mat-label>Date to</mat-label>
-          <input matInput type="date" formControlName="to" />
-        </mat-form-field>
+      <form class="filters" [formGroup]="reportForm">
+        <!-- Top row: Report Type, Period Mode, Dates -->
+        <div class="filter-row">
+          <mat-form-field appearance="outline">
+            <mat-label>Report type</mat-label>
+            <mat-select formControlName="reportType">
+              <mat-optgroup *ngFor="let group of reportGroups" [label]="group.name">
+                <mat-option *ngFor="let config of group.configs" [value]="config.id">{{ config.name }}</mat-option>
+              </mat-optgroup>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" *ngIf="activeConfig()?.requiredFilters?.includes('dateRange')">
+            <mat-label>Period mode</mat-label>
+            <mat-select formControlName="periodMode">
+              <mat-option value="all">All time</mat-option>
+              <mat-option value="monthly">Monthly</mat-option>
+              <mat-option value="custom">Custom date range</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" *ngIf="reportForm.value.periodMode === 'monthly' && activeConfig()?.requiredFilters?.includes('dateRange')">
+            <mat-label>Month</mat-label>
+            <input matInput [matDatepicker]="pickerMonth" formControlName="month" placeholder="Month and Year" />
+            <mat-datepicker-toggle matIconSuffix [for]="pickerMonth"></mat-datepicker-toggle>
+            <mat-datepicker #pickerMonth startView="multi-year"></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" *ngIf="reportForm.value.periodMode === 'custom' && activeConfig()?.requiredFilters?.includes('dateRange')">
+            <mat-label>Date from</mat-label>
+            <input matInput [matDatepicker]="pickerFrom" formControlName="dateFrom" />
+            <mat-datepicker-toggle matIconSuffix [for]="pickerFrom"></mat-datepicker-toggle>
+            <mat-datepicker #pickerFrom></mat-datepicker>
+          </mat-form-field>
+          <mat-form-field appearance="outline" *ngIf="reportForm.value.periodMode === 'custom' && activeConfig()?.requiredFilters?.includes('dateRange')">
+            <mat-label>Date to</mat-label>
+            <input matInput [matDatepicker]="pickerTo" formControlName="dateTo" />
+            <mat-datepicker-toggle matIconSuffix [for]="pickerTo"></mat-datepicker-toggle>
+            <mat-datepicker #pickerTo></mat-datepicker>
+          </mat-form-field>
+        </div>
+
+        <ng-container *ngIf="activeConfig() as config">
+          <!-- Filter Row 1 -->
+          <div class="filter-row">
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('admissionDateRange')">
+              <mat-label>Admission Date from</mat-label>
+              <input matInput [matDatepicker]="pickerAdmFrom" formControlName="admissionDateFrom" />
+              <mat-datepicker-toggle matIconSuffix [for]="pickerAdmFrom"></mat-datepicker-toggle>
+              <mat-datepicker #pickerAdmFrom></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('admissionDateRange')">
+              <mat-label>Admission Date to</mat-label>
+              <input matInput [matDatepicker]="pickerAdmTo" formControlName="admissionDateTo" />
+              <mat-datepicker-toggle matIconSuffix [for]="pickerAdmTo"></mat-datepicker-toggle>
+              <mat-datepicker #pickerAdmTo></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('madrasa')">
+              <mat-label>Madrasa</mat-label>
+              <mat-select formControlName="madrasaIds" multiple>
+                <mat-select-trigger>
+                  {{ getSelectedNames(reportForm.value.madrasaIds || [], madrasas, 'All Madrasas') }}
+                </mat-select-trigger>
+                <mat-option *ngFor="let madrasa of madrasas" [value]="madrasa.id">
+                  {{ madrasa.name || madrasa.title || madrasa.displayName }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('course')">
+              <mat-label>Course</mat-label>
+              <mat-select formControlName="courseIds" multiple>
+                <mat-select-trigger>
+                  {{ getSelectedNames(reportForm.value.courseIds || [], courses, 'All Courses') }}
+                </mat-select-trigger>
+                <mat-option *ngFor="let course of getFilteredCourses()" [value]="course.id">
+                  {{ course.name || course.title || course.courseName }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('class')">
+              <mat-label>Class</mat-label>
+              <mat-select formControlName="classIds" multiple>
+                <mat-select-trigger>
+                  {{ getSelectedNames(reportForm.value.classIds || [], classes, 'All Classes') }}
+                </mat-select-trigger>
+                <mat-option *ngFor="let classItem of getFilteredClasses()" [value]="classItem.id">
+                  {{ classItem.name || classItem.title || classItem.className }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <!-- Filter Row 2 -->
+          <div class="filter-row">
+            <mat-form-field appearance="outline" class="filter-field" *ngIf="config.requiredFilters.includes('stageLevel')">
+              <mat-label>Stage / Level</mat-label>
+              <mat-select formControlName="stageLevels" multiple>
+                <mat-select-trigger>
+                  {{ getSelectedStageLevelNames() }}
+                </mat-select-trigger>
+                <mat-option *ngFor="let stage of getStageLevelOptions()" [value]="stage">
+                  {{ stage }}
+                </mat-option>
+              </mat-select>
+              <mat-hint *ngIf="reportForm.get('courseIds')?.value?.length">
+                Showing stages for selected course
+              </mat-hint>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('status')">
+              <mat-label>Status</mat-label>
+              <mat-select formControlName="status">
+                <mat-option value="">Any status</mat-option>
+                <mat-option value="active">Active</mat-option>
+                <mat-option value="inactive">Inactive</mat-option>
+                <mat-option value="graduated">Graduated</mat-option>
+                <mat-option value="suspended">Suspended</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('gender')">
+              <mat-label>Gender</mat-label>
+              <mat-select formControlName="gender">
+                <mat-option value="">Any gender</mat-option>
+                <mat-option value="male">Male</mat-option>
+                <mat-option value="female">Female</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('search')">
+              <mat-label>Search text</mat-label>
+              <input matInput formControlName="searchText" placeholder="Search..." />
+            </mat-form-field>
+          </div>
+
+          <!-- Custom Filter Row -->
+          <div class="filter-row" *ngIf="config.requiredFilters.includes('custom')">
+            <mat-form-field appearance="outline">
+              <mat-label>Custom field</mat-label>
+              <mat-select formControlName="customField">
+                <mat-option value="">None</mat-option>
+                <mat-option *ngFor="let field of customStudentFields" [value]="field.key">{{ field.label }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="reportForm.value.customField">
+              <mat-label>Operator</mat-label>
+              <mat-select formControlName="customOperator">
+                <mat-option *ngFor="let op of customOperators" [value]="op.value">{{ op.label }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="reportForm.value.customField && !['isEmpty', 'isNotEmpty'].includes(reportForm.value.customOperator || '')">
+              <mat-label>Value</mat-label>
+              <input matInput formControlName="customValue" placeholder="Enter value" />
+            </mat-form-field>
+          </div>
+
+          <!-- Actions -->
+          <div class="filter-row filter-actions">
+            <button mat-button type="button" (click)="resetFilters()">Reset</button>
+            <button mat-flat-button color="primary" type="button" (click)="applyFilters()">Apply Filters</button>
+            <button mat-stroked-button type="button" (click)="openExportOptions(vm)">
+              Export
+            </button>
+          </div>
+        </ng-container>
       </form>
 
       <app-data-table

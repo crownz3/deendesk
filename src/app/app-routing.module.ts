@@ -16,6 +16,7 @@ import { ReportsPage } from './pages/reports/reports.page';
 import { SettingsPage } from './pages/settings/settings.page';
 import { TreeViewPage } from './pages/tree-view/tree-view.page';
 import { PasswordRequestsPage } from './pages/password-requests/password-requests.page';
+import { ClassPlansPage } from './pages/class-plans/class-plans.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -34,6 +35,7 @@ const routes: Routes = [
   { path: 'courses', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courses', permission: 'manageCourses' } },
   { path: 'classes', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classes', permission: 'manageClasses' } },
   { path: 'subjects', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'subjects', permission: 'manageSubjects' } },
+  { path: 'class-plans', component: ClassPlansPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance', 'viewDashboard'] } },
   { path: 'attendance', component: AttendancePage, canActivate: [authGuard, permissionGuard], data: { permission: ['takeAttendance', 'viewAttendance'] } },
   { path: 'reports', component: ReportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'generateReports' } },
   { path: 'csv-imports', component: CsvImportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'importCsv' } },

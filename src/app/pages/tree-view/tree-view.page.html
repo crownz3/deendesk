@@ -49,36 +49,62 @@
                 <span class="student-count" *ngIf="['course', 'class'].includes(node.type)" style="font-size: 0.9em; color: #60726d; margin-left: 8px;">
                   (Students: {{ node.studentCount || 0 }}) (Staff: {{ node.staffCount || 0 }})
                 </span>
-                <div style="margin-left: auto; display: flex; gap: 8px;">
+                <div class="tree-actions">
                   <!-- Course Buttons -->
-                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'course'" (click)="viewStudents(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    View Students
-                  </button>
-                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'course'" (click)="viewStaff(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    View Staff
-                  </button>
+                  <ng-container *ngIf="node.type === 'course'">
+                    <button mat-icon-button class="tree-action-btn" matTooltip="View Students" aria-label="View Students" (click)="viewStudents(node, $event)">
+                      <ion-icon name="people-outline"></ion-icon>
+                    </button>
+                    <span class="action-divider"></span>
+                    <button mat-icon-button class="tree-action-btn" matTooltip="View Staff" aria-label="View Staff" (click)="viewStaff(node, $event)">
+                      <ion-icon name="id-card-outline"></ion-icon>
+                    </button>
+                  </ng-container>
 
                   <!-- Class Buttons -->
-                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'class' && node.studentCount > 0" (click)="viewStudents(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    View Students
-                  </button>
-                  <button mat-flat-button color="primary" class="add-btn" *ngIf="node.type === 'class' && (!node.studentCount || node.studentCount === 0)" (click)="assignStudents(node, vm.students || [], $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    Add Students
-                  </button>
-                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'class' && node.staffCount > 0" (click)="viewStaff(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    View Staff
-                  </button>
-                  <button mat-flat-button color="primary" class="add-btn" *ngIf="node.type === 'class' && (!node.staffCount || node.staffCount === 0)" (click)="assignStaff(node, vm.staff || [], $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    Add Staff
-                  </button>
+                  <ng-container *ngIf="node.type === 'class'">
+                    <!-- Class Students -->
+                    <ng-container *ngIf="node.studentCount > 0">
+                      <button mat-icon-button class="tree-action-btn" matTooltip="View Students" aria-label="View Students" (click)="viewStudents(node, $event)">
+                        <ion-icon name="people-outline"></ion-icon>
+                      </button>
+                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Edit Students" aria-label="Edit Students" (click)="assignStudents(node, vm.students || [], $event)">
+                        <ion-icon name="people-circle-outline"></ion-icon>
+                      </button>
+                    </ng-container>
+                    <ng-container *ngIf="!node.studentCount || node.studentCount === 0">
+                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Add Students" aria-label="Add Students" (click)="assignStudents(node, vm.students || [], $event)">
+                        <ion-icon name="person-add-outline"></ion-icon>
+                      </button>
+                    </ng-container>
+
+                    <span class="action-divider"></span>
+
+                    <!-- Class Staff -->
+                    <ng-container *ngIf="node.staffCount > 0">
+                      <button mat-icon-button class="tree-action-btn" matTooltip="View Staff" aria-label="View Staff" (click)="viewStaff(node, $event)">
+                        <ion-icon name="id-card-outline"></ion-icon>
+                      </button>
+                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Edit Staff" aria-label="Edit Staff" (click)="assignStaff(node, vm.staff || [], $event)">
+                        <ion-icon name="people-circle-outline"></ion-icon>
+                      </button>
+                    </ng-container>
+                    <ng-container *ngIf="!node.staffCount || node.staffCount === 0">
+                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Add Staff" aria-label="Add Staff" (click)="assignStaff(node, vm.staff || [], $event)">
+                        <ion-icon name="person-add-outline"></ion-icon>
+                      </button>
+                    </ng-container>
+                  </ng-container>
 
                   <!-- Subject Buttons -->
-                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'subject'" (click)="viewLessons(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    View Lessons
-                  </button>
-                  <button mat-stroked-button class="view-btn" *ngIf="node.type === 'subject'" (click)="viewTopics(node, $event)" style="height: 28px; line-height: 26px; font-size: 12px;">
-                    View Topics
-                  </button>
+                  <ng-container *ngIf="node.type === 'subject'">
+                    <button mat-icon-button class="tree-action-btn" matTooltip="View Lessons" aria-label="View Lessons" (click)="viewLessons(node, $event)">
+                      <ion-icon name="book-outline"></ion-icon>
+                    </button>
+                    <button mat-icon-button class="tree-action-btn" matTooltip="View Topics" aria-label="View Topics" (click)="viewTopics(node, $event)">
+                      <ion-icon name="library-outline"></ion-icon>
+                    </button>
+                  </ng-container>
                 </div>
               </div>
               

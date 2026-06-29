@@ -1,5 +1,7 @@
 import { Component, Inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { AttendanceHistoryDialogComponent } from '../../shared/components/attendance-history-dialog/attendance-history-dialog.component';
 
 export interface AcademicTreeStudentsDialogData {
   nodeTitle: string;
@@ -17,7 +19,11 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
   searchQuery = '';
   filteredStudents: any[] = [];
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: AcademicTreeStudentsDialogData) {}
+  constructor(
+    @Inject(MAT_DIALOG_DATA) public data: AcademicTreeStudentsDialogData,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
+  ) {}
 
   ngOnInit(): void {
     this.filteredStudents = this.data.students || [];
@@ -73,10 +79,25 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
     return Number.isFinite(numericValue) ? Math.round(numericValue) : 0;
   }
 
+  viewAttendanceHistory(student: any): void {
+    this.dialog.open(AttendanceHistoryDialogComponent, {
+      width: '500px',
+      data: {
+        title: `Attendance History for ${student.name || student.displayName || 'Student'}`,
+        studentId: String(student.id)
+      }
+    });
+  }
+
+  viewStudyPlan(student: any): void {
+    this.snackBar.open(`Study Plan for ${student.name || student.displayName || 'Student'} coming soon.`, 'Close', { duration: 3000 });
+  }
+
   getAttendanceStatus(student: any): string {
     if (!this.hasAttendanceData(student)) return 'No Data';
 
     const percent = this.getStudentAttendancePercentage(student);
+    if (typeof percent === 'string') return percent;
     if (percent >= 90) return 'Excellent';
     if (percent >= 75) return 'Good';
     if (percent >= 50) return 'Needs Attention';

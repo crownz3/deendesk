@@ -1,5 +1,7 @@
 import { Component, Inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { AttendanceHistoryDialogComponent } from '../../shared/components/attendance-history-dialog/attendance-history-dialog.component';
 
 export interface AcademicTreeStaffDialogData {
   nodeTitle: string;
@@ -17,7 +19,11 @@ export class AcademicTreeStaffDialogComponent implements OnInit {
   searchQuery = '';
   filteredStaff: any[] = [];
 
-  constructor(@Inject(MAT_DIALOG_DATA) public data: AcademicTreeStaffDialogData) {}
+  constructor(
+    @Inject(MAT_DIALOG_DATA) public data: AcademicTreeStaffDialogData,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
+  ) {}
 
   ngOnInit(): void {
     this.filteredStaff = this.data.staff || [];
@@ -46,5 +52,19 @@ export class AcademicTreeStaffDialogComponent implements OnInit {
 
       return name.includes(q) || email.includes(q) || role.includes(q) || designation.includes(q);
     });
+  }
+
+  viewAttendanceHistory(staff: any): void {
+    this.dialog.open(AttendanceHistoryDialogComponent, {
+      width: '500px',
+      data: {
+        title: `Attendance History for ${staff.name || staff.displayName || 'Staff'}`,
+        studentId: String(staff.id) // using studentId as generic user id for this dialog
+      }
+    });
+  }
+
+  viewStudyPlan(staff: any): void {
+    this.snackBar.open(`Study Plan for ${staff.name || staff.displayName || 'Staff'} coming soon.`, 'Close', { duration: 3000 });
   }
 }

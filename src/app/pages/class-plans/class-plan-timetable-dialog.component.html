@@ -1,0 +1,90 @@
+<div class="dialog-header">
+  <div class="title-section">
+    <h2 mat-dialog-title>Weekly Timetable for {{ data.plan.className }}</h2>
+  </div>
+  <button mat-icon-button mat-dialog-close>
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="timetable-content">
+  <app-global-loader *ngIf="loading"></app-global-loader>
+
+  <div class="timetable-grid" *ngIf="!loading">
+    <div class="day-column" *ngFor="let day of daysOfWeek">
+      <div class="day-header">
+        <div class="day-header-top">
+          <h3>{{ day }}</h3>
+        </div>
+        <mat-button-toggle-group *ngIf="data.canManage" [value]="dayModes[day]" (change)="setDayMode(day, $event.value)" class="mode-toggle" hideSingleSelectionIndicator="true">
+          <mat-button-toggle value="period">Period-Based</mat-button-toggle>
+          <mat-button-toggle value="fullDay">Full-Day</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      
+      <div class="activities-container">
+        <app-empty-state
+          *ngIf="!getEntriesForDay(day).length"
+          icon="calendar-clear-outline"
+          title="No Activities"
+          message="Add an activity to get started."
+          [compact]="true"
+        ></app-empty-state>
+
+        <mat-card class="activity-card" *ngFor="let entry of getEntriesForDay(day)" [ngClass]="{'full-day-card': dayModes[day] === 'fullDay'}">
+          <div class="activity-time" *ngIf="dayModes[day] === 'period'">
+            <ion-icon name="time-outline"></ion-icon>
+            {{ entry.startTime }} - {{ entry.endTime }}
+          </div>
+          <div class="full-day-badge" *ngIf="dayModes[day] === 'fullDay'">
+            <ion-icon name="today-outline"></ion-icon> Full-Day Activity
+          </div>
+          
+          <div class="activity-name">
+            <strong>{{ entry.activityName }}</strong>
+          </div>
+          
+          <div class="activity-details">
+            <div class="detail-item" *ngIf="entry.subjectId">
+              <ion-icon name="book-outline"></ion-icon> Subject: {{ entry.subjectId }}
+            </div>
+            <div class="detail-item" *ngIf="entry.teacherId">
+              <ion-icon name="person-outline"></ion-icon> Teacher ID: {{ entry.teacherId }}
+            </div>
+            <div class="detail-item" *ngIf="entry.roomId">
+              <ion-icon name="location-outline"></ion-icon> Room: {{ entry.roomId }}
+            </div>
+            <div class="detail-item description" *ngIf="entry.description">
+              <ion-icon name="information-circle-outline"></ion-icon> {{ entry.description }}
+            </div>
+          </div>
+          
+          <div class="activity-actions" *ngIf="data.canManage">
+            <button mat-icon-button (click)="openEntryForm(entry, day)" matTooltip="Edit">
+              <ion-icon name="create-outline"></ion-icon>
+            </button>
+            <button mat-icon-button *ngIf="dayModes[day] === 'period'" (click)="duplicateEntry(entry)" matTooltip="Duplicate">
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteEntry(entry)" matTooltip="Delete">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+          </div>
+        </mat-card>
+
+        <button *ngIf="data.canManage && dayModes[day] === 'period'" mat-stroked-button color="primary" class="add-period-btn" (click)="openEntryForm(undefined, day, 'period')">
+          <ion-icon name="add-outline" slot="start"></ion-icon>
+          Add Period
+        </button>
+        <button *ngIf="data.canManage && dayModes[day] === 'fullDay' && !getEntriesForDay(day).length" mat-stroked-button color="primary" class="add-period-btn" (click)="openEntryForm(undefined, day, 'fullDay')">
+          <ion-icon name="add-outline" slot="start"></ion-icon>
+          Set Full-Day Activity
+        </button>
+      </div>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Close</button>
+</mat-dialog-actions>

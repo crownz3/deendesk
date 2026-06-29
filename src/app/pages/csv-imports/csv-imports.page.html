@@ -8,6 +8,16 @@
       </div>
     </header>
 
+    <div class="csv-reference-card">
+      <div>
+        <h3>CSV Import Reference IDs</h3>
+        <p>Organization ID: <code style="user-select: all;">{{ currentUserProfile?.organizationId || '-' }}</code></p>
+      </div>
+      <button mat-stroked-button color="primary" (click)="openReferenceIdsDialog()">
+        Show IDs
+      </button>
+    </div>
+
     <section class="import-panel">
       <form [formGroup]="form" class="module-form">
         <mat-form-field appearance="outline">

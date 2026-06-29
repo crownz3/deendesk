@@ -21,6 +21,13 @@ import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { MatIconModule } from '@angular/material/icon';
+import { MatCardModule } from '@angular/material/card';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatPaginatorModule } from '@angular/material/paginator';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
@@ -35,6 +42,7 @@ import { NotificationsPage } from './pages/notifications/notifications.page';
 import { PermissionsPage } from './pages/permissions/permissions.page';
 import { ProfilePage } from './pages/profile/profile.page';
 import { ReportsPage } from './pages/reports/reports.page';
+import { ReportExportOptionsDialogComponent } from './pages/reports/report-export-options-dialog.component';
 import { SettingsPage } from './pages/settings/settings.page';
 import { TreeViewPage } from './pages/tree-view/tree-view.page';
 import { AcademicTreeStudentsDialogComponent } from './pages/tree-view/academic-tree-students-dialog.component';
@@ -55,6 +63,14 @@ import { GlobalLoaderComponent } from './shared/components/global-loader/global-
 import { AppSettingsDialogComponent } from './shared/components/app-settings-dialog/app-settings-dialog.component';
 import { UserDetailsDialogComponent } from './shared/components/user-details-dialog/user-details-dialog.component';
 import { SetupMapComponent } from './shared/components/setup-map/setup-map.component';
+import { CourseDetailsDialogComponent } from './pages/management/course-details-dialog/course-details-dialog.component';
+import { CsvReferenceIdsDialogComponent } from './pages/csv-imports/csv-reference-ids-dialog/csv-reference-ids-dialog.component';
+import { ClassPlansPage } from './pages/class-plans/class-plans.page';
+import { ClassPlanFormDialogComponent } from './pages/class-plans/class-plan-form-dialog.component';
+import { ClassPlanExceptionDialogComponent } from './pages/class-plans/class-plan-exception-dialog.component';
+import { AttendanceHistoryDialogComponent } from './shared/components/attendance-history-dialog/attendance-history-dialog.component';
+import { ClassPlanTimetableDialogComponent } from './pages/class-plans/class-plan-timetable-dialog.component';
+import { TimetableEntryFormDialogComponent } from './pages/class-plans/timetable-entry-form-dialog.component';
 
 @NgModule({
   declarations: [
@@ -70,6 +86,7 @@ import { SetupMapComponent } from './shared/components/setup-map/setup-map.compo
     PermissionsPage,
     ProfilePage,
     ReportsPage,
+    ReportExportOptionsDialogComponent,
     SettingsPage,
     TreeViewPage,
     AcademicTreeStudentsDialogComponent,
@@ -90,6 +107,14 @@ import { SetupMapComponent } from './shared/components/setup-map/setup-map.compo
     AppSettingsDialogComponent,
     UserDetailsDialogComponent,
     SetupMapComponent,
+    CourseDetailsDialogComponent,
+    CsvReferenceIdsDialogComponent,
+    ClassPlansPage,
+    ClassPlanFormDialogComponent,
+    ClassPlanExceptionDialogComponent,
+    AttendanceHistoryDialogComponent,
+    ClassPlanTimetableDialogComponent,
+    TimetableEntryFormDialogComponent,
   ],
   imports: [
     BrowserModule,
@@ -114,6 +139,13 @@ import { SetupMapComponent } from './shared/components/setup-map/setup-map.compo
     MatProgressSpinnerModule,
     MatRadioModule,
     MatTooltipModule,
+    MatDatepickerModule,
+    MatNativeDateModule,
+    MatIconModule,
+    MatCardModule,
+    MatExpansionModule,
+    MatCheckboxModule,
+    MatPaginatorModule,
   ],
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
   bootstrap: [AppComponent],

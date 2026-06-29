@@ -221,5 +221,14 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
+  <button mat-button *ngIf="user['role'] === 'student' || user['role'] === 'staff' || user['role'] === 'teacher'" (click)="viewAttendanceHistory()">
+    <ion-icon name="calendar-outline"></ion-icon>
+    Attendance History
+  </button>
+  <button mat-button *ngIf="user['role'] === 'student' || user['role'] === 'staff' || user['role'] === 'teacher'" (click)="viewStudyPlan()">
+    <ion-icon name="book-outline"></ion-icon>
+    Study Plan
+  </button>
+  <span style="flex: 1 1 auto;"></span>
   <button mat-flat-button color="primary" (click)="close()">Close</button>
 </mat-dialog-actions>

@@ -68,3 +68,88 @@ ion-icon {
   color: var(--app-primary);
   font-size: 18px;
 }
+
+.tree-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tree-action-btn {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  border: 1px solid #d8e3ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0d6efd;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tree-action-btn ion-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  color: inherit;
+}
+
+.tree-action-btn:hover {
+  background: #eef6ff;
+  border-color: #b9d7ff;
+}
+
+.tree-action-btn.primary {
+  background: #0d6efd;
+  border-color: #0d6efd;
+  color: #ffffff;
+}
+
+.tree-action-btn.primary:hover {
+  background: #0b5ed7;
+  border-color: #0b5ed7;
+}
+
+.action-divider {
+  width: 1px;
+  height: 22px;
+  background: #d8e3ea;
+  margin: 0 2px;
+}
+
+.tree-node-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tree-node-title {
+  min-width: 0;
+  flex: 1;
+}
+
+.tree-node-counts {
+  display: inline-flex;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .tree-node-row {
+    align-items: flex-start;
+  }
+
+  .tree-actions {
+    gap: 6px;
+  }
+
+  .tree-action-btn {
+    width: 32px !important;
+    height: 32px !important;
+    min-width: 32px !important;
+  }
+}

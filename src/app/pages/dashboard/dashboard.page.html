@@ -25,6 +25,28 @@
     </section>
 
 
+    <section class="dashboard-grid" *ngIf="vm.todaySchedule && vm.todaySchedule.length > 0" style="margin-bottom: 24px; display: block;">
+      <article class="panel">
+        <div class="panel-heading">
+          <h2>Today's Schedule</h2>
+          <span>{{ vm.todaySchedule.length }} activities</span>
+        </div>
+        <div style="display: flex; gap: 16px; overflow-x: auto; padding: 16px 0;">
+          <mat-card *ngFor="let entry of vm.todaySchedule" style="min-width: 250px; padding: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+            <div style="font-weight: 600; color: var(--ion-color-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+              <ion-icon name="time-outline"></ion-icon>
+              {{ entry.startTime }} - {{ entry.endTime }}
+            </div>
+            <div style="font-size: 1.1rem; margin-bottom: 8px; font-weight: 500;">{{ entry.activityName }}</div>
+            <div style="font-size: 0.85rem; color: var(--ion-color-medium); display: flex; flex-direction: column; gap: 4px;">
+              <div *ngIf="entry.subjectId"><ion-icon name="book-outline"></ion-icon> Subject: {{ entry.subjectId }}</div>
+              <div *ngIf="entry.roomId"><ion-icon name="location-outline"></ion-icon> Room: {{ entry.roomId }}</div>
+            </div>
+          </mat-card>
+        </div>
+      </article>
+    </section>
+
     <section class="access-overview" *ngIf="vm.accessOverview">
       <header class="section-header">
         <h2>{{ vm.accessOverview.title }}</h2>

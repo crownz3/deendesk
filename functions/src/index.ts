@@ -94,8 +94,11 @@ export const createOrganizationWithAdmin = functions.https.onCall(async (data, c
       ? `${String(organization.name).trim()} Admin`
       : "Organization Admin";
 
-  console.log("Checking user email duplicate:", {
-    email: normalizedEmail
+  console.log("[Email Uniqueness Check Debug]", {
+    email,
+    normalizedEmail,
+    role: "organizationAdmin",
+    callerUid
   });
 
   try {
@@ -110,7 +113,15 @@ export const createOrganizationWithAdmin = functions.https.onCall(async (data, c
       if (error instanceof functions.https.HttpsError) {
         throw error;
       }
-
+      console.error("[Email Uniqueness Check Failed]", {
+        email,
+        normalizedEmail,
+        role: "organizationAdmin",
+        callerUid,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        error
+      });
       throw new functions.https.HttpsError("internal", "Error checking email uniqueness.");
     }
   }
@@ -328,8 +339,15 @@ export const createUserWithTemporaryPassword = functions.https.onCall(async (dat
     throw new functions.https.HttpsError("permission-denied", "Your role is not authorized to create users.");
   }
 
-  console.log("Checking user email duplicate:", {
-    email: normalizedEmail
+  console.log("[Email Uniqueness Check Debug]", {
+    email,
+    normalizedEmail,
+    role,
+    organizationId,
+    madrasaId,
+    madrasaIds,
+    currentUserRole: callerRole,
+    currentUserPermissions: callerData['permissions']
   });
 
   try {
@@ -344,6 +362,16 @@ export const createUserWithTemporaryPassword = functions.https.onCall(async (dat
       if (error instanceof functions.https.HttpsError) {
         throw error;
       }
+      console.error("[Email Uniqueness Check Failed]", {
+        email,
+        normalizedEmail,
+        role,
+        organizationId,
+        madrasaId,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        error
+      });
       throw new functions.https.HttpsError("internal", "Error checking email uniqueness.");
     }
   }

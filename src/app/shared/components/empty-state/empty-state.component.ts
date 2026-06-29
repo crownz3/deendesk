@@ -11,5 +11,6 @@ export class EmptyStateComponent {
   @Input() title = 'No data found';
   @Input() message = 'Create a record or change the selected filter.';
   @Input() actionLabel = '';
+  @Input() compact = false;
   @Output() action = new EventEmitter<void>();
 }

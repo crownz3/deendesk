@@ -1,0 +1,29 @@
+<h2 mat-dialog-title>Export Report</h2>
+
+<mat-dialog-content>
+  <p>Choose export format for this report.</p>
+
+  <div class="export-summary">
+    <div><strong>Report:</strong> {{ data.reportType }}</div>
+    <div><strong>Total Records:</strong> {{ data.totalRows }}</div>
+  </div>
+
+  <mat-radio-group [(ngModel)]="format" class="format-options">
+    <mat-radio-button value="pdf">
+      <mat-icon>picture_as_pdf</mat-icon> PDF Document
+    </mat-radio-button>
+    <mat-radio-button value="excel">
+      <mat-icon>table_chart</mat-icon> Excel Spreadsheet (.xlsx)
+    </mat-radio-button>
+    <mat-radio-button value="csv">
+      <mat-icon>list_alt</mat-icon> CSV Data (.csv)
+    </mat-radio-button>
+  </mat-radio-group>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cancel</button>
+  <button mat-flat-button color="primary" [mat-dialog-close]="format">
+    Export
+  </button>
+</mat-dialog-actions>

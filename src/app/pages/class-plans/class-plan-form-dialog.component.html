@@ -1,0 +1,101 @@
+<h2 mat-dialog-title>{{ data.plan ? 'Edit' : 'Add' }} Class Plan</h2>
+
+<mat-dialog-content>
+  <form [formGroup]="form" class="ion-padding-vertical" style="display: flex; flex-direction: column; gap: 16px;">
+    
+    <mat-form-field appearance="outline">
+      <mat-label>Title</mat-label>
+      <input matInput formControlName="title" placeholder="e.g. Maktab Level 1 Mon-Wed-Fri">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Madrasa</mat-label>
+      <mat-select formControlName="madrasaId">
+        <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Course</mat-label>
+      <mat-select formControlName="courseId">
+        <mat-option *ngFor="let c of filteredCourses" [value]="c.id">{{ c['name'] }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Class</mat-label>
+      <mat-select formControlName="classId">
+        <mat-option *ngFor="let c of filteredClasses" [value]="c.id">{{ c['name'] }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Assigned Staff</mat-label>
+      <mat-select formControlName="assignedStaffIds" multiple>
+        <mat-option *ngFor="let s of filteredStaff" [value]="s.id">{{ s['name'] }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Assigned Students</mat-label>
+      <mat-select formControlName="studentIds" multiple>
+        <mat-option *ngFor="let s of filteredStudents" [value]="s.id">{{ s['name'] }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Schedule Type</mat-label>
+      <mat-select formControlName="scheduleType">
+        <mat-option *ngFor="let t of scheduleTypes" [value]="t.value">{{ t.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <div *ngIf="form.get('scheduleType')?.value === 'weekly'">
+      <mat-form-field appearance="outline" style="width: 100%">
+        <mat-label>Days of Week</mat-label>
+        <mat-select formControlName="weekDays" multiple>
+          <mat-option *ngFor="let d of days" [value]="d">{{ d | titlecase }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div style="display: flex; gap: 16px;">
+      <mat-form-field appearance="outline" style="flex: 1">
+        <mat-label>Start Date</mat-label>
+        <input matInput type="date" formControlName="startDate">
+      </mat-form-field>
+      <mat-form-field appearance="outline" style="flex: 1">
+        <mat-label>End Date (Optional)</mat-label>
+        <input matInput type="date" formControlName="endDate">
+      </mat-form-field>
+    </div>
+
+    <div style="display: flex; gap: 16px;">
+      <mat-form-field appearance="outline" style="flex: 1">
+        <mat-label>Start Time</mat-label>
+        <input matInput type="time" formControlName="startTime">
+      </mat-form-field>
+      <mat-form-field appearance="outline" style="flex: 1">
+        <mat-label>End Time</mat-label>
+        <input matInput type="time" formControlName="endTime">
+      </mat-form-field>
+    </div>
+
+    <div>
+      <mat-checkbox formControlName="autoGenerateAttendance">Allow Auto-generate Attendance</mat-checkbox>
+      <mat-checkbox formControlName="autoMarkStudentsPresent">Mark students present by default</mat-checkbox>
+      <mat-checkbox formControlName="autoMarkStaffPresent">Mark staff present by default</mat-checkbox>
+    </div>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Notes</mat-label>
+      <textarea matInput formControlName="notes" rows="2"></textarea>
+    </mat-form-field>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close>Cancel</button>
+  <button mat-flat-button color="primary" (click)="save()">Save</button>
+</mat-dialog-actions>

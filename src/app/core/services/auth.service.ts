@@ -124,21 +124,69 @@ export class AuthService {
       throw new Error('Not logged in');
     }
 
+    console.log('[Password Change Auth Start Debug]', {
+      email: user.email,
+      uid: user.uid,
+    });
+
     const credential = EmailAuthProvider.credential(user.email, currentPassword.trim());
     await reauthenticateWithCredential(user, credential);
     await updatePassword(user, newPassword.trim());
 
-    const userRef = doc(this.firestore, `users/${user.uid}`);
-    await updateDoc(userRef, {
-      mustChangePassword: false,
-      temporaryPasswordForAdminView: deleteField(),
-      passwordChangedAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
+    console.log('[Password Change Auth Success Debug]', {
+      uid: user.uid,
+      email: user.email,
     });
 
-    const userSnap = await getDoc(userRef);
-    if (userSnap.exists()) {
-      const data = userSnap.data();
+    const userRef = doc(this.firestore, `users/${user.uid}`);
+    
+    console.log('[Password Change Firestore Update Debug]', {
+      path: `users/${user.uid}`,
+      patch: {
+        mustChangePassword: false,
+        temporaryPasswordForAdminView: 'deleteField()',
+        passwordChangedAt: 'serverTimestamp',
+        updatedAt: 'serverTimestamp',
+        updatedBy: user.uid
+      }
+    });
+
+    try {
+      await updateDoc(userRef, {
+        mustChangePassword: false,
+        temporaryPasswordForAdminView: deleteField(),
+        passwordChangedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: user.uid
+      });
+    } catch (error: any) {
+      console.error('[Password Change Firestore Update Failed]', {
+        path: `users/${user.uid}`,
+        errorCode: error?.code,
+        errorMessage: error?.message,
+        error,
+      });
+      throw new Error('Password changed in Firebase Auth, but profile update failed. Please contact admin.');
+    }
+
+    const snap = await getDoc(userRef);
+    console.log('[Password Change Profile After Update Debug]', {
+      exists: snap.exists(),
+      uid: user.uid,
+      profile: snap.exists() ? {
+        role: snap.data()?.['role'],
+        status: snap.data()?.['status'],
+        mustChangePassword: snap.data()?.['mustChangePassword'],
+        temporaryPasswordForAdminView: snap.data()?.['temporaryPasswordForAdminView'],
+        passwordChangedAt: snap.data()?.['passwordChangedAt'],
+        organizationId: snap.data()?.['organizationId'],
+        madrasaId: snap.data()?.['madrasaId'],
+        madrasaIds: snap.data()?.['madrasaIds'],
+      } : null
+    });
+
+    if (snap.exists()) {
+      const data = snap.data();
       if (data['organizationId']) {
         const orgRef = doc(this.firestore, `organizations/${data['organizationId']}`);
         await updateDoc(orgRef, { organizerPassword: deleteField() }).catch(() => { });

@@ -1,61 +1,91 @@
 <h2 mat-dialog-title>{{ data.title }}</h2>
 <form [formGroup]="form" (ngSubmit)="submit()">
   <mat-dialog-content class="dialog-content">
-    <div class="field-row" *ngFor="let field of data.fields">
-      <mat-form-field appearance="outline" class="full-field" *ngIf="field.type !== 'textarea'; else textareaField">
-        <mat-label>{{ field.label }}</mat-label>
-        <input
-          *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'date' || field.type === 'info'"
-          matInput
-          [type]="field.type === 'password' ? (hidePasswords[field.key] ? 'password' : 'text') : field.type === 'info' ? 'text' : field.type"
-          [placeholder]="field.placeholder || ''"
-          [formControlName]="field.key"
-          [readonly]="field.type === 'info'"
-        />
-        <button
-          *ngIf="field.type === 'password'"
-          mat-icon-button
-          matSuffix
-          (click)="hidePasswords[field.key] = !hidePasswords[field.key]"
-          type="button"
-          [attr.aria-label]="'Hide password'"
-          [attr.aria-pressed]="hidePasswords[field.key]"
-        >
-          <ion-icon [name]="hidePasswords[field.key] ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
-        </button>
-        <mat-select
-          *ngIf="field.type === 'select' || field.type === 'multiselect'"
-          [multiple]="field.type === 'multiselect'"
-          [formControlName]="field.key"
-        >
-          <mat-option *ngFor="let option of field.options || []" [value]="option.value">{{ option.label }}</mat-option>
-        </mat-select>
-        <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>
-      </mat-form-field>
 
-      <ng-template #textareaField>
-        <mat-form-field appearance="outline" class="full-field">
+    <div class="form-error-banner" *ngIf="saveErrorMessage">
+      <ion-icon name="alert-circle-outline" color="danger"
+        style="vertical-align: middle; margin-right: 8px; font-size: 20px;"></ion-icon>
+      <span style="color: var(--ion-color-danger, #f44336);"><strong>Unable to save:</strong> {{ saveErrorMessage
+        }}</span>
+    </div>
+
+    <div class="field-row" *ngFor="let field of data.fields">
+      
+      <ng-container [ngSwitch]="field.type">
+        <!-- Date Field -->
+        <mat-form-field appearance="outline" class="full-field" *ngSwitchCase="'date'">
+          <mat-label>{{ field.label }}</mat-label>
+          <input matInput [matDatepicker]="picker" [placeholder]="field.placeholder || 'Choose a date'" [formControlName]="field.key">
+          <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+          <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>
+          <mat-error *ngIf="form.get(field.key)?.hasError('serverError')">{{ form.get(field.key)?.getError('serverError') }}</mat-error>
+        </mat-form-field>
+
+        <!-- Button Toggle -->
+        <div class="full-field field-button-toggle" *ngSwitchCase="'button-toggle'">
+          <label class="toggle-label">{{ field.label }}</label>
+          <mat-button-toggle-group class="modern-toggle" [formControlName]="field.key">
+            <mat-button-toggle *ngFor="let option of field.options" [value]="option.value">
+              {{ option.label }}
+            </mat-button-toggle>
+          </mat-button-toggle-group>
+          <mat-error *ngIf="form.get(field.key)?.hasError('required') && form.get(field.key)?.touched" style="font-size: 75%; margin-top: 4px; color: var(--ion-color-danger, #f44336);">{{ field.label }} is required</mat-error>
+        </div>
+
+        <!-- Textarea -->
+        <mat-form-field appearance="outline" class="full-field" *ngSwitchCase="'textarea'">
           <mat-label>{{ field.label }}</mat-label>
           <textarea matInput rows="4" [formControlName]="field.key"></textarea>
           <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>
+          <mat-error *ngIf="form.get(field.key)?.hasError('serverError')">{{ form.get(field.key)?.getError('serverError') }}</mat-error>
         </mat-form-field>
-      </ng-template>
 
-      <button
-        *ngIf="field.quickAddResource"
-        mat-icon-button
-        color="primary"
-        type="button"
-        class="quick-add-button"
-        [attr.aria-label]="'Add ' + field.label"
-        (click)="requestQuickAdd(field.quickAddResource)"
-      >
+        <!-- Default Fields (Text, Email, Password, Select, Info, dynamic Stage Select) -->
+        <mat-form-field appearance="outline" class="full-field" *ngSwitchDefault>
+          <mat-label>{{ field.label }}</mat-label>
+
+          <!-- Standard inputs -->
+          <ng-container *ngIf="!(isStageField(field.key) && shouldShowStageSelect())">
+            <input
+              *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'info'"
+              matInput
+              [type]="field.type === 'password' ? (hidePasswords[field.key] ? 'password' : 'text') : field.type === 'info' ? 'text' : field.type"
+              [placeholder]="field.placeholder || ''" [formControlName]="field.key" [readonly]="field.type === 'info'" />
+
+            <button *ngIf="field.type === 'password'" mat-icon-button matSuffix
+              (click)="hidePasswords[field.key] = !hidePasswords[field.key]" type="button"
+              [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hidePasswords[field.key]">
+              <ion-icon [name]="hidePasswords[field.key] ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+            </button>
+            <mat-select *ngIf="field.type === 'select' || field.type === 'multiselect'"
+            [multiple]="field.type === 'multiselect'" [formControlName]="field.key">
+            <mat-option *ngFor="let option of getFilteredOptions(field)" [value]="option.value">{{ option.label }}</mat-option>
+          </mat-select>
+          </ng-container>
+
+          <!-- Dynamic Stage Select Override -->
+          <mat-select *ngIf="isStageField(field.key) && shouldShowStageSelect()" [formControlName]="field.key">
+            <mat-option *ngFor="let stage of getStageOptions()" [value]="stage">{{ stage }}</mat-option>
+          </mat-select>
+
+          <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>
+          <mat-error *ngIf="form.get(field.key)?.hasError('serverError')">{{ form.get(field.key)?.getError('serverError') }}</mat-error>
+        </mat-form-field>
+      </ng-container>
+
+      <button *ngIf="canQuickAdd(field.quickAddResource)" mat-icon-button color="primary" type="button" class="quick-add-button"
+        [attr.aria-label]="'Add ' + field.label" (click)="requestQuickAdd(field.quickAddResource!)">
         <ion-icon name="add-circle-outline"></ion-icon>
       </button>
     </div>
   </mat-dialog-content>
   <mat-dialog-actions align="end">
-    <button mat-button mat-dialog-close type="button">Cancel</button>
-    <button mat-flat-button color="primary" type="submit">{{ data.submitLabel || 'Save' }}</button>
+    <button mat-button mat-dialog-close type="button" [disabled]="isSaving">Cancel</button>
+    <button mat-flat-button color="primary" type="submit" [disabled]="form.invalid || isSaving">
+      <mat-spinner diameter="20" *ngIf="isSaving"
+        style="display: inline-block; margin-right: 8px; vertical-align: middle;"></mat-spinner>
+      {{ isSaving ? 'Saving...' : (data.submitLabel || 'Save') }}
+    </button>
   </mat-dialog-actions>
 </form>

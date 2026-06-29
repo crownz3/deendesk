@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { combineLatest, map, of, switchMap, catchError } from 'rxjs';
 import { ROLE_LABELS } from '../../core/constants/defaults';
-import { AppUser, AttendanceRecord, NotificationItem } from '../../core/models/domain.model';
+import { AppUser, AttendanceRecord, NotificationItem, ClassPlan, TimetableEntry } from '../../core/models/domain.model';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SetupMapService, SetupMapStep } from '../../core/services/setup-map.service';
@@ -58,6 +58,7 @@ interface DashboardVm {
   usersByRole: ChartSlice[];
   setupSteps: SetupMapStep[];
   accessOverview?: AccessOverview;
+  todaySchedule: (EntityRecord & TimetableEntry)[];
 }
 
 @Component({
@@ -82,6 +83,8 @@ export class DashboardPage {
         subjects: this.repo.list<EntityRecord>('subjects', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'subjects', error); return of([]); })),
         attendance: this.repo.list<AttendanceRecord & EntityRecord>('attendance', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'attendance', error); return of([]); })),
         notifications: this.repo.list<NotificationItem & EntityRecord>('notifications', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'notifications', error); return of([]); })),
+        classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'classPlans', error); return of([]); })),
+        timetableEntries: this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'timetableEntries', error); return of([]); })),
       }).pipe(
         map((rawData): DashboardVm => {
           const users = rawData['users'] || [];
@@ -113,6 +116,14 @@ export class DashboardPage {
           
           const setupSteps = this.setupMap.getStepsForUser(profile, rawCounts);
           const accessOverview = this.buildAccessOverview(profile, data);
+          
+          const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          const todayDayName = days[new Date().getDay()];
+          const myClassPlanIds = (data['classPlans'] || []).map(p => p.id);
+          const allTimetableEntries = (data['timetableEntries'] || []) as (EntityRecord & TimetableEntry)[];
+          
+          const todaySchedule = allTimetableEntries.filter(e => e.dayOfWeek === todayDayName && myClassPlanIds.includes(e.classPlanId));
+          todaySchedule.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
           return {
             displayName: this.getDisplayName(profile),
@@ -125,6 +136,7 @@ export class DashboardPage {
             notifications: data['notifications'].slice(0, 5),
             setupSteps,
             accessOverview,
+            todaySchedule,
           };
         }),
       );

@@ -1,5 +1,7 @@
 import { Component, Inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { AttendanceHistoryDialogComponent } from '../attendance-history-dialog/attendance-history-dialog.component';
 import { EntityRecord } from '../../../core/services/repository.service';
 import { PERMISSION_LABELS, ROLE_LABELS } from '../../../core/constants/defaults';
 import { AuthService } from '../../../core/services/auth.service';
@@ -23,7 +25,9 @@ export class UserDetailsDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: UserDetailsDialogData,
     public dialogRef: MatDialogRef<UserDetailsDialogComponent>,
     private auth: AuthService,
-    private credentialService: CredentialService
+    private credentialService: CredentialService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) {
     this.user = data.user;
   }
@@ -38,6 +42,20 @@ export class UserDetailsDialogComponent implements OnInit {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  viewAttendanceHistory(): void {
+    this.dialog.open(AttendanceHistoryDialogComponent, {
+      width: '500px',
+      data: {
+        title: `Attendance History for ${this.user['displayName'] || this.user['name']}`,
+        studentId: String(this.user.id)
+      }
+    });
+  }
+
+  viewStudyPlan(): void {
+    this.snackBar.open(`Study Plan for ${this.user['displayName'] || this.user['name']} coming soon.`, 'Close', { duration: 3000 });
   }
 
   getRoleLabel(roleKey: unknown): string {

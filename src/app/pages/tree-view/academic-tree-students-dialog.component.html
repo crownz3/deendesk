@@ -68,6 +68,15 @@
                  [style.width.%]="getStudentAttendancePercentage(student)"></div>
           </div>
         </div>
+
+        <div class="student-actions">
+          <button mat-button color="primary" (click)="viewAttendanceHistory(student)">
+            <ion-icon name="calendar-outline"></ion-icon> History
+          </button>
+          <button mat-button color="primary" (click)="viewStudyPlan(student)">
+            <ion-icon name="book-outline"></ion-icon> Study Plan
+          </button>
+        </div>
       </div>
     </div>
 

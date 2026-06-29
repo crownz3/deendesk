@@ -1,0 +1,91 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as vm">
+    <app-global-loader *ngIf="vm.loading"></app-global-loader>
+
+    <div class="ion-padding" *ngIf="vm.error">
+      <div class="error-message" style="color: red; text-align: center; padding: 20px;">
+        {{ vm.error }}
+      </div>
+    </div>
+
+    <ng-container *ngIf="!vm.loading && !vm.error">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Academic</p>
+          <h1>Class Plans</h1>
+          <p>Schedule and manage class routines.</p>
+        </div>
+        <div class="page-actions" *ngIf="canManage(vm.data?.profile)">
+          <button mat-flat-button color="primary" type="button" (click)="openForm()">
+            <ion-icon name="add-outline"></ion-icon>
+            Add Plan
+          </button>
+        </div>
+      </header>
+
+      <div class="ion-padding">
+        <app-empty-state
+          *ngIf="!vm.data?.classPlans?.length"
+          icon="calendar-outline"
+          title="No Class Plans"
+          message="Get started by creating a new class plan."
+        ></app-empty-state>
+
+        <div *ngIf="vm.data?.classPlans?.length">
+        <div class="plan-card" *ngFor="let plan of vm.data?.classPlans">
+          <div class="plan-header">
+            <h3>{{ plan.title || 'Untitled Plan' }}</h3>
+            <app-status-badge [status]="plan.status"></app-status-badge>
+          </div>
+          
+          <div class="plan-details">
+            <div>
+              <strong>Class:</strong> {{ plan.className }} ({{ plan.courseName }})
+            </div>
+            <div>
+              <strong>Schedule:</strong> {{ plan.scheduleType | titlecase }}
+              <span *ngIf="plan.scheduleType === 'weekly'"> ({{ plan.weekDays && plan.weekDays.length ? plan.weekDays.join(', ') : '' }})</span>
+            </div>
+            <div>
+              <strong>Time:</strong> {{ plan.startTime }} - {{ plan.endTime }}
+            </div>
+            <div>
+              <strong>Staff:</strong> {{ plan.assignedStaffNames && plan.assignedStaffNames.length ? plan.assignedStaffNames.join(', ') : 'None' }}
+            </div>
+            <div>
+              <strong>Students:</strong> {{ plan.studentIds && plan.studentIds.length ? plan.studentIds.length : 0 }}
+            </div>
+          </div>
+
+          <div class="exceptions-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ion-color-step-150, #eee);">
+            <strong>Exceptions:</strong>
+            <ng-container *ngIf="getPlanExceptions(plan.id!, vm.data!.exceptions) as exceptions">
+              <span *ngIf="!exceptions.length" style="color: var(--ion-color-medium); margin-left: 8px;">None added</span>
+              <ul *ngIf="exceptions.length" style="margin-top: 8px; margin-bottom: 0; padding-left: 24px; font-size: 0.9em; display: flex; flex-direction: column; gap: 4px;">
+                <li *ngFor="let ex of exceptions">
+                  <strong>{{ ex.date | date:'mediumDate' }}</strong>: {{ ex.type | titlecase }} 
+                  <span *ngIf="ex.reason" style="color: var(--ion-color-medium);">({{ ex.reason }})</span>
+                  <span *ngIf="ex.type === 'rescheduled' && ex.rescheduledDate">
+                    &rarr; {{ ex.rescheduledDate | date:'mediumDate' }} {{ ex.rescheduledStartTime }}
+                  </span>
+                </li>
+              </ul>
+            </ng-container>
+          </div>
+
+          <div class="plan-actions" *ngIf="canManage(vm.data?.profile)">
+            <button mat-stroked-button (click)="openTimetable(plan, vm.data?.profile)">Timetable</button>
+            <button mat-stroked-button (click)="openForm(plan)">Edit</button>
+            <button mat-stroked-button (click)="openExceptionForm(plan)">Add Exception</button>
+            <button mat-stroked-button (click)="generateAttendance(plan, vm.data!.profile!)">Generate Attendance</button>
+            <button mat-stroked-button (click)="toggleStatus(plan, vm.data!.profile!)">
+              {{ plan.status === 'active' ? 'Pause' : 'Resume' }}
+            </button>
+            <button mat-stroked-button color="warn" (click)="deletePlan(plan, vm.data!.profile!)">Delete</button>
+          </div>
+        </div>
+        </div>
+      </div>
+    </ng-container>
+  </section>
+</ion-content>

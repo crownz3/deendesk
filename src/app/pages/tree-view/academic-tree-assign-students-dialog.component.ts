@@ -7,8 +7,10 @@ import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import { firstValueFrom } from 'rxjs';
 
 export interface AssignStudentsDialogData {
+  mode?: string;
   node: any;
   assignedStudents: any[];
+  availableStudents?: any[];
   allStudents: any[];
 }
 
@@ -20,8 +22,8 @@ export interface AssignStudentsDialogData {
 })
 export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   node: any;
-  availableUsers: any[] = [];
-  selectedUsers: any[] = [];
+  availableStudents: any[] = [];
+  selectedStudents: any[] = [];
   originalSelectedIds = new Set<string>();
   
   isSaving = false;
@@ -35,37 +37,87 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.node = this.data.node;
-    const all = this.data.allStudents || [];
-    const currentlyAssigned = this.data.assignedStudents || [];
+    this.node = this.data?.node;
+    const all = this.data?.allStudents || [];
+    
+    const incomingAssigned = (Array.isArray(this.data?.assignedStudents) ? this.data.assignedStudents : []).filter((user: any) => this.isStudentUser(user));
+    const incomingAvailable = (Array.isArray(this.data?.availableStudents) ? this.data.availableStudents : []).filter((user: any) => this.isStudentUser(user));
+    const allStudents = (this.data?.allStudents || []).filter((user: any) => this.isStudentUser(user));
 
-    this.originalSelectedIds = new Set(currentlyAssigned.map(s => s.id));
-    this.selectedUsers = [...currentlyAssigned];
+    this.selectedStudents = this.uniqueUsers(incomingAssigned);
+    this.availableStudents = this.uniqueUsers(
+      incomingAvailable.filter((student: any) => !this.isAlreadySelected(student))
+    );
 
-    // Build unassigned based on rules
-    this.availableUsers = all.filter(student => !this.studentMatchesNode(student, this.node));
+    console.log('[Assign Students Dialog Role Filter Debug]', {
+      incomingAssignedCount: this.data?.assignedStudents?.length || 0,
+      incomingAvailableCount: this.data?.availableStudents?.length || 0,
+      filteredAssignedCount: this.selectedStudents.length,
+      filteredAvailableCount: this.availableStudents.length,
+      invalidIncomingAssigned: (this.data?.assignedStudents || []).filter((user: any) => !this.isStudentUser(user)).map((user: any) => ({
+        id: user.id || user.uid,
+        role: user.role,
+        name: user.name || user.displayName
+      })),
+      invalidIncomingAvailable: (this.data?.availableStudents || []).filter((user: any) => !this.isStudentUser(user)).map((user: any) => ({
+        id: user.id || user.uid,
+        role: user.role,
+        name: user.name || user.displayName
+      })),
+    });
 
-    console.log('[Academic Tree Assign Students Open Debug]', {
-      nodeId: this.node.id,
-      nodeType: this.node.type,
-      nodeTitle: this.node.title,
-      assignedCount: this.selectedUsers.length,
-      totalStudentsLoaded: all.length,
+    this.selectedStudents = this.uniqueUsers(incomingAssigned);
+    this.availableStudents = this.uniqueUsers(
+      incomingAvailable.filter((student: any) => !this.isAlreadySelected(student))
+    );
+
+    this.originalSelectedIds = new Set();
+    this.selectedStudents.forEach(student => {
+      const id = this.getUserId(student);
+      if (id) this.originalSelectedIds.add(id);
+    });
+
+    console.log('[Assign Students Dialog Init Debug]', {
+      mode: this.data?.mode,
+      classId: this.node?.id,
+      className: this.node?.title,
+      parentCourseId: this.node?.parentCourseId,
+      parentCourseName: this.node?.parentCourseName,
+      incomingAssignedCount: incomingAssigned.length,
+      selectedStudentsCount: this.selectedStudents.length,
+      incomingAvailableCount: incomingAvailable.length,
+      availableStudentsCount: this.availableStudents.length,
+      selectedStudentIds: this.selectedStudents.map(student => this.getUserId(student)),
     });
   }
 
-  private studentMatchesNode(student: any, node: any): boolean {
-    if (!student || !node?.id || !node?.type) return false;
-    if (node.type === 'course') {
-      return student.courseId === node.id || (student.courseIds || []).includes(node.id);
+  private getUserId(user: any): string {
+    return user?.id || user?.uid || user?.docId || '';
+  }
+
+  private normalizeRole(role: string | undefined | null): string {
+    return String(role || '').trim().toLowerCase();
+  }
+
+  private isStudentUser(user: any): boolean {
+    return this.normalizeRole(user?.role) === 'student';
+  }
+
+  private isAlreadySelected(student: any): boolean {
+    const id = this.getUserId(student);
+    return this.selectedStudents.some(selected => this.getUserId(selected) === id);
+  }
+
+  private uniqueUsers(users: any[]): any[] {
+    const map = new Map<string, any>();
+    for (const user of users || []) {
+      const key = this.getUserId(user);
+      if (!key) continue;
+      if (!map.has(key)) {
+        map.set(key, user);
+      }
     }
-    if (node.type === 'class') {
-      return student.classId === node.id || (student.classIds || []).includes(node.id);
-    }
-    if (node.type === 'subject') {
-      return student.subjectId === node.id || (student.subjectIds || []).includes(node.id);
-    }
-    return false;
+    return Array.from(map.values());
   }
 
   drop(event: CdkDragDrop<any[]>) {
@@ -82,19 +134,40 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     
     console.log('[Assign Dialog Transfer Debug]', {
       type: 'students',
-      availableCount: this.availableUsers.length,
-      selectedCount: this.selectedUsers.length,
+      availableCount: this.availableStudents.length,
+      selectedCount: this.selectedStudents.length,
     });
   }
 
-  addAll() {
-    this.selectedUsers.push(...this.availableUsers);
-    this.availableUsers = [];
+  addStudent(student: any): void {
+    if (!this.isStudentUser(student)) {
+      console.warn('[Blocked Non Student In Student Dialog]', {
+        id: student?.id || student?.uid,
+        role: student?.role,
+        name: student?.name || student?.displayName
+      });
+      return;
+    }
+    if (this.isAlreadySelected(student)) return;
+    this.selectedStudents = [...this.selectedStudents, student];
+    this.availableStudents = this.availableStudents.filter(item => this.getUserId(item) !== this.getUserId(student));
   }
 
-  removeAll() {
-    this.availableUsers.push(...this.selectedUsers);
-    this.selectedUsers = [];
+  removeStudent(student: any): void {
+    if (!student) return;
+    this.availableStudents = [...this.availableStudents, student];
+    this.selectedStudents = this.selectedStudents.filter(item => this.getUserId(item) !== this.getUserId(student));
+  }
+
+  addAll(): void {
+    const validStudents = this.availableStudents.filter((user: any) => this.isStudentUser(user));
+    this.selectedStudents = this.uniqueUsers([...this.selectedStudents, ...validStudents]);
+    this.availableStudents = [];
+  }
+
+  removeAll(): void {
+    this.availableStudents = this.uniqueUsers([...this.availableStudents, ...this.selectedStudents]);
+    this.selectedStudents = [];
   }
 
   async save() {
@@ -102,29 +175,42 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.errorMsg = '';
     const user = await firstValueFrom(this.auth.profile$);
 
-    const newSelectedIds = new Set(this.selectedUsers.map(s => s.id));
-    
-    const addedUsers = this.selectedUsers.filter(s => !this.originalSelectedIds.has(s.id));
-    const removedUsers = (this.data.assignedStudents || []).filter(s => !newSelectedIds.has(s.id));
+    this.selectedStudents = this.selectedStudents.filter((u: any) => this.isStudentUser(u));
 
-    console.log('[Assign Save Debug]', {
-      nodeId: this.node.id,
-      nodeType: this.node.type,
-      nodeTitle: this.node.title,
-      selectedCount: this.selectedUsers.length,
-      removedCount: removedUsers.length,
+    const invalidSelected = this.selectedStudents.filter((u: any) => !this.isStudentUser(u));
+    if (invalidSelected.length) {
+      console.error('[Blocked Save Invalid Student Dialog Roles]', {
+        invalidSelected: invalidSelected.map((u: any) => ({
+          id: u.id || u.uid,
+          role: u.role,
+          name: u.name || u.displayName
+        }))
+      });
+      return;
+    }
+
+    const selectedIds = new Set(this.selectedStudents.map(student => this.getUserId(student)));
+
+    const addedStudents = this.selectedStudents.filter(student => !this.originalSelectedIds.has(this.getUserId(student)));
+    
+    const allStudents = this.data?.allStudents || [];
+    const removedStudents = allStudents.filter((student: any) => {
+      const id = this.getUserId(student);
+      return this.originalSelectedIds.has(id) && !selectedIds.has(id);
     });
 
-    console.log('[Class Student Assignment Debug]', {
-      classId: this.node.id,
-      className: this.node.title,
-      parentCourseId: this.node.parentCourseId,
-      parentCourseName: this.node.parentCourseName,
-      selectedStudentCount: this.selectedUsers.length,
+    console.log('[Assign Students Save Diff Debug]', {
+      classId: this.node?.id,
+      originalAssignedCount: this.originalSelectedIds.size,
+      selectedCount: this.selectedStudents.length,
+      addedCount: addedStudents.length,
+      removedCount: removedStudents.length,
+      addedIds: addedStudents.map(student => this.getUserId(student)),
+      removedIds: removedStudents.map(student => this.getUserId(student)),
     });
 
     try {
-      for (const student of addedUsers) {
+      for (const student of addedStudents) {
         let patch: any = {};
         if (this.node.type === 'class') {
           patch = { 
@@ -135,11 +221,11 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
           };
         }
         if (Object.keys(patch).length > 0) {
-          await this.repo.update('users', student.id, patch, user);
+          await this.repo.update('users', this.getUserId(student), patch, user);
         }
       }
 
-      for (const student of removedUsers) {
+      for (const student of removedStudents) {
         let patch: any = {};
         if (this.node.type === 'class') {
           if (student.classId === this.node.id) {
@@ -149,7 +235,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         }
         
         if (Object.keys(patch).length > 0) {
-          await this.repo.update('users', student.id, patch, user);
+          await this.repo.update('users', this.getUserId(student), patch, user);
         }
       }
 

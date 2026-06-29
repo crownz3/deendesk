@@ -6,6 +6,9 @@ import { AuthService } from '../../core/services/auth.service';
 import { CsvService, CsvValidationResult } from '../../core/services/csv.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { LoaderService } from '../../core/services/loader.service';
+import { MatDialog } from '@angular/material/dialog';
+import { AppUser } from '../../core/models/domain.model';
+import { CsvReferenceIdsDialogComponent } from './csv-reference-ids-dialog/csv-reference-ids-dialog.component';
 
 interface CsvModuleConfig {
   key: string;
@@ -42,6 +45,11 @@ export class CsvImportsPage {
   validation: CsvValidationResult | null = null;
   importing = false;
 
+  currentUserProfile: AppUser | null = null;
+  madrasas: EntityRecord[] = [];
+  courses: EntityRecord[] = [];
+  classes: EntityRecord[] = [];
+
   constructor(
     private readonly fb: FormBuilder,
     private readonly csv: CsvService,
@@ -49,7 +57,52 @@ export class CsvImportsPage {
     private readonly auth: AuthService,
     private readonly snackBar: MatSnackBar,
     private readonly loader: LoaderService,
+    private readonly dialog: MatDialog,
   ) {}
+
+  ngOnInit(): void {
+    this.loadReferenceData();
+  }
+
+  async loadReferenceData(): Promise<void> {
+    try {
+      this.currentUserProfile = await firstValueFrom(this.auth.profile$);
+
+      const [madrasas, courses, classes] = await Promise.all([
+        this.repo.getAllOnce('madrasas', this.currentUserProfile),
+        this.repo.getAllOnce('courses', this.currentUserProfile),
+        this.repo.getAllOnce('classes', this.currentUserProfile)
+      ]);
+
+      this.madrasas = madrasas || [];
+      this.courses = courses || [];
+      this.classes = classes || [];
+
+      console.log('[CSV Import Reference IDs Debug]', {
+        organizationId: this.currentUserProfile?.organizationId,
+        madrasasCount: this.madrasas.length,
+        coursesCount: this.courses.length,
+        classesCount: this.classes.length,
+      });
+    } catch (error) {
+      console.error('[CSV Import] Failed to load reference data', error);
+    }
+  }
+
+  openReferenceIdsDialog(): void {
+    this.dialog.open(CsvReferenceIdsDialogComponent, {
+      width: '90vw',
+      maxWidth: '1000px',
+      maxHeight: '90vh',
+      panelClass: 'csv-reference-ids-dialog-panel',
+      data: {
+        organizationId: this.currentUserProfile?.organizationId,
+        madrasas: this.madrasas,
+        courses: this.courses,
+        classes: this.classes
+      }
+    });
+  }
 
   activeModule(): CsvModuleConfig {
     return this.modules.find((module) => module.key === this.form.controls.module.value) ?? this.modules[0];

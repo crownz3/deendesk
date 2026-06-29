@@ -1,0 +1,62 @@
+<h2 mat-dialog-title>
+  {{ data.title }}
+</h2>
+
+<mat-dialog-content class="history-content">
+  <div *ngIf="isLoading" class="loader-container">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading history...</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <ng-container *ngIf="(records$ | async) as records">
+      <div *ngIf="records.length === 0" class="empty-state">
+        <ion-icon name="calendar-outline"></ion-icon>
+        <h3>No Attendance Records</h3>
+        <p>No history was found for this filter.</p>
+      </div>
+
+      <div class="timeline" *ngIf="records.length > 0">
+        <div class="record-card" *ngFor="let record of records">
+          <div class="record-header">
+            <div class="date-info">
+              <ion-icon name="calendar-clear-outline"></ion-icon>
+              <strong>{{ record.date | date:'mediumDate' }}</strong>
+            </div>
+            <div class="attendance-actions">
+              <mat-button-toggle-group #recordTg="matButtonToggleGroup" class="modern-toggle" [value]="record.status" (change)="updateStatus(record, $event.value, recordTg)">
+                <mat-button-toggle value="present">
+                  <ion-icon name="checkmark-circle-outline"></ion-icon> Present
+                </mat-button-toggle>
+                <mat-button-toggle value="absent">
+                  <ion-icon name="close-circle-outline"></ion-icon> Absent
+                </mat-button-toggle>
+                <mat-button-toggle value="late">
+                  <ion-icon name="time-outline"></ion-icon> Late
+                </mat-button-toggle>
+                <mat-button-toggle value="leave">
+                  <ion-icon name="calendar-outline"></ion-icon> Leave
+                </mat-button-toggle>
+              </mat-button-toggle-group>
+            </div>
+          </div>
+          
+          <div class="record-details">
+            <div class="detail-item">
+              <span class="label">Marked By:</span>
+              <span class="value">{{ getTeacherName(record.teacherId) }}</span>
+            </div>
+            <div class="detail-item" *ngIf="record.notes">
+              <span class="label">Notes:</span>
+              <span class="value notes">{{ record.notes }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </ng-container>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

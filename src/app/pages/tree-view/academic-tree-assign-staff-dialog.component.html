@@ -1,8 +1,8 @@
 <div class="assign-dialog">
   <div class="assign-dialog-header">
     <div class="title-section">
-      <h2 mat-dialog-title>Assign Staff</h2>
-      <p class="dialog-subtitle">{{ node.title }}</p>
+      <h2 mat-dialog-title>{{ selectedUsers.length > 0 ? 'Edit' : 'Add' }} Staff - {{ node.title }}</h2>
+      <p class="dialog-subtitle" *ngIf="node.parentCourseName">Course: {{ node.parentCourseName }}</p>
     </div>
     
     <div class="assign-summary-cards">
@@ -37,7 +37,7 @@
         
         <div class="transfer-list" cdkDropList [cdkDropListData]="availableUsers" (cdkDropListDropped)="drop($event)">
           <div *ngIf="availableUsers.length === 0" class="empty-transfer-state">
-            No more available staff
+            No staff available
           </div>
           
           <div class="transfer-item" *ngFor="let staff of availableUsers" cdkDrag>
@@ -59,7 +59,7 @@
       <!-- Selected / Assigned Panel -->
       <div class="transfer-panel">
         <div class="panel-header">
-          <h3>Selected Staff</h3>
+          <h3>Assigned Staff</h3>
           <button mat-button color="warn" (click)="removeAll()" [disabled]="selectedUsers.length === 0">Remove All</button>
         </div>
         

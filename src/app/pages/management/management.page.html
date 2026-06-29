@@ -1,8 +1,8 @@
 <ion-content>
   <section class="page-shell" *ngIf="vm$ | async as state">
     
-    <!-- Loading State -->
-    <ng-container *ngIf="state.loading">
+    <!-- Initial Loading State -->
+    <ng-container *ngIf="state.loading && !state.data">
       <div class="loading-state">
         <mat-spinner diameter="48"></mat-spinner>
         <p>Loading data...</p>
@@ -21,7 +21,7 @@
     </ng-container>
 
     <!-- Data State -->
-    <ng-container *ngIf="!state.loading && !state.error && state.data as vm">
+    <ng-container *ngIf="!state.error && state.data as vm">
       <header class="page-header">
         <div>
           <p class="eyebrow">Management</p>
@@ -45,6 +45,38 @@
         </div>
       </header>
 
+      <div class="filters-toolbar" *ngIf="vm.config.resource === 'users'">
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Search users</mat-label>
+          <mat-icon matPrefix>search</mat-icon>
+          <input matInput [ngModel]="searchQuery$ | async" (ngModelChange)="searchQuery$.next($event); pageIndex$.next(0)" placeholder="Name or email">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role !== 'madrasaIncharge'">
+          <mat-label>Filter by Madrasa</mat-label>
+          <mat-select [ngModel]="madrasaFilter$ | async" (ngModelChange)="madrasaFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Madrasas</mat-option>
+            <mat-option *ngFor="let madrasa of vm.madrasas" [value]="madrasa.id">
+              {{ madrasa['name'] }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Filter by Role</mat-label>
+          <mat-select [ngModel]="roleFilter$ | async" (ngModelChange)="roleFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Roles</mat-option>
+            <mat-option value="superAdmin">Super Admin</mat-option>
+            <mat-option value="organizationAdmin">Organization Admin</mat-option>
+            <mat-option value="coordinator">Coordinator</mat-option>
+            <mat-option value="madrasaIncharge">Madrasa Incharge</mat-option>
+            <mat-option value="teacher">Teacher</mat-option>
+            <mat-option value="student">Student</mat-option>
+            <mat-option value="parent">Parent</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
 
 
       <section class="credential-panel" *ngIf="credentials.length">
@@ -66,26 +98,40 @@
         </div>
       </section>
 
-      <app-data-table
-        [currentUid]="vm.profile?.uid"
-        [columns]="vm.config.columns"
-        [rows]="vm.rows"
-        [emptyTitle]="vm.config.emptyTitle || 'No data found'"
-        [emptyText]="vm.config.emptyText"
-        [emptyButton]="vm.config.emptyButton"
-        [emptyIcon]="vm.config.emptyIcon || 'file-tray-outline'"
-        [allowCredentials]="vm.config.allowCredentials || false"
-        [allowPromotion]="vm.config.allowPromotion || false"
-        [allowDetails]="vm.config.allowDetails || false"
-        [generatedCredentials]="generatedCredentials"
-        (edit)="edit(vm.config, $event)"
-        (viewDetails)="viewDetails($event)"
-        (remove)="remove(vm.config, $event)"
-        (resetPassword)="setTemporaryPassword($event)"
-        (sendResetEmail)="sendPasswordResetEmail($event)"
-        (promote)="promote($event)"
-        (emptyAction)="openCreate(vm.config)"
-      ></app-data-table>
+        <div class="table-container">
+          <app-data-table
+            [currentUid]="vm.profile?.uid"
+            [columns]="vm.config.columns"
+            [rows]="vm.rows"
+            [emptyTitle]="vm.config.emptyTitle || 'No data found'"
+            [emptyText]="vm.config.emptyText"
+            [emptyButton]="vm.config.emptyButton"
+            [emptyIcon]="vm.config.emptyIcon || 'file-tray-outline'"
+            [allowCredentials]="vm.config.allowCredentials || false"
+            [allowPromotion]="vm.config.allowPromotion || false"
+            [allowDetails]="vm.config.allowDetails || false"
+            [generatedCredentials]="generatedCredentials"
+            (edit)="edit(vm.config, $event)"
+            (viewDetails)="viewDetails(vm.config, $event)"
+            (remove)="remove(vm.config, $event)"
+            (resetPassword)="setTemporaryPassword($event)"
+            (sendResetEmail)="sendPasswordResetEmail($event)"
+            (promote)="promote($event)"
+            (emptyAction)="openCreate(vm.config)"
+          ></app-data-table>
+          
+          <div class="table-loading-overlay" *ngIf="state.loading">
+            <mat-spinner diameter="40"></mat-spinner>
+          </div>
+        </div>
+
+      <mat-paginator *ngIf="vm.config.resource === 'users' && (vm.totalItems || 0) > 0"
+        [length]="vm.totalItems"
+        [pageSize]="pageSize$ | async"
+        [pageIndex]="pageIndex$ | async"
+        [pageSizeOptions]="[10, 25, 50, 100]"
+        (page)="onPageChange($event)">
+      </mat-paginator>
     </ng-container>
 
   </section>

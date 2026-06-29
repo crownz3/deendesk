@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
-import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, take } from 'rxjs';
+import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, BehaviorSubject, take, tap, scan } from 'rxjs';
 import { CollectionReference, DocumentData, collection, getFirestore } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
@@ -26,6 +26,8 @@ import { LoaderService } from '../../core/services/loader.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { QuickAddDialogComponent, QuickAddResult } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
 import { UserDetailsDialogComponent } from '../../shared/components/user-details-dialog/user-details-dialog.component';
+import { CourseDetailsDialogComponent } from './course-details-dialog/course-details-dialog.component';
+import { PageEvent } from '@angular/material/paginator';
 
 interface ManagementConfig {
   resource: string;
@@ -55,6 +57,8 @@ interface ManagementVm {
   config: ManagementConfig;
   rows: EntityRecord[];
   profile: AppUser | null;
+  totalItems?: number;
+  madrasas?: EntityRecord[];
 }
 
 const baseStatusField: QuickAddField = {
@@ -277,6 +281,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'courseName', label: 'Course' },
       { key: 'className', label: 'Class' },
       { key: 'stageLevel', label: 'Stage / Level' },
+      { key: 'madrasaName', label: 'Madrasa' },
       { key: 'email', label: 'Student Mail' },
       { key: 'parentEmail', label: 'Parent Mail' },
       { key: 'status', label: 'Status', type: 'status' },
@@ -288,12 +293,13 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'fatherName', label: 'Father name', type: 'text', required: true },
       { key: 'parentName', label: 'Parent display name', type: 'text' },
       { key: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
+      { key: 'admissionDate', label: 'Admission date', type: 'date' },
       { key: 'email', label: 'Student email (optional)', type: 'email' },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
       { key: 'courseId', label: 'Course', type: 'select', quickAddResource: 'courses' },
       { key: 'classId', label: 'Class', type: 'select', quickAddResource: 'classes' },
-      { key: 'stage', label: 'Stage / level', type: 'text' },
+      { key: 'stageLevel', label: 'Stage / level', type: 'text' },
       baseStatusField,
     ],
   },
@@ -337,10 +343,14 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     emptyIcon: 'library-outline',
     columns: [
       { key: 'name', label: 'Course' },
+      { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
+      { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
       { key: 'code', label: 'Code' },
-      { key: 'type', label: 'Type' },
+      { key: 'typeDisplay', label: 'Type' },
+      { key: 'stagesDisplay', label: 'Stages' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
+    allowDetails: true,
     fields: [
       { key: 'organizationId', label: 'Organization', type: 'select', quickAddResource: 'organizations' },
       { key: 'madrasaId', label: 'Madrasa', type: 'select', quickAddResource: 'madrasas' },
@@ -355,8 +365,18 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
           { label: 'Custom', value: 'custom' },
         ]
       },
-      { key: 'stagesText', label: 'Stages (comma separated)', type: 'text' },
-      { key: 'levelsText', label: 'Levels (comma separated)', type: 'text' },
+      { 
+        key: 'stages', 
+        label: 'Select Stages', 
+        type: 'multiselect', 
+        options: [
+          { label: 'Miftah', value: 'Miftah' },
+          { label: 'Tilawatul Quran', value: 'Tilawatul Quran' },
+          { label: 'Nadthira', value: 'Nadthira' },
+          { label: 'Hifz', value: 'Hifz' }
+        ] 
+      },
+      { key: 'levels', label: 'Levels / Batches (optional)', type: 'text', placeholder: 'Example: Level 1, Level 2, Boys Batch, Girls Batch' },
       { key: 'description', label: 'Description', type: 'textarea' },
       baseStatusField,
     ],
@@ -428,28 +448,80 @@ export class ManagementPage {
     map((data) => MANAGEMENT_CONFIGS[String(data['resource'])]),
   );
 
-  readonly vm$ = this.config$.pipe(
-    switchMap((config) => this.auth.profile$.pipe(
-      switchMap((profile) => this.rowsForConfig(config, profile).pipe(
-        map((rows) => ({ rows, profile })),
-      )),
-      map(({ rows, profile }): PageState<ManagementVm> => ({
-        data: {
-          config,
-          rows: this.decorateRows(this.filterRows(config, rows)),
-          profile,
-        },
-        loading: false,
-      })),
-      startWith({ loading: true } as PageState<ManagementVm>),
-      catchError((err) => {
-        console.error('[Management] Page load failed:', err);
-        return of({
+  readonly madrasaFilter$ = new BehaviorSubject<string>('all');
+  readonly roleFilter$ = new BehaviorSubject<string>('all');
+  readonly searchQuery$ = new BehaviorSubject<string>('');
+  readonly pageIndex$ = new BehaviorSubject<number>(0);
+  readonly pageSize$ = new BehaviorSubject<number>(10);
+
+  readonly vm$ = combineLatest([
+    this.config$,
+    this.auth.profile$,
+    this.madrasaFilter$,
+    this.roleFilter$,
+    this.searchQuery$,
+    this.pageIndex$,
+    this.pageSize$
+  ]).pipe(
+    switchMap(([config, profile, madrasaFilter, roleFilter, searchQuery, pageIndex, pageSize]) => {
+      // For Madrasa Incharge, force the madrasa filter to their own
+      if (config.resource === 'users' && profile?.role === 'madrasaIncharge' && profile.madrasaIds?.length) {
+        if (madrasaFilter !== profile.madrasaIds[0]) {
+           // Update subject without emitting to avoid infinite loop (or just override locally)
+           madrasaFilter = profile.madrasaIds[0];
+        }
+      }
+
+      return combineLatest([
+        this.rowsForConfig(config, profile, madrasaFilter, roleFilter),
+        this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([])))
+      ]).pipe(
+        map(([rows, madrasas]) => {
+           let filteredRows = this.decorateRows(config, this.filterRows(config, rows));
+           
+           if (config.resource === 'users') {
+              if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                filteredRows = filteredRows.filter(r => 
+                  (r['name']?.toString().toLowerCase() || '').includes(q) ||
+                  (r['displayName']?.toString().toLowerCase() || '').includes(q) ||
+                  (r['email']?.toString().toLowerCase() || '').includes(q)
+                );
+              }
+
+              const totalItems = filteredRows.length;
+              const startIndex = pageIndex * pageSize;
+              filteredRows = filteredRows.slice(startIndex, startIndex + pageSize);
+
+              return { rows: filteredRows, profile, totalItems, madrasas };
+           }
+
+           return { rows: filteredRows, profile, madrasas };
+        }),
+        map(({ rows, profile, totalItems, madrasas }): PageState<ManagementVm> => ({
+          data: {
+            config,
+            rows,
+            profile,
+            totalItems,
+            madrasas,
+          },
           loading: false,
-          error: 'Something went wrong while loading this page. Please try again.',
-        } as PageState<ManagementVm>);
-      })
-    )),
+        })),
+        startWith({ loading: true } as PageState<ManagementVm>),
+        catchError((err) => {
+          console.error('[Management] Page load failed:', err);
+          return of({
+            loading: false,
+            error: 'Something went wrong while loading this page. Please try again.',
+          } as PageState<ManagementVm>);
+        })
+      );
+    }),
+    scan((acc: PageState<ManagementVm>, curr: PageState<ManagementVm>) => ({
+      ...curr,
+      data: curr.data || (curr.loading && acc.data ? acc.data : undefined)
+    }), { loading: true } as PageState<ManagementVm>)
   );
 
   private readonly functions = getFunctions(getDeenDeskFirebaseApp());
@@ -467,13 +539,13 @@ export class ManagementPage {
     private readonly nameResolver: NameResolverService,
   ) { }
 
-  private rowsForConfig(config: ManagementConfig, profile: AppUser | null): Observable<EntityRecord[]> {
+  private rowsForConfig(config: ManagementConfig, profile: AppUser | null, madrasaFilter: string = 'all', roleFilter: string = 'all'): Observable<EntityRecord[]> {
     if (config.allowCredentials && config.collection !== 'users') {
       return this.credentialRowsForCollection(config, profile);
     }
 
     if (config.collection === 'users') {
-      return this.userRowsForResource(config, profile);
+      return this.userRowsForResource(config, profile, madrasaFilter, roleFilter);
     }
 
     return this.repo.list<EntityRecord>(config.collection, profile);
@@ -509,10 +581,26 @@ export class ManagementPage {
     );
   }
 
-  private userRowsForResource(config: ManagementConfig, profile: AppUser | null): Observable<EntityRecord[]> {
+  private userRowsForResource(config: ManagementConfig, profile: AppUser | null, madrasaFilter: string = 'all', roleFilter: string = 'all'): Observable<EntityRecord[]> {
     const roles = this.rolesForResource(config.resource);
-    const usersObs$ = this.repo.list<EntityRecord>(config.collection, profile, [], roles ? { roles } : undefined).pipe(
+    
+    // Apply filters at query level when viewing users page
+    let queryRoles = roles ? roles : undefined;
+    if (config.resource === 'users' && roleFilter !== 'all') {
+      queryRoles = [roleFilter];
+    }
+    
+    // For madrasa filtering in repository service, we can't easily pass it without changing repo.list signature.
+    // Instead we will fetch with standard repo logic and apply madrasa filter in memory, 
+    // unless the RepositoryService gets an update to accept custom constraints.
+    // Given the constraints of repo.list, we fetch scoped users and filter in-memory if needed.
+    // We already fetch scoped by role.
+
+    const usersObs$ = this.repo.list<EntityRecord>(config.collection, profile, [], queryRoles ? { roles: queryRoles } : undefined).pipe(
       map(rows => {
+        if (config.resource === 'users' && madrasaFilter !== 'all') {
+           rows = rows.filter(r => r['madrasaId'] === madrasaFilter || (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter)));
+        }
         if (config.resource === 'students') {
            console.log('[Student Page Access Debug]', {
              currentUserRole: profile?.role,
@@ -605,8 +693,12 @@ export class ManagementPage {
         console.warn('[Students] Students metadata load failed:', e);
         return of([] as EntityRecord[]);
       })),
+      this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError((e) => {
+        console.warn('[Students] Madrasas load failed:', e);
+        return of([] as EntityRecord[]);
+      })),
     ]).pipe(
-      map(([rows, courses, classes, parents, studentsMeta]) => rows.map((row) => {
+      map(([rows, courses, classes, parents, studentsMeta, madrasas]) => rows.map((row) => {
         const creds = this.credentialService.getCredentialStatus(row);
         const studentUserId = this.recordId(row);
         const studentIds = this.uniqueStrings([
@@ -633,7 +725,8 @@ export class ManagementPage {
           fatherName: row['fatherName'] || row['parentName'] || row['guardianName'] || '',
           courseName: row['courseName'] || courses.find((c: any) => c.id === row['courseId'])?.['name'] || '',
           className: row['className'] || classes.find((c: any) => c.id === row['classId'])?.['name'] || '',
-          stageLevel: row['stageLevel'] || row['stage'] || row['level'] || '',
+          madrasaName: row['madrasaName'] || madrasas.find((m: any) => m.id === row['madrasaId'])?.['name'] || '',
+          stageLevel: this.getStudentStageLevel(row),
           parentEmail,
           organizationId: row['organizationId'],
           madrasaId: row['madrasaId'],
@@ -642,7 +735,36 @@ export class ManagementPage {
           temporaryPasswordDisplay: creds.display,
         } as EntityRecord;
       })),
+      tap((students) => {
+        console.log('[Students Page Stage Mapping Debug]', {
+          students: students.map((user: any) => ({
+            id: user.id || user.uid,
+            name: user.name || user.displayName,
+            rawStageLevel: user.stageLevel,
+            rawStage: user.stage,
+            rawLevel: user.level,
+            rawStageName: user.stageName,
+            rawLevelName: user.levelName,
+            rawCurrentStage: user.currentStage,
+            rawCurrentLevel: user.currentLevel,
+            displayedStageLevel: this.getStudentStageLevel(user),
+            courseName: user.courseName,
+            className: user.className,
+          }))
+        });
+      })
     );
+  }
+
+  private getStudentStageLevel(user: any): string {
+    return user?.stageLevel
+      || user?.stage
+      || user?.level
+      || user?.stageName
+      || user?.levelName
+      || user?.currentStage
+      || user?.currentLevel
+      || '-';
   }
 
   private staffRows(usersObs$: Observable<EntityRecord[]>): Observable<EntityRecord[]> {
@@ -869,7 +991,18 @@ export class ManagementPage {
     await this.openEditor(config, row);
   }
 
-  async viewDetails(row: EntityRecord): Promise<void> {
+  async viewDetails(config: ManagementConfig, row: EntityRecord): Promise<void> {
+    if (config.resource === 'courses') {
+      this.dialog.open(CourseDetailsDialogComponent, {
+        data: { course: row },
+        width: '90vw',
+        height: '90vh',
+        maxWidth: '90vw',
+        maxHeight: '90vh'
+      });
+      return;
+    }
+
     this.dialog.open(UserDetailsDialogComponent, {
       data: { user: row },
       width: '80vw',
@@ -1038,6 +1171,70 @@ export class ManagementPage {
         fields,
         initialValue: this.initialDialogValue(config, initial),
         submitLabel: initial ? 'Update' : 'Create',
+        saveFn: async (rawValue: Record<string, unknown>) => {
+          const initialPassword = rawValue['password'] ? String(rawValue['password']).trim() : undefined;
+          const profile = await firstValueFrom(this.auth.profile$);
+          const payload = this.normalizePayload(config, rawValue, profile);
+
+          if (config.resource === 'courses') {
+            console.log('[Course Save Debug]', {
+              organizationId: payload['organizationId'],
+              madrasaId: payload['madrasaId'],
+              name: payload['name'],
+              code: payload['code'],
+              courseType: payload['type'],
+              stages: payload['stages'],
+              levels: payload['levels'],
+            });
+          }
+
+          if (initial?.id) {
+            const processedPayload = { ...payload };
+
+            if ('permissions' in payload) processedPayload['permissions'] = this.asStringArray(payload['permissions']);
+            if ('madrasaIds' in payload) processedPayload['madrasaIds'] = this.asStringArray(payload['madrasaIds']);
+            if ('classIds' in payload) processedPayload['classIds'] = this.asStringArray(payload['classIds']);
+            if ('subjectIds' in payload) processedPayload['subjectIds'] = this.asStringArray(payload['subjectIds']);
+            if ('linkedStudentIds' in payload) processedPayload['linkedStudentIds'] = this.asStringArray(payload['linkedStudentIds']);
+
+            await this.repo.update(config.collection, initial.id, processedPayload, profile);
+
+            if (initial['userId']) {
+              const userPayload: Partial<EntityRecord> = {};
+              if ('permissions' in processedPayload) userPayload['permissions'] = processedPayload['permissions'];
+              if ('madrasaIds' in processedPayload) userPayload['madrasaIds'] = processedPayload['madrasaIds'];
+              if ('classIds' in processedPayload) userPayload['classIds'] = processedPayload['classIds'];
+              if ('subjectIds' in processedPayload) userPayload['subjectIds'] = processedPayload['subjectIds'];
+              if ('linkedStudentIds' in processedPayload) userPayload['linkedStudentIds'] = processedPayload['linkedStudentIds'];
+              if ('organizationId' in processedPayload) userPayload['organizationId'] = processedPayload['organizationId'];
+
+              if (Object.keys(userPayload).length > 0) {
+                const finalUserPayload = { ...userPayload };
+                if (!this.auth.hasPermission(profile, 'manageUsers')) {
+                  delete finalUserPayload['organizationId'];
+                  delete finalUserPayload['role'];
+                  delete finalUserPayload['email'];
+                  delete finalUserPayload['uid'];
+                }
+                if (Object.keys(finalUserPayload).length > 0) {
+                  await this.repo.update('users', String(initial['userId']), finalUserPayload, profile);
+                }
+              }
+            }
+          } else {
+            if (config.specialCreate === 'student') {
+              await this.createStudent(payload, profile);
+            } else if (config.specialCreate === 'userAccess') {
+              await this.createUserAccess(payload, config.fixedRole, profile, initialPassword);
+            } else if (config.specialCreate === 'staffAccess') {
+              await this.createStaffAccess(payload, profile, initialPassword);
+            } else if (config.specialCreate === 'organization') {
+              await this.createOrganization(payload, profile);
+            } else {
+              await this.repo.create(config.collection, payload, profile);
+            }
+          }
+        }
       },
       width: '680px',
     }).afterClosed());
@@ -1051,70 +1248,10 @@ export class ManagementPage {
       return;
     }
 
-    const rawValue = result.value as Record<string, unknown>;
-    const initialPassword = rawValue['password'] ? String(rawValue['password']).trim() : undefined;
-
-    const profile = await firstValueFrom(this.auth.profile$);
-    const payload = this.normalizePayload(config, rawValue, profile);
-
-    const loaderMessage = initial?.id ? `Updating ${config.resource.slice(0, -1)}...` : `Creating ${config.resource.slice(0, -1)}...`;
-
-    try {
-      await this.loader.withLoader(loaderMessage, async () => {
-        if (initial?.id) {
-          const processedPayload = { ...payload };
-
-          if ('permissions' in payload) processedPayload['permissions'] = this.asStringArray(payload['permissions']);
-          if ('madrasaIds' in payload) processedPayload['madrasaIds'] = this.asStringArray(payload['madrasaIds']);
-          if ('classIds' in payload) processedPayload['classIds'] = this.asStringArray(payload['classIds']);
-          if ('subjectIds' in payload) processedPayload['subjectIds'] = this.asStringArray(payload['subjectIds']);
-          if ('linkedStudentIds' in payload) processedPayload['linkedStudentIds'] = this.asStringArray(payload['linkedStudentIds']);
-
-          await this.repo.update(config.collection, initial.id, processedPayload, profile);
-
-          if (initial['userId']) {
-            const userPayload: Partial<EntityRecord> = {};
-            if ('permissions' in processedPayload) userPayload['permissions'] = processedPayload['permissions'];
-            if ('madrasaIds' in processedPayload) userPayload['madrasaIds'] = processedPayload['madrasaIds'];
-            if ('classIds' in processedPayload) userPayload['classIds'] = processedPayload['classIds'];
-            if ('subjectIds' in processedPayload) userPayload['subjectIds'] = processedPayload['subjectIds'];
-            if ('linkedStudentIds' in processedPayload) userPayload['linkedStudentIds'] = processedPayload['linkedStudentIds'];
-            if ('organizationId' in processedPayload) userPayload['organizationId'] = processedPayload['organizationId'];
-
-            if (Object.keys(userPayload).length > 0) {
-              const finalUserPayload = { ...userPayload };
-              if (!this.auth.hasPermission(profile, 'manageUsers')) {
-                delete finalUserPayload['organizationId'];
-                delete finalUserPayload['role'];
-                delete finalUserPayload['email'];
-                delete finalUserPayload['uid'];
-              }
-              if (Object.keys(finalUserPayload).length > 0) {
-                await this.repo.update('users', String(initial['userId']), finalUserPayload, profile);
-              }
-            }
-          }
-
-          this.snackBar.open('Record updated.', 'Close', { duration: 3000 });
-          return;
-        }
-
-        if (config.specialCreate === 'student') {
-          await this.createStudent(payload, profile);
-        } else if (config.specialCreate === 'userAccess') {
-          await this.createUserAccess(payload, config.fixedRole, profile, initialPassword);
-        } else if (config.specialCreate === 'staffAccess') {
-          await this.createStaffAccess(payload, profile, initialPassword);
-        } else if (config.specialCreate === 'organization') {
-          await this.createOrganization(payload, profile);
-        } else {
-          await this.repo.create(config.collection, payload, profile);
-          this.snackBar.open('Record created.', 'Close', { duration: 3000 });
-        }
-      });
-    } catch (e) {
-      console.error(e);
-      this.snackBar.open(`Unable to save ${config.resource.slice(0, -1)}. Please try again.`, 'Close', { duration: 4000 });
+    // Success message since saveFn was successful
+    if (!config.specialCreate) {
+      const loaderMessage = initial?.id ? `Record updated.` : `Record created.`;
+      this.snackBar.open(loaderMessage, 'Close', { duration: 3000 });
     }
   }
 
@@ -1261,11 +1398,21 @@ export class ManagementPage {
     const madrasas = await firstValueFrom(this.repo.list('madrasas', profile).pipe(take(1)));
     const madrasaCode = (madrasas.find((m: any) => m.id === madrasaId)?.['code'] as string) || undefined;
 
+    let formattedDob = '';
+    const dobValue = payload['dateOfBirth'];
+    if (dobValue instanceof Date) {
+      formattedDob = dobValue.toISOString().split('T')[0];
+    } else if (typeof dobValue === 'string') {
+      formattedDob = dobValue;
+    } else if (dobValue && (dobValue as any).toDate) {
+      formattedDob = (dobValue as any).toDate().toISOString().split('T')[0];
+    }
+
     const generated = this.credentialService.buildStudentCredentials(
       String(payload['name']),
       String(payload['fatherName']),
       madrasaId,
-      String(payload['dateOfBirth']),
+      formattedDob,
       madrasaCode
     );
     const password = generated.password;
@@ -1532,8 +1679,8 @@ export class ManagementPage {
     if (config.resource === 'courses') {
       return {
         ...initial,
-        stagesText: Array.isArray(initial['stages']) ? initial['stages'].join(', ') : '',
-        levelsText: Array.isArray(initial['levels']) ? initial['levels'].join(', ') : '',
+        stages: this.normalizeStages(initial['stages']),
+        levels: Array.isArray(initial['levels']) ? initial['levels'].join(', ') : String(initial['levels'] || ''),
         passwordStatus: initial['mustChangePassword'] ? 'Temporary password pending' : 'Password changed',
       };
     }
@@ -1562,8 +1709,8 @@ export class ManagementPage {
     }
 
     if (config.resource === 'courses') {
-      payload['stages'] = this.splitList(String(payload['stagesText'] || ''));
-      payload['levels'] = this.splitList(String(payload['levelsText'] || ''));
+      payload['stages'] = this.normalizeStages(payload['stages']);
+      payload['levels'] = this.splitList(String(payload['levels'] || ''));
       delete payload['stagesText'];
       delete payload['levelsText'];
     }
@@ -1583,27 +1730,54 @@ export class ManagementPage {
     return rows.filter((row) => row['role'] === config.fixedRole);
   }
 
-  private decorateRows(rows: EntityRecord[]): EntityRecord[] {
-    return rows.map((row) => ({
+  private decorateRows(config: ManagementConfig, rows: EntityRecord[]): EntityRecord[] {
+    const decorated = rows.map((row) => ({
       ...row,
       stage: row['stage'] || row['level'] || row['stageOrLevel'] || '-',
       organizationName: row['organizationName'] || row['organizationId'] || '-',
       madrasaNames: Array.isArray(row['madrasaIds']) ? row['madrasaIds'].join(', ') : row['madrasaId'] || '-',
       courseName: row['courseName'] || row['courseId'] || '-',
       className: row['className'] || row['classId'] || '-',
+      stagesDisplay: this.formatList(row['stages']),
+      levelsDisplay: this.formatList(row['levels']),
       studentNames:
         row['studentNames'] ||
         row['linkedStudentNames'] ||
         (Array.isArray(row['linkedStudentIds'])
           ? row['linkedStudentIds'].join(', ')
           : '-'),
+      typeDisplay: row['courseType'] || row['type'] || '-',
     }));
+
+    if (config.resource === 'courses') {
+      console.log('[Courses Page Data Debug]', {
+        coursesCount: decorated.length,
+        courses: (decorated as any[]).map(course => ({
+          id: course.id,
+          name: course['name'] || course['title'],
+          code: course['code'],
+          type: course['typeDisplay'],
+          organizationId: course['organizationId'],
+          organizationName: course['organizationName'],
+          madrasaId: course['madrasaId'],
+          madrasaName: course['madrasaNames'],
+          stages: course['stages'],
+          levels: course['levels'],
+          status: course['status'],
+          createdAt: course['createdAt'],
+          updatedAt: course['updatedAt'],
+        })),
+      });
+    }
+
+    return decorated;
   }
 
   private toOptions(rows: EntityRecord[], labelKey: string): SelectOption[] {
     return rows.map((row) => ({
       label: String(row[labelKey] || row['displayName'] || row['email'] || row.id),
       value: String(row.id || row['uid'] || row['email']),
+      data: row
     }));
   }
 
@@ -1612,7 +1786,28 @@ export class ManagementPage {
   }
 
   private splitList(value: string): string[] {
-    return value.split(',').map((item) => item.trim()).filter(Boolean);
+    return value.split(',').map((item) => item.trim()).filter((item) => item.length > 0);
+  }
+
+  private normalizeStages(value: any): string[] {
+    if (Array.isArray(value)) return value;
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }
+
+  formatList(value: any): string {
+    if (Array.isArray(value)) {
+      return value.length ? value.join(', ') : '-';
+    }
+    if (typeof value === 'string') {
+      return value.trim() || '-';
+    }
+    return '-';
   }
 
   downloadOrganizationsCsv(rows: EntityRecord[]): void {
@@ -1651,5 +1846,10 @@ export class ManagementPage {
       return (value as any).toDate().toISOString();
     }
     return String(value);
+  }
+
+  onPageChange(event: PageEvent) {
+    this.pageIndex$.next(event.pageIndex);
+    this.pageSize$.next(event.pageSize);
   }
 }

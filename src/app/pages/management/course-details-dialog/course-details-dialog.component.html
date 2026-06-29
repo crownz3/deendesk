@@ -1,0 +1,130 @@
+<div class="dialog-header">
+  <div class="header-content">
+    <h2 mat-dialog-title>{{ course['name'] || course['title'] || 'Course Details' }}</h2>
+    <div class="header-badges">
+      <app-status-badge [status]="course['status']"></app-status-badge>
+      <span class="course-type-badge">{{ course['courseType'] || course['type'] || 'N/A' }}</span>
+    </div>
+  </div>
+  <button mat-icon-button mat-dialog-close aria-label="Close dialog">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content details-container">
+  <div class="details-grid">
+    
+    <!-- Left Column -->
+    <div class="grid-col">
+      <!-- Basic Info Card -->
+      <section class="info-card">
+        <div class="card-header">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          <h3>Basic Information</h3>
+        </div>
+        <div class="card-body">
+          <div class="data-row">
+            <span class="label">Course Code</span>
+            <span class="value font-mono">{{ course['code'] || '-' }}</span>
+          </div>
+          <div class="data-row">
+            <span class="label">Organization</span>
+            <span class="value">
+              <app-name-with-copy *ngIf="course['organizationId']; else noOrg" [id]="course['organizationId']" type="organization"></app-name-with-copy>
+              <ng-template #noOrg>-</ng-template>
+            </span>
+          </div>
+          <div class="data-row">
+            <span class="label">Madrasa</span>
+            <span class="value">
+              <app-name-with-copy *ngIf="course['madrasaId']; else noMadrasa" [id]="course['madrasaId']" type="madrasa"></app-name-with-copy>
+              <ng-template #noMadrasa>-</ng-template>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Academic Structure Card -->
+      <section class="info-card">
+        <div class="card-header">
+          <ion-icon name="school-outline"></ion-icon>
+          <h3>Academic Structure</h3>
+        </div>
+        <div class="card-body">
+          <div class="data-row">
+            <span class="label">Stages</span>
+            <span class="value">{{ formatList(course['stages']) }}</span>
+          </div>
+          <div class="data-row">
+            <span class="label">Levels / Batches</span>
+            <span class="value">{{ formatList(course['levels']) }}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column -->
+    <div class="grid-col">
+      <!-- Resources & Assignments Card -->
+      <section class="info-card">
+        <div class="card-header">
+          <ion-icon name="people-outline"></ion-icon>
+          <h3>Assignments & Resources</h3>
+        </div>
+        <div class="card-body stats-grid">
+          <div class="stat-box">
+            <span class="stat-label">Classes</span>
+            <span class="stat-value">
+              <ng-container *ngIf="loadingCounts"><mat-spinner diameter="20"></mat-spinner></ng-container>
+              <ng-container *ngIf="!loadingCounts">{{ classesCount }}</ng-container>
+            </span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Subjects</span>
+            <span class="stat-value">
+              <ng-container *ngIf="loadingCounts"><mat-spinner diameter="20"></mat-spinner></ng-container>
+              <ng-container *ngIf="!loadingCounts">{{ subjectsCount }}</ng-container>
+            </span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Students</span>
+            <span class="stat-value">
+              <ng-container *ngIf="loadingCounts"><mat-spinner diameter="20"></mat-spinner></ng-container>
+              <ng-container *ngIf="!loadingCounts">{{ studentsCount }}</ng-container>
+            </span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Teachers / Staff</span>
+            <span class="stat-value">
+              <ng-container *ngIf="loadingCounts"><mat-spinner diameter="20"></mat-spinner></ng-container>
+              <ng-container *ngIf="!loadingCounts">{{ staffCount }}</ng-container>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Audit Card -->
+      <section class="info-card">
+        <div class="card-header">
+          <ion-icon name="time-outline"></ion-icon>
+          <h3>Audit Information</h3>
+        </div>
+        <div class="card-body">
+          <div class="data-row">
+            <span class="label">Created At</span>
+            <span class="value">{{ (getDate(course['createdAt']) | date:'medium') || 'N/A' }}</span>
+          </div>
+          <div class="data-row">
+            <span class="label">Last Updated</span>
+            <span class="value">{{ (getDate(course['updatedAt']) | date:'medium') || 'N/A' }}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+    
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-footer">
+  <button mat-flat-button color="primary" mat-dialog-close>Done</button>
+</mat-dialog-actions>

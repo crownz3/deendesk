@@ -98,3 +98,28 @@ ion-icon {
     grid-template-columns: 1fr;
   }
 }
+
+.csv-reference-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid #dce5ea;
+  border-radius: 16px;
+  background: #f8fbfc;
+}
+
+.csv-reference-card h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  color: #2b3a4a;
+}
+
+.csv-reference-card code {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #eef6ff;
+  color: #0d6efd;
+  font-weight: 600;
+}

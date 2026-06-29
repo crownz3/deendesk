@@ -173,7 +173,7 @@ export class RepositoryService {
     return rows.length;
   }
 
-  async getAllOnce<T extends EntityRecord>(collectionName: string, user: AppUser | null, options?: { roles?: string[] }): Promise<T[]> {
+  async getAllOnce<T extends EntityRecord>(collectionName: string, user: AppUser | null, options?: { roles?: string[] }, extra: QueryConstraint[] = []): Promise<T[]> {
     const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
     const constraintGroups = this.scopeConstraints(collectionName, user, options);
 
@@ -189,7 +189,7 @@ export class RepositoryService {
     }
 
     const promises = constraintGroups.map(constraints => 
-      getDocs(query(ref, ...constraints, limit(1000)))
+      getDocs(query(ref, ...constraints, ...extra, limit(1000)))
     );
 
     const snapshots = await Promise.all(promises);
@@ -249,6 +249,13 @@ export class RepositoryService {
                 if (doc['classId'] && allowedClasses.includes(String(doc['classId']))) return true;
                 return false;
             }
+            if (collectionName === 'classPlans') {
+                if (Array.isArray(doc['assignedStaffIds']) && doc['assignedStaffIds'].includes(user.uid)) return true;
+                return false;
+            }
+            if (collectionName === 'classPlanExceptions') {
+                return false;
+            }
         }
 
         let hasMatch = false;
@@ -265,7 +272,7 @@ export class RepositoryService {
           if (docMadrasas.some(id => allowedMadrasas.includes(id))) hasMatch = true;
         }
 
-        if (!doc['madrasaId'] && !doc['madrasaIds'] && ['courses', 'classes', 'subjects'].includes(collectionName)) {
+        if (!doc['madrasaId'] && !doc['madrasaIds'] && ['courses', 'classes', 'subjects', 'classPlans', 'classPlanExceptions'].includes(collectionName)) {
             // Global academic data check
             if (doc['organizationId'] === user.organizationId) return true;
         }
@@ -312,7 +319,7 @@ export class RepositoryService {
           requiredScope: 'madrasaId in currentUser.madrasaIds OR madrasaIds array-contains-any currentUser.madrasaIds',
         },
         academicCollections: {
-          collections: ['courses', 'classes', 'subjects', 'academicPlans'],
+          collections: ['courses', 'classes', 'subjects', 'academicPlans', 'classPlans', 'classPlanExceptions'],
           sameOrgRequired: true,
           requiredScope: 'madrasaId in currentUser.madrasaIds OR madrasaId == empty string for global organization academic data',
         },
@@ -353,6 +360,9 @@ export class RepositoryService {
     const role = user.role?.toLowerCase() || '';
 
     if (role === 'superadmin') {
+      if (collectionName === 'users' && options?.roles?.length) {
+        return options.roles.map(r => [where('role', '==', r)]);
+      }
       return [[]]; // No constraints
     }
 
@@ -376,6 +386,9 @@ export class RepositoryService {
 
     if (role === 'organizationadmin') {
       if (user.organizationId) {
+        if (collectionName === 'users' && options?.roles?.length) {
+          return options.roles.map(r => [where('organizationId', '==', user.organizationId), where('role', '==', r)]);
+        }
         return [[where('organizationId', '==', user.organizationId)]];
       }
       return [];
@@ -461,7 +474,7 @@ export class RepositoryService {
         return groups;
       }
 
-      if (['courses', 'classes', 'subjects', 'academicPlans'].includes(collectionName)) {
+      if (['courses', 'classes', 'subjects', 'academicPlans', 'classPlans', 'classPlanExceptions'].includes(collectionName)) {
         madrasaChunks.forEach(chunk => {
           const values = [...chunk, ''];
           console.log('[Academic Scope]', {
@@ -537,6 +550,10 @@ export class RepositoryService {
         });
         groups.push([where('organizationId', '==', orgId), where('teacherIds', 'array-contains', user.uid)]);
         return groups;
+      }
+
+      if (collectionName === 'classPlans') {
+        return [[where('organizationId', '==', orgId), where('assignedStaffIds', 'array-contains', user.uid)]];
       }
 
       return [];

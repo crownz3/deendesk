@@ -54,8 +54,11 @@
     "@ionic/angular": "^8.0.0",
     "firebase": "^11.10.0",
     "ionicons": "^7.0.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
+    "xlsx": "^0.18.5",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {
