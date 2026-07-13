@@ -42,6 +42,19 @@
   gap: 24px;
 }
 
+@media (max-width: 600px) {
+  .dialog-header {
+    padding: 16px;
+  }
+  .dialog-content {
+    padding: 16px;
+  }
+  .cards-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 .detail-card {
   background: var(--app-surface, #ffffff);
   border-radius: var(--app-radius-md, 12px);

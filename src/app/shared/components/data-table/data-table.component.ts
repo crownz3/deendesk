@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TableColumn } from '../../../core/models/domain.model';
+import { ROLE_LABELS } from '../../../core/constants/defaults';
 import { EntityRecord } from '../../../core/services/repository.service';
 import { SelectionModel } from '@angular/cdk/collections';
 
@@ -161,9 +162,23 @@ export class DataTableComponent {
     const displayName = row['primaryOrganizerName'] || row['displayName'] || row['name'] || 'User';
     const email = row['primaryOrganizerEmail'] || row['email'];
 
+    let roles: string[] = [];
+    if (Array.isArray(row['roles']) && row['roles'].length > 0) {
+      roles = [...row['roles']];
+    } else {
+      const roleRaw = String(row['role'] || 'user');
+      roles = roleRaw.split(',').map(r => r.trim());
+    }
+
+    if (roles.includes('madrasaIncharge') && !roles.includes('teacher')) {
+      roles.push('teacher');
+    }
+
+    const displayRole = roles.map(r => r in ROLE_LABELS ? ROLE_LABELS[r as keyof typeof ROLE_LABELS] : (r.charAt(0).toUpperCase() + r.slice(1).replace('_', ' '))).join(', ');
+
     const text = `DeenDesk Login Credentials
 
-Role: Organization Admin
+Role: ${displayRole}
 Name: ${displayName}
 Email: ${email}
 Temporary Password: ${password}

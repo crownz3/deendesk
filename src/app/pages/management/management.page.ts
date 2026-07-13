@@ -928,6 +928,10 @@ export class ManagementPage {
           organizationId: row['organizationId'] || userRow['organizationId'],
           madrasaId: row['madrasaId'] || userRow['madrasaId'],
           madrasaIds: row['madrasaIds'] || userRow['madrasaIds'],
+          roles: Array.from(new Set([
+            ...(Array.isArray(userRow['roles']) ? userRow['roles'] : []),
+            ...(Array.isArray(row['roles']) ? row['roles'] : [])
+          ])),
           credentialStatus: creds.status,
           temporaryPasswordDisplay: creds.display,
         } as EntityRecord;

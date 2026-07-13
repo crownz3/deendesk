@@ -58,36 +58,36 @@
       </div>
       <div class="card-body">
         <div class="info-row">
-          <span class="label">Role</span>
-          <span class="value">
-            <app-role-badge [role]="getString('role')"></app-role-badge>
+          <span class="label">Role(s)</span>
+          <span class="value" style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <ng-container *ngIf="getArray('roles').length > 0; else singleRole">
+              <app-role-badge *ngFor="let r of getArray('roles')" [role]="r"></app-role-badge>
+            </ng-container>
+            <ng-template #singleRole>
+              <app-role-badge [role]="getString('role')"></app-role-badge>
+            </ng-template>
           </span>
         </div>
-        <div class="info-row" *ngIf="user['organizationName'] || user['organizationId']">
+        <div class="info-row" *ngIf="user['organizationId']">
           <span class="label">Organization</span>
           <span class="value">
-            <app-name-with-copy [id]="user['organizationId']" type="organization" [fallbackName]="user['organizationName']"></app-name-with-copy>
+            <app-name-with-copy [id]="user['organizationId']" type="organization"></app-name-with-copy>
           </span>
         </div>
-        <div class="info-row" *ngIf="user['madrasaNames'] || user['madrasaId'] || getArray('madrasaIds').length">
+        <div class="info-row" *ngIf="user['madrasaId'] || getArray('madrasaIds').length">
           <span class="label">Madrasa(s)</span>
           <span class="value">
-            <ng-container *ngIf="user['madrasaNames']">
-              {{ user['madrasaNames'] }}
+            <ng-container *ngIf="getArray('madrasaIds').length; else singleMadrasa">
+              <span class="id-list">
+                <ng-container *ngFor="let id of getArray('madrasaIds'); let last = last">
+                  <app-name-with-copy [id]="id" type="madrasa"></app-name-with-copy>
+                  <span *ngIf="!last">, </span>
+                </ng-container>
+              </span>
             </ng-container>
-            <ng-container *ngIf="!user['madrasaNames']">
-              <ng-container *ngIf="getArray('madrasaIds').length; else singleMadrasa">
-                <span class="id-list">
-                  <ng-container *ngFor="let id of getArray('madrasaIds'); let last = last">
-                    <app-name-with-copy [id]="id" type="madrasa"></app-name-with-copy>
-                    <span *ngIf="!last">, </span>
-                  </ng-container>
-                </span>
-              </ng-container>
-              <ng-template #singleMadrasa>
-                <app-name-with-copy *ngIf="user['madrasaId']" [id]="user['madrasaId']" type="madrasa"></app-name-with-copy>
-              </ng-template>
-            </ng-container>
+            <ng-template #singleMadrasa>
+              <app-name-with-copy *ngIf="user['madrasaId']" [id]="user['madrasaId']" type="madrasa"></app-name-with-copy>
+            </ng-template>
           </span>
         </div>
         <div class="info-row" *ngIf="!isStaffProfile && getArray('classIds').length">
@@ -252,10 +252,6 @@
   <button mat-button *ngIf="user['role'] === 'student' || user['role'] === 'staff' || user['role'] === 'teacher'" (click)="viewAttendanceHistory()">
     <ion-icon name="calendar-outline"></ion-icon>
     Attendance History
-  </button>
-  <button mat-button *ngIf="user['role'] === 'student' || user['role'] === 'staff' || user['role'] === 'teacher'" (click)="viewStudyPlan()">
-    <ion-icon name="book-outline"></ion-icon>
-    Study Plan
   </button>
   <span style="flex: 1 1 auto;"></span>
   <button mat-flat-button color="primary" (click)="close()">Close</button>
