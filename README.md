@@ -66,3 +66,4 @@ The first Firebase login with this email is automatically mapped as Super Admin:
 ```txt
 mohamedibrahim010425@gmail.com
 ```
+npx firebase-tools deploy --only hosting -m "Added Madrasa Details dialog and enabled details view buttons across all grids and the academic tree"

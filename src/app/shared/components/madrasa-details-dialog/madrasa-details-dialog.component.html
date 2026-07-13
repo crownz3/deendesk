@@ -1,0 +1,198 @@
+<header class="dialog-header">
+  <div>
+    <h2 mat-dialog-title>Madrasa Details</h2>
+    <p class="subtitle">{{ madrasa['name'] }} (Code: {{ madrasa['code'] || 'N/A' }})</p>
+  </div>
+  <button mat-icon-button (click)="close()" aria-label="Close dialog">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</header>
+
+<mat-dialog-content class="dialog-content">
+  <div class="loading-state" *ngIf="loading">
+    <mat-spinner diameter="45"></mat-spinner>
+    <p>Loading Madrasa details...</p>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <!-- Stats Cards Summary -->
+    <div class="stats-grid">
+      <div class="stat-card students">
+        <div class="icon-box"><ion-icon name="people-outline"></ion-icon></div>
+        <div class="stat-info">
+          <h4>Students Enrolled</h4>
+          <p>{{ counts.students }}</p>
+        </div>
+      </div>
+      <div class="stat-card staff">
+        <div class="icon-box"><ion-icon name="id-card-outline"></ion-icon></div>
+        <div class="stat-info">
+          <h4>Staff / Teachers</h4>
+          <p>{{ counts.staff }}</p>
+        </div>
+      </div>
+      <div class="stat-card incharges">
+        <div class="icon-box"><ion-icon name="person-circle-outline"></ion-icon></div>
+        <div class="stat-info">
+          <h4>Incharges</h4>
+          <p>{{ counts.incharges }}</p>
+        </div>
+      </div>
+      <div class="stat-card coordinators">
+        <div class="icon-box"><ion-icon name="git-network-outline"></ion-icon></div>
+        <div class="stat-info">
+          <h4>Coordinators</h4>
+          <p>{{ counts.coordinators }}</p>
+        </div>
+      </div>
+    </div>
+
+    <mat-tab-group class="details-tab-group">
+      <!-- Overview Tab -->
+      <mat-tab label="Overview">
+        <div class="tab-padding grid-layout">
+          <!-- General Details -->
+          <article class="detail-card">
+            <div class="card-header">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <h3>General Information</h3>
+            </div>
+            <div class="card-body">
+              <div class="info-row">
+                <span class="label">Organization</span>
+                <span class="value">{{ organizationName }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Madrasa Name</span>
+                <span class="value">{{ madrasa['name'] }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Code</span>
+                <span class="value">{{ madrasa['code'] || '-' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Address</span>
+                <span class="value">{{ madrasa['address'] || '-' }}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Status</span>
+                <span class="value">
+                  <app-status-badge [status]="madrasa['status'] || 'active'"></app-status-badge>
+                </span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Administration (Coordinators & Incharges) -->
+          <article class="detail-card">
+            <div class="card-header">
+              <ion-icon name="shield-checkmark-outline"></ion-icon>
+              <h3>Administration</h3>
+            </div>
+            <div class="card-body">
+              <h4>Mapped Incharges</h4>
+              <div class="user-list" *ngIf="incharges.length; else noIncharges">
+                <div class="user-item" *ngFor="let user of incharges" (click)="viewUser(user)">
+                  <div class="user-avatar"><ion-icon name="person-outline"></ion-icon></div>
+                  <div class="user-info">
+                    <h5>{{ user['displayName'] || user['name'] }}</h5>
+                    <p>{{ user['email'] }}</p>
+                  </div>
+                  <button mat-icon-button color="primary"><mat-icon>chevron_right</mat-icon></button>
+                </div>
+              </div>
+              <ng-template #noIncharges>
+                <p class="empty-text">No incharges mapped to this madrasa.</p>
+              </ng-template>
+
+              <h4 style="margin-top: 16px;">Mapped Coordinators</h4>
+              <div class="user-list" *ngIf="coordinators.length; else noCoordinators">
+                <div class="user-item" *ngFor="let user of coordinators" (click)="viewUser(user)">
+                  <div class="user-avatar"><ion-icon name="person-outline"></ion-icon></div>
+                  <div class="user-info">
+                    <h5>{{ user['displayName'] || user['name'] }}</h5>
+                    <p>{{ user['email'] }}</p>
+                  </div>
+                  <button mat-icon-button color="primary"><mat-icon>chevron_right</mat-icon></button>
+                </div>
+              </div>
+              <ng-template #noCoordinators>
+                <p class="empty-text">No coordinators mapped to this madrasa.</p>
+              </ng-template>
+            </div>
+          </article>
+        </div>
+      </mat-tab>
+
+      <!-- Staff Tab -->
+      <mat-tab label="Staff & Teachers">
+        <div class="tab-padding">
+          <table class="styled-table" *ngIf="staffList.length; else noStaff">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Class & Course Assignments</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let staff of staffList">
+                <td><strong>{{ staff['displayName'] || staff['name'] }}</strong></td>
+                <td>{{ staff['email'] || '-' }}</td>
+                <td>{{ staff['phone'] || '-' }}</td>
+                <td><span class="assignment-tag">{{ staff.assignments }}</span></td>
+                <td>
+                  <button mat-flat-button color="primary" size="small" (click)="viewUser(staff)">
+                    Details
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #noStaff>
+            <app-empty-state icon="briefcase-outline" title="No staff members" message="No staff are assigned to this madrasa."></app-empty-state>
+          </ng-template>
+        </div>
+      </mat-tab>
+
+      <!-- Students Tab -->
+      <mat-tab label="Students">
+        <div class="tab-padding">
+          <table class="styled-table" *ngIf="studentsList.length; else noStudents">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Father</th>
+                <th>Email</th>
+                <th>Course</th>
+                <th>Class</th>
+                <th>Group</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let student of studentsList">
+                <td><strong>{{ student['displayName'] || student['name'] }}</strong></td>
+                <td>{{ student['fatherName'] || '-' }}</td>
+                <td>{{ student['email'] || '-' }}</td>
+                <td><span class="badge course">{{ student.courseName }}</span></td>
+                <td><span class="badge class">{{ student.className }}</span></td>
+                <td><span class="badge group">{{ student.groupName }}</span></td>
+                <td>
+                  <button mat-flat-button color="primary" size="small" (click)="viewUser(student)">
+                    Details
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #noStudents>
+            <app-empty-state icon="person-outline" title="No students enrolled" message="No students are enrolled in this madrasa."></app-empty-state>
+          </ng-template>
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+  </ng-container>
+</mat-dialog-content>

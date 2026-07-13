@@ -208,6 +208,9 @@
                     <div class="desktop-actions">
                       <!-- Madrasa -->
                       <ng-container *ngIf="node.type === 'madrasa'">
+                        <button class="action-btn btn-ghost" mat-stroked-button (click)="viewMadrasaDetails(node.raw, $event)" *ngIf="node.raw">
+                          <ion-icon name="information-circle-outline"></ion-icon> Details
+                        </button>
                         <button class="action-btn btn-ghost" mat-stroked-button (click)="viewAdmins(node, $event)" *ngIf="node.assignedAdmins?.length > 0">
                           <ion-icon name="shield-checkmark-outline"></ion-icon> Admins
                         </button>
@@ -266,8 +269,11 @@
                     </button>
                     <mat-menu #actionMenu="matMenu">
                       <!-- Map all the actions above into menu items based on type -->
-                      <ng-container *ngIf="node.type === 'madrasa' && node.assignedAdmins?.length > 0">
-                        <button mat-menu-item (click)="viewAdmins(node, $event)">
+                      <ng-container *ngIf="node.type === 'madrasa'">
+                        <button mat-menu-item (click)="viewMadrasaDetails(node.raw, $event)" *ngIf="node.raw">
+                          <ion-icon name="information-circle-outline"></ion-icon> View Details
+                        </button>
+                        <button mat-menu-item (click)="viewAdmins(node, $event)" *ngIf="node.assignedAdmins?.length > 0">
                           <ion-icon name="shield-checkmark-outline"></ion-icon> View Admins
                         </button>
                       </ng-container>

@@ -10,6 +10,7 @@ import { AcademicTreeStudentsDialogComponent } from './academic-tree-students-di
 import { AcademicTreeStaffDialogComponent } from './academic-tree-staff-dialog.component';
 import { AcademicTreeAssignStudentsDialogComponent } from './academic-tree-assign-students-dialog.component';
 import { AcademicTreeAssignStaffDialogComponent } from './academic-tree-assign-staff-dialog.component';
+import { MadrasaDetailsDialogComponent } from '../../shared/components/madrasa-details-dialog/madrasa-details-dialog.component';
 
 export interface PageState<T> {
   data?: T;
@@ -402,6 +403,7 @@ export class TreeViewPage {
             type: 'madrasa',
             expanded: true,
             assignedAdmins: madrasaAdmins,
+            raw: madrasa,
             children: mCourses.map(course => {
                const cClasses = classes.filter(cls => {
                  if (cls['organizationId'] === org.id && cls['madrasaId'] === madrasa.id && cls['courseId'] === course.id) return true;
@@ -896,6 +898,18 @@ export class TreeViewPage {
         staff: node.assignedAdmins || []
       },
       autoFocus: false,
+    });
+  }
+
+  viewMadrasaDetails(madrasa: any, event?: Event): void {
+    if (event) event.stopPropagation();
+    if (!madrasa) return;
+    this.dialog.open(MadrasaDetailsDialogComponent, {
+      data: { madrasa },
+      width: '90vw',
+      height: '90vh',
+      maxWidth: '90vw',
+      maxHeight: '90vh'
     });
   }
 

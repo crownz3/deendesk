@@ -29,6 +29,7 @@ import { QuickAddDialogComponent, QuickAddResult } from '../../shared/components
 import { UserDetailsDialogComponent } from '../../shared/components/user-details-dialog/user-details-dialog.component';
 import { CourseDetailsDialogComponent } from './course-details-dialog/course-details-dialog.component';
 import { ClassDetailsDialogComponent } from './class-details-dialog/class-details-dialog.component';
+import { MadrasaDetailsDialogComponent } from '../../shared/components/madrasa-details-dialog/madrasa-details-dialog.component';
 import { PageEvent } from '@angular/material/paginator';
 import { ClassDeactivationDialogComponent, ClassDeactivationData, ClassDeactivationAction } from './class-deactivation-dialog/class-deactivation-dialog.component';
 import { ClassTransferWizardDialogComponent } from './class-transfer-wizard-dialog/class-transfer-wizard-dialog.component';
@@ -122,6 +123,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     title: 'Madrasas',
     subtitle: 'Map madrasas to organizations, coordinators, and incharges.',
     collection: 'madrasas',
+    allowDetails: true,
     emptyTitle: 'No madrasas found',
     emptyText: 'Create your first madrasa to start mapping courses, classes, and assigning students.',
     emptyButton: 'Add Madrasa',
@@ -190,6 +192,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     collection: 'staff',
     fixedRole: 'coordinator',
     allowCredentials: true,
+    allowDetails: true,
     specialCreate: 'userAccess',
     emptyTitle: 'No coordinators found',
     emptyText: 'Add coordinators and assign them to oversee one or more madrasas.',
@@ -222,6 +225,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     collection: 'staff',
     fixedRole: 'madrasaIncharge',
     allowCredentials: true,
+    allowDetails: true,
     specialCreate: 'userAccess',
     emptyTitle: 'No incharges found',
     emptyText: 'Add madrasa incharges and assign them to specific madrasas.',
@@ -254,6 +258,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     collection: 'staff',
     fixedRole: 'teacher',
     allowCredentials: true,
+    allowDetails: true,
     specialCreate: 'staffAccess',
     emptyTitle: 'No staff found',
     emptyText: 'Add teachers and staff to assign them to classes and subjects.',
@@ -288,6 +293,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     allowCredentials: true,
     allowPromotion: true,
     allowTransfer: true,
+    allowDetails: true,
     specialCreate: 'student',
     emptyTitle: 'No students found',
     emptyText: 'Enroll students to assign them to courses, classes, and stages.',
@@ -331,6 +337,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     subtitle: 'View parent accounts linked to students.',
     collection: 'parents',
     fixedRole: 'parent',
+    allowDetails: true,
     emptyTitle: 'No parents found',
     emptyText: 'Parents are automatically created when enrolling students, but you can also add them manually.',
     emptyButton: 'Add Parent',
@@ -1196,6 +1203,17 @@ export class ManagementPage {
     if (config.resource === 'classes') {
       this.dialog.open(ClassDetailsDialogComponent, {
         data: { classRecord: row },
+        width: '90vw',
+        height: '90vh',
+        maxWidth: '90vw',
+        maxHeight: '90vh'
+      });
+      return;
+    }
+
+    if (config.resource === 'madrasas') {
+      this.dialog.open(MadrasaDetailsDialogComponent, {
+        data: { madrasa: row },
         width: '90vw',
         height: '90vh',
         maxWidth: '90vw',
