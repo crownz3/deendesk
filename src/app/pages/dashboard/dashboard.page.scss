@@ -20,6 +20,23 @@
   gap: 4px;
 }
 
+.header-right-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .help-guide-btn .btn-text {
+    font-size: 0 !important;
+  }
+  .help-guide-btn .btn-text::before {
+    content: "Help / உதவி";
+    font-size: 13px;
+  }
+}
+
 .eyebrow {
   color: var(--app-primary);
   font-size: 12px;
@@ -142,7 +159,7 @@ h2 {
 .access-grid {
   display: grid;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .access-card {
