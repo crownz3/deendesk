@@ -441,9 +441,71 @@ h2 {
 }
 
 @media (max-width: 640px) {
+  .page {
+    padding: 16px;
+    gap: 12px;
+    overflow-x: hidden;
+  }
+
   .page-header {
     align-items: flex-start;
     flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .header-right-actions {
+    width: 100%;
+    max-width: 100%;
+    justify-content: space-between;
+    overflow: hidden;
+    flex-wrap: nowrap;
+  }
+
+  .help-guide-btn {
+    flex-shrink: 1;
+    min-width: 0;
+    max-width: calc(100% - 90px);
+  }
+
+  h1 {
+    font-size: 20px;
+  }
+
+  .eyebrow {
+    font-size: 11px;
+  }
+
+  .org-name-display {
+    font-size: 22px !important;
+  }
+
+  .org-admin-title-container .welcome-subtext {
+    font-size: 13px;
+  }
+
+  .attendance-ring {
+    flex: 0 0 70px;
+    height: 70px;
+    width: 70px;
+    min-width: 70px;
+  }
+
+  .attendance-ring strong {
+    font-size: 16px;
+  }
+
+  .attendance-ring span {
+    font-size: 10px;
+  }
+
+  .access-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-welcome-card.org-admin-header {
+    padding: 20px 16px;
   }
 }
 

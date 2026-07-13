@@ -31,7 +31,8 @@
     "android:add": "ionic capacitor add android",
     "android:build": "ionic capacitor build android",
     "android:sync": "ionic capacitor sync android",
-    "android:open": "ionic capacitor open android"
+    "android:open": "ionic capacitor open android",
+    "android:apk": "npm run build && npx cap sync && cd android && gradlew assembleDebug"
   },
   "private": true,
   "dependencies": {
