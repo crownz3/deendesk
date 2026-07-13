@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { permissionGuard } from './core/guards/permission.guard';
+import { ActivityLogsPage } from './pages/activity-logs/activity-logs.page';
 import { AttendancePage } from './pages/attendance/attendance.page';
 import { ContinueAccountPage } from './pages/continue-account/continue-account.page';
 import { CsvImportsPage } from './pages/csv-imports/csv-imports.page';
@@ -17,6 +18,7 @@ import { SettingsPage } from './pages/settings/settings.page';
 import { TreeViewPage } from './pages/tree-view/tree-view.page';
 import { PasswordRequestsPage } from './pages/password-requests/password-requests.page';
 import { ClassPlansPage } from './pages/class-plans/class-plans.page';
+import { FeesPage } from './pages/fees/fees.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -34,10 +36,12 @@ const routes: Routes = [
   { path: 'parents', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'parents', permission: 'manageParents' } },
   { path: 'courses', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courses', permission: 'manageCourses' } },
   { path: 'classes', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classes', permission: 'manageClasses' } },
+  { path: 'classGroups', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classGroups', permission: 'manageClasses' } },
   { path: 'subjects', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'subjects', permission: 'manageSubjects' } },
-  { path: 'class-plans', component: ClassPlansPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance', 'viewDashboard'] } },
+  { path: 'class-plans', component: ClassPlansPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] } },
   { path: 'attendance', component: AttendancePage, canActivate: [authGuard, permissionGuard], data: { permission: ['takeAttendance', 'viewAttendance'] } },
   { path: 'reports', component: ReportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'generateReports' } },
+  { path: 'activity-logs', component: ActivityLogsPage, canActivate: [authGuard] },
   { path: 'csv-imports', component: CsvImportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'importCsv' } },
   { path: 'academic-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'academic', permissionsAny: ['manageAcademicPlans', 'viewDashboard'] } },
   { path: 'people-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'people', permissionsAny: ['manageStaff', 'manageStudents', 'manageParents', 'viewDashboard'] } },
@@ -45,6 +49,7 @@ const routes: Routes = [
   { path: 'profile', component: ProfilePage, canActivate: [authGuard, permissionGuard], data: { permission: 'editProfile' } },
   { path: 'settings', component: SettingsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageSettings' } },
   { path: 'password-requests', component: PasswordRequestsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePasswordRequests' } },
+  { path: 'fees', component: FeesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageFees', 'viewFees'] } },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: 'dashboard' },
 ];

@@ -40,3 +40,38 @@
     }
   }
 }
+
+.custom-option-layout {
+  height: auto !important;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.option-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.option-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.option-label {
+  font-size: 14px;
+}
+
+.option-sublabel {
+  font-size: 11px;
+  color: var(--ion-color-medium, #666);
+  margin-top: 2px;
+}
+
+.info-button {
+  transform: scale(0.85);
+  margin-left: 8px;
+  color: var(--ion-color-primary, #3880ff);
+}

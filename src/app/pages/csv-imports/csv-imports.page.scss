@@ -35,6 +35,12 @@ p {
   display: grid;
   gap: 18px;
   padding: 18px;
+  transition: all 0.2s ease-in-out;
+}
+
+.import-panel.drag-over {
+  border: 2px dashed var(--app-primary);
+  background: rgba(13, 110, 253, 0.03); /* subtle primary tint */
 }
 
 .module-form {
@@ -59,6 +65,12 @@ p {
 
 .upload-button input {
   display: none;
+}
+
+.disabled-label {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: not-allowed;
 }
 
 ion-icon {

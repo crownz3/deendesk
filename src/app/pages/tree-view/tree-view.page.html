@@ -28,99 +28,298 @@
         <div>
           <p class="eyebrow">Hierarchy</p>
           <h1>{{ vm.type === 'academic' ? 'Academic Tree' : 'People Hierarchy' }}</h1>
-          <p>{{ vm.type === 'academic' ? 'View the complete academic structure from organization to madrasa, course, class, subject, and students.' : 'View the full user hierarchy from Super Admin to organization admins, coordinators, madrasa incharges, teachers, students, and parents.' }}</p>
+          <p>{{ vm.type === 'academic' ? 'View the complete academic structure from organization to class groups, students, and staff.' : 'View the full user hierarchy from Super Admin down.' }}</p>
         </div>
       </header>
 
       <ng-container *ngIf="vm.type === 'academic'; else peopleTree">
-        <div class="tree-controls" *ngIf="vm.academicTree?.length" style="margin-bottom: 12px; display: flex; gap: 12px;">
-          <button mat-stroked-button (click)="expandAll(vm.academicTree!)">Expand All</button>
-          <button mat-stroked-button (click)="collapseAll(vm.academicTree!)">Collapse All</button>
+        
+        <!-- Dashboard Statistics -->
+        <!-- <div class="stats-dashboard" *ngIf="vm.stats">
+          <mat-card class="stat-card org-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="business-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.organizations }}</h3>
+                <p>Organizations</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card madrasa-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="school-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.madrasas }}</h3>
+                <p>Madrasas</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card course-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="library-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.courses }}</h3>
+                <p>Courses</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card class-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="easel-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.classes }}</h3>
+                <p>Classes</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card group-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="people-circle-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.groups }}</h3>
+                <p>Groups</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card student-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="person-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.students }}</h3>
+                <p>Students</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card staff-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="id-card-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.staff }}</h3>
+                <p>Staff</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card timetable-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="calendar-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.activeTimetables }}</h3>
+                <p>Active Timetables</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+          <mat-card class="stat-card attendance-stat">
+            <mat-card-content>
+              <div class="stat-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+              <div class="stat-info">
+                <h3>{{ vm.stats.attendancePresent }} / {{ vm.stats.attendanceTotal }}</h3>
+                <p>Today's Attendance</p>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div> -->
+
+        <!-- Toolbar: Search & Filters -->
+        <div class="tree-toolbar">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Global Search</mat-label>
+            <mat-icon matPrefix>search</mat-icon>
+            <input matInput [ngModel]="searchQuery$ | async" (ngModelChange)="searchQuery$.next($event)" placeholder="Search anything...">
+            <button *ngIf="(searchQuery$ | async)" matSuffix mat-icon-button aria-label="Clear" (click)="searchQuery$.next('')">
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <div class="filter-chips">
+            <mat-chip-listbox [ngModel]="typeFilter$ | async" (ngModelChange)="typeFilter$.next($event)">
+              <mat-chip-option value="all">All</mat-chip-option>
+              <mat-chip-option value="organization">Organizations</mat-chip-option>
+              <mat-chip-option value="madrasa">Madrasas</mat-chip-option>
+              <mat-chip-option value="course">Courses</mat-chip-option>
+              <mat-chip-option value="class">Classes</mat-chip-option>
+              <mat-chip-option value="classGroup">Groups</mat-chip-option>
+            </mat-chip-listbox>
+            <mat-chip-listbox [ngModel]="statusFilter$ | async" (ngModelChange)="statusFilter$.next($event)" style="margin-left: 12px;">
+              <mat-chip-option value="all">All Status</mat-chip-option>
+              <mat-chip-option value="active">Active</mat-chip-option>
+              <mat-chip-option value="inactive">Inactive</mat-chip-option>
+            </mat-chip-listbox>
+          </div>
+
+          <div class="tree-controls">
+            <button mat-stroked-button (click)="expandAll(vm.academicTree!)">Expand All</button>
+            <button mat-stroked-button (click)="collapseAll(vm.academicTree!)">Collapse All</button>
+          </div>
         </div>
 
-        <section class="tree" *ngIf="vm.academicTree?.length; else academicEmpty">
+        <section class="tree-container" *ngIf="getFilteredTree(vm.academicTree)?.length; else academicEmpty">
           
           <ng-template #recursiveNode let-node>
-            <article class="tree-node">
-              <div class="node-label" (click)="toggleNode(node, $event)" style="cursor: pointer; display: flex; align-items: center;">
-                <ion-icon [name]="node.expanded ? 'chevron-down-outline' : 'chevron-forward-outline'"></ion-icon>
-                <ion-icon [name]="getIconForType(node.type)"></ion-icon>
-                {{ node.title }}
-                <span class="student-count" *ngIf="['course', 'class'].includes(node.type)" style="font-size: 0.9em; color: #60726d; margin-left: 8px;">
-                  (Students: {{ node.studentCount || 0 }}) (Staff: {{ node.staffCount || 0 }})
-                </span>
-                <div class="tree-actions">
-                  <!-- Course Buttons -->
-                  <ng-container *ngIf="node.type === 'course'">
-                    <button mat-icon-button class="tree-action-btn" matTooltip="View Students" aria-label="View Students" (click)="viewStudents(node, $event)">
-                      <ion-icon name="people-outline"></ion-icon>
-                    </button>
-                    <span class="action-divider"></span>
-                    <button mat-icon-button class="tree-action-btn" matTooltip="View Staff" aria-label="View Staff" (click)="viewStaff(node, $event)">
-                      <ion-icon name="id-card-outline"></ion-icon>
-                    </button>
-                  </ng-container>
-
-                  <!-- Class Buttons -->
-                  <ng-container *ngIf="node.type === 'class'">
-                    <!-- Class Students -->
-                    <ng-container *ngIf="node.studentCount > 0">
-                      <button mat-icon-button class="tree-action-btn" matTooltip="View Students" aria-label="View Students" (click)="viewStudents(node, $event)">
-                        <ion-icon name="people-outline"></ion-icon>
-                      </button>
-                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Edit Students" aria-label="Edit Students" (click)="assignStudents(node, vm.students || [], $event)">
-                        <ion-icon name="people-circle-outline"></ion-icon>
-                      </button>
-                    </ng-container>
-                    <ng-container *ngIf="!node.studentCount || node.studentCount === 0">
-                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Add Students" aria-label="Add Students" (click)="assignStudents(node, vm.students || [], $event)">
-                        <ion-icon name="person-add-outline"></ion-icon>
-                      </button>
-                    </ng-container>
-
-                    <span class="action-divider"></span>
-
-                    <!-- Class Staff -->
-                    <ng-container *ngIf="node.staffCount > 0">
-                      <button mat-icon-button class="tree-action-btn" matTooltip="View Staff" aria-label="View Staff" (click)="viewStaff(node, $event)">
-                        <ion-icon name="id-card-outline"></ion-icon>
-                      </button>
-                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Edit Staff" aria-label="Edit Staff" (click)="assignStaff(node, vm.staff || [], $event)">
-                        <ion-icon name="people-circle-outline"></ion-icon>
-                      </button>
-                    </ng-container>
-                    <ng-container *ngIf="!node.staffCount || node.staffCount === 0">
-                      <button mat-icon-button class="tree-action-btn primary" matTooltip="Add Staff" aria-label="Add Staff" (click)="assignStaff(node, vm.staff || [], $event)">
-                        <ion-icon name="person-add-outline"></ion-icon>
-                      </button>
-                    </ng-container>
-                  </ng-container>
-
-                  <!-- Subject Buttons -->
-                  <ng-container *ngIf="node.type === 'subject'">
-                    <button mat-icon-button class="tree-action-btn" matTooltip="View Lessons" aria-label="View Lessons" (click)="viewLessons(node, $event)">
-                      <ion-icon name="book-outline"></ion-icon>
-                    </button>
-                    <button mat-icon-button class="tree-action-btn" matTooltip="View Topics" aria-label="View Topics" (click)="viewTopics(node, $event)">
-                      <ion-icon name="library-outline"></ion-icon>
-                    </button>
-                  </ng-container>
+            <div class="tree-node-wrapper" [class.expanded]="node.expanded" [class]="'node-type-' + node.type">
+              <div class="simple-tree-node" [class.inactive]="node.raw?.status === 'inactive'" (click)="toggleNode(node, $event)">
+                
+                <!-- Expand Icon -->
+                <div class="expand-indicator" [class.invisible]="!node.children?.length && node.type !== 'subject' && node.type !== 'classGroup'">
+                  <ion-icon [name]="node.expanded ? 'chevron-down' : 'chevron-forward'"></ion-icon>
                 </div>
+
+                <!-- Node Details -->
+                  <div class="node-main">
+                    <div class="node-header">
+                      <div class="node-icon">
+                        <ion-icon [name]="getIconForType(node.type)"></ion-icon>
+                      </div>
+                      <h3 class="node-title">{{ node.title }}</h3>
+                      <span class="status-badge" *ngIf="node.raw?.status === 'inactive'">INACTIVE</span>
+                      <span class="status-badge active" *ngIf="node.raw?.status !== 'inactive'">ACTIVE</span>
+                      <span class="default-badge" *ngIf="node.isDefaultGroup">[Default]</span>
+                    </div>
+
+                    <!-- Metadata Chips -->
+                    <div class="node-metadata">
+                      <div class="meta-chip" *ngIf="node.type === 'madrasa' && node.children?.length">
+                        <ion-icon name="library-outline"></ion-icon>
+                        {{ node.children.length }} Courses
+                      </div>
+                      <div class="meta-chip" *ngIf="node.type === 'course' && node.children?.length">
+                        <ion-icon name="easel-outline"></ion-icon>
+                        {{ node.children.length }} Classes
+                      </div>
+                      <div class="meta-chip" *ngIf="node.type === 'class' && node.children?.length">
+                        <ion-icon name="people-circle-outline"></ion-icon>
+                        {{ node.children.length }} Groups
+                      </div>
+                      <div class="meta-chip student-chip" *ngIf="node.studentCount !== undefined && node.type !== 'subject'">
+                        <ion-icon name="person-outline"></ion-icon>
+                        {{ node.studentCount }} Students
+                      </div>
+                      <div class="meta-chip staff-chip" *ngIf="node.staffCount !== undefined && node.type !== 'subject'">
+                        <ion-icon name="id-card-outline"></ion-icon>
+                        {{ node.staffCount }} Staff
+                      </div>
+                      <!-- Add Timetable Info if it existed on the node -->
+                    </div>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="node-actions" (click)="$event.stopPropagation()">
+                    
+                    <!-- Desktop Actions -->
+                    <div class="desktop-actions">
+                      <!-- Madrasa -->
+                      <ng-container *ngIf="node.type === 'madrasa'">
+                        <button class="action-btn btn-ghost" mat-stroked-button (click)="viewAdmins(node, $event)" *ngIf="node.assignedAdmins?.length > 0">
+                          <ion-icon name="shield-checkmark-outline"></ion-icon> Admins
+                        </button>
+                      </ng-container>
+
+                      <!-- Course -->
+                      <ng-container *ngIf="node.type === 'course'">
+                        <button class="action-btn btn-ghost" mat-stroked-button (click)="viewStudents(node, $event)">
+                          <ion-icon name="people-outline"></ion-icon> Students
+                        </button>
+                        <button class="action-btn btn-ghost" mat-stroked-button (click)="viewStaff(node, $event)">
+                          <ion-icon name="id-card-outline"></ion-icon> Staff
+                        </button>
+                      </ng-container>
+
+                      <!-- Class -->
+                      <ng-container *ngIf="node.type === 'class'">
+                        <button class="action-btn btn-primary" mat-stroked-button (click)="toggleNode(node, $event)">
+                          <ion-icon name="people-circle-outline"></ion-icon> Groups
+                        </button>
+                      </ng-container>
+
+                      <!-- Class Group -->
+                      <ng-container *ngIf="node.type === 'classGroup'">
+                        <button class="action-btn btn-ghost" mat-stroked-button (click)="viewStudents(node, $event)" *ngIf="node.studentCount > 0">
+                          <ion-icon name="people-outline"></ion-icon> Students
+                        </button>
+                        <button class="action-btn btn-primary" mat-stroked-button (click)="assignStudents(node, vm.students || [], $event)">
+                          <ion-icon [name]="node.studentCount > 0 ? 'create-outline' : 'person-add-outline'"></ion-icon>
+                          {{ node.studentCount > 0 ? 'Edit' : 'Add' }} Students
+                        </button>
+                        <button class="action-btn btn-ghost" mat-stroked-button (click)="viewStaff(node, $event)" *ngIf="node.staffCount > 0">
+                          <ion-icon name="id-card-outline"></ion-icon> Staff
+                        </button>
+                        <button class="action-btn btn-primary" mat-stroked-button (click)="assignStaff(node, vm.staff || [], $event)">
+                          <ion-icon [name]="node.staffCount > 0 ? 'create-outline' : 'person-add-outline'"></ion-icon>
+                          {{ node.staffCount > 0 ? 'Edit' : 'Add' }} Staff
+                        </button>
+                      </ng-container>
+
+                      <!-- Subject -->
+                      <ng-container *ngIf="node.type === 'subject'">
+                        <button class="action-btn btn-ghost" mat-stroked-button (click)="viewLessons(node, $event)">
+                          <ion-icon name="book-outline"></ion-icon> Lessons
+                        </button>
+                      </ng-container>
+                    </div>
+
+
+                    <!-- Mobile Menu Actions -->
+                    <button mat-icon-button
+                      [matMenuTriggerFor]="actionMenu"
+                      class="mobile-actions"
+                      (click)="$event.stopPropagation(); $event.preventDefault()">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #actionMenu="matMenu">
+                      <!-- Map all the actions above into menu items based on type -->
+                      <ng-container *ngIf="node.type === 'madrasa' && node.assignedAdmins?.length > 0">
+                        <button mat-menu-item (click)="viewAdmins(node, $event)">
+                          <ion-icon name="shield-checkmark-outline"></ion-icon> View Admins
+                        </button>
+                      </ng-container>
+                      <ng-container *ngIf="node.type === 'course'">
+                        <button mat-menu-item (click)="viewStudents(node, $event)">
+                          <ion-icon name="people-outline"></ion-icon> Students
+                        </button>
+                        <button mat-menu-item (click)="viewStaff(node, $event)">
+                          <ion-icon name="id-card-outline"></ion-icon> Staff
+                        </button>
+                      </ng-container>
+                      <ng-container *ngIf="node.type === 'classGroup'">
+                        <button mat-menu-item (click)="assignStudents(node, vm.students || [], $event)">
+                          <ion-icon name="person-add-outline"></ion-icon> Assign Students
+                        </button>
+                        <button mat-menu-item (click)="assignStaff(node, vm.staff || [], $event)">
+                          <ion-icon name="person-add-outline"></ion-icon> Assign Staff
+                        </button>
+                        <button mat-menu-item (click)="viewStudents(node, $event)" *ngIf="node.studentCount > 0">
+                          <ion-icon name="people-outline"></ion-icon> View Students
+                        </button>
+                        <button mat-menu-item (click)="viewStaff(node, $event)" *ngIf="node.staffCount > 0">
+                          <ion-icon name="id-card-outline"></ion-icon> View Staff
+                        </button>
+                      </ng-container>
+                    </mat-menu>
+
+                  </div>
               </div>
               
-              <div class="branch" *ngIf="node.expanded && node.children?.length">
-                <ng-container *ngFor="let child of node.children">
+              <!-- Nested Children with Tree Connectors -->
+              <div class="tree-branch" *ngIf="node.expanded && node.children?.length">
+                <ng-container *ngFor="let child of node.children; trackBy: trackByNode">
                   <ng-container *ngTemplateOutlet="recursiveNode; context:{ $implicit: child }"></ng-container>
                 </ng-container>
               </div>
               
-              <div class="branch" *ngIf="node.expanded && !node.children?.length && node.type !== 'subject'">
-                <article class="tree-leaf empty-leaf">No items added yet</article>
+              <!-- Empty States for specific nodes -->
+              <div class="tree-branch empty-branch" *ngIf="node.expanded && !node.children?.length && node.type !== 'subject' && node.type !== 'classGroup'">
+                <div class="empty-state-node">
+                  <ion-icon name="file-tray-outline"></ion-icon>
+                  <p *ngIf="node.type === 'organization'">No Madrasas Found. Create the first Madrasa.</p>
+                  <p *ngIf="node.type === 'madrasa'">No Courses Found. Create the first Course.</p>
+                  <p *ngIf="node.type === 'course'">No Classes Found. Create the first Class.</p>
+                  <p *ngIf="node.type === 'class'">No Groups Found. Create the first Class Group.</p>
+                </div>
               </div>
-            </article>
+            </div>
           </ng-template>
 
-          <ng-container *ngFor="let org of vm.academicTree">
+          <!-- Render Root Nodes -->
+          <ng-container *ngFor="let org of getFilteredTree(vm.academicTree); trackBy: trackByNode">
             <ng-container *ngTemplateOutlet="recursiveNode; context:{ $implicit: org }"></ng-container>
           </ng-container>
 
@@ -130,22 +329,18 @@
           <app-empty-state 
             icon="file-tray-stacked-outline" 
             title="No academic structure found" 
-            message="Start by creating an organization, then add madrasas, courses, classes, subjects, and students. Once these records are mapped, the academic tree will appear here."
+            message="No records found matching your current filters or search, or the hierarchy is empty."
           >
             <div actions>
-              <button mat-stroked-button routerLink="/management/organizations">Create Organization</button>
               <button mat-stroked-button routerLink="/management/madrasas">Add Madrasa</button>
               <button mat-stroked-button routerLink="/management/courses">Add Course</button>
-            </div>
-            <div guide>
-              <strong>Academic tree order:</strong><br>
-              Organization &rarr; Madrasa &rarr; Course &rarr; Class &rarr; Subject &rarr; Student
             </div>
           </app-empty-state>
         </ng-template>
       </ng-container>
 
       <ng-template #peopleTree>
+        <!-- Existing People Tree implementation here -->
         <section class="tree" *ngIf="vm.organizations.length || vm.users.length; else peopleEmpty">
           <article class="tree-node">
             <div class="node-label"><ion-icon name="shield-checkmark-outline"></ion-icon>Super Admin</div>
@@ -195,26 +390,15 @@
             </div>
           </article>
         </section>
-
         <ng-template #peopleEmpty>
           <app-empty-state 
             icon="people-outline" 
             title="No people hierarchy found" 
             message="Create organizations and users to build the people hierarchy. Once users are assigned to their roles and madrasas, the hierarchy will appear here."
-          >
-            <div actions>
-              <button mat-stroked-button routerLink="/management/organizations">Add Organization</button>
-              <button mat-stroked-button routerLink="/management/users">Add User</button>
-            </div>
-            <div guide>
-              <strong>People hierarchy order:</strong><br>
-              Super Admin &rarr; Organization Admin &rarr; Coordinator &rarr; Madrasa Incharge &rarr; Teacher &rarr; Student / Parent
-            </div>
-          </app-empty-state>
+          ></app-empty-state>
         </ng-template>
       </ng-template>
 
     </ng-container>
-
   </section>
 </ion-content>

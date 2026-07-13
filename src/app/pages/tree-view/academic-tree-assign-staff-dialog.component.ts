@@ -3,8 +3,6 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
-import { getFirestore, arrayUnion, arrayRemove, updateDoc, doc, serverTimestamp, getDoc } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { firstValueFrom } from 'rxjs';
 
 export interface AssignStaffDialogData {
@@ -25,11 +23,9 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   node: any;
   availableUsers: any[] = [];
   selectedUsers: any[] = [];
-  originalSelectedIds = new Set<string>();
   
   isSaving = false;
   errorMsg = '';
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: AssignStaffDialogData,
@@ -40,18 +36,14 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.node = this.data.node;
-    const all = this.data.allStaff || [];
     
     const incomingAssigned = (this.data.assignedStaff || []).filter((user: any) => this.isStaffUser(user));
     const incomingAvailable = (this.data.availableStaff || []).filter((user: any) => this.isStaffUser(user));
-    const allStaff = (this.data.allStaff || []).filter((user: any) => this.isStaffUser(user));
 
     this.selectedUsers = this.uniqueUsers(incomingAssigned);
     this.availableUsers = this.uniqueUsers(
       incomingAvailable.filter((staff: any) => !this.isAlreadySelected(staff))
     );
-
-    this.originalSelectedIds = new Set(this.selectedUsers.map(s => this.getUserId(s)).filter(Boolean));
 
     console.log('[Assign Staff Dialog Role Filter Debug]', {
       incomingAssignedCount: this.data.assignedStaff?.length || 0,
@@ -71,29 +63,12 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
     });
   }
 
-  private userHasId(user: any, singleKeys: string[], arrayKeys: string[], id: string): boolean {
-    if (!user || !id) return false;
-    const hasSingle = singleKeys.some(key => user?.[key] === id);
-    const hasArray = arrayKeys.some(key => Array.isArray(user?.[key]) && user[key].includes(id));
-    return hasSingle || hasArray;
-  }
-
-  private staffMatchesNode(staff: any, node: any): boolean {
-    if (!staff || !node?.id || !node?.type) return false;
-    if (node.type === 'course') {
-      return this.userHasId(staff, ['courseId', 'assignedCourseId'], ['courseIds', 'assignedCourseIds', 'teachingCourseIds'], node.id);
-    }
-    if (node.type === 'class') {
-      return this.userHasId(staff, ['classId', 'assignedClassId'], ['classIds', 'assignedClassIds', 'teachingClassIds'], node.id);
-    }
-    if (node.type === 'subject') {
-      return this.userHasId(staff, ['subjectId', 'assignedSubjectId'], ['subjectIds', 'assignedSubjectIds', 'teachingSubjectIds'], node.id);
-    }
-    return false;
-  }
-
   private getUserId(user: any): string {
     return user?.id || user?.uid || user?.docId || '';
+  }
+
+  private getStaffAssignmentId(user: any): string {
+    return String(user?.entityId || user?.id || user?.uid || user?.userId || '').trim();
   }
 
   private normalizeRole(role: string | undefined | null): string {
@@ -165,50 +140,6 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
     this.selectedUsers = [];
   }
 
-  private validateStaffAssignmentScope(staff: any, profile: any): boolean {
-    const role = String(staff?.role || '').toLowerCase();
-    const isStaffRole = role === 'teacher' || role === 'staff';
-    const sameOrg = staff?.organizationId === profile?.organizationId;
-
-    const currentMadrasaIds = Array.isArray(profile?.madrasaIds)
-      ? [...profile.madrasaIds]
-      : [];
-
-    if (profile?.madrasaId && !currentMadrasaIds.includes(profile.madrasaId)) {
-      currentMadrasaIds.push(profile.madrasaId);
-    }
-
-    const staffMadrasaIds = Array.isArray(staff?.madrasaIds)
-      ? [...staff.madrasaIds]
-      : [];
-
-    if (staff?.madrasaId && !staffMadrasaIds.includes(staff.madrasaId)) {
-      staffMadrasaIds.push(staff.madrasaId);
-    }
-
-    // Admins and coordinators might have global madrasa bypass, but we enforce overlap for madrasaIncharge
-    const madrasaOverlap = (profile?.role === 'superAdmin' || profile?.role === 'organizationAdmin') || staffMadrasaIds.some((id: string) => currentMadrasaIds.includes(id));
-
-    const valid = isStaffRole && sameOrg && madrasaOverlap;
-
-    console.log('[Staff Assignment Scope Precheck]', {
-      staffId: staff.id || staff.uid,
-      valid,
-      isStaffRole,
-      sameOrg,
-      madrasaOverlap,
-      staffRole: staff.role,
-      staffOrganizationId: staff.organizationId,
-      staffMadrasaId: staff.madrasaId,
-      staffMadrasaIds: staff.madrasaIds,
-      currentUserOrganizationId: profile.organizationId,
-      currentUserMadrasaId: profile.madrasaId,
-      currentUserMadrasaIds: profile.madrasaIds,
-    });
-
-    return valid;
-  }
-
   async save() {
     this.isSaving = true;
     this.errorMsg = '';
@@ -246,113 +177,17 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
       return;
     }
 
-    const newSelectedIds = new Set(this.selectedUsers.map(s => s.id));
-    
-    const addedUsers = this.selectedUsers.filter(s => !this.originalSelectedIds.has(s.id));
-    const removedUsers = (this.data.assignedStaff || []).filter(s => !newSelectedIds.has(s.id));
-
-    console.log('[Assign Staff Save Start Debug]', {
-      nodeId: this.node?.id,
-      nodeType: this.node?.type,
-      nodeTitle: this.node?.title,
-      selectedStaffCount: this.selectedUsers?.length || 0,
-      originalAssignedCount: this.originalSelectedIds?.size || 0,
-    });
-
-    console.log('[Assign Staff Save Diff Result Debug]', {
-      addedStaff: addedUsers.map(staff => ({
-        id: staff.id || staff.uid,
-        role: staff.role,
-        status: staff.status,
-        organizationId: staff.organizationId,
-        madrasaId: staff.madrasaId,
-        madrasaIds: staff.madrasaIds,
-        teachingClassIds: staff.teachingClassIds,
-      })),
-      removedStaff: removedUsers.map(staff => ({
-        id: staff.id || staff.uid,
-        role: staff.role,
-        status: staff.status,
-        organizationId: staff.organizationId,
-        madrasaId: staff.madrasaId,
-        madrasaIds: staff.madrasaIds,
-        teachingClassIds: staff.teachingClassIds,
-      })),
-    });
+    if (this.node?.type !== 'classGroup') {
+      this.errorMsg = 'Staff can only be assigned to class groups.';
+      this.isSaving = false;
+      return;
+    }
 
     try {
-      for (const staff of addedUsers) {
-        if (!this.validateStaffAssignmentScope(staff, userProfile)) {
-          throw new Error(`Staff member ${staff.name || staff.displayName || staff.id} is outside your assigned madrasa scope or missing madrasa assignment.`);
-        }
-
-        let patch: any = {};
-        if (this.node.type === 'course') {
-          patch = { teachingCourseIds: arrayUnion(this.node.id), updatedAt: serverTimestamp(), updatedBy: userProfile?.uid };
-        } else if (this.node.type === 'class') {
-          patch = { teachingClassIds: arrayUnion(this.node.id), updatedAt: serverTimestamp(), updatedBy: userProfile?.uid };
-        } else if (this.node.type === 'subject') {
-          patch = { teachingSubjectIds: arrayUnion(this.node.id), updatedAt: serverTimestamp(), updatedBy: userProfile?.uid };
-        }
-        
-        console.log('[Staff Assignment Update Debug]', {
-          writePath: `users/${staff.id || staff.uid}`,
-          staffId: staff.id || staff.uid,
-          classId: this.node?.id,
-          patch,
-        });
-
-        const staffDocRef = doc(this.firestore, 'users', staff.id || staff.uid);
-        const staffDoc = await getDoc(staffDocRef);
-        console.log('[Firestore OldData Diagnostic]', {
-          staffId: staff.id || staff.uid,
-          exists: staffDoc.exists(),
-          data: staffDoc.data()
-        });
-
-        try {
-          await updateDoc(staffDocRef, patch);
-        } catch (e: any) {
-          throw new Error(`Failed on staff ${staff.id || staff.uid}: ${e.message}`);
-        }
-      }
-
-      for (const staff of removedUsers) {
-        if (!this.validateStaffAssignmentScope(staff, userProfile)) {
-          throw new Error(`Staff member ${staff.name || staff.displayName || staff.id} is outside your assigned madrasa scope or missing madrasa assignment.`);
-        }
-
-        let patch: any = {};
-        if (this.node.type === 'course') {
-          patch = { teachingCourseIds: arrayRemove(this.node.id), updatedAt: serverTimestamp(), updatedBy: userProfile?.uid };
-        } else if (this.node.type === 'class') {
-          patch = { teachingClassIds: arrayRemove(this.node.id), updatedAt: serverTimestamp(), updatedBy: userProfile?.uid };
-        } else if (this.node.type === 'subject') {
-          patch = { teachingSubjectIds: arrayRemove(this.node.id), updatedAt: serverTimestamp(), updatedBy: userProfile?.uid };
-        }
-
-        console.log('[Staff Assignment Update Debug]', {
-          writePath: `users/${staff.id || staff.uid}`,
-          staffId: staff.id || staff.uid,
-          classId: this.node?.id,
-          patch,
-        });
-
-        const staffDocRef = doc(this.firestore, 'users', staff.id || staff.uid);
-        const staffDoc = await getDoc(staffDocRef);
-        console.log('[Firestore OldData Diagnostic]', {
-          staffId: staff.id || staff.uid,
-          exists: staffDoc.exists(),
-          data: staffDoc.data()
-        });
-
-        try {
-          await updateDoc(staffDocRef, patch);
-        } catch (e: any) {
-          throw new Error(`Failed on staff ${staff.id || staff.uid}: ${e.message}`);
-        }
-      }
-
+      const selectedStaffIds = Array.from(new Set(
+        this.selectedUsers.map(staff => this.getStaffAssignmentId(staff)).filter(Boolean)
+      ));
+      await this.repo.update('classGroups', this.node.id, { assignedStaffIds: selectedStaffIds }, userProfile);
       this.dialogRef.close({ updated: true });
     } catch (error: any) {
       console.error('[Staff Assignment Update Failed]', {

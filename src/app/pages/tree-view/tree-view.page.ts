@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { catchError, combineLatest, map, of, startWith, switchMap } from 'rxjs';
+import { BehaviorSubject, combineLatest, map, of, startWith, switchMap, catchError } from 'rxjs';
 import { ROLE_LABELS } from '../../core/constants/defaults';
 import { AuthService } from '../../core/services/auth.service';
 import { MatDialog } from '@angular/material/dialog';
@@ -21,15 +21,19 @@ export interface AcademicTreeNode {
   id: string;
   title: string;
   name?: string;
-  type: 'organization' | 'madrasa' | 'course' | 'class' | 'subject' | 'academicPlan';
+  type: 'organization' | 'madrasa' | 'course' | 'class' | 'classGroup' | 'subject' | 'academicPlan';
   children?: AcademicTreeNode[];
   expanded?: boolean;
   studentCount?: number;
   assignedStudents?: any[];
   staffCount?: number;
   assignedStaff?: any[];
+  assignedAdmins?: any[];
   parentCourseId?: string;
   parentCourseName?: string;
+  parentClassId?: string;
+  parentClassName?: string;
+  isDefaultGroup?: boolean;
   raw?: any;
 }
 
@@ -39,8 +43,12 @@ interface TreeVm {
   madrasas: EntityRecord[];
   courses: EntityRecord[];
   classes: EntityRecord[];
+  classGroups: EntityRecord[];
   subjects: EntityRecord[];
   academicPlans: EntityRecord[];
+  classPlans?: EntityRecord[];
+  classPlanAttendance?: EntityRecord[];
+  stats?: any;
   students: EntityRecord[];
   users: EntityRecord[];
   parents: EntityRecord[];
@@ -55,6 +63,51 @@ interface TreeVm {
   standalone: false,
 })
 export class TreeViewPage {
+
+  getFilteredTree(tree: AcademicTreeNode[] | undefined): AcademicTreeNode[] {
+    if (!tree) return [];
+    
+    const search = this.searchQuery$.value.toLowerCase();
+    const typeF = this.typeFilter$.value;
+    const statusF = this.statusFilter$.value;
+    
+    if (!search && typeF === 'all' && statusF === 'all') return tree;
+    
+    const filterNode = (node: AcademicTreeNode): AcademicTreeNode | null => {
+      let matches = true;
+      
+      if (search) {
+        matches = matches && (node.title.toLowerCase().includes(search) || (node.name || '').toLowerCase().includes(search));
+      }
+      
+      if (typeF !== 'all') {
+        matches = matches && node.type === typeF;
+      }
+      
+      if (statusF !== 'all') {
+        const status = node.raw?.status || 'active';
+        matches = matches && status === statusF;
+      }
+      
+      let filteredChildren: AcademicTreeNode[] = [];
+      if (node.children) {
+        filteredChildren = node.children.map(filterNode).filter(Boolean) as AcademicTreeNode[];
+      }
+      
+      if (matches || filteredChildren.length > 0) {
+         return { ...node, children: filteredChildren, expanded: search ? true : node.expanded };
+      }
+      return null;
+    };
+    
+    return tree.map(filterNode).filter(Boolean) as AcademicTreeNode[];
+  }
+
+
+  searchQuery$ = new BehaviorSubject<string>('');
+  typeFilter$ = new BehaviorSubject<string>('all');
+  statusFilter$ = new BehaviorSubject<string>('all');
+
   readonly roleLabels = ROLE_LABELS;
   readonly vm$ = this.route.data.pipe(
     map((data) => String(data['tree']) === 'people' ? 'people' as const : 'academic' as const),
@@ -83,6 +136,7 @@ export class TreeViewPage {
           madrasas: this.repo.list<EntityRecord>('madrasas', profile),
           courses: type === 'academic' ? this.repo.list<EntityRecord>('courses', profile) : of([]),
           classes: type === 'academic' ? this.repo.list<EntityRecord>('classes', profile) : of([]),
+          classGroups: type === 'academic' ? this.repo.list<EntityRecord>('classGroups', profile) : of([]),
           subjects: type === 'academic' ? this.repo.list<EntityRecord>('subjects', profile) : of([]),
           academicPlans: type === 'academic' ? this.repo.list<EntityRecord>('academicPlans', profile).pipe(
             catchError((err) => {
@@ -90,9 +144,13 @@ export class TreeViewPage {
               return of([]);
             })
           ) : of([]),
+          classPlans: type === 'academic' ? this.repo.list<EntityRecord>('classPlans', profile).pipe(catchError(() => of([]))) : of([]),
+          classPlanAttendance: type === 'academic' ? this.repo.list<EntityRecord>('classPlanAttendance', profile).pipe(catchError(() => of([]))) : of([]),
           users: type === 'people' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff', 'student', 'parent'] }) : of([]),
           academicStudents: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['student'] }) : of([]),
+          studentsCollection: type === 'academic' ? this.repo.list<EntityRecord>('students', profile) : of([]),
           academicStaff: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff'] }) : of([]),
+          academicAdmins: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['coordinator', 'madrasaIncharge'] }) : of([]),
         }).pipe(
           map((data) => {
             const users = data.users || [];
@@ -115,12 +173,52 @@ export class TreeViewPage {
             let academicTree: AcademicTreeNode[] = [];
             let students = data.academicStudents || [];
             let staffUsers = data.academicStaff || [];
+            let admins = data.academicAdmins || [];
 
+            let stats: any = null;
             if (type === 'academic') {
                const rawStudents = data.academicStudents || [];
+               
+               const today = new Date().toISOString().split('T')[0];
+               const activeTimetables = (data.classPlans || []).filter((p: any) => p['status'] === 'active').length;
+               
+               const todayAttendance = (data.classPlanAttendance || []).filter((a: any) => a['date'] === today || a['dateKey'] === today);
+               
+               let presentCount = 0;
+               let totalCount = 0;
+               todayAttendance.forEach((record: any) => {
+                 const students = record.students || [];
+                 totalCount += students.length;
+                 presentCount += students.filter((s: any) => s.status === 'present' || s.status === 'late').length;
+               });
+
+               stats = {
+                 organizations: data.organizations?.length || 0,
+                 madrasas: data.madrasas?.length || 0,
+                 courses: data.courses?.length || 0,
+                 classes: data.classes?.length || 0,
+                 groups: data.classGroups?.length || 0,
+                 students: 0,
+                 staff: 0,
+                 activeTimetables: activeTimetables,
+                 attendancePresent: presentCount,
+                 attendanceTotal: totalCount
+               };
+               
+               const rawStudents2 = data.academicStudents || [];
                const rawStaffUsers = data.academicStaff || [];
                
-               students = this.uniqueUsers(rawStudents.filter(user => this.isStudentUser(user)));
+               let rawStudentsMapped = rawStudents.filter(user => this.isStudentUser(user));
+               
+               const studentsMap = new Map<string, any>();
+               (data.studentsCollection || []).forEach((s: any) => {
+                 if (s['userId']) studentsMap.set(s['userId'], s);
+               });
+
+               students = this.uniqueUsers(rawStudentsMapped).map((user: any) => {
+                 const details = studentsMap.get(user.uid || user.id) || {};
+                 return { ...user, ...details, id: user.id || user.uid, userId: user.uid || user.id };
+               });
                staffUsers = this.uniqueUsers(rawStaffUsers.filter(user => this.isStaffUser(user)));
                
                console.log('[Academic Tree Role Filter Debug]', {
@@ -154,7 +252,9 @@ export class TreeViewPage {
                  madrasaId: profile?.madrasaId,
                  madrasaIds: profile?.madrasaIds,
                });
-               academicTree = this.buildAcademicTree(data.organizations, data.madrasas, data.courses, data.classes, data.subjects, students, staffUsers);
+               academicTree = this.buildAcademicTree(data.organizations, data.madrasas, data.courses, data.classes, data.classGroups, data.subjects, students, staffUsers, admins);
+               stats.students = students.length;
+               stats.staff = staffUsers.length;
             }
 
             return {
@@ -163,6 +263,8 @@ export class TreeViewPage {
               students: type === 'academic' ? students : users.filter((u) => u['role'] === 'student'),
               parents: users.filter((u) => u['role'] === 'parent'),
               staff: type === 'academic' ? staffUsers : users.filter((u) => u['role'] === 'teacher' || u['role'] === 'staff'),
+              admins: type === 'academic' ? admins : users.filter((u) => u['role'] === 'coordinator' || u['role'] === 'madrasaIncharge'),
+              stats: type === 'academic' ? stats : null,
             };
           }),
           map((data): PageState<TreeVm> => ({
@@ -222,7 +324,11 @@ export class TreeViewPage {
     return String(row.id ?? row['uid'] ?? row['email']);
   }
 
-  private buildAcademicTree(orgs: any[], madrasas: any[], courses: any[], classes: any[], subjects: any[], students: any[], staffUsers: any[]): AcademicTreeNode[] {
+  trackByNode(_: number, node: AcademicTreeNode): string {
+    return node.id;
+  }
+
+  private buildAcademicTree(orgs: any[], madrasas: any[], courses: any[], classes: any[], classGroups: any[], subjects: any[], students: any[], staffUsers: any[], admins: any[]): AcademicTreeNode[] {
     console.log('[Academic Tree Raw Data Debug]', {
       organizationsCount: orgs.length,
       madrasasCount: madrasas.length,
@@ -284,12 +390,18 @@ export class TreeViewPage {
             })),
           });
 
+          const madrasaAdmins = admins.filter(admin => 
+            admin['organizationId'] === org.id && 
+            (admin['madrasaId'] === madrasa.id || (admin['madrasaIds'] && Array.isArray(admin['madrasaIds']) && admin['madrasaIds'].includes(madrasa.id)))
+          );
+
           const madrasaNode: AcademicTreeNode = {
             id: madrasa.id || '',
             title: String(madrasa['name'] || ''),
             name: String(madrasa['name'] || ''),
             type: 'madrasa',
             expanded: true,
+            assignedAdmins: madrasaAdmins,
             children: mCourses.map(course => {
                const cClasses = classes.filter(cls => {
                  if (cls['organizationId'] === org.id && cls['madrasaId'] === madrasa.id && cls['courseId'] === course.id) return true;
@@ -311,32 +423,92 @@ export class TreeViewPage {
                const cClassNodes = cClasses.map(cls => {
                     const cSubjects = subjects.filter(sub => {
                       if (sub['organizationId'] === org.id && sub['madrasaId'] === madrasa.id && (sub['classId'] === cls.id || sub['courseId'] === course.id)) return true;
-                      if (sub['organizationId'] === org.id && (sub['classId'] === cls.id || sub['courseId'] === course.id) && sub['madrasaId'] && sub['madrasaId'] !== madrasa.id) {
-                        console.warn('[Academic Tree Wrong Madrasa Record Skipped]', {
-                           currentMadrasaId: madrasa.id,
-                           recordType: 'subject',
-                           recordId: sub.id,
-                           recordName: sub['name'] || sub['title'],
-                           recordMadrasaId: sub['madrasaId'],
-                           reason: 'Record madrasaId does not match current madrasa id',
-                        });
-                      }
+                      if (sub['organizationId'] === org.id && (sub['classId'] === cls.id || sub['courseId'] === course.id) && sub['madrasaId'] && sub['madrasaId'] !== madrasa.id) return false;
                       return false;
                     });
-                    const classStudents = students.filter(s => this.studentMatchesNode(s, { id: cls.id, type: 'class' } as any));
-                     const classStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any));
                     
-                    console.log('[Academic Tree Student Count Debug]', {
-                      nodeId: cls.id,
-                      nodeType: 'class',
-                      nodeTitle: cls['name'],
-                      studentCount: classStudents.length,
+                    const cGroups = classGroups.filter(g => g['classId'] === cls.id);
+                    if (cGroups.length === 0) {
+                      cGroups.push({
+                        id: 'default_' + cls.id,
+                        name: 'Section A',
+                        classId: cls.id,
+                        isDefault: true,
+                        assignedStaffIds: []
+                      });
+                    }
+
+                    const classStudents = students.filter(s => this.studentMatchesNode(s, { id: cls.id, type: 'class' } as any));
+                    const classStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any));
+
+                    const cGroupNodes = cGroups.map(grp => {
+                       const groupStudents = classStudents.filter(s => s.groupId === grp.id || (grp.isDefault && !s.groupId));
+                       // Staff assigned to a class always appear under the group.
+                       // If there are no real groups (isDefault), ALL class staff go here.
+                       // If groups exist, staff with matching groupId go to that group;
+                       // staff with no groupId fall into the default group.
+                       let groupStaff: any[];
+                       if (cGroups.length === 1 && grp.isDefault) {
+                         // Only one default group — show all class staff here
+                         groupStaff = classStaff;
+                       } else {
+                         groupStaff = classStaff.filter(s =>
+                           s.groupId === grp.id ||
+                           (grp.isDefault && !s.groupId) ||
+                           (Array.isArray(grp.assignedStaffIds) && grp.assignedStaffIds.includes(s.id || s.uid))
+                         );
+                       }
+                       const groupStaffNames = groupStaff.map(s => s.displayName || s.name || s.email).join(', ') || 'None';
+                       
+                       const mappedGroupStaff = groupStaff.map(s => ({
+                         ...s,
+                         groupName: grp['name'] || 'N/A',
+                         courseName: course['name'] || 'N/A',
+                         className: cls['name'] || 'N/A'
+                       }));
+
+                       const mappedGroupStudents = groupStudents.map(s => ({
+                         ...s,
+                         groupName: grp['name'] || 'N/A',
+                         assignedStaffName: groupStaffNames,
+                         courseName: course['name'] || 'N/A',
+                         className: cls['name'] || 'N/A'
+                       }));
+                       
+                       const groupNode: AcademicTreeNode = {
+                         id: grp.id,
+                         title: String(grp['name'] || ''),
+                         name: String(grp['name'] || ''),
+                         type: 'classGroup',
+                         parentClassId: cls.id,
+                         parentClassName: String(cls['name'] || ''),
+                         parentCourseId: course.id,
+                         parentCourseName: String(course['name'] || ''),
+                         isDefaultGroup: grp.isDefault,
+                         expanded: true,
+                         studentCount: mappedGroupStudents.length,
+                         assignedStudents: mappedGroupStudents,
+                         staffCount: mappedGroupStaff.length,
+                         assignedStaff: mappedGroupStaff,
+                         children: []
+                       };
+                       return groupNode;
                     });
-                    console.log('[Academic Tree Staff Count Debug]', {
-                      nodeId: cls.id,
-                      nodeType: 'class',
-                      nodeTitle: cls['name'],
-                      staffCount: classStaff.length,
+                    
+                    const subNodes = cSubjects.map(sub => {
+                       const subNode: AcademicTreeNode = {
+                         id: sub.id || '',
+                         title: String(sub['name'] || ''),
+                         name: String(sub['name'] || ''),
+                         type: 'subject',
+                         expanded: true,
+                         studentCount: 0,
+                         assignedStudents: [],
+                         staffCount: 0,
+                         assignedStaff: [],
+                         children: []
+                       };
+                       return subNode;
                     });
 
                     const classNode: AcademicTreeNode = {
@@ -351,21 +523,7 @@ export class TreeViewPage {
                       assignedStudents: classStudents,
                       staffCount: classStaff.length,
                       assignedStaff: classStaff,
-                      children: cSubjects.map(sub => {
-                         const subNode: AcademicTreeNode = {
-                           id: sub.id || '',
-                           title: String(sub['name'] || ''),
-                           name: String(sub['name'] || ''),
-                           type: 'subject',
-                           expanded: true,
-                           studentCount: 0,
-                           assignedStudents: [],
-                           staffCount: 0,
-                           assignedStaff: [],
-                           children: []
-                         };
-                         return subNode;
-                      })
+                      children: [...cGroupNodes, ...subNodes]
                     };
                     return classNode;
                  });
@@ -442,9 +600,91 @@ export class TreeViewPage {
                const courseStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: course.id, type: 'course' } as any));
                
                const cClassNodes = cClasses.map(cls => {
-                    const cSubjects = globalSubjects.filter(sub => sub['classId'] === cls.id || sub['courseId'] === course.id);
+                    const cSubjects = subjects.filter(sub => {
+                      if (sub['organizationId'] === org.id && sub['madrasaId'] === cls['madrasaId'] && (sub['classId'] === cls.id || sub['courseId'] === course.id)) return true;
+                      if (sub['organizationId'] === org.id && (sub['classId'] === cls.id || sub['courseId'] === course.id) && sub['madrasaId'] && sub['madrasaId'] !== cls['madrasaId']) return false;
+                      return false;
+                    });
+                    
+                    const cGroups = classGroups.filter(g => g['classId'] === cls.id);
+                    if (cGroups.length === 0) {
+                      cGroups.push({
+                        id: 'default_' + cls.id,
+                        name: 'Section A',
+                        classId: cls.id,
+                        isDefault: true,
+                        assignedStaffIds: []
+                      });
+                    }
+
                     const classStudents = students.filter(s => this.studentMatchesNode(s, { id: cls.id, type: 'class' } as any));
                     const classStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any));
+
+                    const cGroupNodes = cGroups.map(grp => {
+                       const groupStudents = classStudents.filter(s => s.groupId === grp.id || (grp.isDefault && !s.groupId));
+                       // for staff, they might not have groupId. If default, map unassigned staff to it.
+                       let groupStaff: any[];
+                       if (cGroups.length === 1 && grp.isDefault) {
+                         groupStaff = classStaff;
+                       } else {
+                         groupStaff = classStaff.filter(s =>
+                           s.groupId === grp.id ||
+                           (grp.isDefault && !s.groupId) ||
+                           (Array.isArray(grp.assignedStaffIds) && grp.assignedStaffIds.includes(s.id || s.uid))
+                         );
+                       }
+                       const groupStaffNames = groupStaff.map(s => s.displayName || s.name || s.email).join(', ') || 'None';
+                       
+                       const mappedGroupStaff = groupStaff.map(s => ({
+                         ...s,
+                         groupName: grp['name'] || 'N/A',
+                         courseName: course['name'] || 'N/A',
+                         className: cls['name'] || 'N/A'
+                       }));
+
+                       const mappedGroupStudents = groupStudents.map(s => ({
+                         ...s,
+                         groupName: grp['name'] || 'N/A',
+                         assignedStaffName: groupStaffNames,
+                         courseName: course['name'] || 'N/A',
+                         className: cls['name'] || 'N/A'
+                       }));
+                       
+                       const groupNode: AcademicTreeNode = {
+                         id: grp.id,
+                         title: String(grp['name'] || ''),
+                         name: String(grp['name'] || ''),
+                         type: 'classGroup',
+                         parentClassId: cls.id,
+                         parentClassName: String(cls['name'] || ''),
+                         parentCourseId: course.id,
+                         parentCourseName: String(course['name'] || ''),
+                         isDefaultGroup: grp.isDefault,
+                         expanded: true,
+                         studentCount: mappedGroupStudents.length,
+                         assignedStudents: mappedGroupStudents,
+                         staffCount: mappedGroupStaff.length,
+                         assignedStaff: mappedGroupStaff,
+                         children: []
+                       };
+                       return groupNode;
+                    });
+                    
+                    const subNodes = cSubjects.map(sub => {
+                       const subNode: AcademicTreeNode = {
+                         id: sub.id || '',
+                         title: String(sub['name'] || ''),
+                         name: String(sub['name'] || ''),
+                         type: 'subject',
+                         expanded: true,
+                         studentCount: 0,
+                         assignedStudents: [],
+                         staffCount: 0,
+                         assignedStaff: [],
+                         children: []
+                       };
+                       return subNode;
+                    });
 
                     const classNode: AcademicTreeNode = {
                       id: cls.id || '',
@@ -458,21 +698,7 @@ export class TreeViewPage {
                       assignedStudents: classStudents,
                       staffCount: classStaff.length,
                       assignedStaff: classStaff,
-                      children: cSubjects.map(sub => {
-                         const subNode: AcademicTreeNode = {
-                           id: sub.id || '',
-                           title: String(sub['name'] || ''),
-                           name: String(sub['name'] || ''),
-                           type: 'subject',
-                           expanded: true,
-                           studentCount: 0,
-                           assignedStudents: [],
-                           staffCount: 0,
-                           assignedStaff: [],
-                           children: []
-                         };
-                         return subNode;
-                      })
+                      children: [...cGroupNodes, ...subNodes]
                     };
                     return classNode;
                  });
@@ -525,6 +751,9 @@ export class TreeViewPage {
     if (node.type === 'subject') {
       return student.subjectId === node.id || (student.subjectIds || []).includes(node.id);
     }
+    if (node.type === 'classGroup') {
+      return !!(student.groupId === node.id || (node.isDefaultGroup && !student.groupId));
+    }
     if (node.type === 'academicPlan') {
       return student.academicPlanId === node.id || (student.academicPlanIds || []).includes(node.id);
     }
@@ -568,6 +797,17 @@ export class TreeViewPage {
         ['subjectIds', 'assignedSubjectIds', 'teachingSubjectIds'],
         node.id
       );
+    }
+
+    if (node.type === 'classGroup') {
+      const hasGroupId = this.userHasId(
+        staff,
+        ['groupId', 'assignedGroupId'],
+        ['groupIds', 'assignedGroupIds', 'teachingGroupIds'],
+        node.id
+      );
+      const isDefault = !!(node.isDefaultGroup && !staff.groupId && !(staff.groupIds && staff.groupIds.length > 0) && !(staff.assignedGroupIds && staff.assignedGroupIds.length > 0));
+      return hasGroupId || isDefault;
     }
 
     return false;
@@ -634,6 +874,26 @@ export class TreeViewPage {
         nodeTitle: node.title,
         nodeType: node.type,
         staff: node.assignedStaff || []
+      },
+      autoFocus: false,
+    });
+  }
+
+  viewAdmins(node: AcademicTreeNode, event?: Event): void {
+    if (event) event.stopPropagation();
+    this.dialog.open(AcademicTreeStaffDialogComponent, {
+      width: '90vw',
+      height: '90vh',
+      maxWidth: '90vw',
+      maxHeight: '90vh',
+      panelClass: 'academic-tree-staff-dialog-panel',
+      data: {
+        title: 'Coordinators & Incharges',
+        emptyTitle: 'No admins assigned',
+        emptyMessage: 'Coordinators and madrasa incharges assigned to this madrasa will appear here.',
+        nodeTitle: node.title,
+        nodeType: node.type,
+        staff: node.assignedAdmins || []
       },
       autoFocus: false,
     });
@@ -707,9 +967,37 @@ export class TreeViewPage {
       (node.assignedStaff || []).filter(user => this.isStaffUser(user))
     );
 
-    const availableStaff = this.uniqueUsers(
-      (allStaff || []).filter(user => this.isStaffUser(user) && !this.staffMatchesNode(user, node))
-    );
+    // For classGroup nodes, the available staff are all staff assigned to the parent class
+    // (they may not have a groupId yet, so staffMatchesNode alone would miss them).
+    let availableStaff: any[];
+    if (node.type === 'classGroup') {
+      const assignedIds = new Set(assignedStaff.map((u: any) => this.getUserId(u)));
+      availableStaff = this.uniqueUsers(
+        (allStaff || []).filter((user: any) => {
+          if (!this.isStaffUser(user)) return false;
+          if (assignedIds.has(this.getUserId(user))) return false;
+          // Include staff assigned to the parent class
+          const classId = node.parentClassId;
+          if (classId) {
+            const inClass = user.classId === classId ||
+              user.assignedClassId === classId ||
+              (Array.isArray(user.classIds) && user.classIds.includes(classId)) ||
+              (Array.isArray(user.assignedClassIds) && user.assignedClassIds.includes(classId)) ||
+              (Array.isArray(user.teachingClassIds) && user.teachingClassIds.includes(classId));
+            if (inClass) return true;
+          }
+          // Also include globally unassigned staff (no class yet)
+          const hasAnyClass = !!(user.classId || user.assignedClassId ||
+            (Array.isArray(user.classIds) && user.classIds.length > 0) ||
+            (Array.isArray(user.assignedClassIds) && user.assignedClassIds.length > 0));
+          return !hasAnyClass;
+        })
+      );
+    } else {
+      availableStaff = this.uniqueUsers(
+        (allStaff || []).filter(user => this.isStaffUser(user) && !this.staffMatchesNode(user, node))
+      );
+    }
 
     console.log('[Open Assign Staff Role Debug]', {
       classId: node.id,

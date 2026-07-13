@@ -1,206 +1,211 @@
 <ion-content>
-  <section class="page-shell" *ngIf="vm$ | async as state">
-
-    <!-- Loading State -->
-    <ng-container *ngIf="state.loading">
-      <div class="loading-state skeleton-container">
-        <div class="skeleton-card" style="margin-bottom: 16px;"></div>
-        <div class="skeleton-card" style="margin-bottom: 16px;"></div>
-        <div class="skeleton-card"></div>
+  <div class="report-builder-container">
+    
+    <!-- Header -->
+    <header class="report-header">
+      <div class="header-title">
+        <h1>Report Builder</h1>
+        <mat-form-field appearance="outline" class="report-selector" style="background-color: transparent;">
+          <mat-select [value]="state.activeReportId" (selectionChange)="selectReport($event.value)">
+            <mat-optgroup *ngFor="let group of reportGroups" [label]="group.name">
+              <mat-option *ngFor="let config of group.configs" [value]="config.id">{{ config.name }}</mat-option>
+            </mat-optgroup>
+          </mat-select>
+        </mat-form-field>
       </div>
-    </ng-container>
-
-    <!-- Error State -->
-    <ng-container *ngIf="!state.loading && state.error">
-      <div class="error-state">
-        <app-empty-state 
-          icon="alert-circle-outline" 
-          title="Unable to load reports" 
-          [message]="state.error"
-        ></app-empty-state>
+      <div class="header-actions">
+        <button mat-button (click)="visualizationMode = 'table'" [color]="visualizationMode === 'table' ? 'primary' : ''">
+          <mat-icon>table_chart</mat-icon> Table
+        </button>
+        <button mat-button (click)="visualizationMode = 'bar'" [color]="visualizationMode === 'bar' ? 'primary' : ''">
+          <mat-icon>bar_chart</mat-icon> Chart
+        </button>
+        <button mat-flat-button color="primary">Save Report</button>
       </div>
-    </ng-container>
+    </header>
 
-    <!-- Data State -->
-    <ng-container *ngIf="!state.loading && !state.error && state.data as vm">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">Insights</p>
-          <h1>System Reports</h1>
-          <p>Generate, filter, and view key operational reports across all modules.</p>
+    <!-- Main Content Area -->
+    <div class="report-layout">
+      
+      <!-- Left Sidebar: Available Fields -->
+      <aside class="sidebar-left">
+        <div class="sidebar-header">
+          <h3>Available Fields</h3>
+          <mat-form-field appearance="outline" class="search-fields">
+            <mat-icon matPrefix>search</mat-icon>
+            <input matInput placeholder="Search fields...">
+          </mat-form-field>
+          <button mat-stroked-button color="primary" class="w-100 mt-2" (click)="openAddCustomColumnDialog()" style="margin-top: 8px;width: 100%;">
+            <mat-icon>dataset</mat-icon> Add Database Column
+          </button>
+          <button mat-stroked-button color="accent" class="w-100 mt-2" (click)="openAddUserInputColumnDialog()" style="margin-top: 8px;width: 100%;">
+            <mat-icon>post_add</mat-icon> Add Custom Column
+          </button>
         </div>
-      </header>
-
-      <form class="filters" [formGroup]="reportForm">
-        <!-- Top row: Report Type, Period Mode, Dates -->
-        <div class="filter-row">
-          <mat-form-field appearance="outline">
-            <mat-label>Report type</mat-label>
-            <mat-select formControlName="reportType">
-              <mat-optgroup *ngFor="let group of reportGroups" [label]="group.name">
-                <mat-option *ngFor="let config of group.configs" [value]="config.id">{{ config.name }}</mat-option>
-              </mat-optgroup>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="activeConfig()?.requiredFilters?.includes('dateRange')">
-            <mat-label>Period mode</mat-label>
-            <mat-select formControlName="periodMode">
-              <mat-option value="all">All time</mat-option>
-              <mat-option value="monthly">Monthly</mat-option>
-              <mat-option value="custom">Custom date range</mat-option>
-            </mat-select>
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="reportForm.value.periodMode === 'monthly' && activeConfig()?.requiredFilters?.includes('dateRange')">
-            <mat-label>Month</mat-label>
-            <input matInput [matDatepicker]="pickerMonth" formControlName="month" placeholder="Month and Year" />
-            <mat-datepicker-toggle matIconSuffix [for]="pickerMonth"></mat-datepicker-toggle>
-            <mat-datepicker #pickerMonth startView="multi-year"></mat-datepicker>
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="reportForm.value.periodMode === 'custom' && activeConfig()?.requiredFilters?.includes('dateRange')">
-            <mat-label>Date from</mat-label>
-            <input matInput [matDatepicker]="pickerFrom" formControlName="dateFrom" />
-            <mat-datepicker-toggle matIconSuffix [for]="pickerFrom"></mat-datepicker-toggle>
-            <mat-datepicker #pickerFrom></mat-datepicker>
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="reportForm.value.periodMode === 'custom' && activeConfig()?.requiredFilters?.includes('dateRange')">
-            <mat-label>Date to</mat-label>
-            <input matInput [matDatepicker]="pickerTo" formControlName="dateTo" />
-            <mat-datepicker-toggle matIconSuffix [for]="pickerTo"></mat-datepicker-toggle>
-            <mat-datepicker #pickerTo></mat-datepicker>
-          </mat-form-field>
-        </div>
-
-        <ng-container *ngIf="activeConfig() as config">
-          <!-- Filter Row 1 -->
-          <div class="filter-row">
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('admissionDateRange')">
-              <mat-label>Admission Date from</mat-label>
-              <input matInput [matDatepicker]="pickerAdmFrom" formControlName="admissionDateFrom" />
-              <mat-datepicker-toggle matIconSuffix [for]="pickerAdmFrom"></mat-datepicker-toggle>
-              <mat-datepicker #pickerAdmFrom></mat-datepicker>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('admissionDateRange')">
-              <mat-label>Admission Date to</mat-label>
-              <input matInput [matDatepicker]="pickerAdmTo" formControlName="admissionDateTo" />
-              <mat-datepicker-toggle matIconSuffix [for]="pickerAdmTo"></mat-datepicker-toggle>
-              <mat-datepicker #pickerAdmTo></mat-datepicker>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('madrasa')">
-              <mat-label>Madrasa</mat-label>
-              <mat-select formControlName="madrasaIds" multiple>
-                <mat-select-trigger>
-                  {{ getSelectedNames(reportForm.value.madrasaIds || [], madrasas, 'All Madrasas') }}
-                </mat-select-trigger>
-                <mat-option *ngFor="let madrasa of madrasas" [value]="madrasa.id">
-                  {{ madrasa.name || madrasa.title || madrasa.displayName }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('course')">
-              <mat-label>Course</mat-label>
-              <mat-select formControlName="courseIds" multiple>
-                <mat-select-trigger>
-                  {{ getSelectedNames(reportForm.value.courseIds || [], courses, 'All Courses') }}
-                </mat-select-trigger>
-                <mat-option *ngFor="let course of getFilteredCourses()" [value]="course.id">
-                  {{ course.name || course.title || course.courseName }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('class')">
-              <mat-label>Class</mat-label>
-              <mat-select formControlName="classIds" multiple>
-                <mat-select-trigger>
-                  {{ getSelectedNames(reportForm.value.classIds || [], classes, 'All Classes') }}
-                </mat-select-trigger>
-                <mat-option *ngFor="let classItem of getFilteredClasses()" [value]="classItem.id">
-                  {{ classItem.name || classItem.title || classItem.className }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-
-          <!-- Filter Row 2 -->
-          <div class="filter-row">
-            <mat-form-field appearance="outline" class="filter-field" *ngIf="config.requiredFilters.includes('stageLevel')">
-              <mat-label>Stage / Level</mat-label>
-              <mat-select formControlName="stageLevels" multiple>
-                <mat-select-trigger>
-                  {{ getSelectedStageLevelNames() }}
-                </mat-select-trigger>
-                <mat-option *ngFor="let stage of getStageLevelOptions()" [value]="stage">
-                  {{ stage }}
-                </mat-option>
-              </mat-select>
-              <mat-hint *ngIf="reportForm.get('courseIds')?.value?.length">
-                Showing stages for selected course
-              </mat-hint>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('status')">
-              <mat-label>Status</mat-label>
-              <mat-select formControlName="status">
-                <mat-option value="">Any status</mat-option>
-                <mat-option value="active">Active</mat-option>
-                <mat-option value="inactive">Inactive</mat-option>
-                <mat-option value="graduated">Graduated</mat-option>
-                <mat-option value="suspended">Suspended</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('gender')">
-              <mat-label>Gender</mat-label>
-              <mat-select formControlName="gender">
-                <mat-option value="">Any gender</mat-option>
-                <mat-option value="male">Male</mat-option>
-                <mat-option value="female">Female</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="config.requiredFilters.includes('search')">
-              <mat-label>Search text</mat-label>
-              <input matInput formControlName="searchText" placeholder="Search..." />
-            </mat-form-field>
-          </div>
-
-          <!-- Custom Filter Row -->
-          <div class="filter-row" *ngIf="config.requiredFilters.includes('custom')">
-            <mat-form-field appearance="outline">
-              <mat-label>Custom field</mat-label>
-              <mat-select formControlName="customField">
-                <mat-option value="">None</mat-option>
-                <mat-option *ngFor="let field of customStudentFields" [value]="field.key">{{ field.label }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="reportForm.value.customField">
-              <mat-label>Operator</mat-label>
-              <mat-select formControlName="customOperator">
-                <mat-option *ngFor="let op of customOperators" [value]="op.value">{{ op.label }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <mat-form-field appearance="outline" *ngIf="reportForm.value.customField && !['isEmpty', 'isNotEmpty'].includes(reportForm.value.customOperator || '')">
-              <mat-label>Value</mat-label>
-              <input matInput formControlName="customValue" placeholder="Enter value" />
-            </mat-form-field>
-          </div>
-
-          <!-- Actions -->
-          <div class="filter-row filter-actions">
-            <button mat-button type="button" (click)="resetFilters()">Reset</button>
-            <button mat-flat-button color="primary" type="button" (click)="applyFilters()">Apply Filters</button>
-            <button mat-stroked-button type="button" (click)="openExportOptions(vm)">
-              Export
+        
+        <div class="fields-list" 
+             id="availableFieldsList"
+             cdkDropList 
+             [cdkDropListData]="availableFields"
+             [cdkDropListConnectedTo]="['selectedColumnsList']"
+             (cdkDropListDropped)="drop($event)">
+          <div class="field-item" *ngFor="let field of availableFields" cdkDrag>
+            <div class="d-flex align-items-center" style="flex: 1; display: flex; align-items: center;">
+              <mat-icon class="drag-handle" style="margin-right: 8px; cursor: grab; color: #999;">drag_indicator</mat-icon>
+              <span>{{field.label}}</span>
+            </div>
+            <button mat-icon-button color="primary" (click)="addColumn(field)" style="width: 32px; height: 32px; line-height: 32px;">
+              <mat-icon style="font-size: 20px;">add</mat-icon>
             </button>
           </div>
-        </ng-container>
-      </form>
+          <div class="empty-state" *ngIf="availableFields.length === 0">
+            All fields added.
+          </div>
+        </div>
+      </aside>
 
-      <app-data-table
-        [columns]="activeConfig().columns"
-        [rows]="rows(vm)"
-        [emptyTitle]="'No records found'"
-        [emptyText]="activeConfig().emptyText"
-        [emptyIcon]="'document-text-outline'"
-        [showActions]="false"
-      ></app-data-table>
-    </ng-container>
+      <!-- Center Panel: Preview -->
+      <main class="center-panel">
+        <div class="preview-container mat-elevation-z1" *ngIf="visualizationMode === 'table'">
+          
+          <ng-container *ngIf="state?.loading">
+             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+          </ng-container>
 
-  </section>
+          <div class="table-scroll-container">
+            <table mat-table [dataSource]="dataSource" class="dynamic-table">
+              
+              <!-- Dynamic Columns -->
+              <ng-container *ngFor="let col of selectedColumns" [matColumnDef]="col.key">
+                <th mat-header-cell *matHeaderCellDef>
+                  <div class="header-cell-content">
+                    {{col.label}}
+                  </div>
+                </th>
+                <td mat-cell *matCellDef="let element"> 
+                  <ng-container *ngIf="col.isUserInput; else standardData">
+                    <mat-form-field appearance="outline" style="width: 100%; min-width: 120px; margin-bottom: -1.25em;">
+                      <input matInput [(ngModel)]="element[col.key]" placeholder="Enter value" (click)="$event.stopPropagation()">
+                    </mat-form-field>
+                  </ng-container>
+                  <ng-template #standardData>
+                    <ng-container *ngIf="guessTypeForKey(col.key, element[col.key]) as type; else plainValue">
+                       <span class="resolved-name">{{ (element[col.key] | resolveName:type | async) || '-' }}</span>
+                    </ng-container>
+                    <ng-template #plainValue>
+                      {{ element[col.key] !== undefined && element[col.key] !== null && element[col.key] !== '' ? element[col.key] : '-' }} 
+                    </ng-template>
+                  </ng-template>
+                </td>
+              </ng-container>
+
+              <tr mat-header-row *matHeaderRowDef="displayColumns; sticky: true"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayColumns;"></tr>
+              
+              <!-- Empty state -->
+              <tr class="mat-row" *matNoDataRow>
+                <td class="mat-cell empty-table-cell" [attr.colspan]="displayColumns.length">
+                  No data matching the filter.
+                </td>
+              </tr>
+            </table>
+          </div>
+          <mat-paginator [pageSizeOptions]="[20, 50, 100]" showFirstLastButtons></mat-paginator>
+        </div>
+
+        <div class="chart-container mat-elevation-z1" *ngIf="visualizationMode !== 'table'">
+           <app-report-chart-view 
+              [data]="state.data || []" 
+              [chartType]="visualizationMode === 'bar' ? 'bar' : visualizationMode === 'pie' ? 'pie' : 'line'"
+              labelsKey="studentNameDisplay"
+              valuesKey="count">
+           </app-report-chart-view>
+        </div>
+      </main>
+
+      <!-- Right Sidebar: Settings -->
+      <aside class="sidebar-right">
+        <mat-tab-group [(selectedIndex)]="rightSidebarTab" animationDuration="0ms">
+          
+          <!-- Columns Settings -->
+          <mat-tab label="Columns">
+            <div class="settings-content">
+              <h4>Selected Columns</h4>
+              <p class="hint">Drag to reorder</p>
+              <div class="selected-columns-list" 
+                   id="selectedColumnsList"
+                   cdkDropList 
+                   [cdkDropListData]="selectedColumns"
+                   [cdkDropListConnectedTo]="['availableFieldsList']"
+                   (cdkDropListDropped)="drop($event)">
+                <div class="selected-column-item" *ngFor="let col of selectedColumns; let i = index" cdkDrag>
+                  <mat-icon class="drag-handle">drag_indicator</mat-icon>
+                  <span class="col-name">{{col.label}}</span>
+                  <button mat-icon-button color="warn" (click)="removeColumn(i)">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
+                <div class="empty-state" *ngIf="selectedColumns.length === 0">
+                  Drag fields here to add columns.
+                </div>
+              </div>
+
+              <div class="add-column-action" style="margin-top: 16px; flex-shrink: 0;">
+                <button mat-stroked-button color="primary" style="width: 100%;" [matMenuTriggerFor]="addColMenu">
+                  <mat-icon>add</mat-icon> Add Column
+                </button>
+                <mat-menu #addColMenu="matMenu">
+                  <button mat-menu-item (click)="openAddCustomColumnDialog()">
+                    <mat-icon color="primary">dataset</mat-icon>
+                    <span style="font-weight: bold; color: var(--ion-color-primary);">Add Database Column</span>
+                  </button>
+                  <button mat-menu-item (click)="openAddUserInputColumnDialog()">
+                    <mat-icon color="accent">post_add</mat-icon>
+                    <span style="font-weight: bold; color: var(--ion-color-accent);">Add Custom Column</span>
+                  </button>
+                  <mat-divider></mat-divider>
+                  <button mat-menu-item *ngFor="let field of availableFields" (click)="addColumn(field)">
+                    <mat-icon>add</mat-icon>
+                    <span>{{field.label}}</span>
+                  </button>
+                  <button mat-menu-item disabled *ngIf="availableFields.length === 0">
+                    All fields added
+                  </button>
+                </mat-menu>
+              </div>
+            </div>
+          </mat-tab>
+
+          <!-- Filters -->
+          <mat-tab label="Filters">
+            <div class="settings-content">
+              <h4>Filters</h4>
+              <app-report-filter-builder 
+                 [availableFields]="availableFields"
+                 (filtersApplied)="builder.updateFilters($event)">
+              </app-report-filter-builder>
+            </div>
+          </mat-tab>
+
+          <!-- Export -->
+          <mat-tab label="Export">
+            <div class="settings-content export-settings">
+              <h4>Export Report</h4>
+              <button mat-flat-button color="primary" class="w-full mb-3" (click)="exportPdf()">
+                <mat-icon>picture_as_pdf</mat-icon> Export as PDF
+              </button>
+              <button mat-stroked-button class="w-full mb-3" (click)="exportExcel()">
+                <mat-icon>table_view</mat-icon> Export as Excel
+              </button>
+              <button mat-stroked-button class="w-full" (click)="openExportWizard()">
+                <mat-icon>settings</mat-icon> Advanced Export Wizard
+              </button>
+            </div>
+          </mat-tab>
+
+        </mat-tab-group>
+      </aside>
+
+    </div>
+  </div>
 </ion-content>

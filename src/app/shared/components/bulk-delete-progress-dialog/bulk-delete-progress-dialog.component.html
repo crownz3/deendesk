@@ -1,0 +1,131 @@
+<div class="progress-dialog">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <div class="progress-header">
+    <div class="header-icon" [class.done]="state === 'done'" [class.error]="state === 'error'">
+      <mat-spinner *ngIf="state === 'running'" [diameter]="32" strokeWidth="3"></mat-spinner>
+      <ion-icon *ngIf="state === 'done'" name="checkmark-circle-outline"></ion-icon>
+      <ion-icon *ngIf="state === 'error'" name="alert-circle-outline"></ion-icon>
+    </div>
+    <div>
+      <h2 *ngIf="state === 'running'">Deleting Data…</h2>
+      <h2 *ngIf="state === 'done'" class="done-title">Deletion Complete</h2>
+      <h2 *ngIf="state === 'error'" class="error-title">Deletion Failed</h2>
+      <p class="header-sub" *ngIf="state === 'running'">
+        Do not close this dialog. Processing
+        {{ data.selectedOptions.length }} collection{{ data.selectedOptions.length > 1 ? 's' : '' }}…
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Progress bar (running) ─────────────────────────────── -->
+  <div class="progress-track" *ngIf="state === 'running'">
+    <mat-progress-bar mode="determinate" [value]="progressPercent" color="warn"></mat-progress-bar>
+    <div class="progress-meta">
+      <span class="current-collection">
+        <ion-icon name="sync-outline" class="spin"></ion-icon>
+        {{ currentCollection || 'Preparing…' }}
+      </span>
+      <span class="progress-ratio">{{ completedCount }} / {{ data.selectedOptions.length }}</span>
+    </div>
+  </div>
+
+  <!-- ── Live stats (running) ───────────────────────────────── -->
+  <div class="live-stats" *ngIf="state === 'running'">
+    <div class="live-stat">
+      <ion-icon name="document-outline"></ion-icon>
+      <span>Docs deleted</span>
+      <strong>{{ runningDocsDeleted }}</strong>
+    </div>
+    <div class="live-stat">
+      <ion-icon name="person-remove-outline"></ion-icon>
+      <span>Auth accounts</span>
+      <strong>{{ runningAuthDeleted }}</strong>
+    </div>
+    <div class="live-stat">
+      <ion-icon name="layers-outline"></ion-icon>
+      <span>Remaining</span>
+      <strong>{{ data.selectedOptions.length - completedCount }}</strong>
+    </div>
+  </div>
+
+  <!-- ── Done: summary ─────────────────────────────────────── -->
+  <div class="summary-section" *ngIf="state === 'done' && summary">
+
+    <!-- Stat cards -->
+    <div class="summary-grid">
+      <div class="summary-card success">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <div>
+          <strong>{{ summary.totalDocs }}</strong>
+          <span>Documents Deleted</span>
+        </div>
+      </div>
+      <div class="summary-card info">
+        <ion-icon name="person-remove-outline"></ion-icon>
+        <div>
+          <strong>{{ summary.totalAuth }}</strong>
+          <span>Auth Accounts Deleted</span>
+        </div>
+      </div>
+      <div class="summary-card"
+           [class.danger]="failedCollections.length > 0"
+           [class.success]="failedCollections.length === 0">
+        <ion-icon [name]="failedCollections.length > 0 ? 'close-circle-outline' : 'checkmark-done-outline'"></ion-icon>
+        <div>
+          <strong>{{ failedCollections.length }}</strong>
+          <span>Failed Collections</span>
+        </div>
+      </div>
+      <div class="summary-card time">
+        <ion-icon name="timer-outline"></ion-icon>
+        <div>
+          <strong>{{ formatTime(summary.timeTakenMs) }}</strong>
+          <span>Time Taken</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-collection results -->
+    <div class="collection-results">
+      <p class="results-label">Collection Results</p>
+      <div class="result-row" *ngFor="let opt of data.selectedOptions">
+        <span class="result-name">
+          <ion-icon [name]="opt.icon"></ion-icon>
+          {{ opt.label }}
+        </span>
+        <ng-container *ngIf="summary.results[opt.key] as r">
+          <span class="result-status" [class.failed]="r.failed > 0">
+            <ion-icon [name]="r.failed > 0 ? 'close-circle-outline' : 'checkmark-circle-outline'"></ion-icon>
+            {{ r.failed > 0 ? 'Failed: ' + r.error : r.deleted + ' docs' }}
+            <span *ngIf="r.authDeleted > 0" class="auth-note">, {{ r.authDeleted }} auth</span>
+          </span>
+        </ng-container>
+        <span class="result-status failed" *ngIf="!summary.results[opt.key]">
+          <ion-icon name="close-circle-outline"></ion-icon>
+          Not processed
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Error state ───────────────────────────────────────── -->
+  <div class="error-section" *ngIf="state === 'error'">
+    <p class="error-message">{{ errorMessage }}</p>
+  </div>
+
+  <!-- ── Footer actions ────────────────────────────────────── -->
+  <div class="dialog-actions">
+    <button
+      mat-raised-button
+      class="close-btn"
+      [disabled]="state === 'running'"
+      (click)="close()"
+      id="bulk-delete-progress-close-btn"
+    >
+      <ion-icon [name]="state === 'done' ? 'checkmark-outline' : 'close-outline'"></ion-icon>
+      {{ state === 'running' ? 'Please Wait…' : state === 'done' ? 'Done' : 'Close' }}
+    </button>
+  </div>
+
+</div>

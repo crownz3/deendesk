@@ -1,11 +1,17 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { QuickAddField, PermissionKey, AppUser } from '../../../core/models/domain.model';
+import { QuickAddField, PermissionKey, AppUser, UserRole } from '../../../core/models/domain.model';
 import { AuthService } from '../../../core/services/auth.service';
+import { RepositoryService } from '../../../core/services/repository.service';
+import { RolePermissionsService } from '../../../core/services/role-permissions.service';
+import { Subscription, firstValueFrom } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 export interface QuickAddDialogData {
   title: string;
+  subtitle?: string;
   fields: QuickAddField[];
   initialValue?: Record<string, unknown>;
   submitLabel?: string;
@@ -23,17 +29,18 @@ export interface QuickAddResult {
   styleUrls: ['./quick-add-dialog.component.scss'],
   standalone: false,
 })
-export class QuickAddDialogComponent implements OnInit {
+export class QuickAddDialogComponent implements OnInit, OnDestroy {
   readonly form: FormGroup;
   readonly hidePasswords: Record<string, boolean> = {};
+  private readonly subscriptions: Subscription[] = [];
 
   isSaving = false;
   saveErrorMessage = '';
   currentUserProfile: AppUser | null = null;
 
   readonly courseStageOptions: Record<string, string[]> = {
-    maktab: ['Miftah', 'Tilawatul Quran', 'Nadthira', 'Hifz'],
-    hifz: ['Hifz']
+    maktab: ['Miftah', 'Tilawatul Quran', 'Hifz'],
+    hifz: ['Sabaq', 'Sabaqi', 'Manzil']
   };
 
   constructor(
@@ -41,6 +48,9 @@ export class QuickAddDialogComponent implements OnInit {
     private readonly dialogRef: MatDialogRef<QuickAddDialogComponent, QuickAddResult>,
     @Inject(MAT_DIALOG_DATA) public readonly data: QuickAddDialogData,
     public readonly auth: AuthService,
+    private readonly repo: RepositoryService,
+    private readonly rolePermissionsService: RolePermissionsService,
+    private readonly dialog: MatDialog,
   ) {
     if (data.initialValue) {
       console.log('[Student Edit Raw Date Debug]', {
@@ -70,7 +80,14 @@ export class QuickAddDialogComponent implements OnInit {
         initialVal = this.toDateValue(initialVal);
       }
 
-      group[field.key] = [{ value: initialVal, disabled: field.type === 'info' }, field.required && field.type !== 'info' ? Validators.required : []];
+      const validators = field.required && field.type !== 'info' ? [Validators.required] : [];
+      if (field.type === 'mobileNumber') {
+        validators.push(Validators.pattern(/^[0-9]*$/));
+        validators.push(Validators.minLength(10));
+        validators.push(Validators.maxLength(10));
+      }
+
+      group[field.key] = [{ value: initialVal, disabled: field.type === 'info' }, validators];
       return group;
     }, {});
     this.form = this.fb.group(controls);
@@ -119,7 +136,53 @@ export class QuickAddDialogComponent implements OnInit {
   ngOnInit(): void {
     this.auth.profile$.subscribe(profile => {
       this.currentUserProfile = profile;
+      
+      const orgControl = this.form.get('organizationId');
+      if (orgControl && profile && profile.role !== 'superAdmin' && profile.organizationId) {
+        orgControl.setValue(profile.organizationId);
+        orgControl.disable();
+      }
     });
+
+    const roleControl = this.form.get('role');
+    const permissionsControl = this.form.get('permissions');
+
+    if (roleControl && permissionsControl) {
+      // Check if we need to initialize default permissions for the current role
+      const currentRole = roleControl.value as UserRole;
+      const currentPermissions = permissionsControl.value;
+      if (currentRole && (!currentPermissions || currentPermissions.length === 0)) {
+        permissionsControl.setValue(this.rolePermissionsService.getPermissionsForRole(currentRole), { emitEvent: false });
+      }
+
+      let previousRole = roleControl.value as UserRole;
+
+      this.subscriptions.push(
+        roleControl.valueChanges.subscribe((newRole: UserRole) => {
+          if (!newRole) return;
+          const defaultPerms = this.rolePermissionsService.getPermissionsForRole(newRole);
+          const existingPerms = permissionsControl.value || [];
+          
+          if (existingPerms.length === 0) {
+            permissionsControl.setValue(defaultPerms);
+          } else {
+            const previousDefaults = previousRole ? this.rolePermissionsService.getPermissionsForRole(previousRole) : [];
+            const isUnmodified = existingPerms.length === previousDefaults.length && 
+                                 existingPerms.every((p: PermissionKey) => previousDefaults.includes(p));
+
+            if (isUnmodified) {
+              // Silently replace since they haven't customized them
+              permissionsControl.setValue(defaultPerms);
+            } else {
+              if (window.confirm(`The role has changed to ${this.getRoleLabel(newRole)}. Do you want to load the default permissions for this role? This will overwrite your current selections.`)) {
+                permissionsControl.setValue(defaultPerms);
+              }
+            }
+          }
+          previousRole = newRole;
+        })
+      );
+    }
 
     const typeControl = this.form.get('type');
     const stagesControl = this.form.get('stages');
@@ -167,6 +230,49 @@ export class QuickAddDialogComponent implements OnInit {
       });
     }
 
+    const groupIdControl = this.form.get('groupId') || this.form.get('groupIds');
+    if (classIdControl && groupIdControl) {
+      this.subscriptions.push(
+        classIdControl.valueChanges.subscribe(() => {
+          setTimeout(() => {
+            const groupField = this.data.fields.find(f => f.key === 'groupId' || f.key === 'groupIds');
+            if (groupField) {
+              const validOptions = this.getFilteredOptions(groupField);
+              const validIds = validOptions.map((o: any) => o.value);
+              const currentGroupValue = groupIdControl.value;
+
+              if (validOptions.length === 1) {
+                // Auto-select if only 1 option available and clear required validator
+                const valToSet = Array.isArray(currentGroupValue) ? [validIds[0]] : validIds[0];
+                if (JSON.stringify(currentGroupValue) !== JSON.stringify(valToSet)) {
+                  groupIdControl.patchValue(valToSet);
+                }
+                groupIdControl.clearValidators();
+                groupIdControl.updateValueAndValidity({ emitEvent: false });
+              } else if (validOptions.length > 1) {
+                // Clear invalid selections and enforce required validation
+                groupIdControl.setValidators(Validators.required);
+                groupIdControl.updateValueAndValidity({ emitEvent: false });
+                if (Array.isArray(currentGroupValue)) {
+                  const newValues = currentGroupValue.filter(id => validIds.includes(id));
+                  if (newValues.length !== currentGroupValue.length) {
+                    groupIdControl.patchValue(newValues);
+                  }
+                } else {
+                  if (!validIds.includes(currentGroupValue)) {
+                    groupIdControl.patchValue('');
+                  }
+                }
+              } else {
+                 groupIdControl.clearValidators();
+                 groupIdControl.updateValueAndValidity({ emitEvent: false });
+              }
+            }
+          });
+        })
+      );
+    }
+
     if (madrasaIdControl) {
       madrasaIdControl.valueChanges.subscribe(() => {
         if (courseIdControl) courseIdControl.patchValue(Array.isArray(courseIdControl.value) ? [] : '', { emitEvent: false });
@@ -176,10 +282,34 @@ export class QuickAddDialogComponent implements OnInit {
 
     const courseTypeControl = this.form.get('courseType') || this.form.get('type');
     if (courseTypeControl) {
-      courseTypeControl.valueChanges.subscribe(() => {
-        setTimeout(() => this.resetInvalidStage());
-      });
+      this.subscriptions.push(
+        courseTypeControl.valueChanges.subscribe(() => {
+          setTimeout(() => this.resetInvalidStage());
+        })
+      );
     }
+
+    const cIdControl = this.form.get('courseId');
+    if (cIdControl) {
+      this.subscriptions.push(
+        cIdControl.valueChanges.subscribe(() => {
+          this.resetInvalidStage();
+        })
+      );
+    }
+
+    const newCourseIdControl = this.form.get('newCourseId');
+    if (newCourseIdControl) {
+      this.subscriptions.push(
+        newCourseIdControl.valueChanges.subscribe(() => {
+          this.resetInvalidStage();
+        })
+      );
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.subscriptions.forEach(s => s.unsubscribe());
   }
 
   getFilteredOptions(field: any): any[] {
@@ -199,11 +329,15 @@ export class QuickAddDialogComponent implements OnInit {
         const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
         const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
 
-        // If a course is selected, strict enforce the course check. Otherwise, show nothing.
-        if (courseId && !sameCourse) return false;
-        if (!courseId) return false;
+        const hasCourseControl = this.form.contains('courseId') || this.form.contains('newCourseId');
+        
+        // If the form has a course control, strict enforce the course check. Otherwise, skip it.
+        if (hasCourseControl) {
+          if (!courseId) return false;
+          if (!sameCourse) return false;
+        }
 
-        return sameCourse && sameOrg && sameMadrasa;
+        return sameOrg && sameMadrasa;
       });
     }
 
@@ -229,12 +363,53 @@ export class QuickAddDialogComponent implements OnInit {
         const data = opt.data;
         if (!data) return true;
 
+        const hasCourseControl = this.form.contains('courseId') || this.form.contains('newCourseId');
+        const hasClassControl = this.form.contains('classId');
+
         const sameCourse = courseId && data.courseId ? data.courseId === courseId : true;
         const sameClass = classId && data.classId ? data.classId === classId : true;
         const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
         const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
 
-        return sameCourse && sameClass && sameOrg && sameMadrasa;
+        if (hasCourseControl) {
+          if (!courseId) return false;
+          if (!sameCourse) return false;
+        }
+
+        if (hasClassControl) {
+          if (!classId) return false;
+          if (!sameClass) return false;
+        }
+
+        return sameOrg && sameMadrasa;
+      });
+    }
+
+    if (field.key === 'groupId' || field.key === 'groupIds') {
+      const classId = this.form.get('classId')?.value || this.form.get('classIds')?.value;
+
+      return field.options.filter((opt: any) => {
+        const data = opt.data;
+        if (!data) return true;
+
+        const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
+        const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
+        
+        const hasClassControl = this.form.contains('classId') || this.form.contains('classIds');
+
+        if (hasClassControl) {
+          if (!classId || (Array.isArray(classId) && classId.length === 0)) return false; // Must select a class first
+
+          let sameClass = true;
+          if (Array.isArray(classId)) {
+            sameClass = classId.includes(data.classId);
+          } else {
+            sameClass = data.classId === classId;
+          }
+          if (!sameClass) return false;
+        }
+
+        return sameOrg && sameMadrasa;
       });
     }
 
@@ -242,7 +417,12 @@ export class QuickAddDialogComponent implements OnInit {
   }
 
   isStageField(key: string): boolean {
-    return ['stage', 'stageLevel', 'stageOrLevel'].includes(key);
+    return ['stage', 'newStage', 'stages'].includes(key);
+  }
+
+  getOriginalStage(): string | null {
+    if (!this.data.initialValue) return null;
+    return (this.data.initialValue['stage'] as string) || (this.data.initialValue['level'] as string) || null;
   }
 
   getSelectedCourse(): any {
@@ -265,31 +445,55 @@ export class QuickAddDialogComponent implements OnInit {
     ).trim().toLowerCase();
   }
 
-  getStageOptions(): string[] {
+  getStageOptions(fieldKey?: string): string[] {
     const selectedCourse = this.getSelectedCourse();
     const courseStages = selectedCourse?.['stages'];
 
+    let options: string[] = [];
     if (Array.isArray(courseStages) && courseStages.length) {
-      return courseStages;
+      options = courseStages;
+    } else if (typeof courseStages === 'string' && courseStages.trim()) {
+      options = courseStages.split(',').map((item: string) => item.trim()).filter(Boolean);
+    } else {
+      const courseType = this.getSelectedCourseType();
+      options = this.courseStageOptions[courseType] || [];
     }
 
-    if (typeof courseStages === 'string' && courseStages.trim()) {
-      return courseStages.split(',').map((item: string) => item.trim()).filter(Boolean);
+    if (fieldKey === 'newStage') {
+      const original = this.getOriginalStage();
+      if (original) {
+        options = options.filter(s => s.toLowerCase() !== original.toLowerCase());
+      }
     }
 
-    const courseType = this.getSelectedCourseType();
-    return this.courseStageOptions[courseType] || [];
+    return options;
   }
+
+
 
   shouldShowStageSelect(): boolean {
     return this.getStageOptions().length > 0;
   }
 
-  resetInvalidStage() {
-    const options = this.getStageOptions();
-    if (!options.length) return;
+  isFieldVisible(field: QuickAddField): boolean {
+    if (field.type === 'hidden') return false;
+    if (field.key === 'stages') {
+      return this.shouldShowStageSelect();
+    }
+    if (field.key === 'levels') {
+      return !this.shouldShowStageSelect();
+    }
+    if (field.key === 'groupId' || field.key === 'groupIds') {
+      return this.getFilteredOptions(field).length > 1;
+    }
+    return true;
+  }
 
-    for (const key of ['stage', 'stageLevel', 'stageOrLevel']) {
+  resetInvalidStage() {
+    for (const key of ['stage', 'newStage']) {
+      const options = this.getStageOptions(key);
+      if (!options.length) continue;
+
       const control = this.form.get(key);
       if (control) {
         const current = control.value;
@@ -409,6 +613,76 @@ export class QuickAddDialogComponent implements OnInit {
     }
 
     return backendMessage || 'Unable to save. Please try again.';
+  }
+
+  isUserField(field: QuickAddField): boolean {
+    return field.quickAddResource === 'staff' || field.quickAddResource === 'users' || 
+           field.key?.toLowerCase().includes('user') || field.key?.toLowerCase().includes('staff') || 
+           field.key?.toLowerCase().includes('teacher') || field.key?.toLowerCase().includes('coordinator') || 
+           field.key?.toLowerCase().includes('incharge');
+  }
+
+  getRoleLabel(role: string): string {
+    const ROLE_LABELS: Record<string, string> = {
+      systemAdmin: 'System Admin',
+      organizationAdmin: 'Org Admin',
+      coordinator: 'Coordinator',
+      incharge: 'Incharge',
+      teacher: 'Teacher',
+      student: 'Student',
+      parent: 'Parent',
+    };
+    return ROLE_LABELS[role] || role;
+  }
+
+  getSelectedLabel(field: QuickAddField): string {
+    const val = this.form.get(field.key)?.value;
+    return field.options?.find(o => o.value === val)?.label || '';
+  }
+
+  getSelectedLabels(field: QuickAddField): string {
+    const vals = this.form.get(field.key)?.value || [];
+    return field.options?.filter(o => vals.includes(o.value)).map(o => o.label).join(', ') || '';
+  }
+
+  async showUserInfo(user: any) {
+    if (!user || !user.id) return;
+    
+    try {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const groups = await this.repo.getAllOnce<any>('classGroups', profile);
+      const userIds = [user.id, user.uid, user.userId, user.entityId].map(id => String(id || '')).filter(Boolean);
+      const assignedGroups = groups.filter(group =>
+        Array.isArray(group.assignedStaffIds) &&
+        userIds.some(id => group.assignedStaffIds.map(String).includes(id))
+      );
+      
+      const madrasas = await this.repo.getAllOnce<any>('madrasas', profile);
+      const assignedMadrasas = madrasas.filter(m => 
+        (Array.isArray(m.coordinatorIds) && m.coordinatorIds.includes(user.id)) ||
+        (Array.isArray(m.inchargeIds) && m.inchargeIds.includes(user.id))
+      );
+      
+      const parts = [];
+      if (assignedGroups.length > 0) {
+        parts.push(`Assigned Class Groups:\n${assignedGroups.map(group => `- ${group.name}`).join('\n')}`);
+      }
+      if (assignedMadrasas.length > 0) {
+        parts.push(`Assigned Madrasas:\n${assignedMadrasas.map(m => `- ${m.name}`).join('\n')}`);
+      }
+      
+      const message = parts.length > 0 ? parts.join('\n\n') : 'No assignments found for this user.';
+      
+      this.dialog.open(ConfirmDialogComponent, {
+        data: {
+          title: `Assignments for ${user.name || user.displayName || 'User'}`,
+          message,
+          confirmLabel: 'OK'
+        }
+      });
+    } catch (e) {
+      console.error('Failed to fetch user assignments', e);
+    }
   }
 
   requestQuickAdd(resource: string | undefined): void {

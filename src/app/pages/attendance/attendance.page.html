@@ -22,222 +22,372 @@
 
     <!-- Data State -->
     <ng-container *ngIf="!state.loading && !state.error && state.data as vm">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">Attendance</p>
-          <h1>Take attendance</h1>
-          <p>Mark present, absent, late, or leave for the selected date and class context.</p>
-        </div>
-        <button mat-flat-button color="primary" type="button" (click)="save(vm)">
-          <ion-icon name="save-outline"></ion-icon>
-          Save attendance
-        </button>
-      </header>
-
-      <form class="filters" [formGroup]="form">
-        <div class="initial-filters">
-          <mat-form-field appearance="outline" *ngIf="showMadrasaDropdown(vm.profile.role)">
-            <mat-label>Madrasa</mat-label>
-            <mat-select formControlName="madrasaId">
-              <mat-option value="">Select a madrasa</mat-option>
-              <mat-option *ngFor="let madrasa of vm.madrasas" [value]="madrasa.id">
-                {{ madrasa['name'] }}
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Class Plan</mat-label>
-            <mat-select formControlName="classPlanId">
-              <mat-option value="">Select a class plan</mat-option>
-              <mat-option *ngFor="let plan of getFilteredClassPlans(vm)" [value]="plan.id">
-                {{ plan.title || plan.className }} 
-                <span *ngIf="plan.startTime">({{ plan.startTime }} - {{ plan.endTime }})</span>
-              </mat-option>
-            </mat-select>
-          </mat-form-field>
-
-          <button mat-stroked-button color="primary" type="button" (click)="onGetAttendance(vm)" class="get-attendance-btn">
-            <ion-icon name="cloud-download-outline"></ion-icon>
-            Get Attendance
-          </button>
-        </div>
-
-        <ng-container *ngIf="isAttendanceLoaded">
-          <div class="plan-info" *ngIf="minDate || maxDate">
-            <ion-icon name="information-circle-outline"></ion-icon>
-            <span>Class Plan valid from: 
-            <strong *ngIf="minDate">{{ minDate | date:'mediumDate' }}</strong><strong *ngIf="!minDate">Any</strong>
-            to 
-            <strong *ngIf="maxDate">{{ maxDate | date:'mediumDate' }}</strong><strong *ngIf="!maxDate">Any</strong></span>
-          </div>
-
-          <div class="loaded-filters">
-            <mat-form-field appearance="outline">
-              <mat-label>Date</mat-label>
-              <input matInput [matDatepicker]="picker" formControlName="date" (click)="picker.open()" [min]="minDate" [max]="maxDate" />
-              <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-              <mat-datepicker #picker></mat-datepicker>
-            </mat-form-field>
-            
-            <mat-form-field appearance="outline">
-              <mat-label>Notes</mat-label>
-              <input matInput formControlName="notes" />
-            </mat-form-field>
-          </div>
-        </ng-container>
-      </form>
-
-      <div class="attendance-container" *ngIf="isAttendanceLoaded && (filteredStaff(vm).length > 0 || filteredStudents(vm).length > 0); else noStudents">
-        <div class="attendance-header">
-          <ng-container *ngIf="isToday(form.get('date')?.value); else otherDay">
-            <h2>Today's Attendance</h2>
-          </ng-container>
-          <ng-template #otherDay>
-            <h2>
-              <span class="highlight-date">{{ form.get('date')?.value | date:'longDate' }}</span> 
-              <span class="muted-text">&bull;</span>
-              <span class="muted-text">Attendance</span>
-            </h2>
-          </ng-template>
-        </div>
+      <div class="attendance-layout">
         
-        <div class="current-session-banner" *ngIf="getCurrentSession(vm) as session" style="background: var(--ion-color-step-50, #fafafa); padding: 12px 16px; border-radius: 8px; margin-bottom: 24px; border: 1px solid var(--ion-color-primary, #3880ff); display: flex; flex-direction: column; gap: 4px;">
-          <div style="font-weight: 600; font-size: 1.1rem; color: var(--ion-color-primary, #3880ff);">Current Activity: {{ session.activityName }}</div>
-          <div style="font-size: 0.9rem; color: var(--ion-color-dark);">
-            <ion-icon name="time-outline" style="vertical-align: middle;"></ion-icon> {{ session.startTime }} - {{ session.endTime }}
-          </div>
-          <div style="font-size: 0.85rem; color: var(--ion-color-medium); display: flex; gap: 16px;">
-            <span *ngIf="session.subjectId"><ion-icon name="book-outline" style="vertical-align: middle;"></ion-icon> Subject: {{ session.subjectId }}</span>
-            <span *ngIf="session.teacherId"><ion-icon name="person-outline" style="vertical-align: middle;"></ion-icon> Teacher ID: {{ session.teacherId }}</span>
-            <span *ngIf="session.roomId"><ion-icon name="location-outline" style="vertical-align: middle;"></ion-icon> Room: {{ session.roomId }}</span>
-          </div>
-        </div>
-
-        <div class="attendance-list" *ngIf="filteredStaff(vm).length > 0">
-          <div class="section-subheader">Assigned Staff</div>
-          <article class="student-row" *ngFor="let staff of filteredStaff(vm)">
-            <div class="student-info">
-              <div class="avatar staff-avatar" style="background-color: #1976d2">{{ getInitials(staff['name']) }}</div>
-              <div class="details">
-                <strong>{{ staff['name'] }}</strong>
-                <span class="role-badge" style="background: #e3f2fd; color: #1976d2; padding: 2px 8px; border-radius: 4px; font-size: 11px; display: inline-block; margin-top: 4px;">{{ $any(staff['role']) | titlecase }}</span>
-              </div>
+        <!-- Sidebar / Context Panel -->
+        <aside class="attendance-sidebar" [class.collapsed]="isSidebarCollapsed">
+          <div class="sidebar-header">
+            <div *ngIf="!isSidebarCollapsed" style="display: flex; align-items: center; gap: 8px;">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <h2>Attendance Context</h2>
             </div>
-            
-            <div class="attendance-actions">
-              <mat-button-toggle-group #staffTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[staff.id || ''] || 'present'" (change)="setStatus(staff.id, $event.value, staffTg)">
-                <mat-button-toggle *ngFor="let status of statuses" [value]="status">
-                  <ion-icon [name]="statusIcon(status)"></ion-icon>
-                  {{ status | titlecase }}
-                </mat-button-toggle>
-              </mat-button-toggle-group>
-            </div>
-
-            <button mat-icon-button class="history-btn" matTooltip="View Previous Attendance" (click)="viewHistory(staff)" type="button">
-              <ion-icon name="time-outline"></ion-icon>
+            <button mat-icon-button (click)="isSidebarCollapsed = !isSidebarCollapsed" [matTooltip]="isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'">
+              <mat-icon>{{ isSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
             </button>
-          </article>
-        </div>
-
-        <div class="attendance-list" *ngIf="searchedStudents(vm).length > 0 || searchQuery">
-          <div class="section-subheader" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Assigned Students</span>
-            <div class="search-container">
-              <ion-icon name="search-outline"></ion-icon>
-              <input type="text" placeholder="Search students..." [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" />
-            </div>
           </div>
           
-          <div class="list-scroll-container">
-            <article class="student-row" *ngFor="let student of paginatedStudents(vm)">
-              <div class="student-info">
-                <div class="avatar">{{ getInitials(student['name']) }}</div>
-              <div class="details">
-                <strong>{{ student['name'] }}</strong>
-                <span>{{ nameOf(vm.courses, student['courseId'] + '') }} &middot; {{ nameOf(vm.classes, student['classId'] + '') }}</span>
-              </div>
-            </div>
-            
-            <div class="attendance-actions">
-              <mat-button-toggle-group #studentTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[student.id || ''] || 'present'" (change)="setStatus(student.id, $event.value, studentTg)">
-                <mat-button-toggle *ngFor="let status of statuses" [value]="status">
-                  <ion-icon [name]="statusIcon(status)"></ion-icon>
-                  {{ status | titlecase }}
-                </mat-button-toggle>
-              </mat-button-toggle-group>
-            </div>
+          <form class="context-form" [formGroup]="form" *ngIf="!isSidebarCollapsed">
+            <mat-form-field appearance="outline" *ngIf="showMadrasaDropdown(vm.profile.role)" class="full-width">
+              <mat-label>Madrasa</mat-label>
+              <mat-select formControlName="madrasaId">
+                <mat-option value="">Select a madrasa</mat-option>
+                <mat-option *ngFor="let madrasa of vm.madrasas" [value]="madrasa.id">
+                  {{ madrasa['name'] }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
 
-            <button mat-icon-button class="history-btn" matTooltip="View Previous Attendance" (click)="viewHistory(student)" type="button">
-              <ion-icon name="time-outline"></ion-icon>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Class Plan</mat-label>
+              <mat-select formControlName="classPlanId">
+                <mat-option value="">Select a class plan</mat-option>
+                <mat-option *ngFor="let plan of getFilteredClassPlans(vm)" [value]="plan.id">
+                  {{ plan.title || plan.className }} 
+                  <span class="plan-subtitle">{{ plan.className }}</span>
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" type="button" (click)="onGetAttendance(vm)" class="full-width get-btn" [disabled]="!form.get('classPlanId')?.value">
+              <mat-icon>cloud_download</mat-icon> Load Register
             </button>
-          </article>
-          
-          <div class="empty-state" *ngIf="searchedStudents(vm).length === 0">
-            <p>No students found for "{{searchQuery}}"</p>
-          </div>
-          </div>
-          
-          <mat-paginator [length]="searchedStudents(vm).length"
-                         [pageSize]="pageSize"
-                         [pageSizeOptions]="[5, 10, 25, 50, 100]"
-                         [pageIndex]="pageIndex"
-                         (page)="onPageChange($event)"
-                         class="attendance-paginator">
-          </mat-paginator>
-        </div>
-      </div>
 
-      <ng-template #noStudents>
-        <app-empty-state 
-          icon="calendar-outline" 
-          title="No students to display" 
-          message="Please select a Class Plan and click Get Attendance to view the assigned students and take attendance."
-        >
-        </app-empty-state>
-      </ng-template>
-
-      <!-- Schedule Overview -->
-      <div *ngIf="form.get('classPlanId')?.value && getSchedule(vm).length > 0" class="schedule-overview">
-        <div class="schedule-overview-header">
-          <h2>Schedule Overview</h2>
-          <button mat-stroked-button color="primary" type="button" (click)="showSchedule = !showSchedule">
-            {{ showSchedule ? 'Hide Schedule' : 'See Schedule' }}
-            <ion-icon [name]="showSchedule ? 'chevron-up-outline' : 'chevron-down-outline'" slot="end"></ion-icon>
-          </button>
-        </div>
-
-        <div class="schedule-timeline-container" [class.expanded]="showSchedule">
-          <div class="schedule-timeline">
-            <div class="schedule-card" *ngFor="let day of getSchedule(vm)" [class.is-exception]="day.isException">
-              <div class="day-header">
-                <span class="day-date">{{ day.date | date:'EEEE, MMM d, yyyy' }}</span>
-                <span class="exception-badge" *ngIf="day.isException">
-                  {{ day.exceptionType | titlecase }} 
-                  <ng-container *ngIf="day.exceptionReason"> - {{ day.exceptionReason }}</ng-container>
-                </span>
+            <ng-container *ngIf="isAttendanceLoaded">
+              <div class="divider"></div>
+              
+              <div class="plan-validity" *ngIf="minDate || maxDate">
+                <ion-icon name="information-circle-outline"></ion-icon>
+                <span>Valid: {{ minDate ? (minDate | date:'MMM d') : 'Any' }} - {{ maxDate ? (maxDate | date:'MMM d') : 'Any' }}</span>
               </div>
-              <div class="day-content">
-                <div class="participant-group">
-                  <span class="group-label">Staff:</span>
-                  <div class="pill-list">
-                    <span *ngIf="!day.staffNames.length" class="empty">None</span>
-                    <span class="participant-pill staff-pill" *ngFor="let staff of day.staffNames">{{ staff }}</span>
+            </ng-container>
+          </form>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="attendance-main">
+          
+          <ng-container *ngIf="!isAttendanceLoaded">
+            <div class="main-empty-state">
+              <app-empty-state 
+                icon="document-text-outline" 
+                title="Select a Class Plan" 
+                message="Choose a class plan from the sidebar to start taking attendance."
+              ></app-empty-state>
+            </div>
+          </ng-container>
+          
+          <ng-container *ngIf="isAttendanceLoaded">
+            <div class="main-header">
+              <div class="header-titles">
+                <h1>
+                  <ng-container *ngIf="isToday(form.get('date')?.value); else otherDay">
+                    Today's Register
+                  </ng-container>
+                  <ng-template #otherDay>
+                    {{ form.get('date')?.value | date:'EEEE, MMMM d' }}
+                  </ng-template>
+                </h1>
+                <p class="subtitle" *ngIf="currentPlan">{{ currentPlan.title || currentPlan.className }}</p>
+              </div>
+              <div class="header-filters" [formGroup]="form" style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; margin-right: 16px; flex: 1;">
+                <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
+                  <mat-label>Filter by Date</mat-label>
+                  <input matInput [matDatepicker]="picker" formControlName="date" (click)="picker.open()" [min]="minDate" [max]="maxDate" [matDatepickerFilter]="dateFilter" />
+                  <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+                  <mat-datepicker #picker></mat-datepicker>
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
+                  <mat-label>Daily Notes (Optional)</mat-label>
+                  <input matInput formControlName="notes" placeholder="e.g. Field trip day" />
+                </mat-form-field>
+              </div>
+              
+              <button mat-flat-button color="primary" class="save-btn" type="button" (click)="save(vm)" [disabled]="!isCurrentDateValid || !!getExceptionForSelectedDate(vm)">
+                <mat-icon>save</mat-icon> Save Attendance
+              </button>
+            </div>
+
+            <ng-container *ngIf="!isCurrentDateValid; else showAttendance">
+              <app-empty-state 
+                icon="calendar-outline" 
+                title="No Class Plans for Selected Date" 
+                message="There are no classes scheduled for the selected date. Please choose a different date from the top filter."
+              ></app-empty-state>
+            </ng-container>
+
+            <ng-template #showAttendance>
+
+              <!-- Exception Banner -->
+              <ng-container *ngIf="getExceptionForSelectedDate(vm) as ex">
+                <div class="exception-banner">
+                  <div class="exception-banner-left">
+                    <mat-icon>event_busy</mat-icon>
+                    <div>
+                      <strong>Exception: {{ ex.type | titlecase }}</strong>
+                      <span *ngIf="ex.reason"> — {{ ex.reason }}</span>
+                      <div *ngIf="ex.type === 'rescheduled' && ex.rescheduledDate" class="reschedule-info">
+                        <mat-icon style="font-size: 14px; width: 14px; height: 14px;">arrow_forward</mat-icon>
+                        Rescheduled to {{ ex.rescheduledDate | date:'longDate' }}
+                        <ng-container *ngIf="ex.rescheduledStartTime"> ({{ ex.rescheduledStartTime }} – {{ ex.rescheduledEndTime }})</ng-container>
+                      </div>
+                      <div class="exception-disabled-note">
+                        <mat-icon style="font-size: 14px; width: 14px; height: 14px;">block</mat-icon>
+                        Attendance is disabled for this day
+                      </div>
+                    </div>
+                  </div>
+                  <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                    <span class="exception-affects-badge" *ngIf="ex.affectsAttendance">Affects Attendance</span>
+                    <button mat-stroked-button color="warn" type="button" (click)="removeException(ex)" style="font-size: 12px;">
+                      <mat-icon>delete_outline</mat-icon> Remove Exception
+                    </button>
                   </div>
                 </div>
-                <div class="participant-group">
-                  <span class="group-label">Students:</span>
-                  <div class="pill-list">
-                    <span *ngIf="!day.studentNames.length" class="empty">None</span>
-                    <span class="participant-pill student-pill" *ngFor="let student of day.studentNames">{{ student }}</span>
+              </ng-container>
+
+              <div class="activity-selector-container" *ngIf="activitiesForDate.length > 0">
+                <div class="selector-header">
+                  <mat-icon>schedule</mat-icon>
+                  <span>Select specific activity / period:</span>
+                </div>
+                <div class="activity-chips scroll-hide">
+                  <button type="button" class="activity-chip" 
+                          [class.active]="form.get('timetableEntryId')?.value === 'ALL'"
+                          (click)="form.patchValue({timetableEntryId: 'ALL'})">
+                    <div class="chip-icon"><mat-icon>calendar_today</mat-icon></div>
+                    <div class="chip-content">
+                      <span class="chip-title">Whole Day</span>
+                      <span class="chip-subtitle">General Attendance</span>
+                    </div>
+                  </button>
+
+                  <button type="button" class="activity-chip" 
+                          *ngFor="let activity of activitiesForDate"
+                          [class.active]="form.get('timetableEntryId')?.value === activity.id"
+                          (click)="form.patchValue({timetableEntryId: activity.id})">
+                    <div class="chip-icon"><mat-icon>schedule</mat-icon></div>
+                    <div class="chip-content">
+                      <span class="chip-title">{{ activity.activityName }}</span>
+                      <span class="chip-subtitle" *ngIf="currentPlan?.scheduleType !== 'oneTime'">
+                        <ng-container *ngIf="activity.scheduleType !== 'fullDay'">{{ activity.startTime || '00:00' }} - {{ activity.endTime || '00:00' }}</ng-container>
+                        <ng-container *ngIf="activity.scheduleType === 'fullDay'">Full-Day Activity</ng-container>
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Staff List -->
+              <div class="attendance-section" *ngIf="filteredStaff(vm).length > 0">
+                <div class="section-header">
+                  <h3>Staff & Teachers</h3>
+                  <span class="count-badge">{{ filteredStaff(vm).length }}</span>
+                </div>
+                
+                <div class="list-container">
+                  <article class="participant-row" *ngFor="let staff of filteredStaff(vm)">
+                    <div class="participant-info">
+                      <div class="avatar staff-avatar">{{ getInitials(staff['name'] || staff['displayName']) }}</div>
+                      <div class="details">
+                        <strong>{{ staff['name'] || staff['displayName'] }}</strong>
+                        <div style="display: flex; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
+                          <span class="role-badge">{{ $any(staff['role']) | titlecase }}</span>
+                          <span *ngIf="isGeneralStaff(vm, staff.id)" class="role-badge" style="background: var(--ion-color-primary, #6200ea); color: white; padding: 2px 8px; font-weight: 500;">Class Teacher</span>
+                          <span *ngIf="getActivityNameForStaff(staff.id) as actName" class="role-badge" style="background: var(--ion-color-tertiary, #03dac6); color: #000; padding: 2px 8px; font-weight: 500;">{{ actName }} Teacher</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div class="attendance-actions">
+                      <mat-button-toggle-group hideSingleSelectionIndicator #staffTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[staff.id || ''] || 'present'" (change)="setStatus(staff.id, $event.value, staffTg)" [disabled]="!!getExceptionForSelectedDate(vm)">
+                        <mat-button-toggle *ngFor="let status of statuses" [value]="status" [ngClass]="'status-toggle-' + status">
+                          <ion-icon [name]="statusIcon(status)"></ion-icon>
+                          {{ status | titlecase }}
+                        </mat-button-toggle>
+                      </mat-button-toggle-group>
+                      <button mat-icon-button class="history-btn" matTooltip="History" (click)="viewHistory(staff)" type="button">
+                        <mat-icon>history</mat-icon>
+                      </button>
+                    </div>
+                    <!-- Detail chips for absent/late/leave -->
+                    <div class="attendance-detail-chips" *ngIf="attendanceDetails[staff.id || ''] as detail">
+                      <span class="detail-chip informed-chip" *ngIf="detail['informed']">
+                        <mat-icon>notifications</mat-icon> Informed: {{ detail['informed'] }}
+                      </span>
+                      <span class="detail-chip late-chip" *ngIf="detail['lateTime']">
+                        <mat-icon>schedule</mat-icon> Late by: {{ detail['lateTime'] }}
+                      </span>
+                      <span class="detail-chip reason-chip" *ngIf="detail['reason']">
+                        <mat-icon>notes</mat-icon> {{ detail['reason'] }}
+                      </span>
+                    </div>
+                  </article>
+                </div>
+              </div>
+
+              <!-- Students List -->
+              <div class="attendance-section" *ngIf="searchedStudents(vm).length > 0 || searchQuery">
+                <div class="section-header with-search">
+                  <div class="header-left">
+                    <h3>Enrolled Students</h3>
+                    <span class="count-badge">{{ filteredStudents(vm).length }}</span>
+                  </div>
+                  <div class="section-header-actions">
+                    <button mat-stroked-button type="button"
+                            class="bulk-btn present-all-btn"
+                            [disabled]="!!getExceptionForSelectedDate(vm)"
+                            (click)="markAllStudents(vm, 'present')">
+                      <mat-icon>check_circle</mat-icon> All Present
+                    </button>
+                    <button mat-stroked-button type="button"
+                            class="bulk-btn absent-all-btn"
+                            [disabled]="!!getExceptionForSelectedDate(vm)"
+                            (click)="markAllStudents(vm, 'absent')">
+                      <mat-icon>cancel</mat-icon> All Absent
+                    </button>
+                    <div class="search-container">
+                      <mat-icon>search</mat-icon>
+                      <input type="text" placeholder="Search..." [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange()" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="list-container">
+                  <article class="participant-row" *ngFor="let student of paginatedStudents(vm)">
+                    <div class="participant-info">
+                      <div class="avatar">{{ getInitials(student['displayName'] || student['name']) }}</div>
+                      <div class="details">
+                        <strong>{{ student['displayName'] || student['name'] }}</strong>
+                        <span class="meta-text">{{ nameOf(vm.courses, student['courseId'] + '') }} &middot; {{ nameOf(vm.classes, student['classId'] + '') }}</span>
+                      </div>
+                    </div>
+                    
+                    <div class="attendance-actions">
+                      <mat-button-toggle-group hideSingleSelectionIndicator #studentTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[student.id || ''] || 'present'" (change)="setStatus(student.id, $event.value, studentTg)" [disabled]="!!getExceptionForSelectedDate(vm)">
+                        <mat-button-toggle *ngFor="let status of statuses" [value]="status" [ngClass]="'status-toggle-' + status">
+                          <ion-icon [name]="statusIcon(status)"></ion-icon>
+                          <span class="status-label">{{ status | titlecase }}</span>
+                        </mat-button-toggle>
+                      </mat-button-toggle-group>
+                      <button mat-icon-button class="history-btn" matTooltip="History" (click)="viewHistory(student)" type="button">
+                        <mat-icon>history</mat-icon>
+                      </button>
+                    </div>
+                    <!-- Detail chips for absent/late/leave -->
+                    <div class="attendance-detail-chips" *ngIf="attendanceDetails[student.id || ''] as detail">
+                      <span class="detail-chip informed-chip" *ngIf="detail['informed']">
+                        <mat-icon>notifications</mat-icon> Informed: {{ detail['informed'] }}
+                      </span>
+                      <span class="detail-chip late-chip" *ngIf="detail['lateTime']">
+                        <mat-icon>schedule</mat-icon> Late by: {{ detail['lateTime'] }}
+                      </span>
+                      <span class="detail-chip reason-chip" *ngIf="detail['reason']">
+                        <mat-icon>notes</mat-icon> {{ detail['reason'] }}
+                      </span>
+                    </div>
+                  </article>
+
+                  <div class="empty-search" *ngIf="searchedStudents(vm).length === 0">
+                    <mat-icon>search_off</mat-icon>
+                    <p>No students found matching "{{searchQuery}}"</p>
+                  </div>
+                </div>
+                
+                <mat-paginator [length]="searchedStudents(vm).length"
+                               [pageSize]="pageSize"
+                               [pageSizeOptions]="[10, 25, 50, 100]"
+                               [pageIndex]="pageIndex"
+                               (page)="onPageChange($event)"
+                               class="attendance-paginator">
+                </mat-paginator>
+              </div>
+
+              <!-- Schedule Overview Timeline -->
+              <div *ngIf="currentPlan?.scheduleType !== 'oneTime' && getSchedule(vm).length > 0" class="schedule-overview">
+                <div class="schedule-overview-header">
+                  <h2>
+                    <mat-icon>calendar_view_week</mat-icon>
+                    Schedule Overview
+                  </h2>
+                  
+                  <div class="header-actions" style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+                    <mat-form-field appearance="outline" style="width: 260px; margin-bottom: -1.25em; max-width: 100%;" [formGroup]="form">
+                      <mat-label>Filter Timeline</mat-label>
+                      <mat-date-range-input [rangePicker]="timelinePicker" [min]="minDate" [max]="maxDate">
+                        <input matStartDate formControlName="timelineStartDate" placeholder="Start date">
+                        <input matEndDate formControlName="timelineEndDate" placeholder="End date">
+                      </mat-date-range-input>
+                      <mat-datepicker-toggle matSuffix [for]="timelinePicker"></mat-datepicker-toggle>
+                      <mat-date-range-picker #timelinePicker></mat-date-range-picker>
+                    </mat-form-field>
+                    
+                    <button mat-stroked-button color="primary" type="button" (click)="showSchedule = !showSchedule">
+                      {{ showSchedule ? 'Hide Timeline' : 'View Timeline' }}
+                      <mat-icon slot="end">{{ showSchedule ? 'expand_less' : 'expand_more' }}</mat-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="schedule-timeline-container" [class.expanded]="showSchedule">
+                  <div class="schedule-timeline">
+                    <div class="schedule-card" *ngFor="let day of getSchedule(vm)" [class.is-exception]="day.isException">
+                      <div class="day-header">
+                        <span class="day-date">{{ day.date | date:'EEEE, MMM d' }}</span>
+                        <span class="exception-badge" *ngIf="day.isException">
+                          {{ day.exceptionType | titlecase }} <ng-container *ngIf="day.exceptionReason"> - {{ day.exceptionReason }}</ng-container>
+                        </span>
+                      </div>
+                      
+                      <!-- Render the activities for this day -->
+                      <div class="day-activities" *ngIf="day.activities && day.activities.length > 0">
+                        <div class="activity-item" *ngFor="let act of day.activities">
+                          <span class="act-time" *ngIf="act.scheduleType !== 'fullDay'">{{ act.startTime }} - {{ act.endTime }}</span>
+                          <span class="act-time full-day" *ngIf="act.scheduleType === 'fullDay'">Full Day</span>
+                          <span class="act-name">{{ act.activityName }}</span>
+                          <span class="act-meta" *ngIf="act['teacherName']">
+                            <mat-icon>person</mat-icon> {{ act['teacherName'] }}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <!-- Participants Summary -->
+                      <div class="day-content">
+                        <div class="participant-group">
+                          <span class="group-label">Staff:</span>
+                          <div class="pill-list">
+                            <span *ngIf="!day.staffNames.length" class="empty-pill">None</span>
+                            <span class="participant-pill staff-pill" *ngFor="let staff of day.staffNames">{{ staff }}</span>
+                          </div>
+                        </div>
+                        <div class="participant-group">
+                          <span class="group-label">Students:</span>
+                          <div class="pill-list">
+                            <span *ngIf="!day.studentNames.length" class="empty-pill">None</span>
+                            <span class="participant-pill student-pill" *ngFor="let student of day.studentNames">{{ student }}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+              
+            </ng-template>
+          </ng-container>
+          
+        </main>
       </div>
-
     </ng-container>
 
   </section>

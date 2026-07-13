@@ -1,1 +1,3 @@
-<span class="role-badge">{{ label() }}</span>
+<div class="role-badge-container">
+  <span *ngFor="let badge of badges" class="role-badge" [ngClass]="badge.class">{{ badge.label }}</span>
+</div>

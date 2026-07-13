@@ -1,5 +1,5 @@
 <ion-content>
-  <section class="page-shell" *ngIf="vm$ | async as vm">
+  <section class="page-shell split-page-shell" *ngIf="vm$ | async as vm">
     <app-global-loader *ngIf="vm.loading"></app-global-loader>
 
     <div class="ion-padding" *ngIf="vm.error">
@@ -9,83 +9,185 @@
     </div>
 
     <ng-container *ngIf="!vm.loading && !vm.error">
-      <header class="page-header">
-        <div>
-          <p class="eyebrow">Academic</p>
-          <h1>Class Plans</h1>
-          <p>Schedule and manage class routines.</p>
-        </div>
-        <div class="page-actions" *ngIf="canManage(vm.data?.profile)">
-          <button mat-flat-button color="primary" type="button" (click)="openForm()">
-            <ion-icon name="add-outline"></ion-icon>
-            Add Plan
-          </button>
-        </div>
-      </header>
-
-      <div class="ion-padding">
-        <app-empty-state
-          *ngIf="!vm.data?.classPlans?.length"
-          icon="calendar-outline"
-          title="No Class Plans"
-          message="Get started by creating a new class plan."
-        ></app-empty-state>
-
-        <div *ngIf="vm.data?.classPlans?.length">
-        <div class="plan-card" *ngFor="let plan of vm.data?.classPlans">
-          <div class="plan-header">
-            <h3>{{ plan.title || 'Untitled Plan' }}</h3>
-            <app-status-badge [status]="plan.status"></app-status-badge>
+      
+      <!-- Left Panel: Master List -->
+      <div class="master-pane" [class.collapsed]="isSidebarCollapsed">
+        <header class="master-header">
+          <div *ngIf="!isSidebarCollapsed">
+            <p class="eyebrow">Academic</p>
+            <h2>Class Plans</h2>
           </div>
-          
-          <div class="plan-details">
-            <div>
-              <strong>Class:</strong> {{ plan.className }} ({{ plan.courseName }})
-            </div>
-            <div>
-              <strong>Schedule:</strong> {{ plan.scheduleType | titlecase }}
-              <span *ngIf="plan.scheduleType === 'weekly'"> ({{ plan.weekDays && plan.weekDays.length ? plan.weekDays.join(', ') : '' }})</span>
-            </div>
-            <div>
-              <strong>Time:</strong> {{ plan.startTime }} - {{ plan.endTime }}
-            </div>
-            <div>
-              <strong>Staff:</strong> {{ plan.assignedStaffNames && plan.assignedStaffNames.length ? plan.assignedStaffNames.join(', ') : 'None' }}
-            </div>
-            <div>
-              <strong>Students:</strong> {{ plan.studentIds && plan.studentIds.length ? plan.studentIds.length : 0 }}
-            </div>
-          </div>
-
-          <div class="exceptions-section" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--ion-color-step-150, #eee);">
-            <strong>Exceptions:</strong>
-            <ng-container *ngIf="getPlanExceptions(plan.id!, vm.data!.exceptions) as exceptions">
-              <span *ngIf="!exceptions.length" style="color: var(--ion-color-medium); margin-left: 8px;">None added</span>
-              <ul *ngIf="exceptions.length" style="margin-top: 8px; margin-bottom: 0; padding-left: 24px; font-size: 0.9em; display: flex; flex-direction: column; gap: 4px;">
-                <li *ngFor="let ex of exceptions">
-                  <strong>{{ ex.date | date:'mediumDate' }}</strong>: {{ ex.type | titlecase }} 
-                  <span *ngIf="ex.reason" style="color: var(--ion-color-medium);">({{ ex.reason }})</span>
-                  <span *ngIf="ex.type === 'rescheduled' && ex.rescheduledDate">
-                    &rarr; {{ ex.rescheduledDate | date:'mediumDate' }} {{ ex.rescheduledStartTime }}
-                  </span>
-                </li>
-              </ul>
-            </ng-container>
-          </div>
-
-          <div class="plan-actions" *ngIf="canManage(vm.data?.profile)">
-            <button mat-stroked-button (click)="openTimetable(plan, vm.data?.profile)">Timetable</button>
-            <button mat-stroked-button (click)="openForm(plan)">Edit</button>
-            <button mat-stroked-button (click)="openExceptionForm(plan)">Add Exception</button>
-            <button mat-stroked-button (click)="generateAttendance(plan, vm.data!.profile!)">Generate Attendance</button>
-            <button mat-stroked-button (click)="toggleStatus(plan, vm.data!.profile!)">
-              {{ plan.status === 'active' ? 'Pause' : 'Resume' }}
+          <div style="display: flex; align-items: center;">
+            <button mat-icon-button (click)="isSidebarCollapsed = !isSidebarCollapsed" [matTooltip]="isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'">
+              <mat-icon>{{ isSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
             </button>
-            <button mat-stroked-button color="warn" (click)="deletePlan(plan, vm.data!.profile!)">Delete</button>
+            <button mat-icon-button color="primary" *ngIf="canManage(vm.data?.profile) && !isSidebarCollapsed" (click)="createNew()" matTooltip="Add New Plan">
+              <mat-icon>add</mat-icon>
+            </button>
           </div>
-        </div>
+        </header>
+
+        <div class="master-content" *ngIf="!isSidebarCollapsed">
+          <app-empty-state
+            *ngIf="!vm.data?.classPlans?.length"
+            icon="calendar-outline"
+            title="No Class Plans"
+            message="Get started by creating a new class plan."
+            [compact]="true"
+          ></app-empty-state>
+
+          <div class="plan-list" *ngIf="vm.data?.classPlans?.length">
+            <div 
+              class="plan-list-item" 
+              *ngFor="let plan of vm.data?.classPlans"
+              [class.active]="selectedPlan?.id === plan.id"
+              (click)="selectPlan(plan)"
+            >
+              <div class="item-main">
+                <span class="plan-title">{{ plan.title || 'Untitled Plan' }}</span>
+                <span class="plan-subtitle">{{ plan.className }} &bull; {{ plan.courseName }}</span>
+              </div>
+              <app-status-badge [status]="plan.status"></app-status-badge>
+            </div>
+          </div>
         </div>
       </div>
+
+      <!-- Right Panel: Detail View -->
+      <div class="detail-pane">
+        
+        <div class="empty-detail" *ngIf="!selectedPlan && !isCreating">
+          <mat-icon class="empty-icon">subject</mat-icon>
+          <p>Select a class plan to view details, or create a new one.</p>
+        </div>
+
+        <div class="detail-content" *ngIf="isCreating || selectedPlan">
+          
+          <!-- Top Section: Plan Details Form / View -->
+          <div class="detail-section" *ngIf="isEditingPlan">
+            <app-class-plan-form 
+              [plan]="selectedPlan" 
+              (saveCompleted)="onFormSave($event)" 
+              (cancel)="onFormCancel()">
+            </app-class-plan-form>
+          </div>
+
+          <div class="detail-section" *ngIf="!isEditingPlan && selectedPlan">
+            <div class="plan-details-view">
+              <div class="plan-details-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px;">
+                <div>
+                  <h2 style="margin: 0 0 8px 0; font-size: 24px; color: var(--ion-color-dark);">{{ selectedPlan.title }}</h2>
+                  <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <span class="plan-badge" style="background: #e3f2fd; color: #1976d2; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
+                      <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">business</mat-icon>
+                      {{ nameOf(vm.data?.madrasas || [], selectedPlan.madrasaId || '') }}
+                    </span>
+                    <span class="plan-badge" style="background: #f3e5f5; color: #7b1fa2; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
+                      <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">school</mat-icon>
+                      {{ selectedPlan.courseName }} &bull; {{ selectedPlan.className }}
+                    </span>
+                    <span class="plan-badge" style="background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
+                      <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">person</mat-icon>
+                      {{ getClassTeachers(selectedPlan, vm.data) }}
+                    </span>
+                  </div>
+                </div>
+                <button mat-flat-button color="primary" (click)="isEditingPlan = true" *ngIf="canManage(vm.data?.profile)">
+                  <mat-icon>edit</mat-icon> Edit Plan
+                </button>
+              </div>
+
+              <div class="plan-details-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; padding: 24px; background: #fafafa; border-radius: 12px; border: 1px solid #eee; margin-bottom: 24px;">
+                <div class="grid-item" *ngIf="selectedPlan.scheduleType !== 'oneTime'">
+                  <div class="item-label" style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Schedule Type</div>
+                  <div class="item-value" style="font-size: 16px; font-weight: 500; color: #333;">{{ selectedPlan.scheduleType | titlecase }}</div>
+                </div>
+                <div class="grid-item">
+                  <div class="item-label" style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Date Range</div>
+                  <div class="item-value" style="font-size: 15px; font-weight: 500; color: #333;">
+                    {{ selectedPlan.startDate | date:'mediumDate' }} 
+                    <span *ngIf="selectedPlan.endDate"> - {{ selectedPlan.endDate | date:'mediumDate' }}</span>
+                  </div>
+                </div>
+                <div class="grid-item" *ngIf="selectedPlan.scheduleType === 'weekly'">
+                  <div class="item-label" style="font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Days</div>
+                  <div class="item-value" style="font-size: 15px; font-weight: 500; color: #333;">
+                    {{ selectedPlan.weekDays.join(', ') | titlecase }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Actions (if editing an existing plan) -->
+          <div class="plan-actions" *ngIf="selectedPlan && !isCreating && canManage(vm.data?.profile)" style="padding: 0 24px; margin-bottom: 16px;">
+            <button mat-stroked-button (click)="generateAttendance(selectedPlan, vm.data!.profile!)">
+              <mat-icon>build</mat-icon> Generate Missing Attendance
+            </button>
+            <button mat-flat-button color="primary" [routerLink]="['/attendance']" [queryParams]="{ classPlanId: selectedPlan.id }">
+              <mat-icon>how_to_reg</mat-icon> Mark Attendance
+            </button>
+            <button mat-stroked-button (click)="openExceptionForm(selectedPlan)">
+              <mat-icon>event_busy</mat-icon> Add Exception
+            </button>
+            <button mat-stroked-button (click)="toggleStatus(selectedPlan, vm.data!.profile!)">
+              <mat-icon>{{ selectedPlan.status === 'active' ? 'pause' : 'play_arrow' }}</mat-icon>
+              {{ selectedPlan.status === 'active' ? 'Pause Plan' : 'Resume Plan' }}
+            </button>
+            <button mat-stroked-button color="warn" (click)="deletePlan(selectedPlan, vm.data!.profile!)">
+              <mat-icon>delete</mat-icon> Delete Plan
+            </button>
+          </div>
+
+          <!-- Exceptions List -->
+          <div class="detail-section exceptions-wrapper" *ngIf="selectedPlan && !isCreating && getPlanExceptions(selectedPlan.id, vm.data?.exceptions).length > 0">
+            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; color: var(--ion-color-dark); display: flex; align-items: center; gap: 8px;">
+              <mat-icon color="warn">event_busy</mat-icon> Plan Exceptions
+            </h3>
+            
+            <div class="exceptions-list" style="display: flex; flex-direction: column; gap: 8px;">
+              <div *ngFor="let exception of getPlanExceptions(selectedPlan.id, vm.data?.exceptions)" 
+                   style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #fff3e0; border-left: 4px solid #ff9800; border-radius: 4px;">
+                <div>
+                  <div style="font-weight: 500; color: #e65100; margin-bottom: 4px;">
+                    {{ exception.date | date:'longDate' }} 
+                    <span style="font-size: 12px; font-weight: normal; margin-left: 8px; padding: 2px 8px; background: #ffe0b2; border-radius: 12px; color: #ef6c00;">{{ exception.type | titlecase }}</span>
+                  </div>
+                  <div style="font-size: 13px; color: #666;" *ngIf="exception.reason">{{ exception.reason }}</div>
+                  <div style="font-size: 13px; color: #666;" *ngIf="exception.type === 'rescheduled' && exception.rescheduledDate">
+                    <mat-icon style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle;">arrow_forward</mat-icon>
+                    Rescheduled to {{ exception.rescheduledDate | date:'longDate' }} 
+                    <ng-container *ngIf="exception.rescheduledStartTime"> ({{ exception.rescheduledStartTime }} - {{ exception.rescheduledEndTime }})</ng-container>
+                  </div>
+                </div>
+                <button mat-icon-button color="warn" matTooltip="Delete Exception" (click)="deleteException(exception, vm.data?.profile)">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Section: Timetable -->
+          <div class="detail-section timetable-wrapper">
+            
+            <div class="locked-state" *ngIf="isCreating">
+              <mat-icon>lock</mat-icon>
+              <h4>Timetable Locked</h4>
+              <p>Save this Class Plan first to unlock the timetable.</p>
+            </div>
+
+            <div *ngIf="selectedPlan && !isCreating">
+              <app-class-plan-timetable 
+                [plan]="selectedPlan" 
+                [canManage]="canManage(vm.data?.profile)">
+              </app-class-plan-timetable>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+      
     </ng-container>
   </section>
 </ion-content>

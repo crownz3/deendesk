@@ -21,7 +21,7 @@ export class ProfilePage {
   readonly profile$: Observable<AppUser | null> = this.auth.profile$;
   readonly form = this.fb.nonNullable.group({
     displayName: ['', Validators.required],
-    phone: [''],
+    mobileNumber: ['', [Validators.pattern(/^[0-9]*$/), Validators.minLength(10), Validators.maxLength(10)]],
   });
   uploading = false;
   isAvatarLoading = false;
@@ -64,7 +64,7 @@ export class ProfilePage {
       if (profile && !this.form.dirty) {
         this.form.patchValue({
           displayName: profile.displayName,
-          phone: profile.phone ?? '',
+          mobileNumber: profile.mobileNumber ?? '',
         }, { emitEvent: false });
       }
     });

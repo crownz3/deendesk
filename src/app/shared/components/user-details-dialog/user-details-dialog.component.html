@@ -90,7 +90,7 @@
             </ng-container>
           </span>
         </div>
-        <div class="info-row" *ngIf="getArray('classIds').length">
+        <div class="info-row" *ngIf="!isStaffProfile && getArray('classIds').length">
           <span class="label">Classes</span>
           <span class="value">
             <span class="id-list">
@@ -101,7 +101,7 @@
             </span>
           </span>
         </div>
-        <div class="info-row" *ngIf="getArray('subjectIds').length">
+        <div class="info-row" *ngIf="!isStaffProfile && getArray('subjectIds').length">
           <span class="label">Subjects</span>
           <span class="value">
             <span class="id-list">
@@ -123,12 +123,23 @@
     </article>
 
     <!-- Student / Parent Links -->
-    <article class="detail-card" *ngIf="user['role'] === 'student' || user['role'] === 'parent' || getArray('linkedStudentIds').length || getArray('studentIds').length">
+    <article class="detail-card" *ngIf="user['role'] === 'student' || user['role'] === 'parent' || getArray('linkedStudentIds').length || getArray('studentIds').length || assignedStudents.length || assignedGroups.length || loadingStudents">
       <div class="card-header">
         <ion-icon name="people-outline"></ion-icon>
         <h3>Academic Links</h3>
       </div>
       <div class="card-body">
+        <div class="info-row" *ngIf="assignedGroups.length">
+          <span class="label">Class Groups</span>
+          <span class="value">
+            <span class="id-list">
+              <ng-container *ngFor="let group of assignedGroups; let last = last">
+                <app-name-with-copy [id]="group.id" type="classGroup"></app-name-with-copy>
+                <span *ngIf="!last">, </span>
+              </ng-container>
+            </span>
+          </span>
+        </div>
         <div class="info-row" *ngIf="user['role'] === 'student' && user['studentId']">
           <span class="label">Student Record</span>
           <span class="value">
@@ -152,6 +163,23 @@
             <span class="id-list">
               <ng-container *ngFor="let id of getArray('studentIds'); let last = last">
                 <app-name-with-copy [id]="id" type="student"></app-name-with-copy>
+                <span *ngIf="!last">, </span>
+              </ng-container>
+            </span>
+          </span>
+        </div>
+        <div class="info-row" *ngIf="loadingStudents">
+          <span class="label">Students in Assigned Classes</span>
+          <span class="value">
+            <ion-spinner name="dots"></ion-spinner> Loading...
+          </span>
+        </div>
+        <div class="info-row" *ngIf="!loadingStudents && assignedStudents.length">
+          <span class="label">Students in Assigned Classes</span>
+          <span class="value">
+            <span class="id-list">
+              <ng-container *ngFor="let student of assignedStudents; let last = last">
+                <app-name-with-copy [id]="student.id" type="student"></app-name-with-copy>
                 <span *ngIf="!last">, </span>
               </ng-container>
             </span>

@@ -33,6 +33,44 @@
             <ion-icon name="add-outline"></ion-icon>
             Add
           </button>
+          <button
+            *ngIf="vm.config.resource === 'students'"
+            mat-stroked-button
+            type="button"
+            routerLink="/csv-imports">
+            <ion-icon name="cloud-upload-outline"></ion-icon>
+            Bulk Import
+          </button>
+          
+          <!-- <button
+            *ngIf="vm.config.resource === 'classes'"
+            mat-stroked-button
+            color="accent"
+            type="button"
+            (click)="migrateGroups(vm.config)">
+            <ion-icon name="color-wand-outline"></ion-icon>
+            Migrate Groups
+          </button> -->
+
+          <!-- <button
+            *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'"
+            mat-stroked-button
+            color="accent"
+            type="button"
+            (click)="migrateLegacyUsers()">
+            <ion-icon name="build-outline"></ion-icon>
+            Migrate Legacy Users
+          </button> -->
+
+          <button
+            *ngIf="dataTable?.selection?.selected?.length"
+            mat-stroked-button
+            color="warn"
+            type="button"
+            (click)="bulkDeactivate(vm.config, dataTable.selection.selected, dataTable)">
+            <ion-icon name="trash-outline"></ion-icon>
+            Deactivate ({{ dataTable.selection.selected.length }})
+          </button>
 
           <button
             *ngIf="vm.config.collection === 'organizations' && vm.rows.length > 0"
@@ -45,13 +83,26 @@
         </div>
       </header>
 
-      <div class="filters-toolbar" *ngIf="vm.config.resource === 'users'">
+      <div class="filters-toolbar" *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(vm.config.resource)">
+        <!-- Search Input -->
         <mat-form-field appearance="outline" class="search-field">
-          <mat-label>Search users</mat-label>
+          <mat-label>Search {{ vm.config.title.toLowerCase() }}</mat-label>
           <mat-icon matPrefix>search</mat-icon>
           <input matInput [ngModel]="searchQuery$ | async" (ngModelChange)="searchQuery$.next($event); pageIndex$.next(0)" placeholder="Name or email">
         </mat-form-field>
 
+        <!-- Organization Filter (Super Admin only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role === 'superAdmin'">
+          <mat-label>Filter by Organization</mat-label>
+          <mat-select [ngModel]="organizationFilter$ | async" (ngModelChange)="organizationFilter$.next($event); pageIndex$.next(0); madrasaFilter$.next('all')">
+            <mat-option value="all">All Organizations</mat-option>
+            <mat-option *ngFor="let org of vm.organizations" [value]="org.id">
+              {{ org['name'] }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Madrasa Filter (visible to non-incharges) -->
         <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role !== 'madrasaIncharge'">
           <mat-label>Filter by Madrasa</mat-label>
           <mat-select [ngModel]="madrasaFilter$ | async" (ngModelChange)="madrasaFilter$.next($event); pageIndex$.next(0)">
@@ -62,12 +113,13 @@
           </mat-select>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="filter-field">
+        <!-- Role Filter (Users only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'users'">
           <mat-label>Filter by Role</mat-label>
           <mat-select [ngModel]="roleFilter$ | async" (ngModelChange)="roleFilter$.next($event); pageIndex$.next(0)">
             <mat-option value="all">All Roles</mat-option>
-            <mat-option value="superAdmin">Super Admin</mat-option>
-            <mat-option value="organizationAdmin">Organization Admin</mat-option>
+            <mat-option value="superAdmin" *ngIf="vm.profile?.role === 'superAdmin'">Super Admin</mat-option>
+            <mat-option value="organizationAdmin" *ngIf="vm.profile?.role === 'superAdmin'">Organization Admin</mat-option>
             <mat-option value="coordinator">Coordinator</mat-option>
             <mat-option value="madrasaIncharge">Madrasa Incharge</mat-option>
             <mat-option value="teacher">Teacher</mat-option>
@@ -75,9 +127,58 @@
             <mat-option value="parent">Parent</mat-option>
           </mat-select>
         </mat-form-field>
+
+        <!-- Course Filter (Students only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
+          <mat-label>Course</mat-label>
+          <mat-select [ngModel]="courseFilter$ | async" (ngModelChange)="courseFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Courses</mat-option>
+            <mat-option *ngFor="let course of vm.courses" [value]="course.id">
+              {{ course['name'] }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Class Filter (Students only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
+          <mat-label>Class</mat-label>
+          <mat-select [ngModel]="classFilter$ | async" (ngModelChange)="classFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Classes</mat-option>
+            <mat-option *ngFor="let cls of vm.classes" [value]="cls.id">
+              {{ cls['name'] }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Stage Filter (Students only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
+          <mat-label>Stage</mat-label>
+          <mat-select [ngModel]="stageFilter$ | async" (ngModelChange)="stageFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Stages</mat-option>
+            <mat-option value="Kindergarten">Kindergarten</mat-option>
+            <mat-option value="Primary">Primary</mat-option>
+            <mat-option value="Middle">Middle</mat-option>
+            <mat-option value="High School">High School</mat-option>
+            <mat-option value="Higher Secondary">Higher Secondary</mat-option>
+            <mat-option value="Undergraduate">Undergraduate</mat-option>
+            <mat-option value="Postgraduate">Postgraduate</mat-option>
+            <mat-option value="Diploma">Diploma</mat-option>
+            <mat-option value="Certificate">Certificate</mat-option>
+            <mat-option value="Other">Other</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Status Filter -->
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [ngModel]="statusFilter$ | async" (ngModelChange)="statusFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Statuses</mat-option>
+            <mat-option value="active">Active</mat-option>
+            <mat-option value="pending">Pending</mat-option>
+            <mat-option value="disabled">Disabled</mat-option>
+          </mat-select>
+        </mat-form-field>
       </div>
-
-
 
       <section class="credential-panel" *ngIf="credentials.length">
         <div>
@@ -100,6 +201,7 @@
 
         <div class="table-container">
           <app-data-table
+            #dataTable
             [currentUid]="vm.profile?.uid"
             [columns]="vm.config.columns"
             [rows]="vm.rows"
@@ -110,13 +212,18 @@
             [allowCredentials]="vm.config.allowCredentials || false"
             [allowPromotion]="vm.config.allowPromotion || false"
             [allowDetails]="vm.config.allowDetails || false"
+            [allowDelete]="vm.config.allowDelete || false"
+            [allowTransfer]="vm.config.allowTransfer || false"
             [generatedCredentials]="generatedCredentials"
             (edit)="edit(vm.config, $event)"
             (viewDetails)="viewDetails(vm.config, $event)"
             (remove)="remove(vm.config, $event)"
+            (activate)="activate(vm.config, $event)"
+            (permanentlyDelete)="permanentlyDelete(vm.config, $event)"
             (resetPassword)="setTemporaryPassword($event)"
             (sendResetEmail)="sendPasswordResetEmail($event)"
             (promote)="promote($event)"
+            (transfer)="transfer($event)"
             (emptyAction)="openCreate(vm.config)"
           ></app-data-table>
           
@@ -125,13 +232,15 @@
           </div>
         </div>
 
-      <mat-paginator *ngIf="vm.config.resource === 'users' && (vm.totalItems || 0) > 0"
-        [length]="vm.totalItems"
-        [pageSize]="pageSize$ | async"
-        [pageIndex]="pageIndex$ | async"
-        [pageSizeOptions]="[10, 25, 50, 100]"
-        (page)="onPageChange($event)">
-      </mat-paginator>
+          <mat-paginator
+            *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(vm.config.resource)"
+            class="table-paginator"
+            [length]="vm.totalItems"
+            [pageSize]="pageSize$ | async"
+            [pageIndex]="pageIndex$ | async"
+            [pageSizeOptions]="[10, 25, 50, 100]"
+            (page)="pageIndex$.next($event.pageIndex); pageSize$.next($event.pageSize)">
+          </mat-paginator>
     </ng-container>
 
   </section>

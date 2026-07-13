@@ -1,51 +1,70 @@
 <div class="dialog-header-modern">
   <div class="header-icon">
-    <ion-icon name="calendar-outline"></ion-icon>
+    <mat-icon>calendar_today</mat-icon>
   </div>
-  <div class="header-title">
-    <h2 mat-dialog-title>{{ data.entry ? 'Edit Activity' : 'Add Activity' }}</h2>
-    <p>Create a timetable session for this class plan.</p>
-  </div>
+  <p>
+    {{ data.entry ? 'Edit this timetable activity for the selected class plan.' : 'Add a new timetable activity for this
+    class plan.' }}
+  </p>
   <button mat-icon-button mat-dialog-close class="close-btn">
-    <ion-icon name="close-outline"></ion-icon>
+    <mat-icon>close</mat-icon>
   </button>
 </div>
 
 <mat-dialog-content class="modern-dialog-content">
   <div class="dialog-layout">
-    
+
     <!-- Left Column: Form -->
     <div class="form-column">
-      <form [formGroup]="form" (ngSubmit)="save()">
-        
+      <form [formGroup]="form" (ngSubmit)="addPendingEntry()">
+
         <mat-card class="section-card" *ngIf="data.scheduleType !== 'fullDay'">
           <mat-card-header>
             <mat-card-title>
-              <ion-icon name="time-outline"></ion-icon>
+              <mat-icon>schedule</mat-icon>
               Section 1 &mdash; Schedule
             </mat-card-title>
           </mat-card-header>
-          
+
           <mat-card-content>
             <div class="time-row">
-              <mat-form-field appearance="outline" class="time-field">
-                <mat-label>Start Time</mat-label>
-                <input matInput type="time" formControlName="startTime">
-                <ion-icon matPrefix name="time-outline"></ion-icon>
-              </mat-form-field>
+
+              <ion-item class="time-field" button [matMenuTriggerFor]="startMenu" detail="false">
+                <ion-icon name="time-outline" slot="start"></ion-icon>
+                <ion-label>Start Time</ion-label>
+                <div slot="end" class="time-display">{{ form.value.startTime }}</div>
+              </ion-item>
+
+              <mat-menu #startMenu="matMenu" class="datetime-menu" xPosition="after">
+                <div (click)="$event.stopPropagation()" class="datetime-wrapper">
+                  <ion-datetime presentation="time" [value]="getIsoTime(form.get('startTime')?.value)"
+                    (ionChange)="onTimeChange('startTime', $event)">
+                  </ion-datetime>
+                </div>
+              </mat-menu>
 
               <div class="time-arrow">
-                <ion-icon name="arrow-forward-outline"></ion-icon>
+                <mat-icon>arrow_forward</mat-icon>
               </div>
 
-              <mat-form-field appearance="outline" class="time-field">
-                <mat-label>End Time</mat-label>
-                <input matInput type="time" formControlName="endTime">
-              </mat-form-field>
+              <ion-item class="time-field" button [matMenuTriggerFor]="endMenu" detail="false">
+                <ion-icon name="time-outline" slot="start"></ion-icon>
+                <ion-label>End Time</ion-label>
+                <div slot="end" class="time-display">{{ form.value.endTime }}</div>
+              </ion-item>
+
+              <mat-menu #endMenu="matMenu" class="datetime-menu" xPosition="after">
+                <div (click)="$event.stopPropagation()" class="datetime-wrapper">
+                  <ion-datetime presentation="time" [value]="getIsoTime(form.get('endTime')?.value)"
+                    (ionChange)="onTimeChange('endTime', $event)">
+                  </ion-datetime>
+                </div>
+              </mat-menu>
+
             </div>
-            
+
             <div class="overlap-warning" *ngIf="overlapWarning">
-              <ion-icon name="warning-outline"></ion-icon>
+              <mat-icon>warning</mat-icon>
               <span>{{ overlapWarning }}</span>
             </div>
           </mat-card-content>
@@ -55,7 +74,7 @@
         <mat-card class="section-card">
           <mat-card-header>
             <mat-card-title>
-              <ion-icon name="information-circle-outline"></ion-icon>
+              <mat-icon>info</mat-icon>
               {{ data.scheduleType === 'fullDay' ? 'Section 1' : 'Section 2' }} &mdash; Activity Information
             </mat-card-title>
           </mat-card-header>
@@ -68,74 +87,94 @@
 
             <div class="activity-suggestions">
               <div class="chip" *ngFor="let chip of activitySuggestions" (click)="setActivityName(chip.name)">
-                <span class="chip-icon">{{ chip.icon }}</span>
+                <span class="chip-icon"><mat-icon>{{ chip.icon }}</mat-icon></span>
                 <span class="chip-label">{{ chip.name }}</span>
               </div>
             </div>
 
-            <mat-form-field appearance="outline" class="full-width" *ngIf="data.scheduleType === 'fullDay' || !data.dayOfWeek">
+            <!-- Day of Week -->
+            <mat-form-field appearance="outline" class="full-width"
+              *ngIf="data.scheduleType === 'fullDay' || !data.dayOfWeek">
               <mat-label>Day of Week</mat-label>
+              <mat-icon matPrefix>calendar_today</mat-icon>
+
               <mat-select formControlName="dayOfWeek">
-                <mat-option *ngFor="let day of daysOfWeek" [value]="day">{{ day }}</mat-option>
+                <mat-option *ngFor="let day of daysOfWeek" [value]="day">
+                  {{ day }}
+                </mat-option>
               </mat-select>
-              <ion-icon matPrefix name="calendar-outline"></ion-icon>
             </mat-form-field>
 
+            <!-- Teacher -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Teacher / Staff (Optional)</mat-label>
+
+              <mat-icon matPrefix>person_outline</mat-icon>
+
               <mat-select formControlName="teacherId">
                 <mat-select-trigger>
                   <ng-container *ngIf="form.get('teacherId')?.value as tid">
                     <ng-container *ngIf="getStaffById(tid) as selTeacher">
                       <div class="select-trigger-rich">
-                        <div class="avatar-small">{{ getInitials(selTeacher['name']) }}</div>
-                        <span class="name">{{ selTeacher['name'] }}</span>
+                        <div class="avatar-small">{{ getInitials(selTeacher['displayName'] || selTeacher['name']) }}</div>
+                        <span class="name">{{ selTeacher['displayName'] || selTeacher['name'] }}</span>
                       </div>
                     </ng-container>
                   </ng-container>
                 </mat-select-trigger>
+
                 <mat-option [value]="null">None</mat-option>
-                <mat-option *ngFor="let s of staff" [value]="s.id">
+
+                <mat-option *ngFor="let s of staff" [value]="s['userId'] || s.id">
                   <div class="teacher-option">
-                    <div class="avatar">{{ getInitials(s['name']) }}</div>
+                    <div class="avatar">{{ getInitials(s['displayName'] || s['name']) }}</div>
                     <div class="teacher-details">
-                      <div class="teacher-name">{{ s['name'] }}</div>
+                      <div class="teacher-name">{{ s['displayName'] || s['name'] }}</div>
                       <div class="teacher-role">{{ getRoleLabel(s['role']) }}</div>
                     </div>
                   </div>
                 </mat-option>
               </mat-select>
-              <ion-icon matPrefix name="person-outline"></ion-icon>
             </mat-form-field>
 
+            <!-- Subject -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Subject (Optional)</mat-label>
+
+              <mat-icon matPrefix>menu_book</mat-icon>
+
               <mat-select formControlName="subjectId">
                 <mat-select-trigger>
                   <ng-container *ngIf="form.get('subjectId')?.value as sid">
                     <ng-container *ngIf="getSubjectById(sid) as selSubject">
                       <div class="select-trigger-rich">
-                        <div class="subject-dot" [style.background-color]="getSubjectColor(sid)"></div>
+                        <div class="subject-dot" [style.background-color]="getSubjectColor(sid)">
+                        </div>
                         <span>{{ selSubject['name'] }}</span>
                       </div>
                     </ng-container>
                   </ng-container>
                 </mat-select-trigger>
+
                 <mat-option [value]="null">None</mat-option>
+
                 <mat-option *ngFor="let s of subjects" [value]="s.id">
                   <div class="subject-option">
-                    <div class="subject-dot" [style.background-color]="getSubjectColor(s.id)"></div>
+                    <div class="subject-dot" [style.background-color]="getSubjectColor(s.id)">
+                    </div>
                     <span>{{ s['name'] }}</span>
                   </div>
                 </mat-option>
               </mat-select>
-              <ion-icon matPrefix name="book-outline"></ion-icon>
             </mat-form-field>
 
+            <!-- Room -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Room / Location (Optional)</mat-label>
+
+              <mat-icon matPrefix>location_on</mat-icon>
+
               <input matInput formControlName="roomId" placeholder="e.g. Room 101, Main Hall">
-              <ion-icon matPrefix name="location-outline"></ion-icon>
             </mat-form-field>
           </mat-card-content>
         </mat-card>
@@ -144,16 +183,17 @@
         <mat-expansion-panel class="details-panel" elevation="0">
           <mat-expansion-panel-header>
             <mat-panel-title>
-              <ion-icon name="document-text-outline"></ion-icon>
+              <mat-icon>description</mat-icon>
               Additional Details
             </mat-panel-title>
           </mat-expansion-panel-header>
-          
+
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Description / Notes</mat-label>
-            <textarea matInput formControlName="description" rows="3" placeholder="Any additional details..."></textarea>
+            <textarea matInput formControlName="description" rows="3"
+              placeholder="Any additional details..."></textarea>
           </mat-form-field>
-          
+
           <mat-form-field appearance="outline" class="full-width" *ngIf="data.entry">
             <mat-label>Status</mat-label>
             <mat-select formControlName="status">
@@ -167,29 +207,71 @@
       </form>
     </div>
 
-    <!-- Right Column: Live Preview -->
+    <!-- Right Column: Live Preview & Pending -->
     <div class="preview-column">
-      <div class="preview-header">Live Preview</div>
+      
+      <div *ngIf="currentDayExistingEntries.length > 0">
+        <div class="preview-header">Already Added on {{ form.get('dayOfWeek')?.value || 'this day' }}</div>
+        <div class="pending-list" style="margin-bottom: 24px;">
+          <div class="pending-item" *ngFor="let entry of currentDayExistingEntries" style="opacity: 0.8; background: var(--ion-color-step-50, #f4f5f8); padding-right: 12px; align-items: flex-start;">
+            <div class="pending-item-content" style="display: flex; flex-direction: column; gap: 4px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <mat-icon style="color: var(--ion-color-medium, #92949c); font-size: 18px; width: 18px; height: 18px;">event_available</mat-icon>
+                <span class="pending-time" *ngIf="entry.scheduleType !== 'fullDay'">{{ entry.startTime }} - {{ entry.endTime }}</span>
+                <span class="pending-badge" *ngIf="entry.scheduleType === 'fullDay'">Full-Day</span>
+              </div>
+              <span class="pending-name">{{ entry.activityName }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-header" *ngIf="pendingEntries.length > 0">Periods to be Added</div>
+
+      <div class="pending-list" *ngIf="pendingEntries.length > 0">
+        <div class="pending-item" *ngFor="let entry of pendingEntries; let i = index" style="align-items: flex-start;" [class.is-editing]="i === editingPendingIndex">
+          <div class="pending-item-content" style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="pending-time" *ngIf="data.scheduleType !== 'fullDay'">{{ entry.startTime }} - {{ entry.endTime }}</span>
+              <span class="pending-badge" *ngIf="data.scheduleType === 'fullDay'">Full-Day</span>
+            </div>
+            <span class="pending-name">{{ entry.activityName }}</span>
+          </div>
+          <div class="pending-actions" style="margin-top: -4px;">
+            <button mat-icon-button color="primary" type="button" (click)="editPendingEntry(i)" matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button color="warn" type="button" (click)="deletePendingEntry(i)" matTooltip="Remove">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="preview-header" [style.marginTop.px]="pendingEntries.length > 0 ? 24 : 0">
+        {{ pendingEntries.length > 0 ? 'Current Form Preview' : 'Live Preview' }}
+      </div>
       <div class="preview-card" *ngIf="preview$ | async as preview">
         <div class="preview-day">{{ preview.dayOfWeek || 'Day' }}</div>
         <div class="preview-time" *ngIf="data.scheduleType !== 'fullDay'">
           {{ preview.startTime || '00:00' }} - {{ preview.endTime || '00:00' }}
         </div>
         <div class="full-day-badge" *ngIf="data.scheduleType === 'fullDay'">
-          <ion-icon name="today-outline"></ion-icon> Full-Day Activity
+          <mat-icon>calendar_month</mat-icon> Full-Day Activity
         </div>
-        
+
         <div class="preview-activity-name">{{ preview.activityName || 'Activity Name' }}</div>
-        
+
         <div class="preview-meta">
           <div class="meta-item" *ngIf="preview.teacherName">
-            <ion-icon name="person"></ion-icon> {{ preview.teacherName }}
+            <mat-icon>person</mat-icon> {{ preview.teacherName }}
           </div>
           <div class="meta-item" *ngIf="preview.subjectName">
-            <div class="subject-dot-small" [style.background-color]="getSubjectColor(preview.subjectId)"></div> {{ preview.subjectName }}
+            <div class="subject-dot-small" [style.background-color]="getSubjectColor(preview.subjectId)"></div> {{
+            preview.subjectName }}
           </div>
           <div class="meta-item" *ngIf="preview.roomId">
-            <ion-icon name="location"></ion-icon> {{ preview.roomId }}
+            <mat-icon>location_on</mat-icon> {{ preview.roomId }}
           </div>
         </div>
       </div>
@@ -199,8 +281,21 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end" class="dialog-footer">
-  <button mat-button mat-dialog-close>Cancel</button>
-  <button mat-flat-button color="primary" (click)="save()" [disabled]="form.invalid">
-    Save Activity
+  <button mat-button (click)="dialogRef.close(true)" type="button">
+    <mat-icon>close</mat-icon> Cancel
+  </button>
+
+  <button mat-stroked-button color="primary" class="copy-btn" (click)="openCopyDialog()" type="button">
+    <mat-icon >content_copy</mat-icon> Copy From Another
+    Day
+  </button>
+  <button mat-stroked-button color="primary" *ngIf="!data.entry && data.scheduleType !== 'fullDay'" type="button"
+    (click)="addPendingEntry()" [disabled]="form.invalid || overlapWarning">
+    <mat-icon>{{ editingPendingIndex !== null ? 'save' : 'add_circle_outline' }}</mat-icon> 
+    {{ editingPendingIndex !== null ? 'Update Period' : 'Add Another Period' }}
+  </button>
+  <button mat-flat-button color="primary" type="button" (click)="saveAll()"
+    [disabled]="form.invalid && pendingEntries.length === 0">
+    <mat-icon>check</mat-icon> Save Activity
   </button>
 </mat-dialog-actions>

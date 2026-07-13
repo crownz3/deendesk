@@ -1,0 +1,387 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as state">
+
+    <!-- Initial Loading State -->
+    <ng-container *ngIf="state.loading && !state.data">
+      <div class="loading-state">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading fees data...</p>
+      </div>
+    </ng-container>
+
+    <!-- Error State -->
+    <ng-container *ngIf="!state.loading && state.error">
+      <div class="error-state">
+        <app-empty-state
+          icon="alert-circle-outline"
+          title="Unable to load fees"
+          [message]="state.error"
+        ></app-empty-state>
+      </div>
+    </ng-container>
+
+    <!-- Data State -->
+    <ng-container *ngIf="!state.error && state.data as vm">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Finance</p>
+          <h1>Fees Management</h1>
+          <p>Manage fee plans, assignments, collections, and track dues.</p>
+        </div>
+        <div class="page-actions">
+          <button mat-flat-button color="primary" type="button" (click)="openFeePlanForm()">
+            <ion-icon name="add-outline"></ion-icon>
+            New Fee Plan
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card stat-total">
+          <div class="stat-icon"><ion-icon name="wallet-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.totalAssigned | number:'1.0-0' }}</span>
+            <span class="stat-label">Total Assigned</span>
+          </div>
+        </div>
+        <div class="stat-card stat-collected">
+          <div class="stat-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.totalCollected | number:'1.0-0' }}</span>
+            <span class="stat-label">Collected</span>
+          </div>
+        </div>
+        <div class="stat-card stat-pending">
+          <div class="stat-icon"><ion-icon name="time-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.totalPending | number:'1.0-0' }}</span>
+            <span class="stat-label">Pending</span>
+          </div>
+        </div>
+        <div class="stat-card stat-overdue">
+          <div class="stat-icon"><ion-icon name="warning-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.totalOverdue | number:'1.0-0' }}</span>
+            <span class="stat-label">Overdue</span>
+          </div>
+        </div>
+        <div class="stat-card stat-partial">
+          <div class="stat-icon"><ion-icon name="pie-chart-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.partialPaidCount }}</span>
+            <span class="stat-label">Partial Paid</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <mat-tab-group animationDuration="200ms" (selectedTabChange)="activeTab = $event.index">
+
+        <!-- TAB 1: Fee Plans -->
+        <mat-tab label="Fee Plans">
+          <div class="tab-content">
+            <div class="filters-toolbar">
+              <mat-form-field appearance="outline" class="search-field">
+                <mat-label>Search fee plans</mat-label>
+                <mat-icon matPrefix>search</mat-icon>
+                <input matInput [(ngModel)]="planSearch" placeholder="Search by title...">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Fee Type</mat-label>
+                <mat-select [(ngModel)]="planTypeFilter">
+                  <mat-option value="all">All Types</mat-option>
+                  <mat-option value="yearly">Yearly</mat-option>
+                  <mat-option value="monthly">Monthly</mat-option>
+                  <mat-option value="amalCard">Amal Card</mat-option>
+                  <mat-option value="admission">Admission</mat-option>
+                  <mat-option value="exam">Exam</mat-option>
+                  <mat-option value="transport">Transport</mat-option>
+                  <mat-option value="custom">Custom</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Status</mat-label>
+                <mat-select [(ngModel)]="planStatusFilter">
+                  <mat-option value="all">All</mat-option>
+                  <mat-option value="active">Active</mat-option>
+                  <mat-option value="inactive">Inactive</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="table-responsive" *ngIf="filteredPlans(vm.feePlans).length > 0; else noPlans">
+              <table class="fee-table">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Period</th>
+                    <th>Due Date</th>
+                    <th>Assigned</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let plan of filteredPlans(vm.feePlans); trackBy: trackById">
+                    <td class="cell-title">{{ plan['title'] }}</td>
+                    <td><span class="chip chip-type">{{ feeTypeLabel(plan['feeType']) }}</span></td>
+                    <td class="cell-amount">₹{{ $any(plan['amount']) | number:'1.0-0' }}</td>
+                    <td>{{ periodLabel(plan['paymentPeriod']) }}</td>
+                    <td>{{ $any(plan['endDate']) | date:'mediumDate' }}</td>
+                    <td>{{ plan['assignedCount'] || 0 }}</td>
+                    <td>
+                      <span class="chip" [ngClass]="plan['status'] === 'active' ? 'chip-active' : 'chip-inactive'">
+                        {{ plan['status'] === 'active' ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+                    <td class="cell-actions">
+                      <button mat-icon-button matTooltip="Edit" (click)="editFeePlan(plan)">
+                        <ion-icon name="create-outline"></ion-icon>
+                      </button>
+                      <button mat-icon-button matTooltip="Assign Students" (click)="openAssignStudents(plan)">
+                        <ion-icon name="people-outline"></ion-icon>
+                      </button>
+                      <button mat-icon-button matTooltip="Delete" color="warn" (click)="deleteFeePlan(plan)">
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #noPlans>
+              <app-empty-state
+                icon="wallet-outline"
+                title="No fee plans found"
+                message="Create your first fee plan to start managing fees."
+                buttonLabel="Create Fee Plan"
+                (action)="openFeePlanForm()"
+              ></app-empty-state>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- TAB 2: Fee Collection -->
+        <mat-tab label="Collection">
+          <div class="tab-content">
+            <div class="filters-toolbar">
+              <mat-form-field appearance="outline" class="search-field">
+                <mat-label>Search students</mat-label>
+                <mat-icon matPrefix>search</mat-icon>
+                <input matInput [(ngModel)]="collectionSearch" placeholder="Student name...">
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Fee Plan</mat-label>
+                <mat-select [(ngModel)]="collectionPlanFilter">
+                  <mat-option value="all">All Plans</mat-option>
+                  <mat-option *ngFor="let plan of vm.feePlans" [value]="plan.id">{{ plan['title'] }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Payment Status</mat-label>
+                <mat-select [(ngModel)]="collectionStatusFilter">
+                  <mat-option value="all">All</mat-option>
+                  <mat-option value="paid">Paid</mat-option>
+                  <mat-option value="notPaid">Not Paid</mat-option>
+                  <mat-option value="partialPaid">Partial Paid</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="table-responsive" *ngIf="filteredAssignments(vm.feeAssignments).length > 0; else noAssignments">
+              <table class="fee-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Fee Plan</th>
+                    <th>Amount</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let a of filteredAssignments(vm.feeAssignments); trackBy: trackById">
+                    <td class="cell-title">{{ a['studentName'] || a['studentId'] }}</td>
+                    <td>{{ a['feePlanTitle'] || a['feePlanId'] }}</td>
+                    <td class="cell-amount">₹{{ $any(a['amount']) | number:'1.0-0' }}</td>
+                    <td class="cell-amount paid-amount">₹{{ $any(a['paidAmount']) | number:'1.0-0' }}</td>
+                    <td class="cell-amount balance-amount">₹{{ $any(a['balanceAmount']) | number:'1.0-0' }}</td>
+                    <td>{{ $any(a['dueDate']) | date:'mediumDate' }}</td>
+                    <td>
+                      <span class="chip"
+                        [ngClass]="{
+                          'chip-paid': a['paymentStatus'] === 'paid',
+                          'chip-not-paid': a['paymentStatus'] === 'notPaid',
+                          'chip-partial': a['paymentStatus'] === 'partialPaid'
+                        }">
+                        {{ paymentStatusLabel(a['paymentStatus']) }}
+                      </span>
+                    </td>
+                    <td class="cell-actions">
+                      <button mat-flat-button color="primary" class="btn-sm" (click)="openPaymentDialog(a)"
+                        *ngIf="a['paymentStatus'] !== 'paid'">
+                        <ion-icon name="cash-outline"></ion-icon>
+                        Record Payment
+                      </button>
+                      <button mat-stroked-button class="btn-sm" (click)="viewPaymentHistory(a)">
+                        <ion-icon name="list-outline"></ion-icon>
+                        History
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #noAssignments>
+              <app-empty-state
+                icon="receipt-outline"
+                title="No fee assignments found"
+                message="Assign fee plans to students to start collecting fees."
+              ></app-empty-state>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- TAB 3: Due & Tracking -->
+        <mat-tab label="Due & Tracking">
+          <div class="tab-content">
+            <div class="filters-toolbar">
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Due Period</mat-label>
+                <mat-select [(ngModel)]="duePeriodFilter">
+                  <mat-option value="all">All</mat-option>
+                  <mat-option value="currentMonth">Current Month</mat-option>
+                  <mat-option value="lastMonth">Last Month</mat-option>
+                  <mat-option value="overdue">Overdue</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Fee Plan</mat-label>
+                <mat-select [(ngModel)]="duePlanFilter">
+                  <mat-option value="all">All Plans</mat-option>
+                  <mat-option *ngFor="let plan of vm.feePlans" [value]="plan.id">{{ plan['title'] }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+              <mat-form-field appearance="outline" class="filter-field">
+                <mat-label>Madrasa</mat-label>
+                <mat-select [(ngModel)]="dueMadrasaFilter">
+                  <mat-option value="all">All Madrasas</mat-option>
+                  <mat-option *ngFor="let m of vm.madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+
+            <div class="table-responsive" *ngIf="filteredDueAssignments(vm.feeAssignments).length > 0; else noDue">
+              <table class="fee-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Fee Plan</th>
+                    <th>Amount</th>
+                    <th>Paid</th>
+                    <th>Balance</th>
+                    <th>Due Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let a of filteredDueAssignments(vm.feeAssignments); trackBy: trackById"
+                    [class.overdue-row]="isOverdue(a)">
+                    <td class="cell-title">{{ a['studentName'] || a['studentId'] }}</td>
+                    <td>{{ a['feePlanTitle'] || a['feePlanId'] }}</td>
+                    <td class="cell-amount">₹{{ $any(a['amount']) | number:'1.0-0' }}</td>
+                    <td class="cell-amount paid-amount">₹{{ $any(a['paidAmount']) | number:'1.0-0' }}</td>
+                    <td class="cell-amount balance-amount">₹{{ $any(a['balanceAmount']) | number:'1.0-0' }}</td>
+                    <td>{{ $any(a['dueDate']) | date:'mediumDate' }}</td>
+                    <td>
+                      <span class="chip"
+                        [ngClass]="{
+                          'chip-paid': a['paymentStatus'] === 'paid',
+                          'chip-not-paid': a['paymentStatus'] === 'notPaid',
+                          'chip-partial': a['paymentStatus'] === 'partialPaid'
+                        }">
+                        {{ paymentStatusLabel(a['paymentStatus']) }}
+                      </span>
+                    </td>
+                    <td class="cell-actions">
+                      <button mat-flat-button color="primary" class="btn-sm" (click)="openPaymentDialog(a)"
+                        *ngIf="a['paymentStatus'] !== 'paid'">
+                        <ion-icon name="cash-outline"></ion-icon>
+                        Collect
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #noDue>
+              <app-empty-state
+                icon="checkmark-done-circle-outline"
+                title="No dues found"
+                message="All fees are up to date for the selected filters."
+              ></app-empty-state>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+        <!-- TAB 4: Payment History -->
+        <mat-tab label="Payment History">
+          <div class="tab-content">
+            <div class="filters-toolbar">
+              <mat-form-field appearance="outline" class="search-field">
+                <mat-label>Search payments</mat-label>
+                <mat-icon matPrefix>search</mat-icon>
+                <input matInput [(ngModel)]="paymentSearch" placeholder="Student name or receipt...">
+              </mat-form-field>
+            </div>
+
+            <div class="table-responsive" *ngIf="filteredPayments(vm.feePayments).length > 0; else noPayments">
+              <table class="fee-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Student</th>
+                    <th>Amount</th>
+                    <th>Method</th>
+                    <th>Receipt #</th>
+                    <th>Balance After</th>
+                    <th>Remarks</th>
+                    <th>Collected By</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let p of filteredPayments(vm.feePayments); trackBy: trackById">
+                    <td>{{ $any(p['paymentDate']) | date:'mediumDate' }}</td>
+                    <td class="cell-title">{{ p['studentName'] || p['studentId'] }}</td>
+                    <td class="cell-amount paid-amount">₹{{ $any(p['amountPaid']) | number:'1.0-0' }}</td>
+                    <td>{{ paymentMethodLabel(p['paymentMethod']) }}</td>
+                    <td>{{ p['receiptNumber'] || '—' }}</td>
+                    <td class="cell-amount">₹{{ $any(p['balanceAfterPayment']) | number:'1.0-0' }}</td>
+                    <td>{{ p['remarks'] || '—' }}</td>
+                    <td>{{ p['collectedByStaffName'] || '—' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #noPayments>
+              <app-empty-state
+                icon="document-text-outline"
+                title="No payment records"
+                message="Payment records will appear here once fees are collected."
+              ></app-empty-state>
+            </ng-template>
+          </div>
+        </mat-tab>
+
+      </mat-tab-group>
+
+    </ng-container>
+  </section>
+</ion-content>

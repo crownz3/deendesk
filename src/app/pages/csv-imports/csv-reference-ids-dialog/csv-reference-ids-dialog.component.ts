@@ -9,6 +9,7 @@ export interface CsvReferenceIdsDialogData {
   madrasas: EntityRecord[];
   courses: EntityRecord[];
   classes: EntityRecord[];
+  classGroups?: EntityRecord[];
 }
 
 @Component({
@@ -20,6 +21,7 @@ export interface CsvReferenceIdsDialogData {
 export class CsvReferenceIdsDialogComponent implements OnInit {
   madrasaMap = new Map<string, string>();
   courseMap = new Map<string, string>();
+  classMap = new Map<string, string>();
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public readonly data: CsvReferenceIdsDialogData,
@@ -46,6 +48,12 @@ export class CsvReferenceIdsDialogComponent implements OnInit {
         .filter(item => !!item.id)
         .map((item) => [item.id as string, String(item['name'] || item['title'] || item['courseName'] || item.id)])
     );
+
+    this.classMap = new Map(
+      (this.data.classes || [])
+        .filter(item => !!item.id)
+        .map((item) => [item.id as string, String(item['name'] || item['title'] || item.id)])
+    );
   }
 
   getMadrasaName(madrasaId: unknown): string {
@@ -54,6 +62,10 @@ export class CsvReferenceIdsDialogComponent implements OnInit {
 
   getCourseName(courseId: unknown): string {
     return this.courseMap.get(String(courseId || '')) || '-';
+  }
+
+  getClassName(classId: unknown): string {
+    return this.classMap.get(String(classId || '')) || '-';
   }
 
   copy(value: string): void {

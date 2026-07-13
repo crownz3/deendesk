@@ -8,6 +8,7 @@ import { LoaderService } from './core/services/loader.service';
 import { MatDialog } from '@angular/material/dialog';
 import { SidebarSettingsService } from './core/services/sidebar-settings.service';
 import { AppSettingsDialogComponent } from './shared/components/app-settings-dialog/app-settings-dialog.component';
+import { AuditLogService } from './core/services/audit-log.service';
 
 interface NavItem {
   label: string;
@@ -45,14 +46,17 @@ export class AppComponent {
     { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permission: 'manageParents' },
     { label: 'Courses', route: '/courses', icon: 'library-outline', permission: 'manageCourses' },
     { label: 'Classes', route: '/classes', icon: 'easel-outline', permission: 'manageClasses' },
+    { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permission: 'manageClasses' },
     { label: 'Subjects', route: '/subjects', icon: 'book-outline', permission: 'manageSubjects' },
-    { label: 'Class Plans', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance', 'viewDashboard'] },
+    { label: 'Class Plans', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] },
     { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
     { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
+    { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees', 'viewFees'] },
     { label: 'CSV Imports', route: '/csv-imports', icon: 'cloud-upload-outline', permission: 'importCsv' },
     { label: 'Academic Tree', route: '/academic-tree', icon: 'git-branch-outline', permissionsAny: ['viewDashboard', 'manageAcademicPlans'] },
     { label: 'Password Requests', route: '/password-requests', icon: 'lock-open-outline', permission: 'managePasswordRequests' },
     { label: 'Notifications', route: '/notifications', icon: 'notifications-outline' },
+    { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', permissionsAny: ['manageOrganizations'] }, // Roughly maps to org admin/super admin
     { label: 'Profile', route: '/profile', icon: 'person-circle-outline', permission: 'editProfile' },
     { label: 'Settings', route: '/settings', icon: 'settings-outline', permission: 'manageSettings' },
   ];
@@ -62,7 +66,8 @@ export class AppComponent {
     private readonly router: Router,
     private readonly loader: LoaderService,
     public readonly sidebarSettings: SidebarSettingsService,
-    private readonly dialog: MatDialog
+    private readonly dialog: MatDialog,
+    private readonly auditLogService: AuditLogService
   ) { }
 
   isMenuOpen = false;
@@ -103,7 +108,7 @@ export class AppComponent {
     }
 
     if (item.permissionsAny && item.permissionsAny.length > 0) {
-      return item.permissionsAny.some(permission => profile?.permissions?.includes(permission));
+      return this.auth.hasAnyPermission(profile, item.permissionsAny);
     }
 
     if (!item.permission) {
@@ -152,6 +157,12 @@ export class AppComponent {
 
   async logout(): Promise<void> {
     await this.loader.withLoader('Signing you out...', async () => {
+      await this.auditLogService.logAction({
+        module: 'Auth',
+        action: 'Logout',
+        status: 'success',
+        message: 'User logged out'
+      });
       await this.auth.logout();
     });
   }

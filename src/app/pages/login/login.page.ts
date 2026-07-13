@@ -8,6 +8,7 @@ import { AppUser, UserRole } from '../../core/models/domain.model';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { AuthService } from '../../core/services/auth.service';
 import { LoaderService } from '../../core/services/loader.service';
+import { AuditLogService } from '../../core/services/audit-log.service';
 
 @Component({
   selector: 'app-login',
@@ -33,6 +34,7 @@ export class LoginPage implements OnInit {
     private readonly snackBar: MatSnackBar,
     private readonly route: ActivatedRoute,
     private readonly loader: LoaderService,
+    private readonly auditLogService: AuditLogService,
   ) {}
 
   ngOnInit(): void {
@@ -54,6 +56,12 @@ export class LoginPage implements OnInit {
       await this.loader.withLoader('Signing you in securely...', async () => {
         const { email, password } = this.form.getRawValue();
         await this.auth.loginWithEmail(email.trim().toLowerCase(), password);
+        await this.auditLogService.logAction({
+          module: 'Auth',
+          action: 'Login',
+          status: 'success',
+          message: 'Logged in with email'
+        });
         await this.router.navigateByUrl('/continue');
       });
     } catch (error) {
@@ -65,6 +73,12 @@ export class LoginPage implements OnInit {
     try {
       await this.loader.withLoader('Signing you in securely...', async () => {
         await this.auth.loginWithGoogle();
+        await this.auditLogService.logAction({
+          module: 'Auth',
+          action: 'Login',
+          status: 'success',
+          message: 'Logged in with Google'
+        });
         await this.router.navigateByUrl('/continue');
       });
     } catch (error) {

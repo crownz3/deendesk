@@ -1,0 +1,48 @@
+<div class="dialog-header">
+  <h2>Cannot Deactivate Class</h2>
+  <button mat-icon-button type="button" mat-dialog-close>
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content">
+  <div class="warning-banner">
+    <ion-icon name="warning-outline" color="warning"></ion-icon>
+    <p>This Class still contains active records.</p>
+  </div>
+  
+  <p>Please move or remove these records before deactivating the Class:</p>
+
+  <ul class="active-records-list">
+    <li *ngIf="data.counts.students > 0">
+      <ion-icon name="person-outline"></ion-icon>
+      <strong>{{ data.counts.students }}</strong> Active Students
+    </li>
+    <li *ngIf="data.counts.staff > 0">
+      <ion-icon name="briefcase-outline"></ion-icon>
+      <strong>{{ data.counts.staff }}</strong> Staff Members
+    </li>
+    <li *ngIf="data.counts.timetables > 0">
+      <ion-icon name="calendar-outline"></ion-icon>
+      <strong>{{ data.counts.timetables }}</strong> Active Timetable(s)
+    </li>
+    <li *ngIf="data.counts.attendance > 0">
+      <ion-icon name="checkmark-circle-outline"></ion-icon>
+      <strong>{{ data.counts.attendance }}</strong> Attendance Record(s)
+    </li>
+  </ul>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions">
+  <button mat-button type="button" (click)="cancel()">Cancel</button>
+  
+  <ng-container *ngIf="data.counts.students > 0">
+    <button mat-stroked-button type="button" (click)="viewStudents()">View Students</button>
+    <button mat-flat-button color="primary" type="button" (click)="transferStudents()">Transfer Students</button>
+  </ng-container>
+
+  <ng-container *ngIf="data.counts.students === 0 && data.counts.staff > 0">
+    <button mat-stroked-button type="button" (click)="viewStaff()">View Staff</button>
+    <button mat-flat-button color="primary" type="button" (click)="transferStaff()">Transfer Staff</button>
+  </ng-container>
+</mat-dialog-actions>

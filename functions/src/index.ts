@@ -195,9 +195,6 @@ export const createOrganizationWithAdmin = functions.https.onCall(async (data, c
       permissions: ROLE_PERMISSIONS["organizationAdmin"],
 
       madrasaIds: [],
-      classIds: [],
-      subjectIds: [],
-      teacherIds: [],
       linkedStudentIds: [],
 
       status: "active",
@@ -277,7 +274,6 @@ export const createUserWithTemporaryPassword = functions.https.onCall(async (dat
     classId,
     classIds,
     subjectIds,
-    teacherIds,
     linkedStudentIds,
     courseId,
     courseName,
@@ -417,10 +413,6 @@ export const createUserWithTemporaryPassword = functions.https.onCall(async (dat
       permissions: ROLE_PERMISSIONS[role as UserRole] || [],
       madrasaId: madrasaId ?? null,
       madrasaIds: Array.isArray(madrasaIds) ? madrasaIds : [],
-      classId: classId ?? null,
-      classIds: classId ? [classId] : Array.isArray(classIds) ? classIds : [],
-      subjectIds: Array.isArray(subjectIds) ? subjectIds : [],
-      teacherIds: Array.isArray(teacherIds) ? teacherIds : [],
       linkedStudentIds: Array.isArray(linkedStudentIds) ? linkedStudentIds : [],
 
       status: "active",
@@ -437,6 +429,9 @@ export const createUserWithTemporaryPassword = functions.https.onCall(async (dat
     };
 
     if (role === 'student') {
+      userPayload['classId'] = classId ?? null;
+      userPayload['classIds'] = classId ? [classId] : Array.isArray(classIds) ? classIds : [];
+      userPayload['subjectIds'] = Array.isArray(subjectIds) ? subjectIds : [];
       if (courseId !== undefined) userPayload['courseId'] = courseId ?? null;
       if (courseName !== undefined) userPayload['courseName'] = courseName ?? '';
       if (className !== undefined) userPayload['className'] = className ?? '';
@@ -626,4 +621,298 @@ export const resetUserTemporaryPassword = functions.https.onCall(async (data, co
 
   // 18. Return success
   return { success: true };
+});
+
+// ---------------------------------------------------------------------------
+// bulkDeleteData — Super Admin only bulk collection / Auth deletion
+// ---------------------------------------------------------------------------
+
+const SUPER_ADMIN_EMAIL_FUNC = "mohamedibrahim010425@gmail.com";
+
+/** Delete every document in a Firestore collection using batched writes. */
+async function deleteCollection(collectionPath: string): Promise<number> {
+  let deleted = 0;
+  const BATCH_SIZE = 400;
+
+  while (true) {
+    const snap = await db.collection(collectionPath).limit(BATCH_SIZE).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    deleted += snap.size;
+  }
+
+  return deleted;
+}
+
+/** Delete a single Firebase Auth user safely (skips if not found). */
+async function deleteAuthUser(uid: string): Promise<boolean> {
+  try {
+    await admin.auth().deleteUser(uid);
+    return true;
+  } catch (err: any) {
+    if (err?.code === "auth/user-not-found") return false;
+    throw err;
+  }
+}
+
+/**
+ * For entity collections that have linked users (students, staff, parents, etc.),
+ * delete Auth account → users doc → entity doc for each record.
+ * Returns { docsDeleted, authDeleted }.
+ */
+async function deleteEntityCollectionWithAuth(
+  entityCollection: string,
+  roleFilter: string[]
+): Promise<{ docsDeleted: number; authDeleted: number }> {
+  let docsDeleted = 0;
+  let authDeleted = 0;
+  const BATCH_SIZE = 200;
+
+  // Fetch linked user docs for this role
+  let usersQuery = db.collection("users").where("role", "in", roleFilter);
+  let lastUserDoc: admin.firestore.QueryDocumentSnapshot | null = null;
+
+  while (true) {
+    let q = usersQuery.limit(BATCH_SIZE);
+    if (lastUserDoc) q = q.startAfter(lastUserDoc);
+    const userSnap = await q.get();
+    if (userSnap.empty) break;
+
+    for (const userDoc of userSnap.docs) {
+      const userData = userDoc.data();
+      const email: string = userData["email"] || "";
+
+      // Never delete Super Admin
+      if (email.toLowerCase() === SUPER_ADMIN_EMAIL_FUNC.toLowerCase()) continue;
+
+      const uid = userDoc.id;
+
+      // 1. Delete Firebase Auth account
+      try {
+        const deleted = await deleteAuthUser(uid);
+        if (deleted) authDeleted++;
+      } catch (e) {
+        console.error(`[bulkDelete] Auth delete failed for ${uid}:`, e);
+      }
+
+      // 2. Delete Firestore users doc
+      try {
+        await db.collection("users").doc(uid).delete();
+        docsDeleted++;
+      } catch (e) {
+        console.error(`[bulkDelete] users doc delete failed for ${uid}:`, e);
+      }
+    }
+
+    lastUserDoc = userSnap.docs[userSnap.docs.length - 1];
+    if (userSnap.size < BATCH_SIZE) break;
+  }
+
+  // 3. Delete the entity collection documents
+  docsDeleted += await deleteCollection(entityCollection);
+
+  return { docsDeleted, authDeleted };
+}
+
+interface CollectionResult {
+  deleted: number;
+  authDeleted: number;
+  failed: number;
+  error?: string;
+}
+
+// Ordered list of all supported collection keys with their metadata
+const COLLECTION_DEFS: {
+  key: string;
+  firestorePath: string;
+  hasAuth: boolean;
+  authRoles?: string[];
+  entityCollection?: string;
+}[] = [
+  { key: "attendance", firestorePath: "attendance", hasAuth: false },
+  { key: "timetable", firestorePath: "timetableEntries", hasAuth: false },
+  { key: "reports", firestorePath: "reports", hasAuth: false },
+  { key: "notifications", firestorePath: "notifications", hasAuth: false },
+  { key: "promotionHistory", firestorePath: "promotionHistory", hasAuth: false },
+  { key: "csvImports", firestorePath: "csvImports", hasAuth: false },
+  { key: "accessRequests", firestorePath: "accessRequests", hasAuth: false },
+  { key: "permissionTemplates", firestorePath: "permissionTemplates", hasAuth: false },
+  { key: "defaultCourses", firestorePath: "defaultCourses", hasAuth: false },
+  {
+    key: "students",
+    firestorePath: "students",
+    hasAuth: true,
+    authRoles: ["student"],
+    entityCollection: "students",
+  },
+  {
+    key: "parents",
+    firestorePath: "parents",
+    hasAuth: true,
+    authRoles: ["parent"],
+    entityCollection: "parents",
+  },
+  {
+    key: "staff",
+    firestorePath: "staff",
+    hasAuth: true,
+    authRoles: ["staff", "teacher"],
+    entityCollection: "staff",
+  },
+  { key: "classGroups", firestorePath: "classGroups", hasAuth: false },
+  { key: "classPlans", firestorePath: "classPlans", hasAuth: false },
+  { key: "classes", firestorePath: "classes", hasAuth: false },
+  { key: "courses", firestorePath: "courses", hasAuth: false },
+  { key: "madrasas", firestorePath: "madrasas", hasAuth: false },
+  { key: "organizations", firestorePath: "organizations", hasAuth: false },
+  {
+    key: "users",
+    firestorePath: "users",
+    hasAuth: true,
+    authRoles: ["organizationAdmin", "coordinator", "madrasaIncharge"],
+    entityCollection: "users",
+  },
+];
+
+// Deletion order (index = priority; lower = deleted first)
+const DELETION_ORDER = [
+  "attendance", "timetable", "reports", "notifications",
+  "promotionHistory", "csvImports", "accessRequests",
+  "students", "parents", "staff",
+  "classGroups", "classPlans", "classes", "courses",
+  "defaultCourses", "permissionTemplates",
+  "madrasas", "organizations", "users",
+];
+
+export const bulkDeleteData = functions.https.onCall(async (data, context) => {
+  // ── Auth guard ─────────────────────────────────────────────────────────────
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+  }
+
+  const callerUid = context.auth.uid;
+  const callerDoc = await db.collection("users").doc(callerUid).get();
+
+  if (!callerDoc.exists || callerDoc.data()?.["role"] !== "superAdmin") {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only the Super Admin can perform bulk deletions."
+    );
+  }
+
+  // Double-check by email as well
+  const callerEmail: string = callerDoc.data()?.["email"] || "";
+  if (callerEmail.toLowerCase() !== SUPER_ADMIN_EMAIL_FUNC.toLowerCase()) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only the Super Admin can perform bulk deletions."
+    );
+  }
+
+  // ── Validate input ──────────────────────────────────────────────────────────
+  const requestedKeys: string[] = Array.isArray(data.collections) ? data.collections : [];
+  if (requestedKeys.length === 0) {
+    throw new functions.https.HttpsError("invalid-argument", "No collections specified.");
+  }
+
+  const validKeys = new Set(COLLECTION_DEFS.map((d) => d.key));
+  for (const k of requestedKeys) {
+    if (!validKeys.has(k)) {
+      throw new functions.https.HttpsError("invalid-argument", `Unknown collection key: ${k}`);
+    }
+  }
+
+  // ── Execute in safe order ───────────────────────────────────────────────────
+  const startTime = Date.now();
+  const results: Record<string, CollectionResult> = {};
+  let totalDocs = 0;
+  let totalAuth = 0;
+
+  const orderedKeys = DELETION_ORDER.filter((k) => requestedKeys.includes(k));
+
+  for (const key of orderedKeys) {
+    const def = COLLECTION_DEFS.find((d) => d.key === key)!;
+    console.log(`[bulkDelete] Starting: ${key} (${def.firestorePath})`);
+
+    try {
+      if (key === "users") {
+        // Special case: delete all non-super-admin users (Auth + Firestore)
+        // but also handle the remaining admin-like roles not covered by students/staff/parents
+        let docsDeleted = 0;
+        let authDeleted = 0;
+
+        const BATCH_SIZE = 200;
+        let lastDoc: admin.firestore.QueryDocumentSnapshot | null = null;
+
+        while (true) {
+          let q = db.collection("users").limit(BATCH_SIZE);
+          if (lastDoc) q = q.startAfter(lastDoc);
+          const snap = await q.get();
+          if (snap.empty) break;
+
+          for (const userDoc of snap.docs) {
+            const userData = userDoc.data();
+            const email: string = userData["email"] || "";
+
+            // Skip Super Admin unconditionally
+            if (
+              email.toLowerCase() === SUPER_ADMIN_EMAIL_FUNC.toLowerCase() ||
+              userDoc.id === callerUid
+            ) {
+              continue;
+            }
+
+            // Delete Auth
+            try {
+              const deleted = await deleteAuthUser(userDoc.id);
+              if (deleted) authDeleted++;
+            } catch (e) {
+              console.error(`[bulkDelete] Auth delete failed for users/${userDoc.id}:`, e);
+            }
+
+            // Delete Firestore doc
+            try {
+              await db.collection("users").doc(userDoc.id).delete();
+              docsDeleted++;
+            } catch (e) {
+              console.error(`[bulkDelete] Firestore delete failed for users/${userDoc.id}:`, e);
+            }
+          }
+
+          lastDoc = snap.docs[snap.docs.length - 1];
+          if (snap.size < BATCH_SIZE) break;
+        }
+
+        results[key] = { deleted: docsDeleted, authDeleted, failed: 0 };
+        totalDocs += docsDeleted;
+        totalAuth += authDeleted;
+      } else if (def.hasAuth && def.authRoles && def.entityCollection) {
+        // Entity collections with linked Auth users
+        const { docsDeleted, authDeleted } = await deleteEntityCollectionWithAuth(
+          def.entityCollection,
+          def.authRoles
+        );
+        results[key] = { deleted: docsDeleted, authDeleted, failed: 0 };
+        totalDocs += docsDeleted;
+        totalAuth += authDeleted;
+      } else {
+        // Simple collection — no linked auth
+        const deleted = await deleteCollection(def.firestorePath);
+        results[key] = { deleted, authDeleted: 0, failed: 0 };
+        totalDocs += deleted;
+      }
+
+      console.log(`[bulkDelete] Done: ${key} →`, results[key]);
+    } catch (err: any) {
+      console.error(`[bulkDelete] FAILED: ${key}`, err);
+      results[key] = { deleted: 0, authDeleted: 0, failed: 1, error: err?.message || "Unknown error" };
+    }
+  }
+
+  const timeTakenMs = Date.now() - startTime;
+  console.log(`[bulkDelete] Completed in ${timeTakenMs}ms. Docs: ${totalDocs}, Auth: ${totalAuth}`);
+
+  return { results, totalDocs, totalAuth, timeTakenMs };
 });

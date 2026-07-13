@@ -7,10 +7,10 @@ import {
   signOut as secondarySignOut,
 } from 'firebase/auth';
 import { environment } from '../../../environments/environment';
-import { permissionsForRole } from '../constants/defaults';
 import { AppUser, GeneratedCredential, PermissionKey, UserRole } from '../models/domain.model';
 import { CredentialService } from './credential.service';
 import { getDeenDeskFirebaseApp } from './firebase-app';
+import { RolePermissionsService } from './role-permissions.service';
 
 export interface ProvisionUserInput {
   email: string;
@@ -20,8 +20,6 @@ export interface ProvisionUserInput {
   organizationId?: string;
   madrasaId?: string;
   madrasaIds?: string[];
-  classIds?: string[];
-  subjectIds?: string[];
   studentIds?: string[];
   linkedStudentIds?: string[];
   permissions?: PermissionKey[];
@@ -37,6 +35,7 @@ export class UserProvisioningService {
 
   constructor(
     private readonly credentials: CredentialService,
+    private readonly rolePermissionsService: RolePermissionsService
   ) {
     this.secondaryApp = getApps().some((app) => app.name === 'deendesk-user-provisioner')
       ? getApp('deendesk-user-provisioner')
@@ -52,13 +51,11 @@ export class UserProvisioningService {
       email: input.email.trim().toLowerCase(),
       displayName: input.displayName,
       role: input.role,
-      permissions: permissionsForRole(input.role, input.permissions),
+      permissions: this.rolePermissionsService.getPermissionsForRole(input.role, input.permissions),
       status: 'active',
       organizationId: input.organizationId,
       madrasaId: input.madrasaId ?? (input.madrasaIds && input.madrasaIds.length > 0 ? input.madrasaIds[0] : undefined),
       madrasaIds: input.madrasaIds ?? [],
-      classIds: input.classIds ?? [],
-      subjectIds: input.subjectIds ?? [],
       studentIds: input.studentIds ?? [],
       linkedStudentIds: input.linkedStudentIds ?? [],
       authProvider: input.authProvider ?? 'password',

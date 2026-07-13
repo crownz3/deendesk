@@ -1,0 +1,75 @@
+<div class="dialog-header">
+  <h2 mat-dialog-title>Transfer Student</h2>
+  <button mat-icon-button type="button" (click)="close()" aria-label="Close dialog">
+    <ion-icon name="close"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content>
+  <div *ngIf="loading" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading available assignments...</p>
+  </div>
+
+  <div *ngIf="!loading">
+    <p class="subtitle">Transfer <strong>{{ data.student['name'] }}</strong> to a new assignment.</p>
+    
+    <div class="current-details">
+      <h3>Current Assignment</h3>
+      <ul>
+        <li><strong>Madrasa:</strong> {{ getMadrasaName(data.student['madrasaId']) }}</li>
+        <li><strong>Course:</strong> {{ getCourseName(data.student['courseId']) }}</li>
+        <li><strong>Class:</strong> {{ getClassName(data.student['classId']) }}</li>
+        <li><strong>Group:</strong> {{ getGroupName(data.student['groupId']) }}</li>
+      </ul>
+    </div>
+
+    <form class="transfer-form">
+      <mat-form-field appearance="outline">
+        <mat-label>New Madrasa</mat-label>
+        <mat-select [(ngModel)]="newMadrasaId" name="madrasa" (selectionChange)="onMadrasaChange()" required>
+          <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>New Course</mat-label>
+        <mat-select [(ngModel)]="newCourseId" name="course" (selectionChange)="onCourseChange()" [disabled]="!newMadrasaId" required>
+          <mat-option *ngFor="let c of availableCourses" [value]="c.id">{{ c['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>New Class</mat-label>
+        <mat-select [(ngModel)]="newClassId" name="class" (selectionChange)="onClassChange()" [disabled]="!newCourseId" required>
+          <mat-option *ngFor="let c of availableClasses" [value]="c.id">{{ c['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>New Group</mat-label>
+        <mat-select [(ngModel)]="newGroupId" name="group" [disabled]="!newClassId" required>
+          <mat-option *ngFor="let g of availableGroups" [value]="g.id">{{ g['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Transfer Date</mat-label>
+        <input matInput type="date" [(ngModel)]="actionDate" name="actionDate" required>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Reason for Transfer</mat-label>
+        <textarea matInput [(ngModel)]="reason" name="reason" rows="3" required></textarea>
+      </mat-form-field>
+    </form>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="submit()" [disabled]="loading || saving">
+    <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+    <span *ngIf="!saving">Transfer Student</span>
+  </button>
+</mat-dialog-actions>

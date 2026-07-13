@@ -6,7 +6,7 @@ import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWi
 import { CollectionReference, DocumentData, collection, getFirestore } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
-import { PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER, permissionsForRole } from '../../core/constants/defaults';
+import { PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
 import {
   AppUser,
   GeneratedCredential,
@@ -23,11 +23,17 @@ import { CsvService } from '../../core/services/csv.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { UserProvisioningService } from '../../core/services/user-provisioning.service';
 import { LoaderService } from '../../core/services/loader.service';
+import { RolePermissionsService } from '../../core/services/role-permissions.service';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { QuickAddDialogComponent, QuickAddResult } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
 import { UserDetailsDialogComponent } from '../../shared/components/user-details-dialog/user-details-dialog.component';
 import { CourseDetailsDialogComponent } from './course-details-dialog/course-details-dialog.component';
+import { ClassDetailsDialogComponent } from './class-details-dialog/class-details-dialog.component';
 import { PageEvent } from '@angular/material/paginator';
+import { ClassDeactivationDialogComponent, ClassDeactivationData, ClassDeactivationAction } from './class-deactivation-dialog/class-deactivation-dialog.component';
+import { ClassTransferWizardDialogComponent } from './class-transfer-wizard-dialog/class-transfer-wizard-dialog.component';
+import { StudentTransferDialogComponent } from './student-transfer-dialog/student-transfer-dialog.component';
+import { PromoteDemoteDialogComponent } from './promote-demote-dialog/promote-demote-dialog.component';
 
 interface ManagementConfig {
   resource: string;
@@ -44,6 +50,8 @@ interface ManagementConfig {
   allowCredentials?: boolean;
   allowPromotion?: boolean;
   allowDetails?: boolean;
+  allowDelete?: boolean;
+  allowTransfer?: boolean;
   specialCreate?: 'student' | 'userAccess' | 'staffAccess' | 'organization';
 }
 
@@ -59,6 +67,9 @@ interface ManagementVm {
   profile: AppUser | null;
   totalItems?: number;
   madrasas?: EntityRecord[];
+  courses?: EntityRecord[];
+  classes?: EntityRecord[];
+  organizations?: EntityRecord[];
 }
 
 const baseStatusField: QuickAddField = {
@@ -86,7 +97,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'name', label: 'Organization' },
       { key: 'code', label: 'Code' },
       { key: 'email', label: 'Organization Email' },
-      { key: 'phone', label: 'Phone' },
+      { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'primaryOrganizerName', label: 'Primary Organizer Name' },
       { key: 'primaryOrganizerEmail', label: 'Primary Organizer Email' },
       { key: 'temporaryPassword', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -97,7 +108,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'name', label: 'Organization name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
       { key: 'email', label: 'Email', type: 'email' },
-      { key: 'phone', label: 'Phone', type: 'text' },
+      { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber' },
       { key: 'address', label: 'Address', type: 'textarea' },
       { key: 'primaryOrganizerName', label: 'Primary Organizer Name', type: 'text', required: true },
       { key: 'primaryOrganizerEmail', label: 'Primary Organizer Email', type: 'email', required: true },
@@ -119,6 +130,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'name', label: 'Madrasa' },
       { key: 'code', label: 'Code' },
       { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
+      { key: 'coordinatorIds', label: 'Coordinators', type: 'idRef', referenceType: 'coordinator' },
+      { key: 'inchargeIds', label: 'Incharges', type: 'idRef', referenceType: 'incharge' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -144,6 +157,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'photoURL', label: 'Profile', type: 'avatar' },
       { key: 'displayName', label: 'Name' },
       { key: 'email', label: 'Email' },
+      { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'role', label: 'Role', type: 'role' },
       { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
       { key: 'madrasaIds', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
@@ -160,12 +174,11 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     fields: [
       { key: 'displayName', label: 'Full name', type: 'text', required: true },
       { key: 'email', label: 'Email', type: 'email', required: true },
+      { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
       { key: 'role', label: 'Role', type: 'select', required: true },
       { key: 'organizationId', label: 'Organization', type: 'select', quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', quickAddResource: 'madrasas' },
-      { key: 'classIds', label: 'Assigned classes', type: 'multiselect', quickAddResource: 'classes' },
-      { key: 'subjectIds', label: 'Assigned subjects', type: 'multiselect', quickAddResource: 'subjects' },
       { key: 'permissions', label: 'Custom permissions', type: 'multiselect' },
       baseStatusField,
     ],
@@ -174,7 +187,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'coordinators',
     title: 'Coordinators',
     subtitle: 'Assign coordinators to one or more madrasas.',
-    collection: 'users',
+    collection: 'staff',
     fixedRole: 'coordinator',
     allowCredentials: true,
     specialCreate: 'userAccess',
@@ -185,6 +198,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'displayName', label: 'Coordinator' },
       { key: 'email', label: 'Email' },
+      { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -193,6 +207,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     fields: [
       { key: 'displayName', label: 'Full name', type: 'text', required: true },
       { key: 'email', label: 'Email', type: 'email', required: true },
+      { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
@@ -204,7 +219,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'incharges',
     title: 'Madrasa Incharges',
     subtitle: 'Map each incharge to the correct madrasa scope.',
-    collection: 'users',
+    collection: 'staff',
     fixedRole: 'madrasaIncharge',
     allowCredentials: true,
     specialCreate: 'userAccess',
@@ -215,6 +230,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'displayName', label: 'Incharge' },
       { key: 'email', label: 'Email' },
+      { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -223,6 +239,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     fields: [
       { key: 'displayName', label: 'Full name', type: 'text', required: true },
       { key: 'email', label: 'Email', type: 'email', required: true },
+      { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
@@ -234,7 +251,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'staff',
     title: 'Staff / Teachers',
     subtitle: 'Assign teachers across madrasas, classes, and subjects.',
-    collection: 'users',
+    collection: 'staff',
     fixedRole: 'teacher',
     allowCredentials: true,
     specialCreate: 'staffAccess',
@@ -245,6 +262,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'name', label: 'Name' },
       { key: 'email', label: 'Email' },
+      { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -253,11 +271,10 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     fields: [
       { key: 'name', label: 'Full name', type: 'text', required: true },
       { key: 'email', label: 'Email', type: 'email', required: true },
+      { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
-      { key: 'classIds', label: 'Assigned classes', type: 'multiselect', quickAddResource: 'classes' },
-      { key: 'subjectIds', label: 'Assigned subjects', type: 'multiselect', quickAddResource: 'subjects' },
       { key: 'permissions', label: 'Custom permissions', type: 'multiselect' },
       baseStatusField,
     ],
@@ -266,10 +283,11 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'students',
     title: 'Students',
     subtitle: 'Create student and parent logins with correct academic mapping.',
-    collection: 'users',
+    collection: 'students',
     fixedRole: 'student',
     allowCredentials: true,
     allowPromotion: true,
+    allowTransfer: true,
     specialCreate: 'student',
     emptyTitle: 'No students found',
     emptyText: 'Enroll students to assign them to courses, classes, and stages.',
@@ -278,12 +296,14 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'name', label: 'Student' },
       { key: 'fatherName', label: 'Father' },
-      { key: 'courseName', label: 'Course' },
-      { key: 'className', label: 'Class' },
-      { key: 'stageLevel', label: 'Stage / Level' },
-      { key: 'madrasaName', label: 'Madrasa' },
+      { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
+      { key: 'classId', label: 'Class', type: 'idRef', referenceType: 'class' },
+      { key: 'groupId', label: 'Group', type: 'idRef', referenceType: 'classGroup' },
+      { key: 'stage', label: 'Stage' },
+      { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
       { key: 'email', label: 'Student Mail' },
       { key: 'parentEmail', label: 'Parent Mail' },
+      { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
       { key: 'credentialStatus', label: 'Credential Status', type: 'credentialStatus' },
@@ -295,11 +315,13 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
       { key: 'admissionDate', label: 'Admission date', type: 'date' },
       { key: 'email', label: 'Student email (optional)', type: 'email' },
+      { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
       { key: 'courseId', label: 'Course', type: 'select', quickAddResource: 'courses' },
       { key: 'classId', label: 'Class', type: 'select', quickAddResource: 'classes' },
-      { key: 'stageLevel', label: 'Stage / level', type: 'text' },
+      { key: 'groupId', label: 'Group (Section)', type: 'select', quickAddResource: 'classGroups' },
+      { key: 'stage', label: 'Stage', type: 'text' },
       baseStatusField,
     ],
   },
@@ -307,7 +329,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'parents',
     title: 'Parents',
     subtitle: 'View parent accounts linked to students.',
-    collection: 'users',
+    collection: 'parents',
     fixedRole: 'parent',
     emptyTitle: 'No parents found',
     emptyText: 'Parents are automatically created when enrolling students, but you can also add them manually.',
@@ -316,6 +338,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'name', label: 'Parent' },
       { key: 'email', label: 'Email' },
+      { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'studentNames', label: 'Students' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -328,7 +351,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
       { key: 'linkedStudentIds', label: 'Linked students', type: 'multiselect', quickAddResource: 'students' },
-      { key: 'phone', label: 'Phone', type: 'text' },
+      { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       baseStatusField,
     ],
   },
@@ -347,7 +370,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
       { key: 'code', label: 'Code' },
       { key: 'typeDisplay', label: 'Type' },
-      { key: 'stagesDisplay', label: 'Stages' },
+
       { key: 'status', label: 'Status', type: 'status' },
     ],
     allowDetails: true,
@@ -365,18 +388,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
           { label: 'Custom', value: 'custom' },
         ]
       },
-      { 
-        key: 'stages', 
-        label: 'Select Stages', 
-        type: 'multiselect', 
-        options: [
-          { label: 'Miftah', value: 'Miftah' },
-          { label: 'Tilawatul Quran', value: 'Tilawatul Quran' },
-          { label: 'Nadthira', value: 'Nadthira' },
-          { label: 'Hifz', value: 'Hifz' }
-        ] 
-      },
-      { key: 'levels', label: 'Levels / Batches (optional)', type: 'text', placeholder: 'Example: Level 1, Level 2, Boys Batch, Girls Batch' },
+      { key: 'stages', label: 'Stages', type: 'multiselect' },
+      { key: 'levels', label: 'Levels (comma separated)', type: 'text' },
       { key: 'description', label: 'Description', type: 'textarea' },
       baseStatusField,
     ],
@@ -384,8 +397,10 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
   classes: {
     resource: 'classes',
     title: 'Classes',
-    subtitle: 'Create classes and map them to courses, stages, and teachers.',
+    subtitle: 'Create classes and map them to courses, stages, and sections.',
     collection: 'classes',
+    allowDetails: true,
+    allowDelete: true,
     emptyTitle: 'No classes found',
     emptyText: 'Create classes to organize students within specific courses and stages.',
     emptyButton: 'Add Class',
@@ -393,7 +408,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'name', label: 'Class' },
       { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
-      { key: 'stageOrLevel', label: 'Stage / Level' },
+      { key: 'stage', label: 'Stage' },
+      { key: 'groupStaff', label: 'Staff', type: 'staffChips' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -401,18 +417,47 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
       { key: 'courseId', label: 'Course', type: 'select', required: true, quickAddResource: 'courses' },
       { key: 'name', label: 'Class name', type: 'text', required: true },
-      { key: 'stageOrLevel', label: 'Stage / level', type: 'text' },
-      { key: 'teacherIds', label: 'Assigned teachers', type: 'multiselect', quickAddResource: 'staff' },
+      { key: 'stage', label: 'Stage', type: 'text' },
+      baseStatusField,
+    ],
+  },
+  classGroups: {
+    resource: 'classGroups',
+    title: 'Class Groups',
+    subtitle: 'Manage groups or sections within a class.',
+    collection: 'classGroups',
+    emptyTitle: 'No class groups found',
+    emptyText: 'Create groups to split classes into multiple sections.',
+    emptyButton: 'Add Group',
+    emptyIcon: 'people-circle-outline',
+    columns: [
+      { key: 'name', label: 'Group Name' },
+      { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
+      { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
+      { key: 'classId', label: 'Class', type: 'idRef', referenceType: 'class' },
+      { key: 'assignedStaffIds', label: 'Assigned Staff', type: 'idRef', referenceType: 'staff' },
+      { key: 'studentCount', label: 'Students' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
+      { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
+      { key: 'courseId', label: 'Course', type: 'select', quickAddResource: 'courses' },
+      { key: 'classId', label: 'Class', type: 'select', required: true, quickAddResource: 'classes' },
+      { key: 'name', label: 'Group name', type: 'text', required: true },
+      { key: 'code', label: 'Code', type: 'text' },
+      { key: 'capacity', label: 'Capacity', type: 'text' },
+      { key: 'assignedStaffIds', label: 'Assigned staff', type: 'multiselect', quickAddResource: 'staff' },
       baseStatusField,
     ],
   },
   subjects: {
     resource: 'subjects',
     title: 'Subjects',
-    subtitle: 'Manage subjects and teacher mappings.',
+    subtitle: 'Manage subjects within the course and class structure.',
     collection: 'subjects',
     emptyTitle: 'No subjects found',
-    emptyText: 'Add subjects to assign teachers and build out your curriculum.',
+    emptyText: 'Add subjects to build out your curriculum within courses and classes.',
     emptyButton: 'Add Subject',
     emptyIcon: 'book-outline',
     columns: [
@@ -428,7 +473,6 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'classId', label: 'Class', type: 'select', quickAddResource: 'classes' },
       { key: 'name', label: 'Subject name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
-      { key: 'teacherIds', label: 'Assigned teachers', type: 'multiselect', quickAddResource: 'staff' },
       baseStatusField,
     ],
   },
@@ -450,6 +494,13 @@ export class ManagementPage {
 
   readonly madrasaFilter$ = new BehaviorSubject<string>('all');
   readonly roleFilter$ = new BehaviorSubject<string>('all');
+  readonly organizationFilter$ = new BehaviorSubject<string>('all');
+  
+  readonly courseFilter$ = new BehaviorSubject<string>('all');
+  readonly classFilter$ = new BehaviorSubject<string>('all');
+  readonly stageFilter$ = new BehaviorSubject<string>('all');
+  readonly statusFilter$ = new BehaviorSubject<string>('active');
+
   readonly searchQuery$ = new BehaviorSubject<string>('');
   readonly pageIndex$ = new BehaviorSubject<number>(0);
   readonly pageSize$ = new BehaviorSubject<number>(10);
@@ -459,13 +510,15 @@ export class ManagementPage {
     this.auth.profile$,
     this.madrasaFilter$,
     this.roleFilter$,
+    this.organizationFilter$,
     this.searchQuery$,
     this.pageIndex$,
-    this.pageSize$
+    this.pageSize$,
+    combineLatest([this.courseFilter$, this.classFilter$, this.stageFilter$, this.statusFilter$])
   ]).pipe(
-    switchMap(([config, profile, madrasaFilter, roleFilter, searchQuery, pageIndex, pageSize]) => {
+    switchMap(([config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, pageIndex, pageSize, [courseFilter, classFilter, stageFilter, statusFilter]]) => {
       // For Madrasa Incharge, force the madrasa filter to their own
-      if (config.resource === 'users' && profile?.role === 'madrasaIncharge' && profile.madrasaIds?.length) {
+      if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource) && profile?.role === 'madrasaIncharge' && profile.madrasaIds?.length) {
         if (madrasaFilter !== profile.madrasaIds[0]) {
            // Update subject without emitting to avoid infinite loop (or just override locally)
            madrasaFilter = profile.madrasaIds[0];
@@ -474,37 +527,90 @@ export class ManagementPage {
 
       return combineLatest([
         this.rowsForConfig(config, profile, madrasaFilter, roleFilter),
-        this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([])))
+        this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('courses', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('classes', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('students', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('staff', profile).pipe(catchError(() => of([]))),
+        profile?.role === 'superAdmin'
+          ? this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(() => of([])))
+          : of([] as EntityRecord[])
       ]).pipe(
-        map(([rows, madrasas]) => {
+        map(([rows, madrasas, courses, classes, students, classGroups, staffRows, organizations]) => {
            let filteredRows = this.decorateRows(config, this.filterRows(config, rows));
-           
-           if (config.resource === 'users') {
-              if (searchQuery) {
-                const q = searchQuery.toLowerCase();
-                filteredRows = filteredRows.filter(r => 
-                  (r['name']?.toString().toLowerCase() || '').includes(q) ||
-                  (r['displayName']?.toString().toLowerCase() || '').includes(q) ||
-                  (r['email']?.toString().toLowerCase() || '').includes(q)
-                );
-              }
+           let displayMadrasas = madrasas;
+           let displayCourses = courses;
+           let displayClasses = classes;
 
-              const totalItems = filteredRows.length;
-              const startIndex = pageIndex * pageSize;
-              filteredRows = filteredRows.slice(startIndex, startIndex + pageSize);
-
-              return { rows: filteredRows, profile, totalItems, madrasas };
+           if (profile?.role === 'superAdmin' && organizationFilter !== 'all') {
+             filteredRows = filteredRows.filter(r => r['organizationId'] === organizationFilter);
+             displayMadrasas = madrasas.filter(m => m['organizationId'] === organizationFilter);
+             displayCourses = courses.filter(c => c['organizationId'] === organizationFilter);
+             displayClasses = classes.filter(c => c['organizationId'] === organizationFilter);
            }
+            
+           if (config.resource === 'classGroups') {
+             filteredRows = filteredRows.map(group => {
+               const count = students.filter(s => s['groupId'] === group.id && s['status'] !== 'inactive').length;
+                return { ...group, studentCount: count };
+              });
+            }
 
-           return { rows: filteredRows, profile, madrasas };
+            if (config.resource === 'classes') {
+              filteredRows = this.withClassGroupStaff(filteredRows, classGroups, staffRows);
+            }
+           
+            if (config.resource === 'students') {
+               if (courseFilter !== 'all') {
+                 filteredRows = filteredRows.filter(r => r['courseId'] === courseFilter);
+                 displayClasses = classes.filter(c => c['courseId'] === courseFilter);
+               }
+               if (classFilter !== 'all') {
+                 filteredRows = filteredRows.filter(r => r['classId'] === classFilter);
+               }
+               if (stageFilter !== 'all') {
+                 filteredRows = filteredRows.filter(r => r['stage'] === stageFilter || r['level'] === stageFilter);
+               }
+            }
+            
+            if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource)) {
+               if (madrasaFilter !== 'all') {
+                 filteredRows = filteredRows.filter(r => r['madrasaId'] === madrasaFilter || (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter)));
+               }
+
+               if (statusFilter !== 'all') {
+                 filteredRows = filteredRows.filter(r => (r['status'] || 'active') === statusFilter);
+               }
+
+               if (searchQuery) {
+                 const q = searchQuery.toLowerCase();
+                 filteredRows = filteredRows.filter(r => 
+                   (r['name']?.toString().toLowerCase() || '').includes(q) ||
+                   (r['displayName']?.toString().toLowerCase() || '').includes(q) ||
+                   (r['email']?.toString().toLowerCase() || '').includes(q)
+                 );
+               }
+ 
+               const totalItems = filteredRows.length;
+               const startIndex = pageIndex * pageSize;
+               filteredRows = filteredRows.slice(startIndex, startIndex + pageSize);
+ 
+               return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, organizations };
+            }
+ 
+            return { rows: filteredRows, profile, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, organizations };
         }),
-        map(({ rows, profile, totalItems, madrasas }): PageState<ManagementVm> => ({
+        map(({ rows, profile, totalItems, madrasas, courses, classes, organizations }): PageState<ManagementVm> => ({
           data: {
             config,
             rows,
             profile,
             totalItems,
             madrasas,
+            courses,
+            classes,
+            organizations
           },
           loading: false,
         })),
@@ -537,9 +643,14 @@ export class ManagementPage {
     private readonly csv: CsvService,
     private readonly loader: LoaderService,
     private readonly nameResolver: NameResolverService,
+    private readonly rolePermissionsService: RolePermissionsService
   ) { }
 
   private rowsForConfig(config: ManagementConfig, profile: AppUser | null, madrasaFilter: string = 'all', roleFilter: string = 'all'): Observable<EntityRecord[]> {
+    if (['students', 'parents', 'staff'].includes(config.resource)) {
+      return this.businessEntityRows(config, profile);
+    }
+
     if (config.allowCredentials && config.collection !== 'users') {
       return this.credentialRowsForCollection(config, profile);
     }
@@ -549,6 +660,20 @@ export class ManagementPage {
     }
 
     return this.repo.list<EntityRecord>(config.collection, profile);
+  }
+
+  private businessEntityRows(config: ManagementConfig, profile: AppUser | null): Observable<EntityRecord[]> {
+    const collectionObs$ = this.repo.list<EntityRecord>(config.collection, profile);
+    switch (config.resource) {
+      case 'students':
+        return this.studentRows(collectionObs$, profile);
+      case 'parents':
+        return this.parentRows(collectionObs$, profile);
+      case 'staff':
+        return this.staffRows(collectionObs$, profile);
+      default:
+        return collectionObs$;
+    }
   }
 
   private credentialRowsForCollection(config: ManagementConfig, profile: AppUser | null): Observable<EntityRecord[]> {
@@ -596,8 +721,11 @@ export class ManagementPage {
     // Given the constraints of repo.list, we fetch scoped users and filter in-memory if needed.
     // We already fetch scoped by role.
 
-    const usersObs$ = this.repo.list<EntityRecord>(config.collection, profile, [], queryRoles ? { roles: queryRoles } : undefined).pipe(
+    const usersObs$ = this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(
       map(rows => {
+        if (queryRoles && queryRoles.length > 0) {
+           rows = rows.filter(r => queryRoles!.includes(String(r['role'])));
+        }
         if (config.resource === 'users' && madrasaFilter !== 'all') {
            rows = rows.filter(r => r['madrasaId'] === madrasaFilter || (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter)));
         }
@@ -639,12 +767,6 @@ export class ManagementPage {
     );
 
     switch (config.resource) {
-      case 'students':
-        return this.studentRows(usersObs$, profile);
-      case 'parents':
-        return this.parentRows(usersObs$, profile);
-      case 'staff':
-        return this.staffRows(usersObs$);
       default:
         return usersObs$.pipe(map((rows) => this.credentialRows(rows)));
     }
@@ -674,9 +796,9 @@ export class ManagementPage {
     });
   }
 
-  private studentRows(usersObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
+  private studentRows(studentsObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
     return combineLatest([
-      usersObs$,
+      studentsObs$,
       this.repo.list<EntityRecord>('courses', profile).pipe(catchError((e) => {
         console.warn('[Students] Courses load failed:', e);
         return of([] as EntityRecord[]);
@@ -685,69 +807,73 @@ export class ManagementPage {
         console.warn('[Students] Classes load failed:', e);
         return of([] as EntityRecord[]);
       })),
-      this.repo.list<EntityRecord>('users', profile, [], { roles: ['parent'] }).pipe(catchError((e) => {
+      this.repo.list<EntityRecord>('parents', profile).pipe(catchError((e) => {
         console.warn('[Students] Parents load failed:', e);
         return of([] as EntityRecord[]);
       })),
-      this.repo.list<EntityRecord>('students', profile).pipe(catchError((e) => {
-        console.warn('[Students] Students metadata load failed:', e);
-        return of([] as EntityRecord[]);
-      })),
+      this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(
+        map(rows => rows.filter(r => r['role'] === 'student')),
+        catchError((e) => {
+          console.warn('[Students] Users load failed:', e);
+          return of([] as EntityRecord[]);
+        })
+      ),
       this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError((e) => {
         console.warn('[Students] Madrasas load failed:', e);
         return of([] as EntityRecord[]);
       })),
     ]).pipe(
-      map(([rows, courses, classes, parents, studentsMeta, madrasas]) => rows.map((row) => {
-        const creds = this.credentialService.getCredentialStatus(row);
+      map(([students, courses, classes, parents, userRows, madrasas]) => {
+        if (profile?.role === 'teacher' || (profile?.role as string) === 'staff') {
+          const allowedClassIds = classes.map(c => c.id);
+          students = students.filter(s => allowedClassIds.includes(String(s['classId'])));
+        }
+        return students.map((row) => {
         const studentUserId = this.recordId(row);
-        const studentIds = this.uniqueStrings([
-          ...(Array.isArray(row['studentIds']) ? row['studentIds'] : []),
-          row.id,
-          row['uid'],
-          row['userId'],
-        ]);
-
-        const studentMeta = studentsMeta.find((s: any) => {
-          const metaUserId = String(s['userId'] || '').trim();
-          const metaId = String(s.id || '').trim();
-          return metaUserId === studentUserId || studentIds.includes(metaId) || studentIds.includes(metaUserId);
-        });
-
-        const parentEmail = this.resolveParentEmail(row, studentMeta, parents, studentUserId, studentIds);
+        const userRow = userRows.find(u => u['uid'] === studentUserId || u.id === studentUserId || u['entityId'] === row.id) || row;
+        const creds = this.credentialService.getCredentialStatus(userRow);
+        
+        const studentIds = this.uniqueStrings([row.id, row['userId'], row['uid']]);
+        const parentEmail = this.resolveParentEmail(userRow, row, parents, studentUserId, studentIds);
 
         return {
+          ...userRow,
           ...row,
+          role: 'student',
           id: row.id,
-          uid: row['uid'],
-          name: row['name'] || row['displayName'] || '',
-          email: row['email'] || '',
-          fatherName: row['fatherName'] || row['parentName'] || row['guardianName'] || '',
-          courseName: row['courseName'] || courses.find((c: any) => c.id === row['courseId'])?.['name'] || '',
-          className: row['className'] || classes.find((c: any) => c.id === row['classId'])?.['name'] || '',
+          userId: studentUserId,
+          uid: userRow['uid'] || userRow.id || row.id,
+          name: row['name'] || row['studentName'] || userRow['displayName'] || userRow['name'] || '',
+          email: row['email'] || userRow['email'] || '',
+          fatherName: row['fatherName'] || userRow['fatherName'] || row['parentName'] || userRow['parentName'] || '',
+          courseId: row['courseId'] || userRow['courseId'],
+          classId: row['classId'] || userRow['classId'],
+          groupId: row['groupId'] || userRow['groupId'],
+          courseName: row['courseName'] || courses.find((c: any) => c.id === (row['courseId'] || userRow['courseId']))?.['title'] || courses.find((c: any) => c.id === (row['courseId'] || userRow['courseId']))?.['name'] || '',
+          className: row['className'] || classes.find((c: any) => c.id === (row['classId'] || userRow['classId']))?.['name'] || classes.find((c: any) => c.id === (row['classId'] || userRow['classId']))?.['title'] || '',
           madrasaName: row['madrasaName'] || madrasas.find((m: any) => m.id === row['madrasaId'])?.['name'] || '',
-          stageLevel: this.getStudentStageLevel(row),
+          stage: this.getStudentStage(row) !== '-' ? this.getStudentStage(row) : this.getStudentStage(userRow),
           parentEmail,
-          organizationId: row['organizationId'],
-          madrasaId: row['madrasaId'],
-          madrasaIds: row['madrasaIds'],
+          organizationId: row['organizationId'] || userRow['organizationId'],
+          madrasaId: row['madrasaId'] || userRow['madrasaId'],
+          madrasaIds: row['madrasaIds'] || userRow['madrasaIds'],
           credentialStatus: creds.status,
           temporaryPasswordDisplay: creds.display,
         } as EntityRecord;
-      })),
+      });
+      }),
       tap((students) => {
         console.log('[Students Page Stage Mapping Debug]', {
           students: students.map((user: any) => ({
             id: user.id || user.uid,
             name: user.name || user.displayName,
-            rawStageLevel: user.stageLevel,
             rawStage: user.stage,
             rawLevel: user.level,
             rawStageName: user.stageName,
             rawLevelName: user.levelName,
             rawCurrentStage: user.currentStage,
             rawCurrentLevel: user.currentLevel,
-            displayedStageLevel: this.getStudentStageLevel(user),
+            displayedStage: this.getStudentStage(user),
             courseName: user.courseName,
             className: user.className,
           }))
@@ -756,9 +882,9 @@ export class ManagementPage {
     );
   }
 
-  private getStudentStageLevel(user: any): string {
-    return user?.stageLevel
-      || user?.stage
+  private getStudentStage(user: any): string {
+    return user?.stage
+      || user?.stageLevel
       || user?.level
       || user?.stageName
       || user?.levelName
@@ -767,23 +893,34 @@ export class ManagementPage {
       || '-';
   }
 
-  private staffRows(usersObs$: Observable<EntityRecord[]>): Observable<EntityRecord[]> {
-    return usersObs$.pipe(
-      map(rows => rows.map(user => {
-        const creds = this.credentialService.getCredentialStatus(user);
+  private staffRows(staffObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
+    return combineLatest([
+      staffObs$,
+      this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(
+        map(rows => rows.filter(r => ['teacher', 'staff', 'coordinator', 'madrasaIncharge'].includes(String(r['role'])))),
+        catchError((e) => {
+          console.warn('[Staff] Users load failed:', e);
+          return of([] as EntityRecord[]);
+        })
+      ),
+    ]).pipe(
+      map(([staffs, users]) => staffs.map((row) => {
+        const userRow = users.find(u => u['uid'] === row['userId'] || u.id === row['userId'] || u['entityId'] === row.id) || row;
+        const creds = this.credentialService.getCredentialStatus(userRow);
         return {
-          ...user,
-          id: user.id,
-          uid: user['uid'],
-          name: user['name'] || user['displayName'] || '',
-          displayName: user['displayName'] || user['name'] || '',
-          email: user['email'] || '',
-          role: user['role'],
-          phone: user['phone'] || '',
-          designation: user['designation'] || '',
-          organizationId: user['organizationId'],
-          madrasaId: user['madrasaId'],
-          madrasaIds: user['madrasaIds'],
+          ...userRow,
+          ...row,
+          id: row.id,
+          uid: userRow['uid'] || userRow.id || row.id,
+          name: row['name'] || userRow['displayName'] || userRow['name'] || '',
+          displayName: row['name'] || userRow['displayName'] || userRow['name'] || '',
+          email: row['email'] || userRow['email'] || '',
+          role: row['role'] || userRow['role'] || 'teacher',
+          phone: row['phone'] || userRow['phone'] || '',
+          designation: row['designation'] || userRow['designation'] || '',
+          organizationId: row['organizationId'] || userRow['organizationId'],
+          madrasaId: row['madrasaId'] || userRow['madrasaId'],
+          madrasaIds: row['madrasaIds'] || userRow['madrasaIds'],
           credentialStatus: creds.status,
           temporaryPasswordDisplay: creds.display,
         } as EntityRecord;
@@ -791,44 +928,49 @@ export class ManagementPage {
     );
   }
 
-  private parentRows(usersObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
+  private parentRows(parentsObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
     return combineLatest([
-      usersObs$,
-      this.repo.list<EntityRecord>('parents', profile).pipe(catchError((e) => {
-        console.warn('[Parents] Parent metadata load failed:', e);
-        return of([] as EntityRecord[]);
-      })),
+      parentsObs$,
+      this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(
+        map(rows => rows.filter(r => r['role'] === 'parent')),
+        catchError((e) => {
+          console.warn('[Parents] Users load failed:', e);
+          return of([] as EntityRecord[]);
+        })
+      ),
       this.repo.list<EntityRecord>('students', profile).pipe(catchError((e) => {
         console.warn('[Parents] Student metadata load failed:', e);
         return of([] as EntityRecord[]);
       })),
     ]).pipe(
-      switchMap(([parentUsers, parentMetaRows, studentMetaRows]) => {
-        if (!parentUsers.length) {
+      switchMap(([parents, users, studentMetaRows]) => {
+        if (!parents.length) {
           return of([] as EntityRecord[]);
         }
 
-        const rowStreams = parentUsers.map((row) => this.parentRow(row, parentMetaRows, studentMetaRows));
+        const rowStreams = parents.map((row) => {
+          const userRow = users.find(u => u['uid'] === row['userId'] || u.id === row['userId'] || u['entityId'] === row.id) || row;
+          return this.parentRow(row, userRow, studentMetaRows);
+        });
         return combineLatest(rowStreams);
       }),
     );
   }
 
-  private parentRow(row: EntityRecord, parentMetaRows: EntityRecord[], studentMetaRows: EntityRecord[]): Observable<EntityRecord> {
-    const creds = this.credentialService.getCredentialStatus(row);
-    const resolvedParentName = row['displayName'] || row['name'] || row['parentName'] || row['email'] || 'N/A';
-    const parentMeta = this.findParentMeta(row, parentMetaRows);
+  private parentRow(parentRow: EntityRecord, userRow: EntityRecord, studentMetaRows: EntityRecord[]): Observable<EntityRecord> {
+    const creds = this.credentialService.getCredentialStatus(userRow);
+    const resolvedParentName = parentRow['name'] || userRow['displayName'] || userRow['name'] || parentRow['email'] || userRow['email'] || 'N/A';
+    const parentUserId = this.recordId(parentRow) || this.recordId(userRow);
 
     const linkedStudentIds = this.uniqueStrings([
-      ...(Array.isArray(row['linkedStudentIds']) ? row['linkedStudentIds'] : []),
-      ...(Array.isArray(row['studentIds']) ? row['studentIds'] : []),
-      ...(Array.isArray(parentMeta?.['linkedStudentIds']) ? (parentMeta?.['linkedStudentIds'] as unknown[]) : []),
-      ...(Array.isArray(parentMeta?.['studentIds']) ? (parentMeta?.['studentIds'] as unknown[]) : []),
+      ...(Array.isArray(parentRow['linkedStudentIds']) ? parentRow['linkedStudentIds'] : []),
+      ...(Array.isArray(userRow['linkedStudentIds']) ? userRow['linkedStudentIds'] : []),
+      ...(Array.isArray(userRow['studentIds']) ? userRow['studentIds'] : []),
     ]);
 
     const linkedStudentUserIds = this.uniqueStrings([
-      ...(Array.isArray(row['linkedStudentUserIds']) ? row['linkedStudentUserIds'] : []),
-      ...(Array.isArray(parentMeta?.['linkedStudentUserIds']) ? (parentMeta?.['linkedStudentUserIds'] as unknown[]) : []),
+      ...(Array.isArray(parentRow['linkedStudentUserIds']) ? parentRow['linkedStudentUserIds'] : []),
+      ...(Array.isArray(userRow['linkedStudentUserIds']) ? userRow['linkedStudentUserIds'] : []),
     ]);
 
     const localNames = this.studentNamesFromMetadata(linkedStudentIds, linkedStudentUserIds, studentMetaRows);
@@ -840,13 +982,18 @@ export class ManagementPage {
         .join(', ') || 'N/A';
 
       return {
-        ...row,
+        ...userRow,
+        ...parentRow,
+        id: parentRow.id,
+        userId: parentUserId,
+        uid: userRow['uid'] || userRow.id || parentRow.id,
         name: resolvedParentName,
         displayName: resolvedParentName,
         linkedStudentIds,
         linkedStudentUserIds,
         studentNames,
         linkedStudentNames: studentNames,
+        organizationId: parentRow['organizationId'] || userRow['organizationId'],
         credentialStatus: creds.status,
         temporaryPasswordDisplay: creds.display,
       } as EntityRecord;
@@ -979,6 +1126,49 @@ export class ManagementPage {
     return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)));
   }
 
+  private recordIdentityValues(row: EntityRecord): string[] {
+    return this.uniqueStrings([
+      row.id,
+      row['uid'],
+      row['userId'],
+      row['entityId'],
+      row['email'],
+    ]);
+  }
+
+  private staffAssignmentId(row: EntityRecord): string {
+    return String(row['entityId'] || row.id || row['uid'] || row['userId'] || '').trim();
+  }
+
+  private withClassGroupStaff(classes: EntityRecord[], classGroups: EntityRecord[], staffRows: EntityRecord[]): EntityRecord[] {
+    const staffById = new Map<string, EntityRecord>();
+    staffRows.forEach((staff) => {
+      this.recordIdentityValues(staff).forEach((id) => staffById.set(id, staff));
+    });
+
+    return classes.map((classRow) => {
+      const groups = classGroups.filter((group) => String(group['classId'] || '') === String(classRow.id || ''));
+      const staffIds = this.uniqueStrings(
+        groups.flatMap((group) => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'] : [])
+      );
+
+      const groupStaff = staffIds.map((id) => {
+        const staff = staffById.get(id);
+        return {
+          id,
+          name: String(staff?.['name'] || staff?.['displayName'] || staff?.['email'] || id),
+          email: staff?.['email'] || '',
+          photoURL: staff?.['photoURL'] || '',
+        };
+      });
+
+      return {
+        ...classRow,
+        groupStaff,
+      };
+    });
+  }
+
   trackCredential(_: number, credential: GeneratedCredential): string {
     return credential.email;
   }
@@ -1003,6 +1193,17 @@ export class ManagementPage {
       return;
     }
 
+    if (config.resource === 'classes') {
+      this.dialog.open(ClassDetailsDialogComponent, {
+        data: { classRecord: row },
+        width: '90vw',
+        height: '90vh',
+        maxWidth: '90vw',
+        maxHeight: '90vh'
+      });
+      return;
+    }
+
     this.dialog.open(UserDetailsDialogComponent, {
       data: { user: row },
       width: '80vw',
@@ -1017,24 +1218,365 @@ export class ManagementPage {
     const rowUid = row.id || row['uid'] || row['userId'];
 
     if (currentUid && rowUid === currentUid) {
-      this.snackBar.open('You cannot delete your own profile.', 'Close', { duration: 4000 });
+      this.snackBar.open('You cannot deactivate your own profile.', 'Close', { duration: 4000 });
       return;
+    }
+
+    if (config.collection === 'users' && row['role'] === 'organizationAdmin') {
+      this.snackBar.open('Organization Admins cannot be deactivated.', 'Close', { duration: 4000 });
+      return;
+    }
+
+    if (config.collection === 'classGroups') {
+      if (row['isDefault']) {
+        this.snackBar.open('Cannot deactivate the default class section.', 'Close', { duration: 4000 });
+        return;
+      }
+      if (row['studentCount'] && Number(row['studentCount']) > 0) {
+        this.snackBar.open('Cannot deactivate a group with enrolled students. Reassign them first.', 'Close', { duration: 5000 });
+        return;
+      }
+    }
+
+    if (config.collection === 'classes' && row.id) {
+      const profile = await firstValueFrom(this.auth.profile$);
+      
+      const [studentsData, timetables, attendance, groups] = await Promise.all([
+        this.repo.getAllOnce('students', profile),
+        this.repo.getAllOnce('classPlans', profile),
+        this.repo.getAllOnce('attendance', profile),
+        this.repo.getAllOnce('classGroups', profile)
+      ]);
+
+      const activeStudents = studentsData.filter(s => s['classId'] === row.id && s['status'] !== 'inactive');
+      const classStaffIds = this.uniqueStrings(
+        groups
+          .filter(group => group['classId'] === row.id)
+          .flatMap(group => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'] : [])
+      );
+      const activeTimetables = timetables.filter(t => t['classId'] === row.id);
+      const activeAttendance = attendance.filter(a => a['classId'] === row.id);
+
+      if (activeStudents.length > 0 || classStaffIds.length > 0 || activeTimetables.length > 0 || activeAttendance.length > 0) {
+        const dialogRef = this.dialog.open(ClassDeactivationDialogComponent, {
+          data: {
+            classRecord: row,
+            counts: {
+              students: activeStudents.length,
+              staff: classStaffIds.length,
+              timetables: activeTimetables.length,
+              attendance: activeAttendance.length
+            }
+          },
+          width: '500px'
+        });
+
+        const action = await firstValueFrom(dialogRef.afterClosed());
+        
+        if (action === 'transfer-students' || action === 'transfer-staff') {
+           const type = action === 'transfer-students' ? 'students' : 'staff';
+           const transferRef = this.dialog.open(ClassTransferWizardDialogComponent, {
+             data: {
+               transferType: type,
+               sourceClassRecord: row
+             },
+             width: '600px'
+           });
+           
+           const transferSuccess = await firstValueFrom(transferRef.afterClosed());
+           if (transferSuccess) {
+              // Optionally trigger a refresh
+              this.pageIndex$.next(0);
+           }
+        }
+        
+        return; // Abort deactivation since it has dependencies
+      }
     }
 
     const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
       data: {
-        title: `Delete ${config.title}`,
-        message: `Delete "${row['name'] ?? row['displayName'] ?? 'this record'}"? This cannot be undone.`,
-        confirmLabel: 'Delete',
+        title: `Deactivate ${config.title}`,
+        message: `Deactivate "${row['name'] ?? row['displayName'] ?? 'this record'}"? They will lose access to the system.`,
+        confirmLabel: 'Deactivate',
       },
     }).afterClosed());
 
     if (confirmed && row.id) {
-      await this.loader.withLoader('Deleting record...', async () => {
-        await this.repo.remove(config.collection, row.id!);
+      await this.loader.withLoader('Deactivating record...', async () => {
+        const profile = await firstValueFrom(this.auth.profile$);
+        await this.repo.update(config.collection, row.id!, { status: 'inactive' }, profile);
+        if (config.collection !== 'users' && row['userId']) {
+          await this.repo.update('users', String(row['userId']), { status: 'inactive' }, profile).catch(() => {});
+        }
       });
-      this.snackBar.open('Record deleted.', 'Close', { duration: 3000 });
+      this.snackBar.open('Record deactivated.', 'Close', { duration: 3000 });
     }
+  }
+
+  async permanentlyDelete(config: ManagementConfig, row: EntityRecord): Promise<void> {
+    if (config.collection !== 'classes' || !row.id) return;
+    
+    const profile = await firstValueFrom(this.auth.profile$);
+    
+    await this.loader.withLoader('Checking dependencies...', async () => {
+      const [students, timetables, attendance, reports, groups] = await Promise.all([
+        this.repo.getAllOnce('students', profile),
+        this.repo.getAllOnce('classPlans', profile),
+        this.repo.getAllOnce('attendance', profile),
+        this.repo.getAllOnce('reports', profile),
+        this.repo.getAllOnce('classGroups', profile)
+      ]);
+
+      const classStudents = students.filter(s => s['classId'] === row.id);
+      const classTimetables = timetables.filter(t => t['classId'] === row.id);
+      const classAttendance = attendance.filter(a => a['classId'] === row.id);
+      const classReports = reports.filter(r => r['classId'] === row.id);
+      const classGroups = groups.filter(g => g['classId'] === row.id);
+      const classStaffIds = this.uniqueStrings(
+        classGroups.flatMap(group => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'] : [])
+      );
+
+      if (classStudents.length || classStaffIds.length || classTimetables.length || classAttendance.length || classReports.length || classGroups.length) {
+        let message = 'Cannot delete Class. It still contains historical data: ';
+        const reasons = [];
+        if (classStudents.length) reasons.push(`${classStudents.length} Students`);
+        if (classStaffIds.length) reasons.push(`${classStaffIds.length} Staff`);
+        if (classTimetables.length) reasons.push(`${classTimetables.length} Timetables`);
+        if (classAttendance.length) reasons.push(`${classAttendance.length} Attendance Records`);
+        if (classReports.length) reasons.push(`${classReports.length} Reports`);
+        if (classGroups.length) reasons.push(`${classGroups.length} Groups`);
+        
+        message += reasons.join(', ') + '.';
+        this.snackBar.open(message, 'Close', { duration: 6000, panelClass: ['error-snackbar'] });
+        return;
+      }
+
+      const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+        data: {
+          title: `Permanently Delete Class`,
+          message: `Are you absolutely sure you want to permanently delete "${row['name']}"? This action cannot be undone.`,
+          confirmLabel: 'Permanently Delete',
+        },
+      }).afterClosed());
+
+      if (confirmed) {
+        await this.repo.remove(config.collection, row.id!);
+        this.snackBar.open('Class permanently deleted.', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  async activate(config: ManagementConfig, row: EntityRecord): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Activate ${config.title}`,
+        message: `Activate "${row['name'] ?? row['displayName'] ?? 'this record'}"? They will regain access to the system.`,
+        confirmLabel: 'Activate',
+      },
+    }).afterClosed());
+
+    if (confirmed && row.id) {
+      await this.loader.withLoader('Activating record...', async () => {
+        const profile = await firstValueFrom(this.auth.profile$);
+        await this.repo.update(config.collection, row.id!, { status: 'active' }, profile);
+        if (config.collection !== 'users' && row['userId']) {
+          await this.repo.update('users', String(row['userId']), { status: 'active' }, profile).catch(() => {});
+        }
+      });
+      this.snackBar.open('Record activated.', 'Close', { duration: 3000 });
+    }
+  }
+
+  async bulkDeactivate(config: ManagementConfig, rows: EntityRecord[], dataTable: any): Promise<void> {
+    if (config.collection === 'classGroups') {
+      const invalidRows = rows.filter(r => r['isDefault'] || (r['studentCount'] && Number(r['studentCount']) > 0));
+      if (invalidRows.length > 0) {
+        this.snackBar.open('Selection contains default sections or groups with students, which cannot be deactivated.', 'Close', { duration: 5000 });
+        return;
+      }
+    }
+
+    let validRows = rows;
+    if (config.collection === 'users') {
+      validRows = rows.filter(r => r['role'] !== 'organizationAdmin');
+      if (validRows.length < rows.length) {
+        this.snackBar.open('Organization Admins were excluded from the selection as they cannot be deactivated.', 'Close', { duration: 4000 });
+        if (validRows.length === 0) {
+           dataTable.selection.clear();
+           return;
+        }
+      }
+    }
+
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Deactivate ${validRows.length} ${config.title}`,
+        message: `Are you sure you want to deactivate ${validRows.length} records? They will lose access to the system.`,
+        confirmLabel: 'Deactivate All',
+      },
+    }).afterClosed());
+
+    if (confirmed) {
+      await this.loader.withLoader(`Deactivating ${validRows.length} records...`, async () => {
+        const profile = await firstValueFrom(this.auth.profile$);
+        await Promise.all(validRows.map(async (row) => {
+          if (row.id) {
+            await this.repo.update(config.collection, row.id, { status: 'inactive' }, profile);
+            if (config.collection !== 'users' && row['userId']) {
+              await this.repo.update('users', String(row['userId']), { status: 'inactive' }, profile).catch(() => {});
+            }
+          }
+        }));
+      });
+      this.snackBar.open(`${validRows.length} records deactivated.`, 'Close', { duration: 4000 });
+      dataTable.selection.clear();
+    }
+  }
+
+  async migrateGroups(config: ManagementConfig): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Migrate Class Groups`,
+        message: `This will scan all classes. If a class has no groups, it will automatically create "Section A". It will then assign any students or staff in that class to the default group. Proceed?`,
+        confirmLabel: 'Run Migration',
+      },
+    }).afterClosed());
+
+    if (!confirmed) return;
+
+    await this.loader.withLoader('Migrating groups...', async () => {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
+      const allGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
+      const allStudents = await this.repo.getAllOnce<EntityRecord>('students', profile);
+      
+      let migratedCount = 0;
+
+      for (const cls of classes) {
+        if (!cls.id) continue;
+        let classGroups = allGroups.filter(g => g['classId'] === cls.id);
+        
+        let targetGroupId: string;
+
+        try {
+          if (classGroups.length === 0) {
+            // Create Section A
+            targetGroupId = await this.repo.create('classGroups', {
+              classId: cls.id,
+              organizationId: cls['organizationId'] || undefined,
+              madrasaId: cls['madrasaId'] || undefined,
+              courseId: cls['courseId'] || undefined,
+              name: 'Section A',
+              isDefault: true,
+              displayOrder: 1,
+              assignedStaffIds: [],
+              studentCount: 0,
+              capacity: 50,
+            }, profile);
+            migratedCount++;
+          } else if (classGroups.length === 1) {
+            targetGroupId = String(classGroups[0].id);
+          } else {
+            continue; // Cannot auto-migrate if there are multiple groups
+          }
+        } catch (e: any) {
+          console.error(`[Migrate Groups] Failed CREATING classGroup for class ${cls.id}:`, e);
+          this.snackBar.open(`Error creating group for ${cls['name']}: ${e.message}`, 'Close', { duration: 5000 });
+          return;
+        }
+
+        // Migrate Students
+        const studentsWithoutGroup = allStudents.filter(s => s['classId'] === cls.id && !s['groupId']);
+        for (const student of studentsWithoutGroup) {
+          if (student.id) {
+            try {
+              await this.repo.update('students', student.id, { groupId: targetGroupId }, profile);
+              migratedCount++;
+            } catch (e: any) {
+              console.error(`[Migrate Groups] Failed UPDATING student ${student.id} in class ${cls.id}:`, e);
+              this.snackBar.open(`Error updating student in ${cls['name']}: ${e.message}`, 'Close', { duration: 5000 });
+              return;
+            }
+          }
+        }
+
+      }
+
+      this.snackBar.open(`Migration complete. Updated ${migratedCount} records.`, 'Close', { duration: 5000 });
+    });
+  }
+
+  async migrateLegacyUsers(): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Migrate Legacy Users`,
+        message: `This will scan the "users" collection for legacy student, parent, and staff records. If they are missing from their dedicated collections, they will be created and linked. Proceed?`,
+        confirmLabel: 'Run Migration',
+      },
+    }).afterClosed());
+
+    if (!confirmed) return;
+
+    await this.loader.withLoader('Migrating legacy users...', async () => {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const allUsers = await this.repo.getAllOnce<EntityRecord>('users', profile);
+      const allStudents = await this.repo.getAllOnce<EntityRecord>('students', profile);
+      const allParents = await this.repo.getAllOnce<EntityRecord>('parents', profile);
+      const allStaff = await this.repo.getAllOnce<EntityRecord>('staff', profile);
+
+      let migratedCount = 0;
+
+      for (const user of allUsers) {
+        if (!user.id) continue;
+        const role = String(user['role']);
+        
+        if (role === 'student') {
+           const exists = allStudents.some(s => s['userId'] === user.id || s['uid'] === user.id || s.id === user['entityId']);
+           if (!exists) {
+              const studentId = await this.repo.create('students', {
+                 ...user,
+                 userId: user.id,
+                 name: user['displayName'] || user['name'] || 'Legacy Student',
+                 status: user['status'] || 'active',
+              }, profile);
+              await this.repo.update('users', user.id, { entityId: studentId, entityType: 'student' }, profile);
+              migratedCount++;
+           }
+        }
+        
+        if (role === 'parent') {
+           const exists = allParents.some(p => p['userId'] === user.id || p['uid'] === user.id || p.id === user['entityId']);
+           if (!exists) {
+              const parentId = await this.repo.create('parents', {
+                 ...user,
+                 userId: user.id,
+                 name: user['displayName'] || user['name'] || 'Legacy Parent',
+                 status: user['status'] || 'active',
+              }, profile);
+              await this.repo.update('users', user.id, { entityId: parentId, entityType: 'parent' }, profile);
+              migratedCount++;
+           }
+        }
+        
+        if (['teacher', 'staff', 'coordinator', 'madrasaIncharge'].includes(role)) {
+           const exists = allStaff.some(s => s['userId'] === user.id || s['uid'] === user.id || s.id === user['entityId']);
+           if (!exists) {
+              const staffId = await this.repo.create('staff', {
+                 ...user,
+                 userId: user.id,
+                 name: user['displayName'] || user['name'] || 'Legacy Staff',
+                 status: user['status'] || 'active',
+              }, profile);
+              await this.repo.update('users', user.id, { entityId: staffId, entityType: 'staff' }, profile);
+              migratedCount++;
+           }
+        }
+      }
+
+      this.snackBar.open(`Migration complete. Created ${migratedCount} business records.`, 'Close', { duration: 5000 });
+      this.pageIndex$.next(0); // Trigger refresh
+    });
   }
 
   async sendPasswordResetEmail(row: EntityRecord): Promise<void> {
@@ -1102,55 +1644,29 @@ export class ManagementPage {
   }
 
   async promote(row: EntityRecord): Promise<void> {
-    const profile = await firstValueFrom(this.auth.profile$);
-    const fields = await this.buildFields({
-      ...MANAGEMENT_CONFIGS['students'],
-      fields: [
-        {
-          key: 'action', label: 'Action', type: 'select', required: true, options: [
-            { label: 'Promotion', value: 'promotion' },
-            { label: 'Demotion', value: 'demotion' },
-          ]
-        },
-        { key: 'newCourseId', label: 'New course', type: 'select', quickAddResource: 'courses' },
-        { key: 'newStageOrLevel', label: 'New stage / level', type: 'text' },
-        { key: 'reason', label: 'Reason / note', type: 'textarea', required: true },
-      ],
-    }, row);
-
-    const result = await firstValueFrom(this.dialog.open<QuickAddDialogComponent, unknown, QuickAddResult>(QuickAddDialogComponent, {
-      data: { title: `Promote / demote ${row['name']}`, fields, submitLabel: 'Save history' },
+    const result = await firstValueFrom(this.dialog.open(PromoteDemoteDialogComponent, {
+      data: { student: row },
       width: '620px',
     }).afterClosed());
 
-    if (!result?.value || !row.id) {
-      return;
+    if (result?.success) {
+      this.snackBar.open('Academic history updated.', 'Close', { duration: 4000 });
+      // The dialog handles Firestore updates. 
+      // The local table will refresh via the data stream.
     }
+  }
 
-    const value = result.value;
+  async transfer(row: EntityRecord): Promise<void> {
+    const result = await firstValueFrom(this.dialog.open(StudentTransferDialogComponent, {
+      data: { student: row },
+      width: '600px',
+      maxWidth: '90vw'
+    }).afterClosed());
 
-    await this.loader.withLoader('Updating student details...', async () => {
-      await this.repo.create('promotionHistory', {
-        studentId: row.id,
-        organizationId: row.organizationId,
-        madrasaId: row.madrasaId,
-        previousCourseId: String(row['courseId'] ?? ''),
-        previousStageOrLevel: String(row['stage'] ?? row['level'] ?? ''),
-        newCourseId: String(value['newCourseId'] ?? ''),
-        newStageOrLevel: String(value['newStageOrLevel'] ?? ''),
-        reason: String(value['reason'] ?? ''),
-        action: value['action'],
-        actionDate: new Date().toISOString().slice(0, 10),
-        status: 'active',
-      }, profile);
-
-      await this.repo.update('students', row.id!, {
-        courseId: String(value['newCourseId'] || row['courseId'] || ''),
-        stage: String(value['newStageOrLevel'] || row['stage'] || ''),
-      }, profile);
-    });
-
-    this.snackBar.open('Academic history updated.', 'Close', { duration: 4000 });
+    if (result?.success) {
+      this.snackBar.open('Student transferred successfully.', 'Close', { duration: 4000 });
+      // The snapshot listener will automatically refresh the list
+    }
   }
 
   downloadCredentials(): void {
@@ -1193,8 +1709,6 @@ export class ManagementPage {
 
             if ('permissions' in payload) processedPayload['permissions'] = this.asStringArray(payload['permissions']);
             if ('madrasaIds' in payload) processedPayload['madrasaIds'] = this.asStringArray(payload['madrasaIds']);
-            if ('classIds' in payload) processedPayload['classIds'] = this.asStringArray(payload['classIds']);
-            if ('subjectIds' in payload) processedPayload['subjectIds'] = this.asStringArray(payload['subjectIds']);
             if ('linkedStudentIds' in payload) processedPayload['linkedStudentIds'] = this.asStringArray(payload['linkedStudentIds']);
 
             await this.repo.update(config.collection, initial.id, processedPayload, profile);
@@ -1203,8 +1717,6 @@ export class ManagementPage {
               const userPayload: Partial<EntityRecord> = {};
               if ('permissions' in processedPayload) userPayload['permissions'] = processedPayload['permissions'];
               if ('madrasaIds' in processedPayload) userPayload['madrasaIds'] = processedPayload['madrasaIds'];
-              if ('classIds' in processedPayload) userPayload['classIds'] = processedPayload['classIds'];
-              if ('subjectIds' in processedPayload) userPayload['subjectIds'] = processedPayload['subjectIds'];
               if ('linkedStudentIds' in processedPayload) userPayload['linkedStudentIds'] = processedPayload['linkedStudentIds'];
               if ('organizationId' in processedPayload) userPayload['organizationId'] = processedPayload['organizationId'];
 
@@ -1230,6 +1742,8 @@ export class ManagementPage {
               await this.createStaffAccess(payload, profile, initialPassword);
             } else if (config.specialCreate === 'organization') {
               await this.createOrganization(payload, profile);
+            } else if (config.collection === 'classes') {
+              await this.repo.create(config.collection, payload, profile);
             } else {
               await this.repo.create(config.collection, payload, profile);
             }
@@ -1315,8 +1829,6 @@ export class ManagementPage {
         organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
         madrasaId: this.asStringArray(payload['madrasaIds'])[0] || '',
         madrasaIds: this.asStringArray(payload['madrasaIds']),
-        classIds: this.asStringArray(payload['classIds']),
-        subjectIds: this.asStringArray(payload['subjectIds']),
       });
 
       const credential = {
@@ -1326,6 +1838,19 @@ export class ManagementPage {
         password,
         role
       };
+
+      const staffId = await this.repo.create('staff', {
+        ...payload,
+        name: payload['displayName'],
+        userId: credential.uid,
+        role: role,
+        roles: [role],
+        organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
+        madrasaId: this.asStringArray(payload['madrasaIds'])[0] || '',
+        madrasaIds: this.asStringArray(payload['madrasaIds']),
+      }, profile);
+
+      await this.repo.update('users', credential.uid, { entityId: staffId, entityType: 'staff' }, profile);
 
       this.credentials.splice(0, this.credentials.length, credential);
       this.snackBar.open('User access created. Save the generated credentials.', 'Close', { duration: 5000 });
@@ -1355,8 +1880,6 @@ export class ManagementPage {
         organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
         madrasaId: this.asStringArray(payload['madrasaIds'])[0] || '',
         madrasaIds: this.asStringArray(payload['madrasaIds']),
-        classIds: this.asStringArray(payload['classIds']),
-        subjectIds: this.asStringArray(payload['subjectIds']),
       });
 
       const credential = {
@@ -1367,16 +1890,17 @@ export class ManagementPage {
         role: 'teacher' as UserRole
       };
 
-      await this.repo.create('staff', {
+      const staffId = await this.repo.create('staff', {
         ...payload,
         userId: credential.uid,
         role: 'teacher',
+        roles: ['teacher'],
         organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
-        madrasaId: this.asStringArray(payload['madrasaIds'])[0],
+        madrasaId: this.asStringArray(payload['madrasaIds'])[0] || '',
         madrasaIds: this.asStringArray(payload['madrasaIds']),
-        classIds: this.asStringArray(payload['classIds']),
-        subjectIds: this.asStringArray(payload['subjectIds']),
       }, profile);
+
+      await this.repo.update('users', credential.uid, { entityId: staffId, entityType: 'staff' }, profile);
 
       this.credentials.splice(0, this.credentials.length, credential);
       this.snackBar.open('Staff access created. Save the generated credentials.', 'Close', { duration: 5000 });
@@ -1547,13 +2071,14 @@ export class ManagementPage {
 
         email: studentCredential.email,
         generatedEmail: payload['email'] ? '' : studentCredential.email,
-        teacherIds: [],
         status: payload.status ?? 'active',
       }, profile);
 
       await this.repo.update('parents', parentId, { linkedStudentIds: [studentId] }, profile);
       if (parentCredential.uid) {
         await this.repo.update('users', parentCredential.uid, {
+          entityId: parentId,
+          entityType: 'parent',
           linkedStudentIds: [studentId],
           linkedStudentUserIds: [studentCredential.uid],
           studentIds: [studentId],
@@ -1562,6 +2087,8 @@ export class ManagementPage {
       }
       if (studentCredential.uid) {
         await this.repo.update('users', studentCredential.uid, {
+          entityId: studentId,
+          entityType: 'student',
           studentIds: [studentId],
 
           // Parent Auth/User reference
@@ -1596,7 +2123,9 @@ export class ManagementPage {
       role: ROLE_ORDER
         .filter((role) => profile?.role === 'superAdmin' || role !== 'superAdmin')
         .map((role) => ({ label: ROLE_LABELS[role], value: role })),
-      permissions: Object.entries(PERMISSION_LABELS).map(([value, label]) => ({ label, value })),
+      permissions: Object.entries(PERMISSION_LABELS)
+        .filter(([value]) => value !== 'manageOrganizations')
+        .map(([value, label]) => ({ label, value })),
     };
 
     const hasField = (key: string) => config.fields.some(f => f.key === key);
@@ -1624,6 +2153,18 @@ export class ManagementPage {
       options['classIds'] = this.toOptions(classes, 'name');
     }
 
+    if (hasField('groupId') || hasField('groupIds')) {
+      const classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
+      const groupOptions = classGroups.map(g => ({
+        label: g['name'] as string,
+        value: g.id as string,
+        data: g,
+        dependentOn: g['classId'] ? { field: 'classId', value: g['classId'] } : undefined
+      }));
+      if (hasField('groupId')) options['groupId'] = groupOptions;
+      if (hasField('groupIds')) options['groupIds'] = groupOptions;
+    }
+
     if (hasField('subjectIds')) {
       const subjects = await this.repo.getAllOnce<EntityRecord>('subjects', profile);
       options['subjectIds'] = this.toOptions(subjects, 'name');
@@ -1639,9 +2180,9 @@ export class ManagementPage {
       }
     }
 
-    if (hasField('teacherIds')) {
+    if (hasField('assignedStaffIds')) {
       const staff = await this.repo.getAllOnce<EntityRecord>('staff', profile);
-      options['teacherIds'] = this.toOptions(staff, 'name');
+      if (hasField('assignedStaffIds')) options['assignedStaffIds'] = this.toOptions(staff, 'name');
     }
 
     if (hasField('linkedStudentIds')) {
@@ -1672,7 +2213,7 @@ export class ManagementPage {
       return {
         status: 'active',
         role: config.fixedRole ?? '',
-        permissions: config.fixedRole ? permissionsForRole(config.fixedRole) : [],
+        permissions: config.fixedRole ? this.rolePermissionsService.getPermissionsForRole(config.fixedRole) : [],
       };
     }
 

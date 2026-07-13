@@ -57,14 +57,16 @@ export class CourseDetailsDialogComponent implements OnInit {
       ));
       this.studentsCount = students.length;
 
-      const staffData = await this.repo.getAllOnce('users', profile, { roles: ['teacher', 'staff'] });
-      const staff = staffData.filter((u: any) => (
-        (Array.isArray(u['teachingCourseIds']) && u['teachingCourseIds'].includes(this.course.id)) ||
-        (Array.isArray(u['teachingClassIds']) && u['teachingClassIds'].some((tcId: any) => courseClasses.some((c: any) => c.id === tcId))) ||
-        (Array.isArray(u['classIds']) && u['classIds'].some((cId: any) => courseClasses.some((c: any) => c.id === cId))) ||
-        (Array.isArray(u['courseIds']) && u['courseIds'].includes(this.course.id))
-      ));
-      this.staffCount = staff.length;
+      const classIds = new Set(courseClasses.map((c: any) => String(c.id)));
+      const groups = await this.repo.getAllOnce('classGroups', profile);
+      const courseGroups = groups.filter((group: any) => classIds.has(String(group['classId'])));
+      const staffIds = new Set<string>();
+      courseGroups.forEach((group: any) => {
+        if (Array.isArray(group['assignedStaffIds'])) {
+          group['assignedStaffIds'].forEach((id: unknown) => staffIds.add(String(id)));
+        }
+      });
+      this.staffCount = staffIds.size;
 
       console.log('[Course Counts Debug]', {
         courseId: this.course.id,

@@ -34,7 +34,9 @@ export type PermissionKey =
   | 'manageAcademicPlans'
   | 'managePromotions'
   | 'managePasswordRequests'
-  | 'manageClassPlans';
+  | 'manageClassPlans'
+  | 'manageFees'
+  | 'viewFees';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'leave';
 
@@ -60,21 +62,27 @@ export interface AppUser extends AuditFields {
   role: UserRole;
   permissions: PermissionKey[];
   status: EntityStatus;
+  
+  entityId?: string;
+  entityType?: 'staff' | 'student' | 'parent';
+
   organizationId?: string;
   madrasaId?: string;
-  madrasaIds: string[];
-  classIds: string[];
-  subjectIds: string[];
-  teacherIds?: string[];
-  studentIds: string[];
-  linkedStudentIds: string[];
+  
+  // These fields are merged in from the business entity after login
+  madrasaIds?: string[];
+  classIds?: string[];
+  subjectIds?: string[];
+  studentIds?: string[];
+  linkedStudentIds?: string[];
   parentId?: string;
   coordinatorId?: string;
   madrasaInchargeId?: string;
-  authProvider: 'google' | 'password' | 'generated' | 'unknown';
-  phone?: string;
-  photoURL?: string;
+  mobileNumber?: string;
   gender?: string;
+
+  authProvider: 'google' | 'password' | 'generated' | 'unknown';
+  photoURL?: string;
   lastLoginAt?: unknown;
   mustChangePassword?: boolean;
   passwordChangedAt?: unknown;
@@ -85,7 +93,7 @@ export interface Organization extends ScopedEntity {
   name: string;
   code: string;
   email?: string;
-  phone?: string;
+  mobileNumber?: string;
   address?: string;
   adminUserIds: string[];
   primaryOrganizerId?: string;
@@ -116,7 +124,20 @@ export interface AcademicClass extends ScopedEntity {
   name: string;
   courseId: string;
   stageOrLevel?: string;
-  teacherIds: string[];
+}
+
+export interface ClassGroup extends ScopedEntity {
+  name: string;
+  code?: string;
+  description?: string;
+  classId: string;
+  courseId?: string;
+  assignedStaffIds: string[];
+  studentCount: number;
+  capacity?: number;
+  displayOrder: number;
+  color?: string;
+  isDefault: boolean;
 }
 
 export interface Subject extends ScopedEntity {
@@ -124,11 +145,10 @@ export interface Subject extends ScopedEntity {
   code: string;
   courseId?: string;
   classId?: string;
-  teacherIds: string[];
 }
 
 export interface Student extends ScopedEntity {
-  userId?: string;
+  userId?: string; // The linked AppUser uid
   parentId?: string;
   name: string;
   fatherName: string;
@@ -137,39 +157,44 @@ export interface Student extends ScopedEntity {
   generatedEmail?: string;
   courseId?: string;
   classId?: string;
+  groupId?: string;
   stage?: string;
   level?: string;
-  teacherIds: string[];
+  mobileNumber?: string;
 }
 
 export interface Parent extends ScopedEntity {
-  userId?: string;
+  userId?: string; // The linked AppUser uid
   name: string;
   email?: string;
   generatedEmail?: string;
-  phone?: string;
+  mobileNumber?: string;
   linkedStudentIds: string[];
 }
 
 export interface Staff extends ScopedEntity {
-  userId?: string;
+  userId?: string; // The linked AppUser uid
   name: string;
   email: string;
-  role: UserRole;
+  role: UserRole; // Primary role
+  roles?: UserRole[]; // Multiple roles array for scalable support
   madrasaIds: string[];
-  classIds: string[];
-  subjectIds: string[];
+  mobileNumber?: string;
 }
 
 export interface AttendanceRecord extends Omit<ScopedEntity, 'status'> {
   date: string;
   courseId?: string;
   classId?: string;
+  groupId?: string;
   subjectId?: string;
   studentId: string;
   teacherId?: string;
   status: AttendanceStatus;
   notes?: string;
+  classPlanId?: string;
+  timetableEntryId?: string;
+  activityName?: string;
 }
 
 export interface NotificationItem extends ScopedEntity {
@@ -195,9 +220,9 @@ export interface NotificationItem extends ScopedEntity {
 export interface PromotionHistory extends ScopedEntity {
   studentId: string;
   previousCourseId?: string;
-  previousStageOrLevel?: string;
+  previousStage?: string;
   newCourseId?: string;
-  newStageOrLevel?: string;
+  newStage?: string;
   reason: string;
   action: 'promotion' | 'demotion';
   actionDate: string;
@@ -215,8 +240,8 @@ export interface CsvImportLog extends ScopedEntity {
 export interface TableColumn {
   key: string;
   label: string;
-  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef';
-  referenceType?: 'organization' | 'madrasa' | 'user' | 'course' | 'class' | 'subject' | 'student' | 'parent' | 'staff' | 'teacher' | 'coordinator' | 'incharge';
+  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef' | 'staffChips';
+  referenceType?: 'organization' | 'madrasa' | 'user' | 'course' | 'class' | 'classGroup' | 'subject' | 'student' | 'parent' | 'staff' | 'teacher' | 'coordinator' | 'incharge';
 }
 
 export interface SelectOption {
@@ -228,7 +253,7 @@ export interface SelectOption {
 export interface QuickAddField {
   key: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'date' | 'textarea' | 'select' | 'multiselect' | 'button-toggle' | 'info';
+  type: 'text' | 'email' | 'password' | 'date' | 'textarea' | 'select' | 'multiselect' | 'button-toggle' | 'info' | 'mobileNumber' | 'hidden';
   required?: boolean;
   options?: SelectOption[];
   quickAddResource?: string;
@@ -263,18 +288,14 @@ export interface ClassPlan extends ScopedEntity {
   courseName: string;
   classId: string;
   className: string;
+  groupId?: string;
+  groupName?: string;
   title: string;
-  assignedStaffIds: string[];
-  assignedStaffNames: string[];
-  studentIds: string[];
-  studentNames: string[];
   scheduleType: 'oneTime' | 'weekly' | 'monthly' | 'customDates';
   startDate: string;
   endDate: string | null;
   selectedDates: string[];
   weekDays: string[];
-  startTime: string;
-  endTime: string;
   status: 'active' | 'paused' | 'completed' | 'cancelled';
   autoGenerateAttendance: boolean;
   autoMarkStudentsPresent: boolean;
@@ -305,12 +326,14 @@ export interface ClassPlanException extends ScopedEntity {
 
 export interface TimetableEntry extends ScopedEntity {
   classPlanId: string;
+  groupId?: string;
   dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
   scheduleType?: 'period' | 'fullDay'; // 'period' by default
   startTime?: string; // HH:mm, optional for fullDay
   endTime?: string; // HH:mm, optional for fullDay
   activityName: string;
   teacherId?: string;
+  teacherIds?: string[];
   subjectId?: string;
   roomId?: string;
   description?: string;
@@ -323,10 +346,14 @@ export interface ClassPlanAttendance extends ScopedEntity {
   courseName: string;
   classId: string;
   className: string;
+  groupId?: string;
+  groupName?: string;
   date: string;
   dateKey: string;
   startTime: string;
   endTime: string;
+  timetableEntryId?: string;
+  activityName?: string;
   type: 'class';
   status: 'draft' | 'confirmed' | 'cancelled';
   studentIds: string[];
@@ -348,3 +375,84 @@ export interface ClassPlanAttendance extends ScopedEntity {
   }[];
   autoGenerated: boolean;
 }
+
+export interface StudentTransferHistory extends ScopedEntity {
+  studentId: string;
+  previousMadrasaId?: string;
+  previousCourseId?: string;
+  previousClassId?: string;
+  previousGroupId?: string;
+  newMadrasaId?: string;
+  newCourseId?: string;
+  newClassId?: string;
+  newGroupId?: string;
+  reason: string;
+  actionDate: string;
+}
+
+// ==========================================
+// Fee Management Models
+// ==========================================
+
+export type FeeType =
+  | 'yearly'
+  | 'monthly'
+  | 'amalCard'
+  | 'admission'
+  | 'exam'
+  | 'transport'
+  | 'custom';
+
+export type PaymentPeriod = 'oneTime' | 'monthly' | 'yearly' | 'customRange';
+export type FeePaymentStatus = 'paid' | 'notPaid' | 'partialPaid';
+export type PaymentMethod = 'cash' | 'bankTransfer' | 'upi' | 'cheque' | 'online' | 'other';
+
+export interface FeePlan extends ScopedEntity {
+  title: string;
+  feeType: FeeType;
+  amount: number;
+  paymentPeriod: PaymentPeriod;
+  startDate: string;
+  endDate: string;
+  applicableMadrasaId?: string;
+  applicableCourseId?: string;
+  applicableClassId?: string;
+  applicableGroupId?: string;
+  applicableStudentIds?: string[];
+  responsibleStaffId?: string;
+  responsibleStaffName?: string;
+  notes?: string;
+  assignedCount?: number;
+  collectedAmount?: number;
+  pendingAmount?: number;
+}
+
+export interface FeeAssignment extends ScopedEntity {
+  feePlanId: string;
+  feePlanTitle?: string;
+  studentId: string;
+  studentName?: string;
+  feeType?: FeeType;
+  amount: number;
+  paidAmount: number;
+  balanceAmount: number;
+  paymentStatus: FeePaymentStatus;
+  dueDate: string;
+  lastPaymentDate?: string;
+}
+
+export interface FeePayment extends ScopedEntity {
+  feePlanId: string;
+  feeAssignmentId: string;
+  studentId: string;
+  studentName?: string;
+  amountPaid: number;
+  balanceAfterPayment: number;
+  paymentDate: string;
+  paymentMethod: PaymentMethod;
+  receiptNumber?: string;
+  remarks?: string;
+  collectedByStaffId?: string;
+  collectedByStaffName?: string;
+}
+

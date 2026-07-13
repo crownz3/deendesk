@@ -1,0 +1,233 @@
+.dialog-header-modern {
+  display: flex;
+  align-items: center;
+  padding: 24px 24px 16px;
+  background: var(--ion-color-step-50, #f8f9fa);
+  border-bottom: 1px solid var(--ion-color-step-150, #eee);
+  position: relative;
+
+  .header-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    background: var(--ion-color-primary-tint, #e0ebff);
+    color: var(--ion-color-primary, #3880ff);
+    border-radius: 12px;
+    margin-right: 16px;
+
+    mat-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
+    }
+  }
+
+  .header-title {
+    flex: 1;
+
+    h2 {
+      margin: 0 0 4px;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--ion-color-dark, #222);
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--ion-color-medium, #666);
+    }
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    color: var(--ion-color-medium, #666);
+  }
+}
+
+.modern-dialog-content {
+  padding: 24px !important;
+}
+
+.copy-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ion-color-dark, #222);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .selection-actions {
+    button {
+      min-width: unset;
+      padding: 0 8px;
+      height: 32px;
+      font-size: 0.75rem;
+    }
+  }
+}
+
+.activities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--ion-color-step-150, #eee);
+  border-radius: 8px;
+  padding: 8px;
+
+  .activity-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: var(--ion-color-step-50, #fafafa);
+    }
+
+    &.selected {
+      background: var(--ion-color-primary, #3880ff);
+      border-color: var(--ion-color-primary, #3880ff);
+      color: white;
+
+      .activity-info {
+        .time, .name {
+          color: white !important;
+        }
+      }
+
+      ::ng-deep .mdc-checkbox__background {
+        border-color: white !important;
+      }
+      
+      ::ng-deep .mdc-checkbox__checkmark-path {
+        stroke: var(--ion-color-primary, #3880ff) !important;
+      }
+
+      ::ng-deep .mdc-checkbox__native-control:enabled:checked~.mdc-checkbox__background {
+        background-color: white !important;
+        border-color: white !important;
+      }
+    }
+
+    mat-checkbox {
+      margin-right: 12px;
+    }
+
+    .activity-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .time {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--ion-color-primary, #3880ff);
+        
+        &.full-day {
+          color: #1b5e20;
+        }
+      }
+
+      .name {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--ion-color-dark, #222);
+      }
+    }
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  background: var(--ion-color-step-50, #fafafa);
+  border-radius: 8px;
+  color: var(--ion-color-medium, #666);
+  border: 1px dashed var(--ion-color-step-200, #ccc);
+
+  mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+    margin-bottom: 8px;
+    opacity: 0.5;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+}
+
+.conflict-section {
+  background: #fff3e0;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #ffcc80;
+
+  .warning-title {
+    color: #e65100;
+    margin-bottom: 4px;
+    
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+
+  .conflict-desc {
+    margin: 0 0 16px 0;
+    font-size: 0.875rem;
+    color: #e65100;
+  }
+
+  .conflict-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    mat-radio-button {
+      strong {
+        color: var(--ion-color-dark, #222);
+      }
+      .sub {
+        font-size: 0.75rem;
+        color: var(--ion-color-medium, #666);
+      }
+    }
+  }
+}

@@ -1,15 +1,14 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Observable, Subscription, catchError, combineLatest, map, of, shareReplay, startWith, switchMap } from 'rxjs';
+import { Observable, Subscription, catchError, combineLatest, map, of, shareReplay, startWith, switchMap, firstValueFrom } from 'rxjs';
 import { AppUser, ClassPlan, ClassPlanAttendance, ClassPlanException } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { LoaderService } from '../../core/services/loader.service';
 import { ClassPlanAttendanceService } from '../../core/services/class-plan-attendance.service';
-import { ClassPlanFormDialogComponent } from './class-plan-form-dialog.component';
 import { ClassPlanExceptionDialogComponent } from './class-plan-exception-dialog.component';
-import { ClassPlanTimetableDialogComponent } from './class-plan-timetable-dialog.component';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 export interface PageState<T> {
   data?: T;
@@ -23,7 +22,9 @@ interface ClassPlansVm {
   madrasas: EntityRecord[];
   courses: EntityRecord[];
   classes: EntityRecord[];
+  classGroups: EntityRecord[];
   exceptions: (EntityRecord & ClassPlanException)[];
+  staffDocs: EntityRecord[];
 }
 
 @Component({
@@ -35,6 +36,11 @@ interface ClassPlansVm {
 export class ClassPlansPage implements OnInit, OnDestroy {
   readonly vm$: Observable<PageState<ClassPlansVm>>;
   
+  selectedPlan?: ClassPlan;
+  isCreating = false;
+  isEditingPlan = false;
+  isSidebarCollapsed = false;
+  
   constructor(
     private readonly auth: AuthService,
     private readonly repo: RepositoryService,
@@ -45,14 +51,16 @@ export class ClassPlansPage implements OnInit, OnDestroy {
   ) {
     this.vm$ = this.auth.profile$.pipe(
       switchMap((profile) => {
-        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], exceptions: [] } });
+        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], classGroups: [], exceptions: [], staffDocs: [] } });
         
         return combineLatest({
           classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile),
           madrasas: this.repo.list<EntityRecord>('madrasas', profile),
           courses: this.repo.list<EntityRecord>('courses', profile),
           classes: this.repo.list<EntityRecord>('classes', profile),
+          classGroups: this.repo.list<EntityRecord>('classGroups', profile),
           exceptions: this.repo.list<EntityRecord & ClassPlanException>('classPlanExceptions', profile),
+          staffDocs: this.repo.list<EntityRecord>('staff', profile),
         }).pipe(
           map((data): PageState<ClassPlansVm> => ({
             data: { profile, ...data },
@@ -79,29 +87,54 @@ export class ClassPlansPage implements OnInit, OnDestroy {
     return String(rows.find((row) => row.id === id)?.['name'] ?? id);
   }
 
-  getPlanExceptions(planId: string, exceptions: (EntityRecord & ClassPlanException)[]): (EntityRecord & ClassPlanException)[] {
-    return exceptions?.filter(e => e.classPlanId === planId) || [];
+  getClassTeachers(plan: ClassPlan, vm: ClassPlansVm | undefined | null): string {
+    if (!vm || !vm.classGroups) return 'No Class Staff';
+    const groups = vm.classGroups.filter(group => String(group['classId']) === String(plan.classId));
+    const staffIds = Array.from(new Set(
+      groups.flatMap(group => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'].map(String) : [])
+    ));
+    const names = staffIds.map(id => {
+       const staffDoc = vm.staffDocs.find(staff =>
+         [staff.id, staff['uid'], staff['userId'], staff['entityId']].map(value => String(value || '')).includes(id)
+       );
+       return staffDoc ? (staffDoc['displayName'] || staffDoc['name']) : null;
+    }).filter(n => !!n);
+    
+    return names.length > 0 ? names.join(', ') : 'No Class Staff';
   }
 
-  openForm(plan?: ClassPlan): void {
-    this.dialog.open(ClassPlanFormDialogComponent, {
-      width: '600px',
-      data: { plan }
-    });
+  getPlanExceptions(planId: string | undefined, exceptions: (EntityRecord & ClassPlanException)[] | undefined): (EntityRecord & ClassPlanException)[] {
+    if (!planId || !exceptions) return [];
+    return exceptions.filter(e => e.classPlanId === planId).sort((a, b) => b.date.localeCompare(a.date));
+  }
+
+  selectPlan(plan: ClassPlan): void {
+    this.selectedPlan = plan;
+    this.isCreating = false;
+    this.isEditingPlan = false;
+  }
+
+  createNew(): void {
+    this.selectedPlan = undefined;
+    this.isCreating = true;
+    this.isEditingPlan = true;
+  }
+
+  onFormSave(savedPlan: ClassPlan): void {
+    this.selectedPlan = savedPlan;
+    this.isCreating = false;
+    this.isEditingPlan = false;
+  }
+
+  onFormCancel(): void {
+    this.isCreating = false;
+    this.isEditingPlan = false;
   }
 
   openExceptionForm(plan: ClassPlan): void {
     this.dialog.open(ClassPlanExceptionDialogComponent, {
       width: '500px',
       data: { plan }
-    });
-  }
-
-  openTimetable(plan: ClassPlan, profile?: AppUser | null): void {
-    this.dialog.open(ClassPlanTimetableDialogComponent, {
-      width: '90%',
-      maxWidth: '1200px',
-      data: { plan, canManage: this.canManage(profile) }
     });
   }
 
@@ -119,16 +152,66 @@ export class ClassPlansPage implements OnInit, OnDestroy {
 
   async toggleStatus(plan: ClassPlan, profile: AppUser): Promise<void> {
     const newStatus = plan.status === 'active' ? 'paused' : 'active';
-    await this.loader.withLoader('Updating...', async () => {
-      await this.repo.update('classPlans', plan.id!, { status: newStatus }, profile);
-    });
+    const actionName = newStatus === 'paused' ? 'Pause' : 'Resume';
+    
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: `${actionName} Class Plan`,
+        message: `Are you sure you want to ${actionName.toLowerCase()} this class plan?`
+      }
+    }).afterClosed());
+
+    if (confirmed) {
+      await this.loader.withLoader('Updating...', async () => {
+        await this.repo.update('classPlans', plan.id!, { status: newStatus }, profile);
+      });
+    }
   }
 
   async deletePlan(plan: ClassPlan, profile: AppUser): Promise<void> {
-    if (confirm('Are you sure you want to delete this class plan?')) {
-      await this.loader.withLoader('Deleting...', async () => {
-        await this.repo.remove('classPlans', plan.id!);
-      });
+    const confirm = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Delete Class Plan',
+        message: 'Are you sure you want to delete this class plan? This cannot be undone.',
+        confirmText: 'Delete',
+        confirmColor: 'warn'
+      }
+    }).afterClosed());
+
+    if (confirm) {
+      try {
+        await this.loader.withLoader('Deleting...', () => this.repo.remove('classPlans', plan.id!));
+        this.snackBar.open('Plan deleted successfully', 'Close', { duration: 3000 });
+        if (this.selectedPlan?.id === plan.id) {
+          this.selectedPlan = undefined;
+        }
+      } catch (e) {
+        this.snackBar.open('Error deleting plan', 'Close', { duration: 3000 });
+      }
+    }
+  }
+
+  async deleteException(exception: EntityRecord & ClassPlanException, profile: AppUser | null | undefined): Promise<void> {
+    if (!profile) return;
+    const confirm = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Delete Exception',
+        message: 'Are you sure you want to delete this exception?',
+        confirmText: 'Delete',
+        confirmColor: 'warn'
+      }
+    }).afterClosed());
+
+    if (confirm) {
+      try {
+        await this.loader.withLoader('Deleting...', () => this.repo.remove('classPlanExceptions', exception.id!));
+        this.snackBar.open('Exception deleted successfully', 'Close', { duration: 3000 });
+      } catch (e) {
+        this.snackBar.open('Error deleting exception', 'Close', { duration: 3000 });
+      }
     }
   }
 

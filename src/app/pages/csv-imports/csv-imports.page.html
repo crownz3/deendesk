@@ -18,20 +18,24 @@
       </button>
     </div>
 
-    <section class="import-panel">
+    <section class="import-panel"
+             [class.drag-over]="isDragging"
+             (dragover)="onDragOver($event)"
+             (dragleave)="onDragLeave($event)"
+             (drop)="onDrop($event)">
       <form [formGroup]="form" class="module-form">
         <mat-form-field appearance="outline">
           <mat-label>Module</mat-label>
-          <mat-select formControlName="module">
+          <mat-select formControlName="module" [disabled]="importing">
             <mat-option *ngFor="let module of modules" [value]="module.key">{{ module.label }}</mat-option>
           </mat-select>
         </mat-form-field>
-        <button mat-stroked-button type="button" (click)="downloadTemplate()">
+        <button mat-stroked-button type="button" (click)="downloadTemplate()" [disabled]="importing">
           <ion-icon name="download-outline"></ion-icon>
           Template
         </button>
-        <label class="upload-button">
-          <input type="file" accept=".csv,text/csv" (change)="handleFile($event)" />
+        <label class="upload-button" [class.disabled-label]="importing">
+          <input #fileInput type="file" accept=".csv,text/csv" (change)="handleFile($event)" [disabled]="importing" />
           <ion-icon name="cloud-upload-outline"></ion-icon>
           Upload CSV
         </label>
@@ -45,11 +49,14 @@
       </div>
 
       <div class="actions" *ngIf="validation">
-        <button mat-flat-button color="primary" type="button" (click)="importRows()" [disabled]="importing || validation.validRows.length === 0">
+        <button mat-flat-button color="primary" type="button" (click)="importRows()" [disabled]="importing || validation.validRows.length === 0 || validation.errors.length > 0">
           Import valid rows
         </button>
         <button mat-button type="button" (click)="downloadErrors()" [disabled]="validation.errors.length === 0">
           Download errors
+        </button>
+        <button mat-button color="warn" type="button" (click)="cancelImport()" [disabled]="importing">
+          Cancel
         </button>
       </div>
 

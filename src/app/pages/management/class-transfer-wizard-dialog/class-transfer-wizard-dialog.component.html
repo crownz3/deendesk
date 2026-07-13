@@ -1,0 +1,63 @@
+<div class="dialog-header">
+  <h2>Transfer {{ data.transferType | titlecase }}</h2>
+  <button mat-icon-button type="button" mat-dialog-close>
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content">
+  <div *ngIf="loading" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading {{ data.transferType }}...</p>
+  </div>
+
+  <div *ngIf="!loading">
+    <p>Transferring from: <strong>{{ data.sourceClassRecord['name'] }}</strong></p>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Target Class</mat-label>
+        <mat-select [(ngModel)]="selectedClassId">
+          <mat-option *ngFor="let cls of classes" [value]="cls.id">
+            {{ cls['name'] }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="full-width" *ngIf="selectedClassId && availableGroups.length > 0">
+        <mat-label>{{ data.transferType === 'staff' ? 'Target Group' : 'Target Group (Optional)' }}</mat-label>
+        <mat-select [(ngModel)]="selectedGroupId">
+          <mat-option value="" *ngIf="data.transferType !== 'staff'">No Group</mat-option>
+          <mat-option *ngFor="let group of availableGroups" [value]="group.id">
+            {{ group['name'] }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="mode-selection">
+      <mat-radio-group [(ngModel)]="transferMode">
+        <mat-radio-button value="all">Transfer All ({{ records.length }})</mat-radio-button>
+        <mat-radio-button value="selected">Transfer Selected</mat-radio-button>
+      </mat-radio-group>
+    </div>
+
+    <div class="record-selection-list" *ngIf="transferMode === 'selected'">
+      <div class="record-item" *ngFor="let record of records" (click)="toggleRecord(record.id!)">
+        <mat-checkbox [checked]="selectedRecords.has(record.id!)" (change)="toggleRecord(record.id!)" (click)="$event.stopPropagation()">
+          {{ record['name'] || record['displayName'] }}
+        </mat-checkbox>
+      </div>
+    </div>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions">
+  <button mat-button type="button" (click)="cancel()" [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="loading || saving || !selectedClassId || (transferMode === 'selected' && selectedRecords.size === 0)">
+    <ion-icon name="swap-horizontal-outline" *ngIf="!saving"></ion-icon>
+    <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+    <span *ngIf="!saving">Transfer</span>
+  </button>
+</mat-dialog-actions>

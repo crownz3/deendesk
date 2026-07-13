@@ -1,72 +1,72 @@
 # Goal Description
 
-Implement a consistent Permission and Scoping System across the Angular + Firebase application to eliminate `FirebaseError: Missing or insufficient permissions` issues. 
-
-The implementation will focus on strict matching between frontend queries in `repository.service.ts` and backend rules in `firestore.rules`. Access control will adhere strictly to the formula: **Permission + Scope = Access**, relying solely on existing permission keys and roles defined in `defaults.ts`.
-
-> [!WARNING]
-> This refactor changes how Firestore rules validate data and how the frontend queries data. Please review the proposed changes below carefully. 
-
-## User Review Required
-
-- **Data Migration**: Existing user documents missing array fields (`permissions`, `madrasaIds`, `classIds`, `subjectIds`, `teacherIds`, `linkedStudentIds`) will need these initialized to `[]` for complete safety, although the new firestore rules will handle missing fields gracefully by defaulting to empty lists using `.get(field, [])`. Are you okay with adding a temporary normalization script or doing this as a background task later?
-- **Role Keys**: We will strictly enforce `role` values as standard camelCase (e.g., `teacher`, `student`, `madrasaIncharge`). Any existing documents with uppercase or label roles (e.g., `STUDENT`, `Teacher`) will be treated as invalid or need normalization.
+Update the Teacher Dashboard to derive assignment data dynamically from Firestore using precise queries, matching the current schema without relying on duplicated assignment data in the `users` document. The `users` collection will be strictly reserved for identity and scope (organization and madrasa).
 
 ## Proposed Changes
 
-### Configuration Defaults
-
-#### [MODIFY] [defaults.ts](file:///d:/My%20Files/Deendesk/deendesk/src/app/core/constants/defaults.ts)
-- Maintain existing `ROLE_LABELS`, `ROLE_ORDER`, `ALL_PERMISSIONS`, `PERMISSION_LABELS`.
-- Ensure NO changes to the keys themselves to prevent breaking existing valid data.
-
 ### Frontend Data Access Layer
 
-#### [MODIFY] [repository.service.ts](file:///d:/My%20Files/Deendesk/deendesk/src/app/core/services/repository.service.ts)
-- Refactor `scopeConstraints` to thoroughly support all role scopes using exact `QueryConstraint[][]` definitions to map perfectly with Firestore rules.
-- **Super Admin**: Global queries.
-- **Organization Admin**: `where('organizationId', '==', orgId)`.
-- **Coordinator & Madrasa Incharge**:
-  - Merge scoped queries for array constraints: chunk `madrasaIds` into groups of 10.
-  - Add logic to query `madrasaId in [chunk]` AND `madrasaIds array-contains-any [chunk]`.
-  - For `users` collection, enforce `role` filtering per role type (e.g., querying `teacher` and `student` separately, not reading the entire collection).
-  - Add specific scope for `isGlobalOrgAcademicData` (empty `madrasaId` but matching `organizationId`).
-- **Teacher**:
-  - For `users` collection, ONLY query `where('role', '==', 'student')` and `where('classId', 'in', classIds)`. Never do a broad user query.
-  - Query `classes`/`subjects`/`attendance` using `classIds`, `subjectIds`, or `teacherIds`.
-- **Student & Parent**: Securely query only own user doc or linked IDs.
-- Ensure `list()` explicitly uses `combineLatest` on all `QueryConstraint[]` groups and deduplicates results properly.
-- Initialize array fields in `create` and `update` logic (e.g., `permissions: []`, `madrasaIds: []`).
+#### [MODIFY] [domain.model.ts](file:///d:/My%20Files/Deendesk/deendesk/src/app/core/models/domain.model.ts)
+- Add `teacherIds?: string[];` to `TimetableEntry` to allow efficient Firestore querying while keeping any existing `staff` array or `teacherId` intact for backwards compatibility.
 
-### Backend Security Rules
+#### [MODIFY] [repository.service.ts](file:///d:/My%20Files/Deendesk/deendesk/src/app/core/services/repository.service.ts)
+- Remove `user.classIds`, `user.subjectIds`, etc., from `teacher` scope logic to ensure we don't rely on or duplicate assignment data in `users` or `staff`.
+- Update `scopeConstraints` for `teacher`/`staff` to return strictly restricted scopes:
+  - `classes`: `[where('teacherIds', 'array-contains', user.uid)]`
+  - `timetableEntries`: `[where('teacherIds', 'array-contains', user.uid)]` (`teacherIds` will be the canonical field post-migration).
+  - `classPlans`: Allow querying by document ID arrays if provided in extra constraints (chunked in batches of 10).
+  - `courses`, `madrasas`: Allow querying by document ID arrays (chunked in batches of 10).
+  - Ensure all queries check if the ID list is empty before executing, skipping the query entirely if empty.
+
+### UI Components
+
+#### [MODIFY] [timetable-entry-form-dialog.component.ts](file:///d:/My%20Files/Deendesk/deendesk/src/app/pages/class-plans/timetable-entry-form-dialog.component.ts)
+- Ensure the timetable save/update logic always writes the `teacherIds` array. Whenever the assigned teacher changes, regenerate the `teacherIds` array from the current assignment before saving the document. After migration, `teacherIds` will be the canonical field for querying.
+
+### Migration Script
+
+#### [CREATE/MODIFY] [migration script / helper method]
+- Create a one-time migration method (e.g., in a temporary admin component or standalone script) that fetches all existing `timetableEntries`.
+- Only update entries where `teacherIds` is missing or empty. Do not overwrite existing `teacherIds` values.
+- Log the number of migrated documents and any skipped records.
+- This ensures all historical records are queryable under the new strict rules.
+
+### Teacher Dashboard
+
+#### [MODIFY] [dashboard.page.ts](file:///d:/My%20Files/Deendesk/deendesk/src/app/pages/dashboard/dashboard.page.ts)
+- Refactor data loading to use a chained reactive flow (`switchMap` or chained `repo.list` calls) to dynamically derive assignments:
+  1. Fetch `classes` (scope automatically filters to `teacherIds array-contains`).
+  2. Fetch `timetableEntries` (scope automatically fetches `where('teacherIds', 'array-contains', profile.uid)`).
+  3. Extract unique `classPlanId`s from the fetched `timetableEntries`. Skip step 4 if empty.
+  4. Fetch `classPlans` using `where(documentId(), 'in', classPlanIds)`. (Chunked in batches of 10).
+  5. Extract `courseId`s and `madrasaId`s from both `classPlans` and `classes`. Skip step 6 if empty.
+  6. Fetch `courses` and `madrasas` using `where(documentId(), 'in', [...])`. (Chunked in batches of 10).
+  7. Extract `classId`s and `groupId`s from the fetched `classPlans`.
+  8. Fetch `students` using exactly the real field names `where('classId', 'in', classIds)` or `where('groupId', 'in', groupIds)` (verified from `domain.model.ts` that the schema uses `groupId`).
+- Dynamically compute the assignment counts directly from these fetched collections. Remove all reliance on `profile.classIds` or missing identity arrays.
+- Graceful Empty State: If a teacher has no timetable entries or assignments, the chained queries will cleanly skip and the dashboard will load successfully, displaying an empty state (0 Classes, 0 Courses, 0 Students, etc.) without throwing errors or permission failures.
+
+### Backend Security Rules & Indexes
 
 #### [MODIFY] [firestore.rules](file:///d:/My%20Files/Deendesk/deendesk/firestore.rules)
-- Replace unsafe direct property accesses (e.g., `currentUser().madrasaIds`, `data.organizationId`) with safe `.get()` methods with defaults to prevent evaluation crashes on older documents.
-  - `currentUser().get('madrasaIds', [])`
-  - `data.get('organizationId', null)`
-- Refactor `canReadModule` and `canWriteModule` to use strict Permission + Scope combinations.
-- Refactor `users` collection rules:
-  - Super Admin: global access.
-  - Org Admin: same organization.
-  - Coordinator: same org + assigned madrasas, excluding `superAdmin` & `organizationAdmin`.
-  - Madrasa Incharge: same org + assigned madrasas, restricted to `teacher`, `student`, `parent`.
-  - Teacher: read `student` role only if assigned class/subject matches.
-- Secure related collections (`madrasas`, `courses`, `classes`, `subjects`, `attendance`) utilizing these scoped helper functions.
+- Update read access to enforce strict checks matching the queries:
+  - `classes`: `isTeacherOrStaff() && request.auth.uid in resource.data.teacherIds`
+  - `timetableEntries`: `isTeacherOrStaff() && request.auth.uid in resource.data.teacherIds`
+- For `classPlans`, ensure the rule restricts access to the teacher's authorized `madrasaIds` (`inAssignedMadrasaScope(data)`).
+
+#### [MODIFY] [firestore.indexes.json]
+- Add any required composite indexes discovered during testing (e.g., `organizationId` + `teacherIds` for `classes` and `timetableEntries`) to ensure queries complete without errors.
+
+### Cross-Module Consistency
+
+#### [MODIFY] [attendance.page.ts] (And similar components)
+- Verify that they use the exact same `repo.list` approaches so Teacher Dashboard, Attendance, Timetable, and all teacher-facing modules remain consistent and rely solely on the derived Firestore data.
+- Document any required composite indexes (e.g. `organizationId` + `teacherIds` for `classes` and `timetableEntries`) in `firestore.indexes.json` if necessary.
 
 ## Verification Plan
 
-### Automated Tests
-- If applicable, run the Angular test suite (`ng test`) to ensure service injection and basic logic remain intact.
-
 ### Manual Verification
-1. **Coordinator Login**:
-   - Verify assigned madrasas are visible.
-   - Verify ability to manage staff, incharges, students, parents inside assigned madrasas.
-   - Verify `superAdmin` and `organizationAdmin` users are NOT visible or manageable.
-   - Verify no `Missing or insufficient permissions` console errors.
-2. **Teacher Login**:
-   - Verify only assigned students are visible (no other teachers or admins).
-3. **Student/Parent Login**:
-   - Verify access is strictly limited to their own or linked profiles.
-4. **Data Creation**:
-   - Verify new users are created with properly initialized empty arrays for scoping fields if none are provided.
+1. Log in as an Admin. Create a Class Plan and assign Teacher A to a Timetable Entry. Ensure Teacher A is NOT manually given any `classIds` in their profile.
+2. Log in as Teacher A.
+3. Verify the Dashboard loads and dynamically computes counts for Classes, Subjects, and Courses based on the chained queries (`timetableEntries` -> `classPlans` -> `courses`/`madrasas`).
+4. Check the Firestore Network Tab to ensure queries exactly match the security rules and use `where('teacherIds', 'array-contains', <UID>)` without permission errors.

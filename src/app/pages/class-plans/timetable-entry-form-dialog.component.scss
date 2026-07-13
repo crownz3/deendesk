@@ -35,22 +35,37 @@
     flex: 1;
 
     h2 {
-      margin: 0;
+      margin: 0 0 4px;
       font-size: 1.25rem;
       font-weight: 600;
-      color: var(--ion-color-dark, #222428);
+      color: var(--ion-color-dark, #222);
     }
     
     p {
-      margin: 4px 0 0;
-      font-size: 0.9rem;
-      color: var(--ion-color-medium, #92949c);
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--ion-color-medium, #666);
+    }
+  }
+
+  .header-actions {
+    margin-right: 48px; // leave space for close button
+    
+    .copy-btn {
+      height: 36px;
+      padding: 0 16px;
+      border-radius: 18px;
+      font-size: 0.875rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
   }
 
   .close-btn {
     position: absolute;
-    top: 16px;
+    top: 24px;
     right: 16px;
     color: var(--ion-color-medium, #92949c);
   }
@@ -132,6 +147,22 @@
   margin-top: 4px;
 }
 
+/* Icon Alignment for Inputs */
+::ng-deep .mat-mdc-form-field-icon-prefix {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding-right: 12px;
+  
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+    color: var(--ion-color-medium, #92949c);
+  }
+}
+
 /* Highlighted Activity Name */
 .highlight-field {
   ::ng-deep .mat-mdc-text-field-wrapper {
@@ -185,13 +216,25 @@
 }
 
 /* Time Picker Row */
-.time-picker-row {
+.time-picker-row, .time-row {
   display: flex;
   align-items: center;
   gap: 12px;
 
   .time-field {
     flex: 1;
+    --background: transparent;
+    --padding-start: 0;
+    --inner-padding-end: 0;
+  }
+
+  .time-display {
+    background: var(--ion-color-light, #f4f5f8);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-weight: 500;
+    color: var(--ion-color-dark, #222428);
+    cursor: pointer;
   }
 
   .time-arrow {
@@ -204,20 +247,42 @@
   }
 }
 
+::ng-deep .datetime-menu.mat-mdc-menu-panel {
+  padding: 0 !important;
+  max-width: none !important;
+  border-radius: 12px;
+  overflow: hidden;
+  
+  .mat-mdc-menu-content {
+    padding: 0 !important;
+  }
+  
+  .datetime-wrapper {
+    padding: 0;
+    margin: 0;
+    background: white;
+  }
+}
+
 .overlap-warning {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 12px;
-  background: var(--ion-color-warning-tint, #fff4e5);
-  color: var(--ion-color-warning-shade, #b36b00);
+  background: var(--ion-color-warning-tint, #fffae5) !important;
+  border: 1px solid var(--ion-color-warning, #ffc409) !important;
+  color: #664d03 !important;
   border-radius: 8px;
   font-size: 0.9rem;
+  font-weight: 500;
   margin-top: -8px;
   margin-bottom: 8px;
 
-  ion-icon {
+  mat-icon {
     font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: #856404 !important;
   }
 }
 
@@ -316,6 +381,62 @@
     flex-direction: column;
     gap: 16px;
   }
+}
+
+/* Pending Entries List */
+.pending-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.pending-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--ion-color-step-150, #e0e0e0);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+  transition: all 0.2s ease;
+
+  &.is-editing {
+    border: 2px dashed var(--ion-color-primary, #3880ff);
+    background: var(--ion-color-primary-tint, #e6f0ff);
+    box-shadow: 0 4px 12px rgba(56, 128, 255, 0.1);
+  }
+}
+
+.pending-item-details {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  .success-icon {
+    color: var(--ion-color-success, #2dd36f);
+    font-size: 20px;
+  }
+
+  .pending-time, .pending-badge {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--ion-color-primary, #3880ff);
+    white-space: nowrap;
+  }
+
+  .pending-name {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--ion-color-dark, #222428);
+  }
+}
+
+.pending-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 /* Live Preview Card */

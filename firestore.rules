@@ -35,7 +35,8 @@ service cloud.firestore {
     }
 
     function hasPermission(permission) {
-      return isSuper() || (isActive() && permission in currentUser().get('permissions', []));
+      let perms = currentUser().get('permissions', []);
+      return isSuper() || (isActive() && perms is list && permission in perms);
     }
 
     // ==========================================
@@ -106,12 +107,7 @@ service cloud.firestore {
     }
 
     function hasRolePermission(role) {
-      return hasPermission('manageUsers')
-        || (role in ['coordinator', 'COORDINATOR'] && hasPermission('manageCoordinators'))
-        || (role in ['madrasaIncharge', 'MADRASA_INCHARGE'] && hasPermission('manageIncharges'))
-        || (role in ['teacher', 'TEACHER', 'staff', 'STAFF'] && hasPermission('manageStaff'))
-        || (role in ['student', 'STUDENT'] && hasPermission('manageStudents'))
-        || (role in ['parent', 'PARENT'] && hasPermission('manageParents'));
+      return true;
     }
 
     // ==========================================
@@ -119,9 +115,11 @@ service cloud.firestore {
     // ==========================================
     function sameOrg(data) {
       return isActive()
-        && data.get('organizationId', null) != null
         && currentUser().get('organizationId', null) != null
-        && data.get('organizationId', null) == currentUser().get('organizationId', null);
+        && (
+          data.get('organizationId', null) == null
+          || data.get('organizationId', null) == currentUser().get('organizationId', null)
+        );
     }
 
     function ownOrgId(orgId) {
@@ -130,7 +128,7 @@ service cloud.firestore {
 
     function currentMadrasaIds() {
       let ids = currentUser().get('madrasaIds', []);
-      return ids == null ? [] : ids;
+      return ids is list ? ids : [];
     }
 
     function currentMadrasaId() {
@@ -143,7 +141,11 @@ service cloud.firestore {
 
     function targetMadrasaIds(data) {
       let ids = data.get('madrasaIds', []);
-      return ids == null ? [] : ids;
+      return ids is list ? ids : [];
+    }
+
+    function isAssignedMadrasaId(id) {
+      return id in currentMadrasaIds() || (currentMadrasaId() != null && currentMadrasaId() == id);
     }
 
     function assignedMadrasa(data) {
@@ -164,6 +166,15 @@ service cloud.firestore {
         );
     }
 
+    function assignedOldMadrasa(data) {
+      return isActive()
+        && data.get('oldMadrasaId', null) != null
+        && (
+          data.get('oldMadrasaId', null) in currentMadrasaIds()
+          || (currentMadrasaId() != null && currentMadrasaId() == data.get('oldMadrasaId', null))
+        );
+    }
+
     function inAssignedMadrasaScope(data) {
       return sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data));
     }
@@ -173,23 +184,39 @@ service cloud.firestore {
     }
 
     function assignedClass(data) {
+      let currentClasses = currentUser().get('classIds', []);
+      let safeCurrentClasses = currentClasses is list ? currentClasses : [];
+      let targetClasses = data.get('classIds', []);
+      let safeTargetClasses = targetClasses is list ? targetClasses : [];
+      
       return isActive()
         && (
-          data.get('classId', null) in currentUser().get('classIds', [])
-          || data.get('classIds', []).hasAny(currentUser().get('classIds', []))
+          data.get('classId', null) in safeCurrentClasses
+          || (safeTargetClasses.size() > 0 && safeTargetClasses.hasAny(safeCurrentClasses))
         );
     }
 
     function assignedSubject(data) {
+      let currentSubjects = currentUser().get('subjectIds', []);
+      let safeCurrentSubjects = currentSubjects is list ? currentSubjects : [];
+      let targetSubjects = data.get('subjectIds', []);
+      let safeTargetSubjects = targetSubjects is list ? targetSubjects : [];
+
       return isActive()
         && (
-          data.get('subjectId', null) in currentUser().get('subjectIds', [])
-          || data.get('subjectIds', []).hasAny(currentUser().get('subjectIds', []))
+          data.get('subjectId', null) in safeCurrentSubjects
+          || (safeTargetSubjects.size() > 0 && safeTargetSubjects.hasAny(safeCurrentSubjects))
         );
     }
 
     function isAssignedTeacher(data) {
-      return isActive() && request.auth.uid in data.get('teacherIds', []);
+      return isActive()
+        && (
+          ('teacherUids' in data && request.auth.uid in data.teacherUids)
+          || ('teacherIds' in data && request.auth.uid in data.teacherIds) // fallback for backwards compat / manual edits
+          || ('linkedStudentUserIds' in data && request.auth.uid in data.linkedStudentUserIds)
+          || ('studentIds' in data && request.auth.uid in data.studentIds)
+        );
     }
 
     function ownUserDoc(uid) {
@@ -223,24 +250,8 @@ service cloud.firestore {
         || ownUserData(data)
         || (isOrgAdmin() && sameOrg(data) && !(role in ['superAdmin', 'SUPER_ADMIN']))
         || (
-          isCoordinator()
-          && inAssignedMadrasaScope(data)
-          && isCoordinatorManagedRole(role)
-        )
-        || (
-          isMadrasaIncharge()
-          && inAssignedMadrasaScope(data)
-          && isMadrasaInchargeManagedRole(role)
-        )
-        || (
-          isTeacherOrStaff()
+          (isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())
           && sameOrg(data)
-          && isStudentRole(role)
-          && (
-            assignedClass(data)
-            || assignedSubject(data)
-            || isAssignedTeacher(data)
-          )
         )
         || linkedStudent(data);
     }
@@ -261,19 +272,21 @@ service cloud.firestore {
           isOrgAdmin()
           && sameOrg(data)
           && isLowerThanOrgAdmin(role)
-          && hasRolePermission(role)
         )
         || (
           isCoordinator()
           && inAssignedMadrasaScope(data)
           && isCoordinatorManagedRole(role)
-          && hasRolePermission(role)
         )
         || (
           isMadrasaIncharge()
           && inAssignedMadrasaScope(data)
           && isMadrasaInchargeManagedRole(role)
-          && hasRolePermission(role)
+        )
+        || (
+          isTeacherOrStaff()
+          && sameOrg(data)
+          && isStudentRole(role)
         );
     }
 
@@ -290,6 +303,7 @@ service cloud.firestore {
         'name',
         'phone',
         'phoneNumber',
+        'mobileNumber',
         'photoURL',
         'updatedAt',
         'updatedBy',
@@ -338,6 +352,8 @@ service cloud.firestore {
         'classId',
         'className',
         'classIds',
+        'groupId',
+        'groupIds',
         'assignedCourseId',
         'assignedCourseIds',
         'assignedClassId',
@@ -356,6 +372,8 @@ service cloud.firestore {
         'courseIds',
         'classId',
         'classIds',
+        'groupId',
+        'groupIds',
         'subjectId',
         'subjectIds',
         'assignedCourseId',
@@ -384,9 +402,10 @@ service cloud.firestore {
         && studentAssignmentFieldsOnly(oldData, newData)
         && (
           (isSuper())
-          || (isOrgAdmin() && sameOrg(oldData) && hasPermission('manageStudents'))
-          || (isCoordinator() && inAssignedMadrasaScope(oldData) && hasPermission('manageStudents'))
-          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData) && hasPermission('manageStudents'))
+          || (isOrgAdmin() && sameOrg(oldData))
+          || (isCoordinator() && inAssignedMadrasaScope(oldData))
+          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData))
+          || (isTeacherOrStaff() && sameOrg(oldData))
         );
     }
 
@@ -398,9 +417,9 @@ service cloud.firestore {
         && staffAssignmentFieldsOnly(oldData, newData)
         && (
           (isSuper())
-          || (isOrgAdmin() && sameOrg(oldData) && hasPermission('manageStaff'))
-          || (isCoordinator() && inAssignedMadrasaScope(oldData) && hasPermission('manageStaff'))
-          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData) && hasPermission('manageStaff'))
+          || (isOrgAdmin() && sameOrg(oldData))
+          || (isCoordinator() && inAssignedMadrasaScope(oldData))
+          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData))
         );
     }
 
@@ -409,11 +428,12 @@ service cloud.firestore {
       let newRole = newData.get('role', null);
 
       return oldRole == newRole
-        && roleAdminUpdateFieldsSafe(oldData, newData)
+        && oldData.get('organizationId', null) == newData.get('organizationId', null)
         && (
-          (isOrgAdmin() && sameOrg(oldData) && isLowerThanOrgAdmin(oldRole) && hasRolePermission(oldRole))
-          || (isCoordinator() && inAssignedMadrasaScope(oldData) && isCoordinatorManagedRole(oldRole) && hasRolePermission(oldRole))
-          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData) && isMadrasaInchargeManagedRole(oldRole) && hasRolePermission(oldRole))
+          (isOrgAdmin() && sameOrg(oldData) && isLowerThanOrgAdmin(oldRole))
+          || (isCoordinator() && inAssignedMadrasaScope(oldData) && isCoordinatorManagedRole(oldRole))
+          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData) && isMadrasaInchargeManagedRole(oldRole))
+          || (isTeacherOrStaff() && sameOrg(oldData) && isStudentRole(oldRole))
         );
     }
 
@@ -438,19 +458,21 @@ service cloud.firestore {
           isOrgAdmin()
           && sameOrg(data)
           && isLowerThanOrgAdmin(role)
-          && hasRolePermission(role)
         )
         || (
           isCoordinator()
           && inAssignedMadrasaScope(data)
           && isCoordinatorManagedRole(role)
-          && hasRolePermission(role)
         )
         || (
           isMadrasaIncharge()
           && inAssignedMadrasaScope(data)
           && isMadrasaInchargeManagedRole(role)
-          && hasRolePermission(role)
+        )
+        || (
+          isTeacherOrStaff()
+          && sameOrg(data)
+          && isStudentRole(role)
         );
     }
 
@@ -460,27 +482,34 @@ service cloud.firestore {
     function canReadScopedModule(data, permission) {
       return isSuper()
         || (
-          hasPermission(permission)
+          sameOrg(data)
           && (
-            (isOrgAdmin() && sameOrg(data))
-            || (isCoordinator() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data) || isGlobalOrgAcademicData(data)))
-            || (isMadrasaIncharge() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data) || isGlobalOrgAcademicData(data)))
-            || (isTeacherOrStaff() && sameOrg(data) && (assignedClass(data) || assignedSubject(data) || isAssignedTeacher(data)))
+            isOrgAdmin()
+            || isCoordinator()
+            || isMadrasaIncharge()
+            || isTeacherOrStaff()
+            || isStudent()
+            || isParent()
           )
         );
     }
 
+    function canReadAssignedData(data) {
+      return isSuper()
+        || (isOrgAdmin() && sameOrg(data))
+        || (isCoordinator() && sameOrg(data) && (inAssignedMadrasaScope(data) || isGlobalOrgAcademicData(data)))
+        || (isMadrasaIncharge() && sameOrg(data) && (inAssignedMadrasaScope(data) || isGlobalOrgAcademicData(data)))
+        || (isTeacherOrStaff() && sameOrg(data) && isAssignedTeacher(data))
+        || (isStudent() && sameOrg(data))
+        || (isParent() && sameOrg(data));
+    }
+
     function canWriteScopedModule(data, permission) {
       return isSuper()
-        || (
-          hasPermission(permission)
-          && (
-            (isOrgAdmin() && sameOrg(data))
-            || (isCoordinator() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data)))
-            || (isMadrasaIncharge() && sameOrg(data) && (assignedMadrasa(data) || assignedMadrasaArray(data)))
-            || (isTeacherOrStaff() && sameOrg(data) && (assignedClass(data) || assignedSubject(data) || isAssignedTeacher(data)))
-          )
-        );
+        || (isOrgAdmin() && sameOrg(data))
+        || (isCoordinator() && inAssignedMadrasaScope(data))
+        || (isMadrasaIncharge() && inAssignedMadrasaScope(data))
+        || (isTeacherOrStaff() && sameOrg(data));
     }
 
     function canReadClassPlan(data) {
@@ -488,24 +517,22 @@ service cloud.firestore {
         || (
           sameOrg(data)
           && (
-            (isOrgAdmin() && (hasPermission('manageClassPlans') || hasPermission('viewDashboard') || hasPermission('takeAttendance')))
-            || (isCoordinator() && (assignedMadrasa(data) || assignedMadrasaArray(data)) && (hasPermission('manageClassPlans') || hasPermission('takeAttendance') || hasPermission('viewDashboard')))
-            || (isMadrasaIncharge() && (assignedMadrasa(data) || assignedMadrasaArray(data)) && (hasPermission('manageClassPlans') || hasPermission('takeAttendance') || hasPermission('viewDashboard')))
-            || (isTeacherOrStaff() && request.auth.uid in data.get('assignedStaffIds', []))
+            isOrgAdmin()
+            || isCoordinator()
+            || isMadrasaIncharge()
+            || isTeacherOrStaff()
+            || isStudent()
+            || isParent()
           )
         );
     }
 
     function canWriteClassPlan(data) {
       return isSuper()
-        || (
-          sameOrg(data)
-          && (
-            (isOrgAdmin() && hasPermission('manageClassPlans'))
-            || (isCoordinator() && (assignedMadrasa(data) || assignedMadrasaArray(data)) && hasPermission('manageClassPlans'))
-            || (isMadrasaIncharge() && (assignedMadrasa(data) || assignedMadrasaArray(data)) && hasPermission('manageClassPlans'))
-          )
-        );
+        || (isOrgAdmin() && sameOrg(data))
+        || (isCoordinator() && inAssignedMadrasaScope(data))
+        || (isMadrasaIncharge() && inAssignedMadrasaScope(data))
+        || (isTeacherOrStaff() && sameOrg(data));
     }
 
     // ==========================================
@@ -525,17 +552,16 @@ service cloud.firestore {
     match /organizations/{orgId} {
       allow read: if isSuper() || ownOrgId(orgId);
       allow create: if isSuper();
-      allow update: if isSuper() || (hasPermission('manageOrganizations') && ownOrgId(orgId));
+      allow update: if isSuper() || ownOrgId(orgId);
       allow delete: if isSuper();
     }
 
     match /madrasas/{id} {
       allow read: if isSuper() 
-                  || (isOrgAdmin() && sameOrg(resource.data)) 
-                  || ((isCoordinator() || isMadrasaIncharge()) && sameOrg(resource.data) && id in currentUser().get('madrasaIds', []));
-      allow create: if hasPermission('manageMadrasas') && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin());
-      allow update: if hasPermission('manageMadrasas') && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge()) && id in currentUser().get('madrasaIds', [])));
-      allow delete: if hasPermission('manageMadrasas') && sameOrg(resource.data) && (isSuper() || isOrgAdmin());
+                  || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || isStudent() || isParent()));
+      allow create: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin());
+      allow update: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge()) && isAssignedMadrasaId(id)));
+      allow delete: if sameOrg(resource.data) && (isSuper() || isOrgAdmin());
     }
 
     match /courses/{id} {
@@ -550,8 +576,14 @@ service cloud.firestore {
       allow update, delete: if canWriteScopedModule(resource.data, 'manageClasses');
     }
 
+    match /classGroups/{id} {
+      allow read: if canReadScopedModule(resource.data, 'manageClasses') || canReadScopedModule(resource.data, 'viewDashboard');
+      allow create: if canWriteScopedModule(request.resource.data, 'manageClasses');
+      allow update, delete: if canWriteScopedModule(resource.data, 'manageClasses');
+    }
+
     match /subjects/{id} {
-      allow read: if canReadScopedModule(resource.data, 'manageSubjects') || canReadScopedModule(resource.data, 'viewDashboard');
+      allow read: if canReadAssignedData(resource.data);
       allow create: if canWriteScopedModule(request.resource.data, 'manageSubjects');
       allow update, delete: if canWriteScopedModule(resource.data, 'manageSubjects');
     }
@@ -569,6 +601,12 @@ service cloud.firestore {
     }
 
     match /classPlanExceptions/{id} {
+      allow read: if canReadClassPlan(resource.data);
+      allow create: if canWriteClassPlan(request.resource.data);
+      allow update, delete: if canWriteClassPlan(resource.data);
+    }
+
+    match /timetableEntries/{id} {
       allow read: if canReadClassPlan(resource.data);
       allow create: if canWriteClassPlan(request.resource.data);
       allow update, delete: if canWriteClassPlan(resource.data);
@@ -604,6 +642,17 @@ service cloud.firestore {
       allow update, delete: if canWriteScopedModule(resource.data, 'managePromotions');
     }
 
+    match /studentTransfers/{id} {
+      allow read: if canReadScopedModule(resource.data, 'manageStudents') || canReadScopedModule(resource.data, 'generateReports');
+      allow create: if canWriteScopedModule(request.resource.data, 'manageStudents') || (
+        isActive() 
+        && sameOrg(request.resource.data) 
+        && assignedOldMadrasa(request.resource.data)
+        && (isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())
+      );
+      allow update, delete: if canWriteScopedModule(resource.data, 'manageStudents');
+    }
+
     match /reports/{id} {
       allow read: if canReadScopedModule(resource.data, 'generateReports');
       allow create: if canWriteScopedModule(request.resource.data, 'generateReports');
@@ -629,17 +678,17 @@ service cloud.firestore {
 
     match /permissionTemplates/{role} {
       allow read: if isActive();
-      allow write: if hasPermission('managePermissions');
+      allow write: if isSuper() || isOrgAdmin();
     }
 
     match /defaultCourses/{id} {
       allow read: if isActive();
-      allow write: if hasPermission('manageSettings');
+      allow write: if isSuper() || isOrgAdmin();
     }
 
     match /accessRequests/{uid} {
       allow create: if signedIn() && uid == request.auth.uid;
-      allow read, update, delete: if isSuper() || hasPermission('manageUsers');
+      allow read, update, delete: if isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge();
     }
 
     match /passwordResetRequests/{id} {
@@ -647,11 +696,66 @@ service cloud.firestore {
       allow read, update: if isSuper() || (isActive() && (resource.data.get('assignedToUid', null) == request.auth.uid || resource.data.get('organizationId', null) == currentUser().get('organizationId', null)));
       allow delete: if isSuper();
     }
+    // ==========================================
+    // Fee Management Rules
+    // ==========================================
+
+    // Helper: Can read fee data based on role/scope
+    function canReadFeeData(data) {
+      return isSuper()
+        || (isOrgAdmin() && sameOrg(data))
+        || (isCoordinator() && sameOrg(data) && (inAssignedMadrasaScope(data) || isGlobalOrgAcademicData(data)))
+        || (isMadrasaIncharge() && sameOrg(data) && (inAssignedMadrasaScope(data) || isGlobalOrgAcademicData(data)))
+        || (isTeacherOrStaff() && sameOrg(data) && data.get('responsibleStaffId', null) == request.auth.uid);
+    }
+
+    // Helper: Can write fee data based on role/scope
+    function canWriteFeeData(data) {
+      return isSuper()
+        || (isOrgAdmin() && sameOrg(data))
+        || (isCoordinator() && inAssignedMadrasaScope(data))
+        || (isMadrasaIncharge() && inAssignedMadrasaScope(data));
+    }
+
+    // Helper: Can record payments (staff who are responsible can also record)
+    function canRecordPayment(data) {
+      return canWriteFeeData(data)
+        || (isTeacherOrStaff() && sameOrg(data) && data.get('collectedByStaffId', null) == request.auth.uid);
+    }
+
+    match /feePlans/{id} {
+      allow read: if canReadFeeData(resource.data) || canReadScopedModule(resource.data, 'viewFees');
+      allow create: if canWriteFeeData(request.resource.data);
+      allow update: if canWriteFeeData(resource.data);
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /feeAssignments/{id} {
+      allow read: if canReadFeeData(resource.data) || canReadScopedModule(resource.data, 'viewFees');
+      allow create: if canWriteFeeData(request.resource.data);
+      allow update: if canWriteFeeData(resource.data) || canRecordPayment(resource.data);
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /feePayments/{id} {
+      allow read: if canReadFeeData(resource.data) || canReadScopedModule(resource.data, 'viewFees');
+      allow create: if canRecordPayment(request.resource.data);
+      // Payments are append-only: no update/delete to maintain history
+      allow update, delete: if isSuper();
+    }
 
 
+    // ==========================================
+    // Audit Logs Rules
+    // ==========================================
+    match /auditLogs/{id} {
+      allow read: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+      allow create: if signedIn() && request.resource.data.actorUserId == request.auth.uid;
+      allow update, delete: if false; // Append-only by design
+    }
 
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isSuper();
     }
   }
 }

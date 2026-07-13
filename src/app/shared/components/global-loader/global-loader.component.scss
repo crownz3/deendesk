@@ -1,12 +1,21 @@
-.global-loader-backdrop {
+:host {
+  display: block;
   position: fixed;
   inset: 0;
   z-index: 99999;
-  display: grid;
-  place-items: center;
+  pointer-events: none;
+}
+
+.global-loader-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: rgba(248, 250, 252, 0.78);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
 }
 
 .global-loader-card {

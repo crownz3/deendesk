@@ -1,26 +1,10 @@
 <div class="students-dialog">
-  <div class="dialog-header">
-    <div class="dialog-title-section">
-      <h2 mat-dialog-title>Assigned Students</h2>
-      <p class="dialog-subtitle">{{ data.nodeTitle }}</p>
-    </div>
-    
-    <div class="dialog-summary-cards">
-      <div class="summary-card">
-        <span class="label">Type</span>
-        <span class="value">{{ data.nodeType | titlecase }}</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Total Students</span>
-        <span class="value">{{ data.students.length || 0 }}</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Average Attendance</span>
-        <span class="value">{{ getAverageAttendance() }}{{ getAverageAttendance() !== 'No Data' ? '%' : '' }}</span>
-      </div>
-    </div>
-  </div>
-
+  <h2 mat-dialog-title style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
+    <span>Assigned Students - {{ data.nodeTitle }}</span>
+    <button mat-icon-button mat-dialog-close style="margin-right: -8px;">
+      <ion-icon name="close-outline" style="font-size: 24px;"></ion-icon>
+    </button>
+  </h2>
   <mat-dialog-content>
     <div class="students-toolbar">
       <div class="search-box">
@@ -43,38 +27,21 @@
 
         <div class="student-meta">
           <div class="meta-group">
-            <span class="meta-label">Parent / Father</span>
-            <span class="meta-value">{{ student.fatherName || student.parentName || student.guardianName || 'N/A' }}</span>
-            <span class="meta-subvalue" *ngIf="student.parentEmail">{{ student.parentEmail }}</span>
+            <span class="meta-label">Contact Info</span>
+            <span class="meta-value">Student: {{ student.mobileNumber || student.phone || 'N/A' }}</span>
+            <span class="meta-subvalue">Parent: {{ student.parentMobileNumber || student.fatherMobileNumber || student.fatherPhone || student.parentPhone || student.guardianMobileNumber || 'N/A' }}</span>
           </div>
           
           <div class="meta-group">
             <span class="meta-label">Academic Info</span>
-            <span class="meta-value">{{ student.courseName || 'N/A' }}</span>
-            <span class="meta-subvalue">{{ student.className || 'N/A' }} • {{ student.stageLevel || 'N/A' }}</span>
-          </div>
-        </div>
-
-        <div class="attendance-box">
-          <div class="attendance-header">
-            <span class="attendance-percent">{{ getStudentAttendancePercentage(student) }}%</span>
-            <span class="attendance-badge" [ngClass]="getAttendanceStatusClass(student)">
-              {{ getAttendanceStatus(student) }}
-            </span>
-          </div>
-          <div class="attendance-progress-bg">
-            <div class="attendance-progress" 
-                 [ngClass]="getAttendanceStatusClass(student)" 
-                 [style.width.%]="getStudentAttendancePercentage(student)"></div>
+            <span class="meta-value">{{ student.courseName || 'N/A' }} • {{ student.className || 'N/A' }}</span>
+            <span class="meta-subvalue">Group: {{ student.groupName || 'N/A' }} (Staff: {{ student.assignedStaffName || 'None' }})</span>
           </div>
         </div>
 
         <div class="student-actions">
           <button mat-button color="primary" (click)="viewAttendanceHistory(student)">
             <ion-icon name="calendar-outline"></ion-icon> History
-          </button>
-          <button mat-button color="primary" (click)="viewStudyPlan(student)">
-            <ion-icon name="book-outline"></ion-icon> Study Plan
           </button>
         </div>
       </div>
@@ -89,7 +56,5 @@
     </ng-template>
   </mat-dialog-content>
 
-  <mat-dialog-actions class="dialog-footer" align="end">
-    <button mat-stroked-button mat-dialog-close>Close</button>
-  </mat-dialog-actions>
+
 </div>

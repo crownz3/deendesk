@@ -11,8 +11,12 @@
       </div>
     </header>
 
-    <div class="dashboard-welcome-card">
-      <div>
+    <div class="dashboard-welcome-card" [class.org-admin-header]="vm.isOrgAdmin">
+      <div *ngIf="vm.isOrgAdmin" class="org-admin-title-container">
+        <h1 class="org-name-display">{{ (resolver.resolveName(vm.organizationId || '', 'organization') | async) || 'Loading Organization...' }}</h1>
+        <p class="welcome-subtext">Welcome back {{ vm.displayName }}, you are logged in as {{ vm.formattedRole }}</p>
+      </div>
+      <div *ngIf="!vm.isOrgAdmin">
         <p class="welcome-eyebrow">Welcome back</p>
         <h2>Hi {{ vm.displayName }}, you are {{ vm.formattedRole }}!</h2>
         <p>Here is your role-based overview for today.</p>
@@ -31,16 +35,40 @@
           <h2>Today's Schedule</h2>
           <span>{{ vm.todaySchedule.length }} activities</span>
         </div>
-        <div style="display: flex; gap: 16px; overflow-x: auto; padding: 16px 0;">
-          <mat-card *ngFor="let entry of vm.todaySchedule" style="min-width: 250px; padding: 16px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-            <div style="font-weight: 600; color: var(--ion-color-primary); margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
-              <ion-icon name="time-outline"></ion-icon>
-              {{ entry.startTime }} - {{ entry.endTime }}
+        <div style="display: flex; gap: 16px; overflow-x: auto; padding: 16px 0; padding-bottom: 24px;">
+          <mat-card *ngFor="let entry of vm.todaySchedule" style="min-width: 280px; padding: 0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="background: var(--ion-color-primary, #3880ff); padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+                <ion-icon name="time-outline" style="font-size: 1.2rem;"></ion-icon>
+                <span *ngIf="entry.startTime">{{ entry.startTime }} - {{ entry.endTime }}</span>
+                <span *ngIf="!entry.startTime">All Day</span>
+              </div>
+              <span *ngIf="entry.scheduleType === 'fullDay'" style="font-size: 0.75rem; background: var(--ion-color-tertiary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600;">FULL DAY</span>
             </div>
-            <div style="font-size: 1.1rem; margin-bottom: 8px; font-weight: 500;">{{ entry.activityName }}</div>
-            <div style="font-size: 0.85rem; color: var(--ion-color-medium); display: flex; flex-direction: column; gap: 4px;">
-              <div *ngIf="entry.subjectId"><ion-icon name="book-outline"></ion-icon> Subject: {{ entry.subjectId }}</div>
-              <div *ngIf="entry.roomId"><ion-icon name="location-outline"></ion-icon> Room: {{ entry.roomId }}</div>
+            
+            <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+              <div style="font-size: 1.15rem; font-weight: 600; color: var(--ion-color-dark);">
+                {{ entry.activityName }}
+              </div>
+              
+              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--ion-color-medium);">
+                <div *ngIf="entry.classId" style="display: flex; align-items: flex-start; gap: 8px;">
+                  <ion-icon name="people-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-secondary);"></ion-icon> 
+                  <span style="flex: 1; line-height: 1.4;">Class: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.classId, 'class') | async) || 'Loading...' }}</strong></span>
+                </div>
+                <div *ngIf="entry.subjectId" style="display: flex; align-items: flex-start; gap: 8px;">
+                  <ion-icon name="book-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-tertiary);"></ion-icon> 
+                  <span style="flex: 1; line-height: 1.4;">Subject: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.subjectId, 'subject') | async) || 'Loading...' }}</strong></span>
+                </div>
+                <div *ngIf="entry.teacherId" style="display: flex; align-items: flex-start; gap: 8px;">
+                  <ion-icon name="person-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-warning);"></ion-icon> 
+                  <span style="flex: 1; line-height: 1.4;">Teacher: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.teacherId, 'user') | async) || 'Loading...' }}</strong></span>
+                </div>
+                <div *ngIf="entry.roomId" style="display: flex; align-items: flex-start; gap: 8px;">
+                  <ion-icon name="location-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-danger);"></ion-icon> 
+                  <span style="flex: 1; line-height: 1.4;">Room: <strong style="color: var(--ion-color-dark);">{{ entry.roomId }}</strong></span>
+                </div>
+              </div>
             </div>
           </mat-card>
         </div>
@@ -58,8 +86,13 @@
             <ion-icon [name]="card.icon || 'folder-outline'"></ion-icon>
           </div>
           <div class="title-box">
-            <h3>{{ card.title }}</h3>
-            <p *ngIf="card.subtitle">{{ card.subtitle }}</p>
+            <h3 *ngIf="card.titleId; else staticTitle">{{ (resolver.resolveName(card.titleId, card.titleType || 'class') | async) || 'Loading...' }}</h3>
+            <ng-template #staticTitle><h3>{{ card.title }}</h3></ng-template>
+
+            <p *ngIf="card.subtitleId; else staticSubtitle">{{ (resolver.resolveName(card.subtitleId, card.subtitleType || 'madrasa') | async) || 'Loading...' }}</p>
+            <ng-template #staticSubtitle>
+              <p *ngIf="card.subtitle">{{ card.subtitle }}</p>
+            </ng-template>
           </div>
         </div>
         <div class="card-stats">
@@ -204,6 +237,113 @@
         </ng-template>
       </article>
     </section>
+
+    <!-- ─────────────────────────────────────────────────────────────────────
+         DATA MANAGEMENT — Super Admin Only
+         ───────────────────────────────────────────────────────────────────── -->
+    <section class="data-mgmt-section" *ngIf="vm.isSuperAdmin">
+      <div class="data-mgmt-card">
+
+        <!-- Card header -->
+        <div class="data-mgmt-header">
+          <div class="data-mgmt-icon-wrap">
+            <ion-icon name="trash-outline"></ion-icon>
+          </div>
+          <div class="data-mgmt-title-block">
+            <h2>🗑 Data Management</h2>
+            <p>Manage and remove application data for development, testing, or resetting the system.</p>
+          </div>
+          <div class="data-mgmt-badge">
+            <ion-icon name="shield-checkmark-outline"></ion-icon>
+            Super Admin Only
+          </div>
+        </div>
+
+        <!-- Warning banner -->
+        <div class="data-mgmt-warning">
+          <ion-icon name="warning-outline"></ion-icon>
+          <span>All deletions are permanent and irreversible. The Super Admin account is never deleted.</span>
+        </div>
+
+        <!-- ── Quick Actions ── -->
+        <div class="data-mgmt-body">
+          <div class="dm-section-label">
+            <ion-icon name="flash-outline"></ion-icon>
+            Quick Actions
+          </div>
+          <div class="quick-actions-grid">
+            <button
+              *ngFor="let qa of quickActions; let qi = index"
+              class="quick-action-btn"
+              [class.danger]="qa.label.includes('Everything')"
+              (click)="applyQuickAction(qa.keys)"
+              [id]="'dm-quick-action-' + qi"
+            >
+              <ion-icon
+                [name]="qa.label.includes('Everything') ? 'nuclear-outline' : 'trash-outline'"
+              ></ion-icon>
+              {{ qa.label }}
+            </button>
+          </div>
+
+          <!-- ── Collection Checklist ── -->
+          <div class="dm-section-label" style="margin-top: 24px;">
+            <ion-icon name="checkbox-outline"></ion-icon>
+            Select Collections to Delete
+            <span class="selected-count" *ngIf="selectedCount > 0">{{ selectedCount }} selected</span>
+          </div>
+
+          <div class="select-toggles">
+            <button class="toggle-link" (click)="selectAllCollections()" id="dm-select-all-btn">Select All</button>
+            <span class="toggle-sep">·</span>
+            <button class="toggle-link danger" (click)="clearAllCollections()" id="dm-clear-all-btn">Clear All</button>
+          </div>
+
+          <div class="collection-checklist">
+            <label
+              *ngFor="let opt of allCollectionOptions"
+              class="collection-check-item"
+              [class.selected]="isCollectionSelected(opt.key)"
+              [for]="'chk-' + opt.key"
+            >
+              <input
+                type="checkbox"
+                [id]="'chk-' + opt.key"
+                [checked]="isCollectionSelected(opt.key)"
+                (change)="toggleCollection(opt.key)"
+                class="sr-only"
+              />
+              <span class="check-box">
+                <ion-icon *ngIf="isCollectionSelected(opt.key)" name="checkmark-outline"></ion-icon>
+              </span>
+              <ion-icon [name]="opt.icon" class="opt-icon"></ion-icon>
+              <span class="opt-label">{{ opt.label }}</span>
+              <span class="auth-tag" *ngIf="opt.authLinked">
+                <ion-icon name="person-remove-outline"></ion-icon> Auth
+              </span>
+            </label>
+          </div>
+
+          <!-- ── Delete Selected Button ── -->
+          <div class="delete-action-bar">
+            <div class="delete-hint" *ngIf="!hasSelections">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              Select at least one collection above to proceed.
+            </div>
+            <button
+              class="delete-selected-btn"
+              [disabled]="!hasSelections"
+              (click)="openDeleteConfirm()"
+              id="dm-delete-selected-btn"
+            >
+              <ion-icon name="trash-outline"></ion-icon>
+              Delete Selected ({{ selectedCount }})
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <ng-template #loading>

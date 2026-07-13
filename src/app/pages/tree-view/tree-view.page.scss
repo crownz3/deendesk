@@ -1,155 +1,345 @@
-.page {
-  display: grid;
-  gap: 20px;
-  padding: 24px;
+/* =====================================================
+   DESIGN TOKENS
+   ===================================================== */
+:host {
+  display: block;
+  --tree-line:        #d1d9e6;   /* connector line colour */
+  --tree-line-width:  1.5px;
+  --tree-indent:      28px;      /* horizontal indent per level */
+  --tree-h-branch:    20px;      /* length of horizontal branch */
+  --node-radius:      8px;
+  --node-bg:          #ffffff;
+  --node-border:      #ebebf0;
+  --node-shadow:      0 2px 8px rgba(30,37,59,.10), 0 1px 2px rgba(30,37,59,.06);
+  --node-shadow-hover:0 4px 16px rgba(30,37,59,.14), 0 1px 3px rgba(30,37,59,.08);
 }
 
-.eyebrow {
-  color: var(--app-primary);
-  font-size: 12px;
-  font-weight: 800;
-  margin: 0 0 8px;
-  text-transform: uppercase;
+/* =====================================================
+   PAGE SHELL
+   ===================================================== */
+.page-shell {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 12px;
 }
 
-h1,
-p {
-  margin: 0;
+.page-header {
+  margin-bottom: 14px;
+  .eyebrow { text-transform:uppercase; font-size:10px; font-weight:700;
+              letter-spacing:.6px; color:var(--ion-color-primary); margin:0 0 2px; }
+  h1  { margin:0 0 4px; font-size:20px; font-weight:700; color:#1a1a2e; line-height:1.2; }
+  p   { margin:0; color:#78829a; font-size:13px; }
 }
 
-h1 {
-  color: var(--app-text-main);
-  font-size: clamp(28px, 4vw, 42px);
-  font-weight: 800;
+/* ── Stats ── */
+.stats-dashboard {
+  display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:16px;
+}
+.stat-card {
+  border-radius:10px; background:white;
+  box-shadow:0 1px 4px rgba(0,0,0,.06);
+  transition:transform .15s,box-shadow .15s;
+  &:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.10); }
+  mat-card-content {
+    display:flex; align-items:center; padding:10px 12px !important;
+  }
+  .stat-icon {
+    width:34px; height:34px; min-width:34px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; margin-right:10px;
+  }
+  .stat-info {
+    overflow:hidden;
+    h3 { margin:0; font-size:18px; font-weight:700; color:#1a1a2e; }
+    p  { margin:2px 0 0; font-size:10px; font-weight:600; text-transform:uppercase;
+         color:#78829a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  }
+  &.org-stat        .stat-icon { background:rgba(33,150,243,.1);  color:#2196F3; }
+  &.madrasa-stat    .stat-icon { background:rgba(63,81,181,.1);   color:#3F51B5; }
+  &.course-stat     .stat-icon { background:rgba(156,39,176,.1);  color:#9C27B0; }
+  &.class-stat      .stat-icon { background:rgba(0,150,136,.1);   color:#009688; }
+  &.group-stat      .stat-icon { background:rgba(76,175,80,.1);   color:#4CAF50; }
+  &.student-stat    .stat-icon { background:rgba(255,152,0,.1);   color:#FF9800; }
+  &.staff-stat      .stat-icon { background:rgba(3,169,244,.1);   color:#03A9F4; }
+  &.timetable-stat  .stat-icon { background:rgba(244,67,54,.1);   color:#F44336; }
+  &.attendance-stat .stat-icon { background:rgba(0,188,212,.1);   color:#00BCD4; }
 }
 
-p {
-  color: #60726d;
+/* ── Toolbar ── */
+.tree-toolbar {
+  display:flex; flex-direction:column; gap:10px;
+  background:white; padding:10px 12px; border-radius:10px;
+  border:1px solid var(--node-border); box-shadow:0 1px 4px rgba(0,0,0,.05);
+  margin-bottom:14px;
+}
+.search-field  { width:100%; }
+.filter-chips  { display:flex; flex-wrap:wrap; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.tree-controls {
+  display:flex; gap:6px;
+  button[mat-stroked-button] {
+    height:30px; line-height:28px; padding:0 12px; font-size:12px;
+    font-weight:500; border-radius:6px; min-width:unset;
+  }
 }
 
+/* =====================================================
+   TREE  — proper connecting lines
+   The approach:
+   • .tree-branch adds border-left (vertical spine)
+   • each .tree-node-wrapper::before draws the L-branch (top part)
+   • non-last .tree-node-wrapper::after extends the spine below the node
+   ===================================================== */
+
+/* Root level: no indent, no branch lines */
+.tree-container {
+  padding-left:0;
+  margin-top: 4px;
+}
+
+/* Children container */
+.tree-branch {
+  position: relative;
+  padding-left: var(--tree-indent);
+  margin-top: 0;
+
+  /* ── Vertical spine that runs through all children ── */
+  &::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--tree-h-branch) - 2px);
+    top: 0;
+    bottom: 8px;
+    width: var(--tree-line-width);
+    background: var(--tree-line);
+    border-radius: 2px;
+  }
+}
+
+/* Each node in a branch gets an L-branch connector */
+.tree-branch > .tree-node-wrapper {
+  position: relative;
+
+  /* Horizontal branch line from spine → node */
+  &::before {
+    content: '';
+    position: absolute;
+    left: calc(-1 * var(--tree-indent) + var(--tree-h-branch) - 2px);
+    top: 18px;                       /* vertical centre of node row */
+    width: calc(var(--tree-indent) - var(--tree-h-branch) + 4px);
+    height: var(--tree-line-width);
+    background: var(--tree-line);
+    z-index: 3;
+  }
+
+  /* Last child: clip the spine at this node so it doesn't overshoot */
+  &:last-child::after {
+    content: '';
+    position: absolute;
+    left: calc(var(--tree-h-branch) - 2px - var(--tree-indent));
+    top: 19px;
+    bottom: 0;
+    width: var(--tree-line-width);
+    background: #ffffff;               /* masks the parent spine below the last child */
+    z-index: 2;
+  }
+}
+
+/* =====================================================
+   NODE ROW — sleek row, subtle hover, no animation flash
+   ===================================================== */
+.tree-node-wrapper {
+  margin-bottom: 2px;
+}
+
+.simple-tree-node {
+  display:flex; align-items:center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+  background: white;
+  transition: all .2s;
+  cursor:pointer; 
+  gap:10px;
+  min-height:44px;
+  user-select:none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.03);
+  margin-bottom: 4px;
+
+  &:hover {
+    background: #f8fafc !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.03);
+    transform: translateY(-1px);
+  }
+
+  &.inactive { opacity:.55; filter:grayscale(55%); box-shadow: none; transform: none; }
+}
+
+/* Also match connector line colour to node type */
+.node-type-organization > .tree-branch::before,
+.node-type-organization > .tree-branch > .tree-node-wrapper::before { background:#1565C0; opacity:.35; }
+.node-type-madrasa > .tree-branch::before,
+.node-type-madrasa > .tree-branch > .tree-node-wrapper::before      { background:#3949AB; opacity:.35; }
+.node-type-course > .tree-branch::before,
+.node-type-course > .tree-branch > .tree-node-wrapper::before        { background:#7B1FA2; opacity:.35; }
+.node-type-class > .tree-branch::before,
+.node-type-class > .tree-branch > .tree-node-wrapper::before         { background:#00796B; opacity:.35; }
+.node-type-classGroup > .tree-branch::before,
+.node-type-classGroup > .tree-branch > .tree-node-wrapper::before    { background:#388E3C; opacity:.35; }
+
+/* ── Expand indicator ── */
+.expand-indicator {
+  width:20px; height:20px; min-width:20px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:50%; color:#9aa3b5; font-size:12px;
+  transition:color .15s;
+  &.invisible { visibility:hidden; }
+}
+.simple-tree-node:hover .expand-indicator { color:#4a5568; }
+
+/* ── Node icon ── */
+.node-icon { font-size:15px; flex-shrink:0; color:#9aa3b5; }
+
+/* ── Node main ── */
+.node-main {
+  flex:1; display:flex; align-items:center; flex-wrap:wrap;
+  gap:6px; overflow:hidden; min-width:0;
+}
+
+/* ── Header ── */
+.node-header {
+  display:flex; align-items:center; flex-wrap:wrap; gap:5px; flex:1; min-width:0;
+
+  .node-title {
+    margin:0; font-size:13px; font-weight:600; color:#1e2535;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .status-badge {
+    font-size:9px; font-weight:700; padding:1px 6px;
+    border-radius:20px; letter-spacing:.4px; flex-shrink:0;
+    &.active    { background:#e8f5e9; color:#2e7d32; }
+    &:not(.active) { background:#f5f5f5; color:#9e9e9e; }
+  }
+  .default-badge {
+    font-size:10px; font-weight:500; color:var(--ion-color-primary); flex-shrink:0;
+  }
+}
+
+/* ── Metadata chips ── */
+.node-metadata {
+  display:flex; flex-wrap:wrap; gap:4px;
+  .meta-chip {
+    display:inline-flex; align-items:center; gap:3px;
+    background:#f7f8fc; color:#6b7280;
+    padding:2px 7px; border-radius:20px;
+    font-size:10px; font-weight:600; border:1px solid #eaedf5;
+    ion-icon { font-size:11px; }
+    &.student-chip { background:#fff8f0; color:#b45309; border-color:#fde8c8; }
+    &.staff-chip   { background:#eff8ff; color:#1d4ed8; border-color:#bfdbfe; }
+  }
+}
+
+/* =====================================================
+   ACTION BUTTONS — compact pill, 26px tall
+   ===================================================== */
+.node-actions {
+  display:flex; align-items:center; gap:4px;
+  margin-left:6px; flex-shrink:0;
+}
+.desktop-actions {
+  display:none; gap:4px; flex-wrap:wrap; align-items:center;
+}
+.action-btn {
+  display:inline-flex !important; align-items:center; gap:4px;
+  height:26px !important; min-height:26px !important; line-height:24px !important;
+  padding:0 10px !important; font-size:11px !important; font-weight:600 !important;
+  border-radius:6px !important; min-width:unset !important;
+  letter-spacing:.2px; white-space:nowrap; border-width:1px !important;
+  ion-icon { font-size:13px !important; flex-shrink:0; }
+  &.btn-ghost   { color:#4a5568 !important; border-color:#e2e8f0 !important; background:white !important;
+                  &:hover { background:#f7fafc !important; border-color:#cbd5e0 !important; } }
+  &.btn-primary { color:var(--ion-color-primary) !important;
+                  border-color:rgba(var(--ion-color-primary-rgb),.25) !important;
+                  background:rgba(var(--ion-color-primary-rgb),.04) !important;
+                  &:hover { background:rgba(var(--ion-color-primary-rgb),.1) !important; } }
+}
+.mobile-actions {
+  display:flex; width:30px !important; height:30px !important;
+  mat-icon { font-size:18px; }
+}
+
+/* =====================================================
+   EMPTY STATES
+   ===================================================== */
+.empty-branch { margin-top:0; padding-left:28px; }
+.empty-state-node {
+  display:flex; align-items:center; gap:8px; padding:8px 12px;
+  background:#fafbfc; border-radius:6px; border:1px dashed #dde3ef; color:#a0aec0;
+  ion-icon { font-size:16px; flex-shrink:0; }
+  p { margin:0; font-size:12px; font-weight:500; }
+}
+
+/* =====================================================
+   PEOPLE TREE
+   ===================================================== */
 .tree {
-  background: var(--app-surface);
-  border: 1px solid #dde8e3;
-  border-radius: 8px;
-  display: grid;
-  gap: 12px;
-  overflow: auto;
-  padding: 18px;
-}
-
-.tree-node,
-.tree-leaf {
-  min-width: 240px;
-}
-
-.node-label,
-.tree-leaf {
-  align-items: center;
-  background: #f5f8f7;
-  border: 1px solid #dce7e2;
-  border-radius: 8px;
-  color: var(--app-text-main);
-  display: inline-flex;
-  font-weight: 700;
-  gap: 8px;
-  min-height: 42px;
-  padding: 9px 12px;
-}
-
-.branch {
-  border-left: 2px solid #dce7e2;
-  display: grid;
-  gap: 10px;
-  margin: 10px 0 0 18px;
-  padding-left: 16px;
-}
-
-ion-icon {
-  color: var(--app-primary);
-  font-size: 18px;
-}
-
-.tree-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.tree-action-btn {
-  width: 34px !important;
-  height: 34px !important;
-  min-width: 34px !important;
-  border: 1px solid #d8e3ea;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #0d6efd;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tree-action-btn ion-icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  line-height: 18px;
-  color: inherit;
-}
-
-.tree-action-btn:hover {
-  background: #eef6ff;
-  border-color: #b9d7ff;
-}
-
-.tree-action-btn.primary {
-  background: #0d6efd;
-  border-color: #0d6efd;
-  color: #ffffff;
-}
-
-.tree-action-btn.primary:hover {
-  background: #0b5ed7;
-  border-color: #0b5ed7;
-}
-
-.action-divider {
-  width: 1px;
-  height: 22px;
-  background: #d8e3ea;
-  margin: 0 2px;
-}
-
-.tree-node-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.tree-node-title {
-  min-width: 0;
-  flex: 1;
-}
-
-.tree-node-counts {
-  display: inline-flex;
-  gap: 6px;
-  white-space: nowrap;
-}
-
-@media (max-width: 768px) {
-  .tree-node-row {
-    align-items: flex-start;
+  .tree-node {
+    margin-bottom:6px; padding:8px; background:white;
+    border:1px solid #eee; border-radius:8px;
+    .node-label { display:flex; align-items:center; gap:8px; font-weight:600; font-size:13px; }
+    .branch     { padding-left:16px; margin-top:8px; border-left:1px solid #eee; }
   }
-
-  .tree-actions {
-    gap: 6px;
+  .tree-leaf {
+    display:flex; align-items:center; gap:8px;
+    padding:3px 8px; color:#666; font-size:12px;
+    &.empty-leaf { color:#999; font-style:italic; }
   }
+}
 
-  .tree-action-btn {
-    width: 32px !important;
-    height: 32px !important;
-    min-width: 32px !important;
-  }
+/* =====================================================
+   RESPONSIVE BREAKPOINTS
+   ===================================================== */
+@media (min-width: 480px) {
+  .page-shell { padding:16px; }
+  .stats-dashboard { grid-template-columns:repeat(3,1fr); }
+  :root { --tree-indent:32px; --tree-h-branch:22px; }
+}
+@media (min-width: 600px) {
+  .page-shell { padding:18px; }
+  .stats-dashboard { grid-template-columns:repeat(3,1fr); gap:12px; }
+  .tree-toolbar { flex-direction:row; flex-wrap:wrap; align-items:flex-start; gap:10px; }
+  .search-field  { flex:1; min-width:200px; }
+  .tree-controls { margin-left:auto; }
+  :root { --tree-indent:36px; --tree-h-branch:24px; }
+}
+@media (min-width: 768px) {
+  .stats-dashboard { grid-template-columns:repeat(4,1fr); }
+  .search-field { flex:unset; width:260px; }
+  .filter-chips { flex:1; }
+  :root { --tree-indent:40px; --tree-h-branch:26px; }
+}
+@media (min-width: 992px) {
+  .desktop-actions { display:flex; }
+  .mobile-actions  { display:none; }
+  .stats-dashboard { grid-template-columns:repeat(5,1fr); gap:14px; }
+  .search-field    { width:280px; }
+  :root { --tree-indent:44px; --tree-h-branch:28px; }
+}
+@media (min-width: 1200px) {
+  .stats-dashboard { grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:16px; }
+  .search-field    { width:320px; }
+}
+@media (min-width: 1400px) {
+  .page-shell { padding:24px 32px; }
+  :root { --tree-indent:48px; --tree-h-branch:30px; }
+}
+
+/* Landscape phones */
+@media (max-height: 500px) and (min-width: 568px) {
+  .stats-dashboard { grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:10px; }
+  .stat-card mat-card-content { padding:6px 10px !important; }
+  .stat-card .stat-icon { width:26px; height:26px; font-size:14px; margin-right:8px; }
+  .stat-card .stat-info h3 { font-size:14px; }
+  .tree-toolbar { padding:6px 10px; }
 }

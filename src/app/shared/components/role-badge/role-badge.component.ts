@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnChanges } from '@angular/core';
 import { ROLE_LABELS } from '../../../core/constants/defaults';
 import { UserRole } from '../../../core/models/domain.model';
 
@@ -8,10 +8,33 @@ import { UserRole } from '../../../core/models/domain.model';
   styleUrls: ['./role-badge.component.scss'],
   standalone: false,
 })
-export class RoleBadgeComponent {
-  @Input() role: UserRole | string | undefined;
+export class RoleBadgeComponent implements OnChanges {
+  @Input() role: UserRole | string | string[] | undefined;
 
-  label(): string {
-    return this.role && this.role in ROLE_LABELS ? ROLE_LABELS[this.role as UserRole] : String(this.role || 'User');
+  badges: { label: string; class: string }[] = [];
+
+  ngOnChanges(): void {
+    this.badges = this.getBadges();
+  }
+
+  private getBadges(): { label: string; class: string }[] {
+    if (!this.role) return [];
+
+    let roles: string[] = [];
+    if (Array.isArray(this.role)) {
+      roles = [...this.role];
+    } else if (typeof this.role === 'string') {
+      roles = this.role.split(',').map(r => r.trim());
+    }
+
+    if (roles.includes('madrasaIncharge') && !roles.includes('teacher')) {
+      roles.push('teacher');
+    }
+
+    return roles.map(r => {
+      const label = r in ROLE_LABELS ? ROLE_LABELS[r as UserRole] : String(r || 'User');
+      const cssClass = `role-${r}`;
+      return { label, class: cssClass };
+    });
   }
 }

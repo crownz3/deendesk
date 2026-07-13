@@ -60,7 +60,7 @@ export const permissionGuard: CanActivateFn = (route, state) => {
 
       const userPermissions = profile?.permissions ?? [];
       const hasSingle = requiredPermission ? auth.hasAnyPermission(profile, Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission]) : true;
-      const hasAny = permissionsAny && permissionsAny.length > 0 ? permissionsAny.some(permission => userPermissions.includes(permission)) : true;
+      const hasAny = permissionsAny && permissionsAny.length > 0 ? auth.hasAnyPermission(profile, permissionsAny) : true;
 
       const allowed = hasSingle && hasAny;
 

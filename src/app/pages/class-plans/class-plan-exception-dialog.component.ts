@@ -14,14 +14,39 @@ import { RepositoryService } from '../../core/services/repository.service';
 })
 export class ClassPlanExceptionDialogComponent {
   form = this.fb.nonNullable.group({
-    date: [new Date().toISOString().slice(0, 10), Validators.required],
+    date: [new Date() as any, Validators.required],
     type: ['holiday', Validators.required],
     reason: [''],
-    rescheduledDate: [''],
+    rescheduledDate: [null as Date | null],
     rescheduledStartTime: ['08:00'],
     rescheduledEndTime: ['09:00'],
     affectsAttendance: [true],
   });
+
+  minDate: Date | null = null;
+  maxDate: Date | null = null;
+
+  dateFilter = (d: Date | null): boolean => {
+    if (!d) return true;
+    const plan = this.data.plan;
+    
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${y}-${m}-${day}`;
+    
+    if (plan.scheduleType === 'customDates' && plan.selectedDates?.length) {
+      return plan.selectedDates.includes(dateStr);
+    }
+    
+    if (plan.scheduleType === 'weekly' && plan.weekDays?.length) {
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayName = dayNames[d.getDay()];
+      return plan.weekDays.includes(dayName);
+    }
+    
+    return true;
+  }
 
   readonly types = [
     { value: 'holiday', label: 'Holiday' },
@@ -37,7 +62,14 @@ export class ClassPlanExceptionDialogComponent {
     private readonly snackBar: MatSnackBar,
     public readonly dialogRef: MatDialogRef<ClassPlanExceptionDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: { plan: ClassPlan }
-  ) {}
+  ) {
+    if (this.data.plan.startDate) {
+      this.minDate = new Date(this.data.plan.startDate);
+    }
+    if (this.data.plan.endDate) {
+      this.maxDate = new Date(this.data.plan.endDate);
+    }
+  }
 
   async save() {
     if (this.form.invalid) {
@@ -48,18 +80,34 @@ export class ClassPlanExceptionDialogComponent {
     const profile = await firstValueFrom(this.auth.profile$);
     const val = this.form.getRawValue();
 
+    let dateStr: string = '';
+    if (val.date instanceof Date) {
+      const d = val.date as Date;
+      dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    } else if (typeof val.date === 'string') {
+      dateStr = val.date;
+    }
+
+    let rescheduledDateStr: string | null = null;
+    if (val.rescheduledDate instanceof Date) {
+      const d = val.rescheduledDate as Date;
+      rescheduledDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    } else if (typeof val.rescheduledDate === 'string') {
+      rescheduledDateStr = val.rescheduledDate;
+    }
+
     const payload: Partial<ClassPlanException> = {
       organizationId: this.data.plan.organizationId,
       madrasaId: this.data.plan.madrasaId,
       classPlanId: this.data.plan.id!,
       classId: this.data.plan.classId,
       className: this.data.plan.className,
-      date: val.date,
+      date: dateStr,
       type: val.type as any,
       reason: val.reason,
-      originalStartTime: this.data.plan.startTime,
-      originalEndTime: this.data.plan.endTime,
-      rescheduledDate: val.type === 'rescheduled' ? val.rescheduledDate : null,
+      originalStartTime: '00:00',
+      originalEndTime: '00:00',
+      rescheduledDate: val.type === 'rescheduled' ? rescheduledDateStr : null,
       ...(val.type === 'rescheduled' ? {
         rescheduledStartTime: val.rescheduledStartTime,
         rescheduledEndTime: val.rescheduledEndTime,

@@ -1,7 +1,7 @@
 <div class="staff-dialog">
   <div class="dialog-header">
     <div class="dialog-title-section">
-      <h2 mat-dialog-title>Assigned Staff</h2>
+      <h2 mat-dialog-title>{{ data.title || 'Assigned Staff' }}</h2>
       <p class="dialog-subtitle">{{ data.nodeTitle }}</p>
     </div>
     
@@ -21,7 +21,7 @@
     <div class="staff-toolbar">
       <div class="search-box">
         <ion-icon name="search-outline"></ion-icon>
-        <input type="text" placeholder="Search staff by name, email, role, or designation" [(ngModel)]="searchQuery" (input)="onSearch()" />
+        <input type="text" placeholder="Search staff by name, email, or role" [(ngModel)]="searchQuery" (input)="onSearch()" />
       </div>
     </div>
 
@@ -42,9 +42,23 @@
 
         <div class="staff-meta">
           <div class="meta-group">
-            <span class="meta-label">Designation / Phone</span>
-            <span class="meta-value">{{ staff.designation || staff.jobTitle || 'N/A' }}</span>
-            <span class="meta-subvalue">{{ staff.phone || staff.phoneNumber || 'N/A' }}</span>
+            <span class="meta-label">Mobile Number</span>
+            <span class="meta-value">{{ staff.phone || staff.phoneNumber || staff.mobileNumber || 'N/A' }}</span>
+          </div>
+
+          <div class="meta-group">
+            <span class="meta-label">Course</span>
+            <span class="meta-value">{{ staff.courseName || 'N/A' }}</span>
+          </div>
+
+          <div class="meta-group">
+            <span class="meta-label">Class</span>
+            <span class="meta-value">{{ staff.className || 'N/A' }}</span>
+          </div>
+
+          <div class="meta-group">
+            <span class="meta-label">Group</span>
+            <span class="meta-value">{{ staff.groupName || 'N/A' }}</span>
           </div>
           
           <div class="meta-group">
@@ -69,8 +83,8 @@
     <ng-template #emptyState>
       <div class="empty-state">
         <ion-icon name="people-outline"></ion-icon>
-        <h3>No staff assigned</h3>
-        <p>Staff or teachers assigned to this academic item will appear here.</p>
+        <h3>{{ data.emptyTitle || 'No staff assigned' }}</h3>
+        <p>{{ data.emptyMessage || 'Staff or teachers assigned to this academic item will appear here.' }}</p>
       </div>
     </ng-template>
   </mat-dialog-content>

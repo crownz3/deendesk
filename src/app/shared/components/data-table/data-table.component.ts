@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TableColumn } from '../../../core/models/domain.model';
 import { EntityRecord } from '../../../core/services/repository.service';
+import { SelectionModel } from '@angular/cdk/collections';
 
 @Component({
   selector: 'app-data-table',
@@ -20,25 +21,68 @@ export class DataTableComponent {
   @Input() allowCredentials = false;
   @Input() allowPromotion = false;
   @Input() allowDetails = false;
+  @Input() allowDelete = false;
+  @Input() allowTransfer = false;
   @Input() generatedCredentials: Record<string, any> = {};
   @Input() currentUid?: string;
 
   @Output() edit = new EventEmitter<EntityRecord>();
   @Output() remove = new EventEmitter<EntityRecord>();
+  @Output() activate = new EventEmitter<EntityRecord>();
   @Output() resetPassword = new EventEmitter<EntityRecord>();
   @Output() sendResetEmail = new EventEmitter<EntityRecord>();
   @Output() promote = new EventEmitter<EntityRecord>();
   @Output() viewDetails = new EventEmitter<EntityRecord>();
+  @Output() permanentlyDelete = new EventEmitter<EntityRecord>();
+  @Output() transfer = new EventEmitter<EntityRecord>();
   @Output() emptyAction = new EventEmitter<void>();
 
   constructor(private snackBar: MatSnackBar) {}
 
+  selection = new SelectionModel<EntityRecord>(true, []);
+
   get displayedColumns(): string[] {
-    return this.showActions ? [...this.columns.map((column) => column.key), 'actions'] : this.columns.map((column) => column.key);
+    const cols = ['select', ...this.columns.map((column) => column.key)];
+    return this.showActions ? [...cols, 'actions'] : cols;
+  }
+
+  isAllSelected() {
+    const numSelected = this.selection.selected.length;
+    const numRows = this.rows.length;
+    return numSelected > 0 && numSelected === numRows;
+  }
+
+  toggleAllRows() {
+    if (this.isAllSelected()) {
+      this.selection.clear();
+      return;
+    }
+    this.selection.select(...this.rows);
+  }
+
+  checkboxLabel(row?: EntityRecord): string {
+    if (!row) {
+      return `${this.isAllSelected() ? 'deselect' : 'select'} all`;
+    }
+    return `${this.selection.isSelected(row) ? 'deselect' : 'select'} row`;
   }
 
   value(row: EntityRecord, key: string): unknown {
-    return row[key];
+    const val = row[key];
+    // If value exists, return as-is (including arrays)
+    if (val !== undefined && val !== null && val !== '') return val;
+
+    // Backwards-compat: fall back from plural keys (madrasaIds) to singular (madrasaId)
+    // and wrap the single string in an array so the idRef renderer works uniformly.
+    if (key.endsWith('Ids')) {
+      const singularKey = key.slice(0, -1); // madrasaIds → madrasaId
+      const singularVal = row[singularKey];
+      if (singularVal !== undefined && singularVal !== null && singularVal !== '') {
+        return Array.isArray(singularVal) ? singularVal : [singularVal];
+      }
+    }
+
+    return val;
   }
 
   isArray(val: unknown): val is unknown[] {
@@ -47,6 +91,36 @@ export class DataTableComponent {
 
   asArray(val: unknown): unknown[] {
     return Array.isArray(val) ? val : [];
+  }
+
+  staffPeople(row: EntityRecord, key: string): any[] {
+    const value = this.value(row, key);
+    return Array.isArray(value) ? value : [];
+  }
+
+  visibleStaffPeople(row: EntityRecord, key: string): any[] {
+    return this.staffPeople(row, key).slice(0, 3);
+  }
+
+  hiddenStaffCount(row: EntityRecord, key: string): number {
+    return Math.max(this.staffPeople(row, key).length - 3, 0);
+  }
+
+  staffTooltip(row: EntityRecord, key: string): string {
+    const people = this.staffPeople(row, key);
+    return people.length
+      ? people.map((person) => person.name || person.displayName || person.email || person.id).join('\n')
+      : 'No staff assigned';
+  }
+
+  staffInitials(person: any): string {
+    const name = String(person?.name || person?.displayName || person?.email || '?').trim();
+    const parts = name.split(/\s+/).filter(Boolean);
+    return parts.slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('') || '?';
+  }
+
+  staffAvatar(person: any): string {
+    return String(person?.photoURL || person?.avatarUrl || '');
   }
 
   text(row: EntityRecord, key: string): string {

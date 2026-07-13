@@ -24,7 +24,8 @@ import {
 } from 'firebase/firestore';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, from, map, shareReplay, switchMap, of, combineLatest, catchError, startWith, timeout } from 'rxjs';
-import { ALL_PERMISSIONS, ROLE_LABELS, SUPER_ADMIN_EMAIL, permissionsForRole } from '../constants/defaults';
+import { ALL_PERMISSIONS, ROLE_LABELS, SUPER_ADMIN_EMAIL } from '../constants/defaults';
+import { RolePermissionsService } from './role-permissions.service';
 import { AppUser, PermissionKey, UserRole } from '../models/domain.model';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 
@@ -68,6 +69,26 @@ export class AuthService {
             }, (error) => subscriber.error(error));
             return unsubscribe;
           }).pipe(
+            switchMap(baseProfile => {
+              if (baseProfile?.entityType && baseProfile?.entityId) {
+                 const collectionName = baseProfile.entityType === 'staff' ? 'staff' : baseProfile.entityType === 'student' ? 'students' : 'parents';
+                 const entityRef = doc(this.firestore, `${collectionName}/${baseProfile.entityId}`);
+                 return new Observable<AppUser>((entitySub) => {
+                    const unsubEntity = onSnapshot(entityRef, (entitySnap) => {
+                       if (entitySnap.exists()) {
+                          entitySub.next({ ...baseProfile, ...entitySnap.data(), id: baseProfile.id });
+                       } else {
+                          entitySub.next(baseProfile);
+                       }
+                    }, (err) => {
+                       console.error('[Auth] Failed to load business entity:', err);
+                       entitySub.next(baseProfile);
+                    });
+                    return unsubEntity;
+                 });
+              }
+              return of(baseProfile);
+            }),
             catchError(error => {
               console.error('[Auth] profile$ snapshot failed:', error);
               return of(null);
@@ -84,7 +105,7 @@ export class AuthService {
       this.loadingProfileSubject.next(false);
       return profile;
     }),
-    shareReplay({ bufferSize: 1, refCount: true }),
+    shareReplay({ bufferSize: 1, refCount: false }),
   );
 
   readonly authReady$: Observable<boolean> = combineLatest([this.authUser$, this.profile$]).pipe(
@@ -96,6 +117,7 @@ export class AuthService {
 
   constructor(
     private readonly router: Router,
+    private readonly rolePermissionsService: RolePermissionsService
   ) { }
 
   async loginWithEmail(email: string, password: string): Promise<void> {
@@ -199,7 +221,16 @@ export class AuthService {
       return false;
     }
 
-    return user.role === 'superAdmin' || user.permissions.includes(permission);
+    if (user.role === 'superAdmin') {
+      return true;
+    }
+
+    const rolePermissions = this.rolePermissionsService.getPermissionsForRole(user.role);
+    if (rolePermissions.includes(permission)) {
+      return true;
+    }
+
+    return user.permissions?.includes(permission) ?? false;
   }
 
   hasAnyPermission(user: AppUser | null | undefined, permissions: PermissionKey[]): boolean {
@@ -218,6 +249,8 @@ export class AuthService {
     try {
       console.log('[Auth] Auth user changed:', firebaseUser.uid, firebaseUser.email);
       console.log('[Auth] Resolving profile for uid:', firebaseUser.uid);
+
+      await this.rolePermissionsService.loadTemplates();
 
       this.loadingProfileSubject.next(true);
       const userRef = doc(this.firestore, `users/${firebaseUser.uid}`);
@@ -270,7 +303,7 @@ export class AuthService {
         email: normalizedEmail,
         displayName: firebaseUser.displayName || normalizedEmail.split('@')[0],
         role: 'student',
-        permissions: permissionsForRole('student'),
+        permissions: this.rolePermissionsService.getPermissionsForRole('student'),
         status: 'pending',
         madrasaIds: [],
         classIds: [],

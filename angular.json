@@ -41,7 +41,7 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["src/global.scss", "src/theme/variables.scss"],
+            "styles": ["src/global.scss", "src/theme/variables.scss", "@angular/material/prebuilt-themes/azure-blue.css"],
             "scripts": []
           },
           "configurations": {
@@ -54,8 +54,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "8kb",
-                  "maximumError": "14kb"
+                  "maximumWarning": "24kb",
+                  "maximumError": "48kb"
                 }
               ],
               "fileReplacements": [
@@ -131,7 +131,7 @@
                 "output": "./svg"
               }
             ],
-            "styles": ["src/global.scss", "src/theme/variables.scss"],
+            "styles": ["src/global.scss", "src/theme/variables.scss", "@angular/material/prebuilt-themes/azure-blue.css"],
             "scripts": []
           },
           "configurations": {

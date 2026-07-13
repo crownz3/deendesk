@@ -60,6 +60,12 @@
   flex-shrink: 0;
 }
 
+.select-col {
+  width: 48px;
+  max-width: 48px;
+  padding: 0 8px !important;
+}
+
 .inline-copy-btn ion-icon {
   margin-right: 0;
 }
@@ -67,6 +73,20 @@
 .actions-cell {
   text-align: center !important;
   width: 56px;
+}
+
+.mat-column-actions {
+  background: var(--app-surface) !important;
+}
+
+.mat-column-actions::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+  width: 1px;
+  background: var(--app-border, #e0e0e0);
 }
 
 ion-icon {
@@ -80,6 +100,10 @@ ion-icon {
 
 .danger-item {
   color: #9b2842;
+}
+
+.success-item {
+  color: var(--app-secondary, #137333);
 }
 
 .muted-text {
@@ -148,4 +172,71 @@ ion-icon {
 .date-cell {
   font-size: 13px;
   color: var(--app-text-muted);
+}
+
+.staff-chip-list {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.staff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 126px;
+  min-height: 30px;
+  padding: 3px 8px 3px 4px;
+  border: 1px solid var(--app-border, #d7e4df);
+  border-radius: 999px;
+  background: var(--app-surface-soft, #f6f9f8);
+  color: var(--app-text-main, #24352f);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.staff-chip.more {
+  padding: 4px 9px;
+  background: var(--app-primary-soft, #e8f1ff);
+  color: var(--app-primary, #1f5fbf);
+}
+
+.staff-chip-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 22px;
+}
+
+.staff-chip-avatar.initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--app-secondary-soft, #e6f4ea);
+  color: var(--app-secondary, #137333);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.staff-chip-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+::ng-deep .multiline-tooltip {
+  white-space: pre-line;
+}
+.mat-mdc-table-sticky {
+  background: var(--app-surface, #ffffff) !important;
+  z-index: 10 !important;
+}
+
+.actions-cell.mat-mdc-table-sticky {
+  border-left: 1px solid #dde8e3;
+  box-shadow: -2px 0 5px rgba(0, 0, 0, 0.03);
 }

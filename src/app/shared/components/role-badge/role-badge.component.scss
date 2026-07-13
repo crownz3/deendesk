@@ -1,12 +1,62 @@
+.role-badge-container {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: center;
+}
+
 .role-badge {
   align-items: center;
-  background: #e8f3f0;
-  border: 1px solid #c5ded7;
+  background: #f1f3f4;
+  border: 1px solid #dadce0;
   border-radius: 999px;
-  color: #174f45;
+  color: #3c4043;
   display: inline-flex;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  height: 26px;
-  padding: 0 10px;
+  height: 22px;
+  padding: 0 8px;
+  white-space: nowrap;
+
+  &.role-superAdmin {
+    background: #fde8e8;
+    border-color: #f8b4b4;
+    color: #9b1c1c;
+  }
+
+  &.role-organizationAdmin {
+    background: #e1effe;
+    border-color: #a4cafe;
+    color: #1e429f;
+  }
+
+  &.role-coordinator {
+    background: #efe5fd;
+    border-color: #d1b9fc;
+    color: #6a1b9a;
+  }
+
+  &.role-madrasaIncharge {
+    background: #e8f3f0;
+    border-color: #c5ded7;
+    color: #174f45;
+  }
+
+  &.role-teacher, &.role-staff {
+    background: #fff8e1;
+    border-color: #ffe082;
+    color: #b26a00;
+  }
+
+  &.role-student {
+    background: #e1f5fe;
+    border-color: #b3e5fc;
+    color: #0277bd;
+  }
+
+  &.role-parent {
+    background: #eceff1;
+    border-color: #cfd8dc;
+    color: #37474f;
+  }
 }

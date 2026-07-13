@@ -6,6 +6,8 @@ import { EntityRecord } from '../../../core/services/repository.service';
 import { PERMISSION_LABELS, ROLE_LABELS } from '../../../core/constants/defaults';
 import { AuthService } from '../../../core/services/auth.service';
 import { CredentialService } from '../../../core/services/credential.service';
+import { where, getDocs, query, collection, getFirestore } from 'firebase/firestore';
+import { getDeenDeskFirebaseApp } from '../../../core/services/firebase-app';
 
 export interface UserDetailsDialogData {
   user: EntityRecord;
@@ -32,12 +34,65 @@ export class UserDetailsDialogComponent implements OnInit {
     this.user = data.user;
   }
 
+  assignedStudents: EntityRecord[] = [];
+  assignedGroups: EntityRecord[] = [];
+  loadingStudents = false;
+
   ngOnInit() {
     this.auth.profile$.subscribe(profile => {
       if (profile) {
         this.currentUserRole = profile.role;
       }
     });
+
+    if (this.user['role'] === 'staff' || this.user['role'] === 'teacher') {
+      this.loadAssignedStudents();
+    }
+  }
+
+  async loadAssignedStudents() {
+    const staffIds = [this.user.id, this.user['uid'], this.user['userId'], this.user['entityId'], this.user['email']]
+      .map(value => String(value || '').trim())
+      .filter(Boolean);
+    
+    if (!staffIds.length) {
+      return;
+    }
+    
+    this.loadingStudents = true;
+    try {
+      const firestore = getFirestore(getDeenDeskFirebaseApp());
+      const usersRef = collection(firestore, 'users');
+      const groupsSnap = await getDocs(collection(firestore, 'classGroups'));
+      this.assignedGroups = groupsSnap.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord))
+        .filter(group =>
+          Array.isArray(group['assignedStaffIds']) &&
+          staffIds.some(id => (group['assignedStaffIds'] as unknown[]).map(String).includes(id))
+        );
+
+      const studentPromises: Promise<EntityRecord[]>[] = [];
+      
+      for (const group of this.assignedGroups) {
+        if (!group.id) continue;
+        const q = query(usersRef, where('role', '==', 'student'), where('groupId', '==', group.id));
+        studentPromises.push(getDocs(q).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord))));
+      }
+
+      const results = await Promise.all(studentPromises);
+      const allStudents = results.reduce((acc, val) => acc.concat(val), []);
+      const unique = new Map<string, EntityRecord>();
+      for (const s of allStudents) {
+         if (s.id) {
+           unique.set(s.id, s);
+         }
+      }
+      this.assignedStudents = Array.from(unique.values());
+    } catch (e) {
+      console.error('Failed to load assigned students', e);
+    } finally {
+      this.loadingStudents = false;
+    }
   }
 
   close(): void {
@@ -91,6 +146,10 @@ export class UserDetailsDialogComponent implements OnInit {
 
   get isSuperAdmin(): boolean {
     return this.user['role'] === 'superAdmin';
+  }
+
+  get isStaffProfile(): boolean {
+    return this.user['role'] === 'staff' || this.user['role'] === 'teacher';
   }
 
   getDate(key: string): Date | string | null {

@@ -1,14 +1,21 @@
 import { Component } from '@angular/core';
-import { combineLatest, map, of, switchMap, catchError } from 'rxjs';
+import { combineLatest, map, of, switchMap, catchError, Observable } from 'rxjs';
+import { where, documentId } from 'firebase/firestore';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { ROLE_LABELS } from '../../core/constants/defaults';
 import { AppUser, AttendanceRecord, NotificationItem, ClassPlan, TimetableEntry } from '../../core/models/domain.model';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
 import { SetupMapService, SetupMapStep } from '../../core/services/setup-map.service';
+import { DataManagementService, ALL_COLLECTION_OPTIONS, QUICK_ACTIONS, CollectionOption } from '../../core/services/data-management.service';
+import { NameResolverService, ResolvableType } from '../../core/services/name-resolver.service';
+import { BulkDeleteConfirmDialogComponent } from '../../shared/components/bulk-delete-confirm-dialog/bulk-delete-confirm-dialog.component';
+import { BulkDeleteProgressDialogComponent } from '../../shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
 
 interface DashboardStat {
   label: string;
-  value: number;
+  value: number | string;
   icon: string;
   tone: 'primary' | 'success' | 'warning' | 'danger' | 'purple';
 }
@@ -27,7 +34,11 @@ interface AccessAction {
 
 interface AccessCard {
   title: string;
+  titleId?: string;
+  titleType?: ResolvableType;
   subtitle?: string;
+  subtitleId?: string;
+  subtitleType?: ResolvableType;
   icon?: string;
   tone?: 'primary' | 'success' | 'warning' | 'danger' | 'purple';
   items: { label: string; value: string | number }[];
@@ -44,6 +55,9 @@ interface DashboardVm {
   displayName: string;
   formattedRole: string;
   roleTitle: string;
+  isSuperAdmin: boolean;
+  isOrgAdmin: boolean;
+  organizationId?: string;
   stats: DashboardStat[];
   courseDistribution: ChartSlice[];
   attendance: {
@@ -58,7 +72,7 @@ interface DashboardVm {
   usersByRole: ChartSlice[];
   setupSteps: SetupMapStep[];
   accessOverview?: AccessOverview;
-  todaySchedule: (EntityRecord & TimetableEntry)[];
+  todaySchedule: (EntityRecord & TimetableEntry & { classId?: string | null })[];
 }
 
 @Component({
@@ -74,82 +88,296 @@ export class DashboardPage {
         return of(null);
       }
 
-      return combineLatest({
-        organizations: this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'organizations', error); return of([]); })),
-        madrasas: this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'madrasas', error); return of([]); })),
-        users: this.repo.list<EntityRecord>('users', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'users', error); return of([]); })),
-        courses: this.repo.list<EntityRecord>('courses', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'courses', error); return of([]); })),
-        classes: this.repo.list<EntityRecord>('classes', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'classes', error); return of([]); })),
-        subjects: this.repo.list<EntityRecord>('subjects', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'subjects', error); return of([]); })),
-        attendance: this.repo.list<AttendanceRecord & EntityRecord>('attendance', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'attendance', error); return of([]); })),
-        notifications: this.repo.list<NotificationItem & EntityRecord>('notifications', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'notifications', error); return of([]); })),
-        classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'classPlans', error); return of([]); })),
-        timetableEntries: this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile).pipe(catchError(error => { console.warn('[Dashboard] Optional collection skipped:', 'timetableEntries', error); return of([]); })),
-      }).pipe(
-        map((rawData): DashboardVm => {
-          const users = rawData['users'] || [];
-          const data: Record<string, any[]> = {
-            ...rawData,
-            coordinators: users.filter(u => u['role'] === 'coordinator'),
-            incharges: users.filter(u => u['role'] === 'madrasaIncharge'),
-            staff: users.filter(u => u['role'] === 'teacher' || u['role'] === 'staff'),
-            students: users.filter(u => u['role'] === 'student'),
-            parents: users.filter(u => u['role'] === 'parent'),
-          };
-          const stats = this.statsForRole(profile.role, data);
-          const attendance = this.attendanceSummary(data['attendance']);
-          const courseDistribution = this.distribution(data['students'], 'courseName', data['courses'], 'courseId');
-          const usersByRole = this.distribution(data['users'], 'role');
-          
-          const rawCounts: Record<string, number> = {
-            organizations: data['organizations'].length,
-            madrasas: data['madrasas'].length,
-            users: data['users'].length,
-            students: data['students'].length,
-            parents: data['parents'].length,
-            staff: data['staff'].length,
-            courses: data['courses'].length,
-            classes: data['classes'].length,
-            subjects: data['subjects'].length,
-            attendance: data['attendance'].length,
-          };
-          
-          const setupSteps = this.setupMap.getStepsForUser(profile, rawCounts);
-          const accessOverview = this.buildAccessOverview(profile, data);
-          
-          const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          const todayDayName = days[new Date().getDay()];
-          const myClassPlanIds = (data['classPlans'] || []).map(p => p.id);
-          const allTimetableEntries = (data['timetableEntries'] || []) as (EntityRecord & TimetableEntry)[];
-          
-          const todaySchedule = allTimetableEntries.filter(e => e.dayOfWeek === todayDayName && myClassPlanIds.includes(e.classPlanId));
-          todaySchedule.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+      if (profile.role === 'teacher') {
+        return this.loadTeacherData(profile).pipe(
+          map(data => this.buildDashboardVm(profile, data))
+        );
+      }
 
-          return {
-            displayName: this.getDisplayName(profile),
-            formattedRole: this.formatRole(profile.role),
-            roleTitle: ROLE_LABELS[profile.role],
-            stats,
-            attendance,
-            courseDistribution,
-            usersByRole,
-            notifications: data['notifications'].slice(0, 5),
-            setupSteps,
-            accessOverview,
-            todaySchedule,
-          };
-        }),
+      return combineLatest({
+        organizations: this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        madrasas: this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        users: this.repo.list<EntityRecord>('users', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        courses: this.repo.list<EntityRecord>('courses', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        classes: this.repo.list<EntityRecord>('classes', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        subjects: this.repo.list<EntityRecord>('subjects', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        attendance: this.repo.list<AttendanceRecord & EntityRecord>('attendance', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        notifications: this.repo.list<NotificationItem & EntityRecord>('notifications', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        timetableEntries: this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+      }).pipe(
+        map((rawData) => this.buildDashboardVm(profile, rawData))
       );
     }),
   );
 
+  private loadTeacherData(profile: AppUser): Observable<Record<string, any[]>> {
+    // 1. Fetch assigned classes & timetable entries
+    const classes$ = this.repo.list<EntityRecord>('classes', profile).pipe(catchError(() => of([])));
+    const classGroups$ = this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([])));
+    const timetable$ = this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile).pipe(catchError(() => of([])));
+    const subjects$ = this.repo.list<EntityRecord>('subjects', profile).pipe(catchError(() => of([])));
+    const notifications$ = this.repo.list<NotificationItem & EntityRecord>('notifications', profile).pipe(catchError(() => of([])));
+    const attendance$ = this.repo.list<AttendanceRecord & EntityRecord>('attendance', profile).pipe(catchError(() => of([])));
+    const users$ = this.repo.list<EntityRecord>('users', profile).pipe(catchError(() => of([])));
+    
+    return combineLatest({
+      classes: classes$,
+      classGroups: classGroups$,
+      timetableEntries: timetable$,
+      subjects: subjects$,
+      notifications: notifications$,
+      attendance: attendance$,
+      users: users$
+    }).pipe(
+      switchMap((initialData) => {
+        // Extract classPlanIds from timetable entries
+        const classPlanIds = [...new Set(initialData.timetableEntries.map(e => e.classPlanId).filter(Boolean))];
+        
+        // Chunk requests for classPlans
+        const planChunks = classPlanIds.length > 0 ? this.chunkArray(classPlanIds, 10) : [];
+        const planObs = planChunks.length > 0 ? planChunks.map(chunk => 
+          this.repo.list<EntityRecord & ClassPlan>('classPlans', profile, [where(documentId(), 'in', chunk)]).pipe(catchError(() => of([])))
+        ) : [of([])];
+        
+        return combineLatest(planObs).pipe(
+          map(results => results.flat()),
+          switchMap(classPlans => {
+            const courseIds = [...new Set([...classPlans.map(p => p.courseId), ...initialData.classes.map(c => c['courseId'])])].filter(Boolean);
+            const madrasaIds = [...new Set([...(profile.madrasaIds || []), ...classPlans.map(p => p.madrasaId), ...initialData.classes.map(c => c['madrasaId'])])].filter(Boolean);
+            const classIds = [...new Set([...classPlans.map(p => p.classId), ...initialData.classes.map(c => c.id)])].filter(Boolean);
+            const groupIds = [...new Set(classPlans.map(p => p.groupId))].filter(Boolean);
+            
+            const reqs: any = { classPlans: of(classPlans) };
+            
+            if (courseIds.length > 0) {
+              const chunks = this.chunkArray(courseIds, 10);
+              reqs.courses = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('courses', profile, [where(documentId(), 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
+            } else reqs.courses = of([]);
+            
+            if (madrasaIds.length > 0) {
+              const chunks = this.chunkArray(madrasaIds, 10);
+              reqs.madrasas = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('madrasas', profile, [where(documentId(), 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
+            } else reqs.madrasas = of([]);
+            
+            if (classIds.length > 0) {
+              const chunks = this.chunkArray(classIds, 10);
+              reqs.studentsByClass = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('students', profile, [where('classId', 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
+            } else reqs.studentsByClass = of([]);
+            
+            if (groupIds.length > 0) {
+              const chunks = this.chunkArray(groupIds, 10);
+              reqs.studentsByGroup = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('students', profile, [where('groupId', 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
+            } else reqs.studentsByGroup = of([]);
+            
+            return combineLatest(reqs).pipe(
+              map((fetched: any) => {
+                const allStudents = [...fetched.studentsByClass, ...fetched.studentsByGroup];
+                const uniqueStudents = Array.from(new Map(allStudents.map((s: any) => [s.id, s])).values());
+                return {
+                  ...initialData,
+                  classPlans: fetched.classPlans,
+                  courses: fetched.courses,
+                  madrasas: fetched.madrasas,
+                  students: uniqueStudents,
+                  organizations: [] // Teachers don't need full org data for stats
+                };
+              })
+            );
+          })
+        );
+      })
+    );
+  }
+
+  private chunkArray<T>(array: T[], size: number): T[][] {
+    const chunks: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+      chunks.push(array.slice(i, i + size));
+    }
+    return chunks;
+  }
+
+  private buildDashboardVm(profile: AppUser, rawData: Record<string, any[]>): DashboardVm {
+    const users = rawData['users'] || [];
+    const data: Record<string, any[]> = {
+      ...rawData,
+      coordinators: users.filter(u => u['role'] === 'coordinator'),
+      incharges: users.filter(u => u['role'] === 'madrasaIncharge'),
+      staff: users.filter(u => u['role'] === 'teacher' || u['role'] === 'staff'),
+      students: rawData['students'] || users.filter(u => u['role'] === 'student'),
+      parents: users.filter(u => u['role'] === 'parent'),
+    };
+    const stats = this.statsForRole(profile.role, data);
+    const attendance = this.attendanceSummary(data['attendance'] || []);
+    const courseDistribution = this.distribution(data['students'], 'courseName', data['courses'], 'courseId');
+    const usersByRole = this.distribution(data['users'], 'role');
+    
+    const rawCounts: Record<string, number> = {
+      organizations: (data['organizations'] || []).length,
+      madrasas: (data['madrasas'] || []).length,
+      users: (data['users'] || []).length,
+      students: (data['students'] || []).length,
+      parents: (data['parents'] || []).length,
+      staff: (data['staff'] || []).length,
+      courses: (data['courses'] || []).length,
+      classes: (data['classes'] || []).length,
+      subjects: (data['subjects'] || []).length,
+      attendance: (data['attendance'] || []).length,
+    };
+    
+    const setupSteps = this.setupMap.getStepsForUser(profile, rawCounts);
+    const accessOverview = this.buildAccessOverview(profile, data);
+    
+    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const todayDayName = days[new Date().getDay()];
+    const classPlans = data['classPlans'] || [];
+    const myClassPlanIds = classPlans.map((p: any) => p.id);
+    const allTimetableEntries = (data['timetableEntries'] || []) as (EntityRecord & TimetableEntry)[];
+    
+    let todaySchedule = allTimetableEntries
+      .filter(e => e.dayOfWeek === todayDayName && myClassPlanIds.includes(e.classPlanId));
+
+    if (profile.role === 'teacher') {
+      const profileIds = [profile.uid, profile.id, profile.entityId, profile.email].map(id => String(id || '')).filter(Boolean);
+      const myClasses = (data['classGroups'] || [])
+        .filter((group: any) => {
+          const staffIds = Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'].map(String) : [];
+          const teacherUids = Array.isArray(group['teacherUids']) ? group['teacherUids'].map(String) : [];
+          return profileIds.some(id => staffIds.includes(id) || teacherUids.includes(id));
+        })
+        .map((group: any) => group['classId'])
+        .filter(Boolean);
+
+      todaySchedule = todaySchedule.filter(e => {
+        const isActivityTeacher = e.teacherId === profile.uid || (Array.isArray(e.teacherIds) && e.teacherIds.includes(profile.uid));
+        if (isActivityTeacher) return true;
+
+        const plan = classPlans.find((p: any) => p.id === e.classPlanId);
+        if (plan && myClasses.includes(plan.classId) && !e.teacherId && (!e.teacherIds || e.teacherIds.length === 0)) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    const finalSchedule = todaySchedule.map(e => {
+        const plan = classPlans.find((p: any) => p.id === e.classPlanId);
+        return { ...e, classId: plan ? plan.classId : null };
+      });
+    finalSchedule.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
+
+    return {
+      displayName: this.getDisplayName(profile),
+      formattedRole: this.formatRole(profile.role),
+      roleTitle: ROLE_LABELS[profile.role],
+      isSuperAdmin: profile.role === 'superAdmin',
+      isOrgAdmin: profile.role === 'organizationAdmin',
+      organizationId: profile.organizationId,
+      stats,
+      attendance,
+      courseDistribution,
+      usersByRole,
+      notifications: (data['notifications'] || []).slice(0, 5),
+      setupSteps,
+      accessOverview,
+      todaySchedule: finalSchedule,
+    };
+  }
+
   currentCardIndex = 0;
+
+  // ── Data Management State ──────────────────────────────────────────────────
+  readonly allCollectionOptions: CollectionOption[] = ALL_COLLECTION_OPTIONS;
+  readonly quickActions = QUICK_ACTIONS;
+  readonly selectedCollections = new Set<string>();
 
   constructor(
     private readonly auth: AuthService,
     private readonly repo: RepositoryService,
     private readonly setupMap: SetupMapService,
+    private readonly dataMgmt: DataManagementService,
+    private readonly dialog: MatDialog,
+    private readonly snackBar: MatSnackBar,
+    public readonly resolver: NameResolverService
   ) {}
+
+  // ── Data Management Methods ────────────────────────────────────────────────
+
+  isCollectionSelected(key: string): boolean {
+    return this.selectedCollections.has(key);
+  }
+
+  toggleCollection(key: string): void {
+    if (this.selectedCollections.has(key)) {
+      this.selectedCollections.delete(key);
+    } else {
+      this.selectedCollections.add(key);
+    }
+  }
+
+  selectAllCollections(): void {
+    this.allCollectionOptions.forEach(o => this.selectedCollections.add(o.key));
+  }
+
+  clearAllCollections(): void {
+    this.selectedCollections.clear();
+  }
+
+  get selectedCount(): number {
+    return this.selectedCollections.size;
+  }
+
+  get hasSelections(): boolean {
+    return this.selectedCollections.size > 0;
+  }
+
+  applyQuickAction(keys: string[]): void {
+    this.selectedCollections.clear();
+    keys.forEach(k => this.selectedCollections.add(k));
+    this.openDeleteConfirm();
+  }
+
+  openDeleteConfirm(): void {
+    if (!this.hasSelections) return;
+
+    const selectedOptions = this.allCollectionOptions.filter(o =>
+      this.selectedCollections.has(o.key)
+    );
+
+    const confirmRef = this.dialog.open(BulkDeleteConfirmDialogComponent, {
+      data: { selectedOptions },
+      panelClass: 'bulk-delete-confirm-panel',
+      disableClose: true,
+    });
+
+    confirmRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.executeDelete(selectedOptions);
+      }
+    });
+  }
+
+  private executeDelete(selectedOptions: CollectionOption[]): void {
+    const progressRef = this.dialog.open(BulkDeleteProgressDialogComponent, {
+      data: { selectedOptions },
+      panelClass: 'bulk-delete-progress-panel',
+      disableClose: true,
+      width: '640px',
+    });
+
+    progressRef.afterClosed().subscribe((summary) => {
+      this.selectedCollections.clear();
+      if (summary) {
+        const failed = Object.values(summary.results || {}).filter((r: any) => r.failed > 0).length;
+        if (failed === 0) {
+          this.snackBar.open(`✅ Deletion complete — ${summary.totalDocs} documents removed`, 'Dismiss', { duration: 5000 });
+        } else {
+          this.snackBar.open(`⚠️ Completed with ${failed} failure(s). Check the summary.`, 'Dismiss', { duration: 7000 });
+        }
+      }
+    });
+  }
 
   nextCard(totalCards: number) {
     if (this.currentCardIndex < totalCards - 1) {
@@ -176,6 +404,8 @@ export class DashboardPage {
       { label: 'Organizations', value: data['organizations']?.length ?? 0, icon: 'business-outline', tone: 'success' },
       { label: 'Madrasas', value: data['madrasas']?.length ?? 0, icon: 'school-outline', tone: 'primary' },
       { label: 'Users', value: data['users']?.length ?? 0, icon: 'people-outline', tone: 'warning' },
+      { label: 'Coordinators', value: data['coordinators']?.length ?? 0, icon: 'star-outline', tone: 'primary' },
+      { label: 'Madrasa Incharges', value: data['incharges']?.length ?? 0, icon: 'shield-checkmark-outline', tone: 'success' },
       { label: 'Students', value: data['students']?.length ?? 0, icon: 'person-outline', tone: 'success' },
       { label: 'Parents', value: data['parents']?.length ?? 0, icon: 'people-circle-outline', tone: 'primary' },
       { label: 'Staff', value: data['staff']?.length ?? 0, icon: 'briefcase-outline', tone: 'warning' },
@@ -189,15 +419,33 @@ export class DashboardPage {
       return allStats;
     }
 
+    if (role === 'organizationAdmin') {
+      return allStats.filter(s => s.label !== 'Organizations');
+    }
+
+    if (role === 'coordinator') {
+      return allStats.filter(s => ['Madrasas', 'Madrasa Incharges', 'Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
+    }
+
+    if (role === 'madrasaIncharge') {
+      return allStats.filter(s => ['Madrasas', 'Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
+    }
+
+    if (role === 'teacher' || role === 'staff') {
+      const stats = allStats.filter(s => ['Madrasas', 'Students', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
+      const madrasaStat = stats.find(s => s.label === 'Madrasas');
+      if (madrasaStat) {
+        madrasaStat.label = 'Madrasa';
+        madrasaStat.value = data['madrasas']?.map(m => m['name'] || 'Unknown').join(', ') || 'Unassigned';
+      }
+      return stats;
+    }
+
     if (role === 'student' || role === 'parent') {
-      return allStats.filter((stat) => ['Students', 'Courses', 'Classes', 'Notifications'].includes(stat.label));
+      return allStats.filter(s => ['Students', 'Courses', 'Classes', 'Notifications'].includes(s.label));
     }
 
-    if (role === 'teacher') {
-      return allStats.filter((stat) => ['Madrasas', 'Students', 'Classes', 'Subjects', 'Notifications'].includes(stat.label));
-    }
-
-    return allStats.filter((stat) => stat.label !== 'Organizations');
+    return [];
   }
 
   private attendanceSummary(records: AttendanceRecord[]): DashboardVm['attendance'] {
@@ -397,8 +645,7 @@ export class DashboardPage {
     }
 
     if (profile.role === 'teacher') {
-      const assignedClassIds = profile.classIds || [];
-      const assignedClasses = data['classes'].filter(c => assignedClassIds.includes(c.id!));
+      const assignedClasses = data['classes'] || [];
 
       if (assignedClasses.length === 0) {
         return {
@@ -410,13 +657,14 @@ export class DashboardPage {
 
       const cards = assignedClasses.map(c => {
         const cId = c.id!;
-        const madrasaName = data['madrasas'].find(m => m.id === c['madrasaId'])?.['name'] as string || 'Unknown Madrasa';
-        const studentCount = data['students'].filter(s => s['classId'] === cId).length;
-        const subjectCount = data['subjects'].filter(s => s['classId'] === cId).length;
+        const madrasaName = data['madrasas']?.find(m => m.id === c['madrasaId'])?.['name'] as string || 'Unknown Madrasa';
+        const studentCount = data['students']?.filter(s => s['classId'] === cId).length || 0;
+        const subjectCount = data['subjects']?.filter(s => s['classId'] === cId).length || 0;
 
         return {
           title: (c['name'] as string) || 'Unknown Class',
-          subtitle: madrasaName,
+          subtitleId: c['madrasaId'],
+          subtitleType: 'madrasa',
           icon: 'easel-outline',
           tone: 'warning',
           items: [
@@ -454,7 +702,8 @@ export class DashboardPage {
         cards: [
           {
             title: (me['name'] as string) || profile.displayName || 'Student Profile',
-            subtitle: (myMadrasa?.['name'] as string) || 'Unknown Madrasa',
+            subtitleId: madrasaId,
+            subtitleType: 'madrasa',
             icon: 'book-outline',
             tone: 'success',
             items: [
@@ -488,7 +737,8 @@ export class DashboardPage {
         
         return {
           title: (s['name'] as string) || 'Unknown Student',
-          subtitle: (myMadrasa?.['name'] as string) || 'Unknown Madrasa',
+          subtitleId: mId,
+          subtitleType: 'madrasa',
           icon: 'person-outline',
           tone: 'primary',
           items: [

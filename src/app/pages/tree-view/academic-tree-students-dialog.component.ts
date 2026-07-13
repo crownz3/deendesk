@@ -27,14 +27,6 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.filteredStudents = this.data.students || [];
-
-    console.log('[Academic Tree Students Dialog Debug]', {
-      nodeTitle: this.data?.nodeTitle,
-      nodeType: this.data?.nodeType,
-      totalStudents: this.data?.students?.length || 0,
-      studentsWithAttendance: (this.data?.students || []).filter(student => this.hasAttendanceData(student)).length,
-      averageAttendance: this.getAverageAttendance(),
-    });
   }
 
   onSearch(): void {
@@ -54,30 +46,7 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
     });
   }
 
-  hasAttendanceData(student: any): boolean {
-    return student?.attendancePercentage !== undefined ||
-      student?.attendancePercent !== undefined ||
-      student?.attendanceRate !== undefined ||
-      student?.attendanceSummary?.percentage !== undefined ||
-      student?.attendanceSummary?.attendancePercentage !== undefined;
-  }
 
-  getStudentAttendancePercentage(student: any): number {
-    const value =
-      student?.attendancePercentage ??
-      student?.attendancePercent ??
-      student?.attendanceRate ??
-      student?.attendanceSummary?.percentage ??
-      student?.attendanceSummary?.attendancePercentage ??
-      null;
-
-    if (value === null || value === undefined || value === '') {
-      return 0;
-    }
-
-    const numericValue = Number(value);
-    return Number.isFinite(numericValue) ? Math.round(numericValue) : 0;
-  }
 
   viewAttendanceHistory(student: any): void {
     this.dialog.open(AttendanceHistoryDialogComponent, {
@@ -89,41 +58,5 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
     });
   }
 
-  viewStudyPlan(student: any): void {
-    this.snackBar.open(`Study Plan for ${student.name || student.displayName || 'Student'} coming soon.`, 'Close', { duration: 3000 });
-  }
 
-  getAttendanceStatus(student: any): string {
-    if (!this.hasAttendanceData(student)) return 'No Data';
-
-    const percent = this.getStudentAttendancePercentage(student);
-    if (typeof percent === 'string') return percent;
-    if (percent >= 90) return 'Excellent';
-    if (percent >= 75) return 'Good';
-    if (percent >= 50) return 'Needs Attention';
-    return 'Critical';
-  }
-
-  getAttendanceStatusClass(student: any): string {
-    if (!this.hasAttendanceData(student)) return 'status-no-data';
-    const percent = this.getStudentAttendancePercentage(student);
-    if (percent >= 90) return 'status-excellent';
-    if (percent >= 75) return 'status-good';
-    if (percent >= 50) return 'status-needs-attention';
-    return 'status-critical';
-  }
-
-  getAverageAttendance(): number | string {
-    const studentsWithAttendance = (this.data?.students || []).filter(student => this.hasAttendanceData(student));
-
-    if (!studentsWithAttendance.length) {
-      return 'No Data';
-    }
-
-    const total = studentsWithAttendance.reduce((sum, student) => {
-      return sum + this.getStudentAttendancePercentage(student);
-    }, 0);
-
-    return Math.round(total / studentsWithAttendance.length);
-  }
 }

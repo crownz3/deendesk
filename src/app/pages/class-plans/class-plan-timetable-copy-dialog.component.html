@@ -1,0 +1,101 @@
+<div class="dialog-header-modern">
+  <div class="header-icon">
+    <mat-icon>content_copy</mat-icon>
+  </div>
+  <div class="header-title">
+    <h2 mat-dialog-title>Copy From Another Day</h2>
+    <p>Duplicate your schedule from one day to {{ data.targetDay }}.</p>
+  </div>
+  <button mat-icon-button mat-dialog-close class="close-btn" [disabled]="saving">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="modern-dialog-content">
+  <div class="copy-layout">
+    
+    <!-- Step 1: Select Source Day -->
+    <div class="section">
+      <h3 class="section-title">1. Select Source Day</h3>
+      <mat-form-field appearance="outline" class="w-100">
+        <mat-label>Source Day</mat-label>
+        <mat-select [(ngModel)]="sourceDay" (selectionChange)="onSourceDayChange()" [disabled]="saving">
+          <ng-container *ngFor="let day of daysOfWeek">
+            <mat-option *ngIf="day !== data.targetDay" [value]="day">
+              {{ day }}
+            </mat-option>
+          </ng-container>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <!-- Step 2: Select Activities -->
+    <div class="section" *ngIf="sourceDay">
+      <div class="section-header">
+        <h3 class="section-title">2. Select Activities</h3>
+        <div class="selection-actions" *ngIf="availableEntries.length > 0">
+          <button mat-button color="primary" (click)="selectAll()">All</button>
+          <button mat-button (click)="deselectAll()">None</button>
+        </div>
+      </div>
+
+      <div class="activities-list" *ngIf="availableEntries.length > 0; else noActivities">
+        <div class="activity-item" *ngFor="let entry of availableEntries" (click)="toggleSelection(entry.id!)" [class.selected]="selectedEntryIds.has(entry.id!)">
+          <mat-checkbox 
+            [checked]="selectedEntryIds.has(entry.id!)" 
+            (change)="toggleSelection(entry.id!)" 
+            (click)="$event.stopPropagation()"
+            [disabled]="saving">
+          </mat-checkbox>
+          
+          <div class="activity-info">
+            <div class="time" *ngIf="entry.scheduleType === 'period'">{{ entry.startTime }} - {{ entry.endTime }}</div>
+            <div class="time full-day" *ngIf="entry.scheduleType === 'fullDay'">FULL DAY</div>
+            <div class="name">{{ entry.activityName }}</div>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #noActivities>
+        <div class="empty-state">
+          <mat-icon>calendar_clear_outline</mat-icon>
+          <p>No activities available for {{ sourceDay }}.</p>
+        </div>
+      </ng-template>
+    </div>
+
+    <!-- Step 3: Conflict Resolution -->
+    <div class="section conflict-section" *ngIf="sourceDay && availableEntries.length > 0 && selectedEntryIds.size > 0 && hasTargetConflicts">
+      <h3 class="section-title warning-title">
+        <mat-icon color="warn">warning</mat-icon>
+        Conflict Resolution
+      </h3>
+      <p class="conflict-desc">There are already {{ targetDayEntries.length }} activities on {{ data.targetDay }}. How would you like to handle duplicates?</p>
+      
+      <mat-radio-group [(ngModel)]="conflictStrategy" class="conflict-radio-group" [disabled]="saving">
+        <mat-radio-button value="replace">
+          <strong>Replace all</strong><br>
+          <span class="sub">Deletes existing activities and replaces them entirely.</span>
+        </mat-radio-button>
+        <mat-radio-button value="merge">
+          <strong>Merge with existing</strong><br>
+          <span class="sub">Keeps non-overlapping existing activities. Overwrites conflicts.</span>
+        </mat-radio-button>
+        <mat-radio-button value="skip">
+          <strong>Skip duplicate time slots</strong><br>
+          <span class="sub">Keeps all existing activities. Only copies non-overlapping slots.</span>
+        </mat-radio-button>
+      </mat-radio-group>
+    </div>
+
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" [disabled]="saving || !sourceDay || selectedEntryIds.size === 0" (click)="copy()">
+    <mat-icon *ngIf="!saving">content_copy</mat-icon>
+    <mat-spinner diameter="20" *ngIf="saving" style="margin-right: 8px; display: inline-block; vertical-align: middle;"></mat-spinner>
+    {{ saving ? 'Copying...' : 'Copy ' + selectedEntryIds.size + ' Activities' }}
+  </button>
+</mat-dialog-actions>

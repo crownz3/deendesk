@@ -58,13 +58,20 @@ ion-app {
 }
 
 mat-icon,
+mat-icon.mat-icon,
 .material-icons,
 .material-icons-outlined,
-.material-symbols-outlined {
+.material-symbols-outlined,
+.cdk-overlay-container mat-icon,
+.mat-mdc-dialog-container mat-icon {
   font-family: 'Material Icons' !important;
 }
 
-ion-icon {
+ion-icon,
+ion-icon.md,
+ion-icon.ios,
+.cdk-overlay-container ion-icon,
+.mat-mdc-dialog-container ion-icon {
   font-family: 'Ionicons' !important;
 }
 
@@ -183,9 +190,9 @@ ion-button {
   font-weight: 500;
 }
 
-.mat-mdc-raised-button.mat-primary,
-.mat-mdc-unelevated-button.mat-primary,
-.primary-button {
+.mat-mdc-raised-button.mat-primary:not(:disabled),
+.mat-mdc-unelevated-button.mat-primary:not(:disabled),
+.primary-button:not(:disabled) {
   background: var(--app-primary) !important;
   color: var(--app-text-inverse) !important;
   border-radius: var(--app-radius-md) !important;
@@ -267,7 +274,7 @@ p,
 .main-page,
 .feature-page,
 .academic-tree-page {
-  padding: 75px 28px;
+  padding: 14px;
   min-height: calc(100vh - 64px);
   background: var(--app-bg);
 }
@@ -492,5 +499,20 @@ select:-webkit-autofill {
     border-radius: 24px !important;
     overflow: hidden !important;
     padding: 0 !important;
+  }
+}
+
+// ── Bulk Delete Dialogs ──────────────────────────────────────────────────────
+.bulk-delete-confirm-panel,
+.bulk-delete-progress-panel {
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface,
+  .mat-mdc-dialog-container {
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 }

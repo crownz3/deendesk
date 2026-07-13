@@ -49,6 +49,8 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'managePromotions',
   'managePasswordRequests',
   'manageClassPlans',
+  'manageFees',
+  'viewFees',
 ];
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -77,6 +79,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   managePromotions: 'Manage promotions and demotions',
   managePasswordRequests: 'Manage password requests',
   manageClassPlans: 'Manage class plans',
+  manageFees: 'Manage Fees',
+  viewFees: 'View Fees',
 };
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
@@ -105,6 +109,8 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'managePromotions',
     'managePasswordRequests',
     'manageClassPlans',
+    'manageFees',
+    'viewFees',
   ],
   coordinator: [
     'viewDashboard',
@@ -126,6 +132,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'managePromotions',
     'managePasswordRequests',
     'manageClassPlans',
+    'viewFees',
   ],
   madrasaIncharge: [
     'viewDashboard',
@@ -146,6 +153,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'managePromotions',
     'managePasswordRequests',
     'manageClassPlans',
+    'viewFees',
   ],
   teacher: [
     'viewDashboard',
@@ -208,14 +216,4 @@ export const DEFAULT_COURSES: Omit<Course, 'id'>[] = [
   },
 ];
 
-export function permissionsForRole(role: UserRole, customPermissions?: PermissionKey[]): PermissionKey[] {
-  return Array.from(new Set([...(ROLE_PERMISSIONS[role] ?? []), ...(customPermissions ?? [])]));
-}
 
-export function hasPermission(role: UserRole | undefined, permissions: PermissionKey[] | undefined, permission: PermissionKey): boolean {
-  if (role === 'superAdmin') {
-    return true;
-  }
-
-  return Boolean(permissions?.includes(permission));
-}

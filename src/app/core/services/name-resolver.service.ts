@@ -9,6 +9,7 @@ export type ResolvableType =
   | 'user'
   | 'course'
   | 'class'
+  | 'classGroup'
   | 'subject'
   | 'student'
   | 'parent'
@@ -64,13 +65,15 @@ export class NameResolverService {
       case 'organization': return 'organizations';
       case 'madrasa': return 'madrasas';
       case 'user':
-      case 'staff':
-      case 'teacher':
       case 'coordinator':
       case 'incharge':
         return 'users';
+      case 'staff':
+      case 'teacher':
+        return 'staff';
       case 'course': return 'courses';
       case 'class': return 'classes';
+      case 'classGroup': return 'classGroups';
       case 'subject': return 'subjects';
       case 'student': return 'students';
       case 'parent': return 'users'; // or parents if that's a separate collection? Wait, let's check domain model. Parent is its own interface, but are they stored in 'users' or 'parents'?

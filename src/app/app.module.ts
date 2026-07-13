@@ -23,14 +23,18 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
-import { MatIconModule } from '@angular/material/icon';
+import { MatIcon, MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatPaginatorModule } from '@angular/material/paginator';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatTabsModule } from '@angular/material/tabs';
+import { MatChipsModule } from '@angular/material/chips';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
+import { ActivityLogsPage } from './pages/activity-logs/activity-logs.page';
 import { AttendancePage } from './pages/attendance/attendance.page';
 import { ContinueAccountPage } from './pages/continue-account/continue-account.page';
 import { CsvImportsPage } from './pages/csv-imports/csv-imports.page';
@@ -64,17 +68,37 @@ import { AppSettingsDialogComponent } from './shared/components/app-settings-dia
 import { UserDetailsDialogComponent } from './shared/components/user-details-dialog/user-details-dialog.component';
 import { SetupMapComponent } from './shared/components/setup-map/setup-map.component';
 import { CourseDetailsDialogComponent } from './pages/management/course-details-dialog/course-details-dialog.component';
+import { ClassDetailsDialogComponent } from './pages/management/class-details-dialog/class-details-dialog.component';
 import { CsvReferenceIdsDialogComponent } from './pages/csv-imports/csv-reference-ids-dialog/csv-reference-ids-dialog.component';
 import { ClassPlansPage } from './pages/class-plans/class-plans.page';
-import { ClassPlanFormDialogComponent } from './pages/class-plans/class-plan-form-dialog.component';
+import { ClassPlanFormComponent } from './pages/class-plans/class-plan-form.component';
 import { ClassPlanExceptionDialogComponent } from './pages/class-plans/class-plan-exception-dialog.component';
 import { AttendanceHistoryDialogComponent } from './shared/components/attendance-history-dialog/attendance-history-dialog.component';
-import { ClassPlanTimetableDialogComponent } from './pages/class-plans/class-plan-timetable-dialog.component';
+import { ClassPlanTimetableComponent } from './pages/class-plans/class-plan-timetable.component';
+import { ClassPlanTimetableCopyDialogComponent } from './pages/class-plans/class-plan-timetable-copy-dialog.component';
 import { TimetableEntryFormDialogComponent } from './pages/class-plans/timetable-entry-form-dialog.component';
+import { BulkDeleteConfirmDialogComponent } from './shared/components/bulk-delete-confirm-dialog/bulk-delete-confirm-dialog.component';
+import { BulkDeleteProgressDialogComponent } from './shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
+import { ClassDeactivationDialogComponent } from './pages/management/class-deactivation-dialog/class-deactivation-dialog.component';
+import { ClassTransferWizardDialogComponent } from './pages/management/class-transfer-wizard-dialog/class-transfer-wizard-dialog.component';
+import { StudentTransferDialogComponent } from './pages/management/student-transfer-dialog/student-transfer-dialog.component';
+import { PromoteDemoteDialogComponent } from './pages/management/promote-demote-dialog/promote-demote-dialog.component';
+import { ReportFilterBuilderComponent } from './pages/reports/components/report-filter-builder.component';
+import { ReportExportWizardComponent } from './pages/reports/components/report-export-wizard.component';
+import { ReportChartViewComponent } from './pages/reports/components/report-chart-view.component';
+import { AddCustomColumnDialogComponent } from './pages/reports/components/add-custom-column-dialog.component';
+import { AddUserInputColumnDialogComponent } from './pages/reports/components/add-user-input-column-dialog.component';
+import { ResolveNamePipe } from './shared/pipes/resolve-name.pipe';
+import { FeesPage } from './pages/fees/fees.page';
+import { FeePlanFormDialogComponent } from './pages/fees/fee-plan-form-dialog.component';
+import { FeePaymentDialogComponent } from './pages/fees/fee-payment-dialog.component';
+import { FeeAssignStudentsDialogComponent } from './pages/fees/fee-assign-students-dialog.component';
+import { FeePaymentHistoryDialogComponent } from './pages/fees/fee-payment-history-dialog.component';
 
 @NgModule({
   declarations: [
     AppComponent,
+    ActivityLogsPage,
     AttendancePage,
     ContinueAccountPage,
     CsvImportsPage,
@@ -108,13 +132,32 @@ import { TimetableEntryFormDialogComponent } from './pages/class-plans/timetable
     UserDetailsDialogComponent,
     SetupMapComponent,
     CourseDetailsDialogComponent,
+    ClassDetailsDialogComponent,
     CsvReferenceIdsDialogComponent,
     ClassPlansPage,
-    ClassPlanFormDialogComponent,
+    ClassPlanFormComponent,
     ClassPlanExceptionDialogComponent,
     AttendanceHistoryDialogComponent,
-    ClassPlanTimetableDialogComponent,
+    ClassPlanTimetableComponent,
+    ClassPlanTimetableCopyDialogComponent,
     TimetableEntryFormDialogComponent,
+    BulkDeleteConfirmDialogComponent,
+    BulkDeleteProgressDialogComponent,
+    ClassDeactivationDialogComponent,
+    ClassTransferWizardDialogComponent,
+    StudentTransferDialogComponent,
+    PromoteDemoteDialogComponent,
+    ReportFilterBuilderComponent,
+    ReportExportWizardComponent,
+    ReportChartViewComponent,
+    AddCustomColumnDialogComponent,
+    AddUserInputColumnDialogComponent,
+    ResolveNamePipe,
+    FeesPage,
+    FeePlanFormDialogComponent,
+    FeePaymentDialogComponent,
+    FeeAssignStudentsDialogComponent,
+    FeePaymentHistoryDialogComponent,
   ],
   imports: [
     BrowserModule,
@@ -146,6 +189,10 @@ import { TimetableEntryFormDialogComponent } from './pages/class-plans/timetable
     MatExpansionModule,
     MatCheckboxModule,
     MatPaginatorModule,
+    MatProgressBarModule,
+    MatTabsModule,
+    MatChipsModule,
+    MatIconModule
   ],
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
   bootstrap: [AppComponent],

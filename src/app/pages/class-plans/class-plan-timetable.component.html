@@ -1,0 +1,90 @@
+<div class="timetable-container" *ngIf="plan">
+  <div class="title-section" style="margin-bottom: 16px;">
+    <h3>Timetable</h3>
+  </div>
+
+  <app-global-loader *ngIf="loading"></app-global-loader>
+
+  <div class="timetable-grid" *ngIf="!loading">
+    <div class="day-column" *ngFor="let day of daysOfWeek">
+      <div class="day-header">
+        <div class="day-header-top">
+          <div class="day-title">
+            <h3>{{ day }}</h3>
+            <span class="activity-count">{{ getEntriesForDay(day).length }} Activities</span>
+          </div>
+        </div>
+        <mat-button-toggle-group *ngIf="canManage" [value]="dayModes[day]" (change)="setDayMode(day, $event.value)" class="mode-toggle" hideSingleSelectionIndicator="true">
+          <mat-button-toggle value="period">Period-Based</mat-button-toggle>
+          <mat-button-toggle value="fullDay">Full-Day</mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+      
+      <div class="activities-container">
+        <app-empty-state
+          *ngIf="!getEntriesForDay(day).length"
+          icon="calendar-clear-outline"
+          title="No Activities"
+          [message]="'No activities scheduled for ' + day + '.'"
+          [compact]="true"
+        >
+          <div actions *ngIf="canManage && dayModes[day] === 'period'">
+            <button mat-stroked-button color="primary" class="compact-btn" (click)="openEntryForm(undefined, day, 'period')">
+              <mat-icon style="margin: 0;">add</mat-icon> Add Period
+            </button>
+          </div>
+          <div actions *ngIf="canManage && dayModes[day] === 'fullDay'">
+            <button mat-stroked-button color="primary" class="compact-btn" (click)="openEntryForm(undefined, day, 'fullDay')">
+              <mat-icon style="margin: 0;">add</mat-icon> Set Full-Day
+            </button>
+          </div>
+        </app-empty-state>
+
+        <mat-card class="activity-card" *ngFor="let entry of getEntriesForDay(day)" [ngClass]="{'full-day-card': dayModes[day] === 'fullDay'}">
+          <div class="activity-card-header">
+            <div class="activity-time" *ngIf="dayModes[day] === 'period'">
+              {{ entry.startTime }} &ndash; {{ entry.endTime }}
+            </div>
+            <div class="full-day-chip" *ngIf="dayModes[day] === 'fullDay'">
+              FULL DAY
+            </div>
+            <div class="activity-actions" *ngIf="canManage">
+              <button mat-icon-button (click)="openEntryForm(entry, day)" matTooltip="Edit">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-icon-button *ngIf="dayModes[day] === 'period'" (click)="duplicateEntry(entry)" matTooltip="Duplicate">
+                <mat-icon>content_copy</mat-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteEntry(entry)" matTooltip="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+          
+          <div class="activity-name">
+            {{ entry.activityName }}
+          </div>
+          
+          <div class="activity-meta" *ngIf="entry.teacherId || entry.subjectId || entry.roomId">
+            <span *ngIf="entry.teacherId" class="meta-item"><mat-icon>person</mat-icon> {{ (resolver.resolveName(entry.teacherId, 'user') | async) || entry['teacherName'] || entry.teacherId }}</span>
+            <span *ngIf="entry.teacherId && (entry.subjectId || entry.roomId)" class="dot">&bull;</span>
+            <span *ngIf="entry.subjectId" class="meta-item">{{ entry['subjectName'] || entry.subjectId }}</span>
+            <span *ngIf="entry.subjectId && entry.roomId" class="dot">&bull;</span>
+            <span *ngIf="entry.roomId" class="meta-item">{{ entry.roomId }}</span>
+          </div>
+          
+          <div class="activity-description" *ngIf="entry.description">
+            {{ entry.description }}
+          </div>
+        </mat-card>
+
+      </div>
+      
+      <div class="day-footer" *ngIf="canManage && dayModes[day] === 'period' && getEntriesForDay(day).length">
+        <button mat-stroked-button color="primary" class="add-period-btn" (click)="openEntryForm(undefined, day, 'period')">
+          <mat-icon>add</mat-icon> Add Period
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

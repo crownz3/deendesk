@@ -5,12 +5,16 @@
     
     <div style="margin-bottom: 16px;">
       <strong>Plan:</strong> {{ data.plan.title }}<br>
-      <small class="ion-color-medium">Class: {{ data.plan.className }}</small>
+      <small class="ion-color-medium">Class: {{ data.plan.className }}</small><br>
+      <small class="ion-color-medium">Starts: {{ data.plan.startDate | date }}</small>
+      <small class="ion-color-medium" *ngIf="data.plan.endDate"> | Ends: {{ data.plan.endDate | date }}</small>
     </div>
 
     <mat-form-field appearance="outline">
       <mat-label>Date to Skip/Change</mat-label>
-      <input matInput type="date" formControlName="date">
+      <input matInput [matDatepicker]="picker" formControlName="date" [min]="minDate" [max]="maxDate" [matDatepickerFilter]="dateFilter" (click)="picker.open()">
+      <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+      <mat-datepicker #picker></mat-datepicker>
     </mat-form-field>
 
     <mat-form-field appearance="outline">
@@ -28,7 +32,9 @@
     <div *ngIf="form.get('type')?.value === 'rescheduled'" style="display: flex; flex-direction: column; gap: 16px;">
       <mat-form-field appearance="outline">
         <mat-label>New Rescheduled Date</mat-label>
-        <input matInput type="date" formControlName="rescheduledDate">
+        <input matInput [matDatepicker]="rescheduledPicker" formControlName="rescheduledDate" (click)="rescheduledPicker.open()">
+        <mat-datepicker-toggle matSuffix [for]="rescheduledPicker"></mat-datepicker-toggle>
+        <mat-datepicker #rescheduledPicker></mat-datepicker>
       </mat-form-field>
       
       <div style="display: flex; gap: 16px;">

@@ -1,0 +1,97 @@
+<div class="dialog-header">
+  <div>
+    <h2 mat-dialog-title>{{ classRecord['name'] || classRecord['title'] || 'Class Details' }}</h2>
+    <p class="dialog-subtitle" *ngIf="classRecord['code']">Code: {{ classRecord['code'] }}</p>
+  </div>
+  <button mat-icon-button mat-dialog-close>
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content">
+  <div *ngIf="loadingCounts" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading details...</p>
+  </div>
+
+  <mat-tab-group *ngIf="!loadingCounts">
+    
+    <mat-tab label="Overview">
+      <div class="tab-padding">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <ion-icon name="people-circle-outline"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-value">{{ groupsCount }}</span>
+              <span class="stat-label">Groups / Sections</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <ion-icon name="person-outline"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-value">{{ studentsCount }}</span>
+              <span class="stat-label">Total Students</span>
+            </div>
+          </div>
+          <div class="stat-card">
+            <ion-icon name="briefcase-outline"></ion-icon>
+            <div class="stat-info">
+              <span class="stat-value">{{ staffCount }}</span>
+              <span class="stat-label">Assigned Staff</span>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="section-title">General Information</h3>
+        <div class="info-grid">
+          <div class="info-item">
+            <span class="info-label">Status</span>
+            <span class="info-value">
+              <app-status-badge [status]="classRecord['status']"></app-status-badge>
+            </span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Stage / Level</span>
+            <span class="info-value">{{ classRecord['stage'] || '-' }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Created</span>
+            <span class="info-value">{{ getDate(classRecord['createdAt']) | date:'mediumDate' }}</span>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <mat-tab label="Groups (Sections)">
+      <div class="tab-padding">
+        <div class="groups-header">
+          <h3>Class Groups</h3>
+          <button mat-stroked-button color="primary" (click)="manageGroups()">
+            <ion-icon name="settings-outline"></ion-icon>
+            Manage Groups
+          </button>
+        </div>
+
+        <div class="groups-list" *ngIf="groups.length">
+          <div class="group-card" *ngFor="let g of groups">
+            <div class="group-info">
+              <h4>{{ g.name }} <span class="default-badge" *ngIf="g.isDefault">Default</span></h4>
+              <p>Capacity: {{ g.capacity || 'Not set' }}</p>
+            </div>
+            <div class="group-stats">
+              <span class="student-count">{{ g.studentCount || 0 }} Students</span>
+              <app-status-badge [status]="g.status"></app-status-badge>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state" *ngIf="!groups.length">
+          <ion-icon name="people-circle-outline"></ion-icon>
+          <p>No groups found for this class.</p>
+          <button mat-flat-button color="primary" (click)="manageGroups()">Create Group</button>
+        </div>
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+</mat-dialog-content>

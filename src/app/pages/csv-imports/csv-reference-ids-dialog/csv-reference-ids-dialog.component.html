@@ -107,6 +107,35 @@
     <ng-template #noClasses><p>No classes found.</p></ng-template>
   </section>
 
+  <section class="reference-section">
+    <h3>Class Groups</h3>
+    <table class="reference-table" *ngIf="data.classGroups?.length; else noGroups">
+      <thead>
+        <tr>
+          <th>Group Name</th>
+          <th>Class</th>
+          <th>Madrasa</th>
+          <th>Group ID</th>
+          <th style="width: 80px">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let g of data.classGroups">
+          <td>{{ g['name'] || g['title'] || '-' }}</td>
+          <td>{{ getClassName(g['classId']) }}</td>
+          <td>{{ getMadrasaName(g['madrasaId']) }}</td>
+          <td class="id-cell">{{ g.id }}</td>
+          <td>
+            <button mat-icon-button color="primary" (click)="copy(g.id || '')" matTooltip="Copy ID">
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <ng-template #noGroups><p>No class groups found.</p></ng-template>
+  </section>
+
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">

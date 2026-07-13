@@ -4,6 +4,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { AttendanceHistoryDialogComponent } from '../../shared/components/attendance-history-dialog/attendance-history-dialog.component';
 
 export interface AcademicTreeStaffDialogData {
+  title?: string;
+  emptyTitle?: string;
+  emptyMessage?: string;
   nodeTitle: string;
   nodeType: string;
   staff: any[];
@@ -48,9 +51,8 @@ export class AcademicTreeStaffDialogComponent implements OnInit {
       const name = (s.name || s.displayName || '').toLowerCase();
       const email = (s.email || '').toLowerCase();
       const role = (s.role || '').toLowerCase();
-      const designation = (s.designation || s.jobTitle || '').toLowerCase();
 
-      return name.includes(q) || email.includes(q) || role.includes(q) || designation.includes(q);
+      return name.includes(q) || email.includes(q) || role.includes(q);
     });
   }
 
