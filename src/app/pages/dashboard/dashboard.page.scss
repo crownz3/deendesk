@@ -11,6 +11,15 @@
   justify-content: space-between;
 }
 
+.help-guide-btn {
+  border-radius: 20px !important;
+  font-weight: 600 !important;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .eyebrow {
   color: var(--app-primary);
   font-size: 12px;

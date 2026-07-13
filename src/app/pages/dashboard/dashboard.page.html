@@ -5,9 +5,15 @@
         <p class="eyebrow">{{ vm.roleTitle }} Dashboard</p>
         <h1>Operational overview</h1>
       </div>
-      <div class="attendance-ring" [style.--rate]="vm.attendance.rate">
-        <strong>{{ vm.attendance.rate }}%</strong>
-        <span>Attendance</span>
+      <div style="display: flex; align-items: center; gap: 16px;">
+        <button mat-stroked-button color="primary" (click)="openHelpGuide()" class="help-guide-btn">
+          <ion-icon name="help-circle-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
+          Help Guide / உதவி வழிகாட்டி
+        </button>
+        <div class="attendance-ring" [style.--rate]="vm.attendance.rate">
+          <strong>{{ vm.attendance.rate }}%</strong>
+          <span>Attendance</span>
+        </div>
       </div>
     </header>
 

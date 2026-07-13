@@ -12,6 +12,7 @@ import { DataManagementService, ALL_COLLECTION_OPTIONS, QUICK_ACTIONS, Collectio
 import { NameResolverService, ResolvableType } from '../../core/services/name-resolver.service';
 import { BulkDeleteConfirmDialogComponent } from '../../shared/components/bulk-delete-confirm-dialog/bulk-delete-confirm-dialog.component';
 import { BulkDeleteProgressDialogComponent } from '../../shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
+import { HelpGuideDialogComponent } from '../../shared/components/help-guide-dialog/help-guide-dialog.component';
 
 interface DashboardStat {
   label: string;
@@ -301,6 +302,15 @@ export class DashboardPage {
     private readonly snackBar: MatSnackBar,
     public readonly resolver: NameResolverService
   ) {}
+
+  openHelpGuide(): void {
+    this.dialog.open(HelpGuideDialogComponent, {
+      width: '80vw',
+      maxWidth: '80vw',
+      height: '85vh',
+      panelClass: 'help-guide-dialog-panel'
+    });
+  }
 
   // ── Data Management Methods ────────────────────────────────────────────────
 

@@ -1,0 +1,221 @@
+<header class="dialog-header">
+  <div>
+    <h2 mat-dialog-title>
+      {{ currentLang === 'en' ? 'Deendesk Concept Guide' : 'Deendesk கருத்தியல் வழிகாட்டி' }}
+    </h2>
+    <p class="subtitle">
+      {{ currentLang === 'en' ? 'Understand terms and structure used in the app' : 'செயலியில் பயன்படுத்தப்படும் கலைச்சொற்கள் மற்றும் அமைப்பைப் புரிந்து கொள்ளுங்கள்' }}
+    </p>
+  </div>
+  <div class="header-actions">
+    <!-- Language Toggle Group -->
+    <div class="lang-switcher">
+      <button [class.active]="currentLang === 'en'" (click)="setLanguage('en')">English</button>
+      <button [class.active]="currentLang === 'ta'" (click)="setLanguage('ta')">தமிழ்</button>
+    </div>
+    <button mat-icon-button (click)="close()" aria-label="Close dialog">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+  </div>
+</header>
+
+<mat-dialog-content class="dialog-content">
+  <!-- Structure Visual Hierarchy Card -->
+  <article class="hierarchy-card">
+    <h3>
+      <ion-icon name="git-network-outline"></ion-icon>
+      {{ currentLang === 'en' ? 'Academic Flow Hierarchy' : 'கல்வி ஒழுங்குமுறைப் படிநிலை' }}
+    </h3>
+    <div class="flow-container">
+      <div class="flow-step">
+        <div class="step-badge org">1</div>
+        <strong>{{ currentLang === 'en' ? 'Organization' : 'நிறுவனம்' }}</strong>
+        <span>{{ currentLang === 'en' ? 'Main Headquarters' : 'தலைமை நிர்வாகம்' }}</span>
+      </div>
+      <div class="flow-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></div>
+      <div class="flow-step">
+        <div class="step-badge madrasa">2</div>
+        <strong>{{ currentLang === 'en' ? 'Madrasa' : 'மத்ரஸா' }}</strong>
+        <span>{{ currentLang === 'en' ? 'Physical Branch' : 'கிளை / பள்ளிவாசல்' }}</span>
+      </div>
+      <div class="flow-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></div>
+      <div class="flow-step">
+        <div class="step-badge course">3</div>
+        <strong>{{ currentLang === 'en' ? 'Course' : 'பாடநெறி' }}</strong>
+        <span>{{ currentLang === 'en' ? 'Program (e.g. Maktab)' : 'கல்விப் பிரிவு (மக்தப்)' }}</span>
+      </div>
+      <div class="flow-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></div>
+      <div class="flow-step">
+        <div class="step-badge class">4</div>
+        <strong>{{ currentLang === 'en' ? 'Class' : 'வகுப்பு' }}</strong>
+        <span>{{ currentLang === 'en' ? 'Grade/Year (e.g. Class 1)' : 'வகுப்புப் படிநிலை (வகுப்பு 1)' }}</span>
+      </div>
+      <div class="flow-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></div>
+      <div class="flow-step">
+        <div class="step-badge group">5</div>
+        <strong>{{ currentLang === 'en' ? 'Class Group' : 'வகுப்புப் பிரிவு' }}</strong>
+        <span>{{ currentLang === 'en' ? 'Section/Batch (Section A)' : 'இணைப்புப் பிரிவு (பிரிவு A)' }}</span>
+      </div>
+    </div>
+  </article>
+
+  <!-- Glossary Lists -->
+  <div class="glossary-grid">
+    <!-- Course -->
+    <article class="glossary-card">
+      <div class="card-header">
+        <div class="icon-holder course"><ion-icon name="library-outline"></ion-icon></div>
+        <h4>{{ currentLang === 'en' ? 'Course' : 'Course (பாடநெறி)' }}</h4>
+      </div>
+      <p class="description">
+        {{ currentLang === 'en' 
+          ? 'The overall educational program or curriculum track offered by your organization.' 
+          : 'உங்களது அமைப்பினால் கற்பிக்கப்படும் ஒட்டுமொத்த கல்வித் தடம் அல்லது கல்விப் பிரிவு.' }}
+      </p>
+      <div class="analogy-box">
+        <strong>{{ currentLang === 'en' ? 'Analogy:' : 'உதாரணம்:' }}</strong>
+        <span>Maktab, Hifz, Aalim, Muballigh</span>
+      </div>
+    </article>
+
+    <!-- Class -->
+    <article class="glossary-card">
+      <div class="card-header">
+        <div class="icon-holder class"><ion-icon name="easel-outline"></ion-icon></div>
+        <h4>{{ currentLang === 'en' ? 'Class' : 'Class (வகுப்பு)' }}</h4>
+      </div>
+      <p class="description">
+        {{ currentLang === 'en' 
+          ? 'A specific grade level or academic year belonging under a Course.' 
+          : 'ஒரு குறிப்பிட்ட பாடநெறியின் கீழ் அமையும் படிநிலை அல்லது கல்வி ஆண்டு.' }}
+      </p>
+      <div class="analogy-box">
+        <strong>{{ currentLang === 'en' ? 'Analogy:' : 'உதாரணம்:' }}</strong>
+        <span>Class 1, Class 2, Class 3</span>
+      </div>
+    </article>
+
+    <!-- Class Group -->
+    <article class="glossary-card">
+      <div class="card-header">
+        <div class="icon-holder group"><ion-icon name="people-outline"></ion-icon></div>
+        <h4>{{ currentLang === 'en' ? 'Class Group / Section' : 'Class Group (வகுப்புப் பிரிவு)' }}</h4>
+      </div>
+      <p class="description">
+        {{ currentLang === 'en' 
+          ? 'The actual physical batch or section of students. This is where teachers and students are mapped together.' 
+          : 'மாணவர்களின் நேரடிப் பிரிவு அல்லது வகுப்புப் பேட்ச். இங்குதான் ஆசிரியர்களும் மாணவர்களும் ஒன்றாக இணைக்கப்படுவார்கள்.' }}
+      </p>
+      <div class="analogy-box">
+        <strong>{{ currentLang === 'en' ? 'Analogy:' : 'உதாரணம்:' }}</strong>
+        <span>Class 1 - Section A (Boys), Afternoon Batch</span>
+      </div>
+    </article>
+
+    <!-- Class Plan -->
+    <article class="glossary-card">
+      <div class="card-header">
+        <div class="icon-holder plan"><ion-icon name="calendar-outline"></ion-icon></div>
+        <h4>{{ currentLang === 'en' ? 'Class Plan (Syllabus)' : 'Class Plan (வகுப்புத் திட்டம்)' }}</h4>
+      </div>
+      <p class="description">
+        {{ currentLang === 'en' 
+          ? 'The curriculum roadmap/syllabus targets mapping out what topics must be covered by which week.' 
+          : 'ஒவ்வொரு வாரமும் கற்பிக்கப்பட வேண்டிய பாடங்கள் மற்றும் இலக்குகளின் வழிகாட்டி வரைபடம்.' }}
+      </p>
+      <div class="analogy-box">
+        <strong>{{ currentLang === 'en' ? 'Analogy:' : 'உதாரணம்:' }}</strong>
+        <span>Week 1: Surah Fatiha, Week 2: Wudu Steps</span>
+      </div>
+    </article>
+
+    <!-- Timetable -->
+    <article class="glossary-card">
+      <div class="card-header">
+        <div class="icon-holder timetable"><ion-icon name="time-outline"></ion-icon></div>
+        <h4>{{ currentLang === 'en' ? 'Timetable' : 'Timetable (கால அட்டவணை)' }}</h4>
+      </div>
+      <p class="description">
+        {{ currentLang === 'en' 
+          ? 'The weekly schedule mapping hours, subjects, and teachers to a specific Class Group/Section.' 
+          : 'ஒரு வகுப்புப் பிரிவிற்கு எந்த நேரத்தில் எந்த பாடத்தைக் கற்பிக்க வேண்டும் என்ற வாராந்திர அட்டவணை.' }}
+      </p>
+      <div class="analogy-box">
+        <strong>{{ currentLang === 'en' ? 'Analogy:' : 'உதாரணம்:' }}</strong>
+        <span>Mon 5:00 PM: Fiqh, Mon 5:45 PM: Akhlaq</span>
+      </div>
+    </article>
+  </div>
+
+  <!-- Separate Examples Card Below -->
+  <article class="example-scenario-card" style="margin-top: 24px;">
+    <div class="card-header">
+      <ion-icon name="school-outline"></ion-icon>
+      <h3>
+        {{ currentLang === 'en' ? 'Real-World Maktab Setup Example' : 'நடைமுறை மக்தப் விளக்க உதாரணம்' }}
+      </h3>
+    </div>
+    <p class="sub-intro">
+      {{ currentLang === 'en' 
+        ? 'If the terms above feel complex, here is how they connect in a real-world Madrasa setup:'
+        : 'மேலே உள்ள சொற்கள் கடினமாக இருந்தால், ஒரு மத்ரஸா வகுப்பறை சூழலில் அவை எவ்வாறு செயல்படுகின்றன என்பதை எளிதாக கீழே விளக்கியுள்ளோம்:' }}
+    </p>
+    <div class="scenario-steps">
+      <div class="scenario-step">
+        <span class="step-num">1</span>
+        <div class="step-desc">
+          <strong>Course (பாடநெறி):</strong>
+          <span>
+            {{ currentLang === 'en' 
+              ? 'Your organization starts a general "Maktab Course" curriculum.'
+              : 'உங்களது அமைப்பு பொதுவான "மக்தப் பாடநெறி" என்ற ஒட்டுமொத்த கல்விப் பிரிவை உருவாக்குகிறது.' }}
+          </span>
+        </div>
+      </div>
+      <div class="scenario-step">
+        <span class="step-num">2</span>
+        <div class="step-desc">
+          <strong>Class (வகுப்பு):</strong>
+          <span>
+            {{ currentLang === 'en' 
+              ? 'Inside the Maktab Course, you establish "Class 1" (for 6-year-old beginners).'
+              : 'அந்த மக்தப் பாடநெறியின் கீழ், ஆரம்ப நிலை மாணவர்களுக்காக "வகுப்பு 1"-ஐ அமைக்கிறீர்கள்.' }}
+          </span>
+        </div>
+      </div>
+      <div class="scenario-step">
+        <span class="step-num">3</span>
+        <div class="step-desc">
+          <strong>Class Group (வகுப்புப் பிரிவு):</strong>
+          <span>
+            {{ currentLang === 'en' 
+              ? 'Since Class 1 has 40 students, you divide them into a physical batch: "Class 1 - Section A (Boys)" and assign Teacher Masooth to teach them.'
+              : 'வகுப்பு 1-ல் 40 மாணவர்கள் இருப்பதால், அவர்களை "வகுப்பு 1 - பிரிவு A (மாணவர்கள்)" என்ற நேரடி வகுப்புக் குழுவாகப் பிரித்து, ஆசிரியர் மசூத்தை நியமிக்கிறீர்கள்.' }}
+          </span>
+        </div>
+      </div>
+      <div class="scenario-step">
+        <span class="step-num">4</span>
+        <div class="step-desc">
+          <strong>Class Plan (வகுப்புத் திட்டம்):</strong>
+          <span>
+            {{ currentLang === 'en' 
+              ? 'To keep learning on track, you set a Class Plan: "By Week 4, students in Section A must finish memorizing Surah An-Nas and learn the steps of Wudu".'
+              : 'கல்வியை சீராகக் கொண்டு செல்ல பாடத் திட்டம் அமைக்கப்படுகிறது: "4-வது வாரத்திற்குள் பிரிவு A மாணவர்கள் சூரா அந்-நாஸை மனனம் செய்து, வுளூ செய்யும் முறையைக் கற்றிருக்க வேண்டும்".' }}
+          </span>
+        </div>
+      </div>
+      <div class="scenario-step">
+        <span class="step-num">5</span>
+        <div class="step-desc">
+          <strong>Timetable (கால அட்டவணை):</strong>
+          <span>
+            {{ currentLang === 'en' 
+              ? 'To run the daily lessons, Section A follows a Timetable: "Every Monday from 4:30 PM to 5:15 PM is Quran class; from 5:15 PM to 6:00 PM is Islamic Etiquette class".'
+              : 'நாளாந்த பாடங்களை நடத்த பிரிவு A இந்த கால அட்டவணையைப் பின்பற்றுகிறது: "ஒவ்வொரு திங்கட்கிழமையும் மாலை 4:30 முதல் 5:15 மணி வரை குர்ஆன் வகுப்பு; 5:15 முதல் 6:00 மணி வரை இஸ்லாமிய ஒழுக்கநெறி வகுப்பு".' }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </article>
+</mat-dialog-content>

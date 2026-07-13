@@ -67,6 +67,7 @@ import { GlobalLoaderComponent } from './shared/components/global-loader/global-
 import { AppSettingsDialogComponent } from './shared/components/app-settings-dialog/app-settings-dialog.component';
 import { UserDetailsDialogComponent } from './shared/components/user-details-dialog/user-details-dialog.component';
 import { MadrasaDetailsDialogComponent } from './shared/components/madrasa-details-dialog/madrasa-details-dialog.component';
+import { HelpGuideDialogComponent } from './shared/components/help-guide-dialog/help-guide-dialog.component';
 import { SetupMapComponent } from './shared/components/setup-map/setup-map.component';
 import { CourseDetailsDialogComponent } from './pages/management/course-details-dialog/course-details-dialog.component';
 import { ClassDetailsDialogComponent } from './pages/management/class-details-dialog/class-details-dialog.component';
@@ -132,6 +133,7 @@ import { FeePaymentHistoryDialogComponent } from './pages/fees/fee-payment-histo
     AppSettingsDialogComponent,
     UserDetailsDialogComponent,
     MadrasaDetailsDialogComponent,
+    HelpGuideDialogComponent,
     SetupMapComponent,
     CourseDetailsDialogComponent,
     ClassDetailsDialogComponent,
