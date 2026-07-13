@@ -18,17 +18,14 @@
   max-width: 680px;
 }
 
-.brand-mark {
-  align-items: center;
-  background: var(--app-text-main);
-  border-radius: 8px;
-  color: var(--app-surface);
-  display: flex;
-  font-size: 28px;
-  font-weight: 800;
-  height: 58px;
-  justify-content: center;
-  width: 58px;
+.login-logo-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  flex-shrink: 0;
 }
 
 .eyebrow {
