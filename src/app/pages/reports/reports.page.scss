@@ -295,6 +295,11 @@
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {
+  .report-builder-container {
+    height: auto;
+    min-height: 100vh;
+  }
+  
   .report-header {
     flex-direction: column;
     align-items: flex-start;
@@ -326,7 +331,7 @@
   
   .report-layout {
     flex-direction: column;
-    overflow-y: auto;
+    overflow: visible;
   }
   
   .sidebar-left, .sidebar-right {
@@ -334,10 +339,13 @@
     border-right: none;
     border-left: none;
     border-bottom: 1px solid #e0e0e0;
-    min-height: 300px;
+    min-height: 350px;
+    flex: none;
   }
   
   .center-panel {
     padding: 12px;
+    min-height: 500px;
+    flex: none;
   }
 }
