@@ -69,6 +69,19 @@
               {{ field.type === 'multiselect' ? getSelectedLabels(field) : getSelectedLabel(field) }}
             </mat-select-trigger>
 
+            <mat-option class="search-option" *ngIf="field.options && field.options.length > 4" [value]="null" (click)="$event.stopPropagation()" style="padding: 0; margin: 0; display: block; position: sticky; top: 0; z-index: 100; background: white; border-bottom: 1px solid var(--ion-color-step-150, #eee); cursor: default;">
+              <div style="display: flex; align-items: center; padding: 0 16px; height: 48px;"
+                   (click)="$event.stopPropagation()">
+                <input matInput type="text" placeholder="Type to search..."
+                  (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()"
+                  (input)="searchQueries[field.key] = $any($event.target).value"
+                  [value]="searchQueries[field.key] || ''"
+                  style="flex: 1; width: 100%; border: none; outline: none; background: transparent; font-size: 14px;">
+                <ion-icon name="search-outline" style="font-size: 18px; color: var(--app-text-muted, #757575); margin-left: 8px;"></ion-icon>
+              </div>
+            </mat-option>
+
             <mat-option *ngFor="let option of getFilteredOptions(field)" [value]="option.value" [ngClass]="{'custom-option-layout': isUserField(field)}">
               <ng-container *ngIf="isUserField(field); else standardOption">
                 <div class="option-content">

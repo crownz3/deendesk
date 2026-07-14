@@ -32,6 +32,7 @@ export interface QuickAddResult {
 export class QuickAddDialogComponent implements OnInit, OnDestroy {
   readonly form: FormGroup;
   readonly hidePasswords: Record<string, boolean> = {};
+  readonly searchQueries: Record<string, string> = {};
   private readonly subscriptions: Subscription[] = [];
 
   isSaving = false;
@@ -315,13 +316,15 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
   getFilteredOptions(field: any): any[] {
     if (!field.options) return [];
 
+    let options = field.options;
+
     const organizationId = this.form.get('organizationId')?.value;
     const madrasaId = this.form.get('madrasaId')?.value || (Array.isArray(this.form.get('madrasaIds')?.value) && this.form.get('madrasaIds')?.value[0]);
 
     if (field.key === 'classId' || field.key === 'classIds') {
       const courseId = this.form.get('courseId')?.value || this.form.get('newCourseId')?.value;
 
-      return field.options.filter((opt: any) => {
+      options = options.filter((opt: any) => {
         const data = opt.data;
         if (!data) return true;
 
@@ -339,27 +342,23 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
         return sameOrg && sameMadrasa;
       });
-    }
+    } else if (field.key === 'courseId' || field.key === 'newCourseId' || field.key === 'courseIds') {
+      if (organizationId || madrasaId) {
+        options = options.filter((opt: any) => {
+          const data = opt.data;
+          if (!data) return true;
 
-    if (field.key === 'courseId' || field.key === 'newCourseId' || field.key === 'courseIds') {
-      if (!organizationId && !madrasaId) return field.options;
+          const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
+          const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
 
-      return field.options.filter((opt: any) => {
-        const data = opt.data;
-        if (!data) return true;
-
-        const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
-        const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
-
-        return sameOrg && sameMadrasa;
-      });
-    }
-
-    if (field.key === 'subjectId' || field.key === 'subjectIds') {
+          return sameOrg && sameMadrasa;
+        });
+      }
+    } else if (field.key === 'subjectId' || field.key === 'subjectIds') {
       const courseId = this.form.get('courseId')?.value || this.form.get('newCourseId')?.value;
       const classId = this.form.get('classId')?.value;
 
-      return field.options.filter((opt: any) => {
+      options = options.filter((opt: any) => {
         const data = opt.data;
         if (!data) return true;
 
@@ -383,12 +382,10 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
         return sameOrg && sameMadrasa;
       });
-    }
-
-    if (field.key === 'groupId' || field.key === 'groupIds') {
+    } else if (field.key === 'groupId' || field.key === 'groupIds') {
       const classId = this.form.get('classId')?.value || this.form.get('classIds')?.value;
 
-      return field.options.filter((opt: any) => {
+      options = options.filter((opt: any) => {
         const data = opt.data;
         if (!data) return true;
 
@@ -413,7 +410,12 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       });
     }
 
-    return field.options;
+    const searchQuery = (this.searchQueries[field.key] || '').toLowerCase();
+    if (searchQuery) {
+      options = options.filter((opt: any) => opt.label?.toLowerCase().includes(searchQuery));
+    }
+
+    return options;
   }
 
   isStageField(key: string): boolean {

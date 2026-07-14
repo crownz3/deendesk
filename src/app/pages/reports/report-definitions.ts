@@ -19,6 +19,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
       { key: 'courseNameDisplay', label: 'Course', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }, 
       { key: 'classNameDisplay', label: 'Class', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }, 
       { key: 'stageDisplay', label: 'Stage', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'gender', label: 'Gender', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'admissionDate', label: 'Admission Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
     ]
@@ -74,13 +75,46 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     name: 'Staff List',
     category: 'staff',
     collection: 'users',
-    roles: ['teacher', 'staff'],
+    roles: ['teacher', 'staff', 'coordinator', 'madrasaIncharge'],
     requiredFilters: ['madrasa', 'status', 'search'],
     emptyText: 'No staff found for the selected filters.',
     columns: [
       { key: 'name', label: 'Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'email', label: 'Email', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'gender', label: 'Gender', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'role', label: 'Role', type: 'role', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'coordinator-list',
+    name: 'Coordinator List',
+    category: 'staff',
+    collection: 'users',
+    roles: ['coordinator'],
+    requiredFilters: ['madrasa', 'status', 'search'],
+    emptyText: 'No coordinators found for the selected filters.',
+    columns: [
+      { key: 'name', label: 'Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'email', label: 'Email', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'gender', label: 'Gender', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'madrasa-incharge-list',
+    name: 'Madrasa Incharge List',
+    category: 'staff',
+    collection: 'users',
+    roles: ['madrasaIncharge'],
+    requiredFilters: ['madrasa', 'status', 'search'],
+    emptyText: 'No madrasa incharge found for the selected filters.',
+    columns: [
+      { key: 'name', label: 'Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'email', label: 'Email', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'gender', label: 'Gender', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
     ]
@@ -241,16 +275,31 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
   },
   {
     id: 'staff-count',
-    name: 'Staff Count',
+    name: 'Staff Count by Role',
     category: 'count',
     collection: 'users',
-    roles: ['staff', 'teacher'],
+    roles: ['staff', 'teacher', 'coordinator', 'madrasaIncharge'],
     requiredFilters: ['status'],
     emptyText: 'No data to aggregate.',
     aggregationLogic: 'count-by-field',
     groupByField: 'role',
     columns: [
       { key: 'groupLabel', label: 'Role', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'count', label: 'Total Staff', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'staff-strength-by-madrasa',
+    name: 'Staff Strength by Madrasa',
+    category: 'count',
+    collection: 'users',
+    roles: ['staff', 'teacher', 'coordinator', 'madrasaIncharge'],
+    requiredFilters: ['status'],
+    emptyText: 'No data to aggregate.',
+    aggregationLogic: 'count-by-field',
+    groupByField: 'madrasaId',
+    columns: [
+      { key: 'groupLabel', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'count', label: 'Total Staff', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
     ]
   },

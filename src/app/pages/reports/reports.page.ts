@@ -39,6 +39,9 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public rightSidebarTab: 'columns' | 'filters' | 'sorting' | 'grouping' | 'export' = 'columns';
   public visualizationMode: 'table' | 'bar' | 'pie' | 'line' = 'table';
   
+  public isLeftSidebarVisible = true;
+  public isRightSidebarVisible = true;
+  
   @ViewChild(MatPaginator) paginator!: MatPaginator;
 
   private sub = new Subscription();

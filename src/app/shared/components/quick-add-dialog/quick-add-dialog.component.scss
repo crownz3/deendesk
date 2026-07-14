@@ -75,3 +75,11 @@
   margin-left: 8px;
   color: var(--ion-color-primary, #3880ff);
 }
+
+::ng-deep .search-option .mat-pseudo-checkbox {
+  display: none !important;
+}
+
+::ng-deep .search-option.mat-option {
+  padding: 0 !important;
+}

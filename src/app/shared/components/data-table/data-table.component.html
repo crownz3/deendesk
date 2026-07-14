@@ -163,6 +163,10 @@
               <ion-icon name="swap-horizontal-outline"></ion-icon>
               <span>Transfer</span>
             </button>
+            <button *ngIf="allowSwap" mat-menu-item type="button" (click)="swap.emit(row)">
+              <ion-icon name="people-circle-outline"></ion-icon>
+              <span>Swap Users</span>
+            </button>
             <ng-container *ngIf="row['status'] !== 'inactive'; else activateBtn">
               <button mat-menu-item type="button" class="danger-item" 
                       [disabled]="isSelf(row)"

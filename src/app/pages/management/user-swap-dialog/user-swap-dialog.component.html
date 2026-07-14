@@ -1,0 +1,45 @@
+<h2 mat-dialog-title>Swap Assignments</h2>
+<mat-dialog-content>
+  <div class="dialog-form" *ngIf="!loading; else loadingState">
+    <p class="description">
+      You are about to swap assignments for <strong>{{ data.currentUser['name'] || data.currentUser['displayName'] || data.currentUser['email'] }}</strong>.
+      Please select the target user to swap with.
+    </p>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Target User</mat-label>
+      <mat-select [(ngModel)]="selectedUserId" required>
+        <mat-option *ngFor="let user of availableUsers" [value]="user.id || user['uid']">
+          {{ user['name'] || user['displayName'] || user['email'] }}
+        </mat-option>
+      </mat-select>
+      <mat-error>Target user is required</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Reason for Swap</mat-label>
+      <input matInput [(ngModel)]="reason" required placeholder="e.g. Schedule change">
+      <mat-error>Reason is required</mat-error>
+    </mat-form-field>
+    
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Action Date</mat-label>
+      <input matInput type="date" [(ngModel)]="actionDate" required>
+    </mat-form-field>
+  </div>
+
+  <ng-template #loadingState>
+    <div class="loading-container">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading available users...</p>
+    </div>
+  </ng-template>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="submit()" [disabled]="loading || saving || !selectedUserId || !reason">
+    <span *ngIf="!saving">Swap Assignments</span>
+    <mat-spinner *ngIf="saving" diameter="24"></mat-spinner>
+  </button>
+</mat-dialog-actions>

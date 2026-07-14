@@ -83,7 +83,7 @@
         </div>
       </header>
 
-      <div class="filters-toolbar" *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(vm.config.resource)">
+      <div class="filters-toolbar" *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents', 'classGroups', 'madrasas'].includes(vm.config.resource)">
         <!-- Search Input -->
         <mat-form-field appearance="outline" class="search-field">
           <mat-label>Search {{ vm.config.title.toLowerCase() }}</mat-label>
@@ -102,8 +102,8 @@
           </mat-select>
         </mat-form-field>
 
-        <!-- Madrasa Filter (visible to non-incharges) -->
-        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role !== 'madrasaIncharge'">
+        <!-- Madrasa Filter (visible to non-incharges, hidden on madrasas page) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role !== 'madrasaIncharge' && vm.config.resource !== 'madrasas'">
           <mat-label>Filter by Madrasa</mat-label>
           <mat-select [ngModel]="madrasaFilter$ | async" (ngModelChange)="madrasaFilter$.next($event); pageIndex$.next(0)">
             <mat-option value="all">All Madrasas</mat-option>
@@ -128,8 +128,8 @@
           </mat-select>
         </mat-form-field>
 
-        <!-- Course Filter (Students only) -->
-        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
+        <!-- Course Filter -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="['students', 'classGroups'].includes(vm.config.resource)">
           <mat-label>Course</mat-label>
           <mat-select [ngModel]="courseFilter$ | async" (ngModelChange)="courseFilter$.next($event); pageIndex$.next(0)">
             <mat-option value="all">All Courses</mat-option>
@@ -139,8 +139,8 @@
           </mat-select>
         </mat-form-field>
 
-        <!-- Class Filter (Students only) -->
-        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
+        <!-- Class Filter -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="['students', 'classGroups'].includes(vm.config.resource)">
           <mat-label>Class</mat-label>
           <mat-select [ngModel]="classFilter$ | async" (ngModelChange)="classFilter$.next($event); pageIndex$.next(0)">
             <mat-option value="all">All Classes</mat-option>
@@ -165,6 +165,16 @@
             <mat-option value="Diploma">Diploma</mat-option>
             <mat-option value="Certificate">Certificate</mat-option>
             <mat-option value="Other">Other</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <!-- Gender Filter -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(vm.config.resource)">
+          <mat-label>Gender</mat-label>
+          <mat-select [ngModel]="genderFilter$ | async" (ngModelChange)="genderFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Genders</mat-option>
+            <mat-option value="male">Male</mat-option>
+            <mat-option value="female">Female</mat-option>
           </mat-select>
         </mat-form-field>
 
@@ -212,8 +222,9 @@
             [allowCredentials]="vm.config.allowCredentials || false"
             [allowPromotion]="vm.config.allowPromotion || false"
             [allowDetails]="vm.config.allowDetails || false"
-            [allowDelete]="vm.config.allowDelete || false"
+            [allowDelete]="(vm.config.allowDelete || false) && (vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin')"
             [allowTransfer]="vm.config.allowTransfer || false"
+            [allowSwap]="vm.config.allowSwap || false"
             [generatedCredentials]="generatedCredentials"
             (edit)="edit(vm.config, $event)"
             (viewDetails)="viewDetails(vm.config, $event)"
@@ -224,6 +235,7 @@
             (sendResetEmail)="sendPasswordResetEmail($event)"
             (promote)="promote($event)"
             (transfer)="transfer($event)"
+            (swap)="swap($event)"
             (emptyAction)="openCreate(vm.config)"
           ></app-data-table>
           

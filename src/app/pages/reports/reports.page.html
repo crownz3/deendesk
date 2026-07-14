@@ -14,6 +14,12 @@
         </mat-form-field>
       </div>
       <div class="header-actions">
+        <button mat-button (click)="isLeftSidebarVisible = !isLeftSidebarVisible" [color]="isLeftSidebarVisible ? 'primary' : ''" matTooltip="Toggle Fields Sidebar">
+          <mat-icon>{{ isLeftSidebarVisible ? 'view_sidebar' : 'visibility_off' }}</mat-icon> Fields
+        </button>
+        <button mat-button (click)="isRightSidebarVisible = !isRightSidebarVisible" [color]="isRightSidebarVisible ? 'primary' : ''" matTooltip="Toggle Settings Sidebar">
+          <mat-icon>{{ isRightSidebarVisible ? 'settings' : 'settings_applications' }}</mat-icon> Settings
+        </button>
         <button mat-button (click)="visualizationMode = 'table'" [color]="visualizationMode === 'table' ? 'primary' : ''">
           <mat-icon>table_chart</mat-icon> Table
         </button>
@@ -28,7 +34,7 @@
     <div class="report-layout">
       
       <!-- Left Sidebar: Available Fields -->
-      <aside class="sidebar-left">
+      <aside class="sidebar-left" *ngIf="isLeftSidebarVisible">
         <div class="sidebar-header">
           <h3>Available Fields</h3>
           <mat-form-field appearance="outline" class="search-fields">
@@ -124,7 +130,7 @@
       </main>
 
       <!-- Right Sidebar: Settings -->
-      <aside class="sidebar-right">
+      <aside class="sidebar-right" *ngIf="isRightSidebarVisible">
         <mat-tab-group [(selectedIndex)]="rightSidebarTab" animationDuration="0ms">
           
           <!-- Columns Settings -->

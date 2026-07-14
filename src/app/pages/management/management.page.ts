@@ -35,6 +35,7 @@ import { ClassDeactivationDialogComponent, ClassDeactivationData, ClassDeactivat
 import { ClassTransferWizardDialogComponent } from './class-transfer-wizard-dialog/class-transfer-wizard-dialog.component';
 import { StudentTransferDialogComponent } from './student-transfer-dialog/student-transfer-dialog.component';
 import { PromoteDemoteDialogComponent } from './promote-demote-dialog/promote-demote-dialog.component';
+import { UserSwapDialogComponent } from './user-swap-dialog/user-swap-dialog.component';
 
 interface ManagementConfig {
   resource: string;
@@ -53,6 +54,7 @@ interface ManagementConfig {
   allowDetails?: boolean;
   allowDelete?: boolean;
   allowTransfer?: boolean;
+  allowSwap?: boolean;
   specialCreate?: 'student' | 'userAccess' | 'staffAccess' | 'organization';
 }
 
@@ -84,12 +86,24 @@ const baseStatusField: QuickAddField = {
   ],
 };
 
+const genderField: QuickAddField = {
+  key: 'gender',
+  label: 'Gender',
+  type: 'select',
+  required: true,
+  options: [
+    { label: 'Male', value: 'male' },
+    { label: 'Female', value: 'female' },
+  ],
+};
+
 const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
   organizations: {
     resource: 'organizations',
     title: 'Organizations',
     subtitle: 'Create and manage customer organizations.',
     collection: 'organizations',
+    allowDelete: true,
     emptyTitle: 'No organizations found',
     emptyText: 'Create your first organization to start managing madrasas, users, courses, and reports.',
     emptyButton: 'Add Organization',
@@ -123,6 +137,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     title: 'Madrasas',
     subtitle: 'Map madrasas to organizations, coordinators, and incharges.',
     collection: 'madrasas',
+    allowDelete: true,
     allowDetails: true,
     emptyTitle: 'No madrasas found',
     emptyText: 'Create your first madrasa to start mapping courses, classes, and assigning students.',
@@ -151,6 +166,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     title: 'Users',
     subtitle: 'Create controlled access with role and feature permissions.',
     collection: 'users',
+    allowDelete: true,
     emptyTitle: 'No users found',
     emptyText: 'Create users and assign them to specific roles, madrasas, and classes.',
     emptyButton: 'Add User',
@@ -160,6 +176,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'displayName', label: 'Name' },
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
+      { key: 'gender', label: 'Gender' },
       { key: 'role', label: 'Role', type: 'role' },
       { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
       { key: 'madrasaIds', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
@@ -179,6 +196,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
       { key: 'role', label: 'Role', type: 'select', required: true },
+      genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', quickAddResource: 'madrasas' },
       { key: 'permissions', label: 'Custom permissions', type: 'multiselect' },
@@ -189,7 +207,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'coordinators',
     title: 'Coordinators',
     subtitle: 'Assign coordinators to one or more madrasas.',
-    collection: 'staff',
+    collection: 'users',
+    allowDelete: true,
     fixedRole: 'coordinator',
     allowCredentials: true,
     allowDetails: true,
@@ -202,6 +221,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'displayName', label: 'Coordinator' },
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
+      { key: 'gender', label: 'Gender' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -212,6 +232,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email', type: 'email', required: true },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
+      genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
       { key: 'permissions', label: 'Custom permissions', type: 'multiselect' },
@@ -222,7 +243,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'incharges',
     title: 'Madrasa Incharges',
     subtitle: 'Map each incharge to the correct madrasa scope.',
-    collection: 'staff',
+    collection: 'users',
+    allowDelete: true,
     fixedRole: 'madrasaIncharge',
     allowCredentials: true,
     allowDetails: true,
@@ -235,6 +257,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'displayName', label: 'Incharge' },
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
+      { key: 'gender', label: 'Gender' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -245,6 +268,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email', type: 'email', required: true },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
+      genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
       { key: 'permissions', label: 'Custom permissions', type: 'multiselect' },
@@ -255,10 +279,13 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'staff',
     title: 'Staff / Teachers',
     subtitle: 'Assign teachers across madrasas, classes, and subjects.',
-    collection: 'staff',
+    collection: 'users',
+    allowDelete: true,
     fixedRole: 'teacher',
     allowCredentials: true,
     allowDetails: true,
+    allowTransfer: true,
+    allowSwap: true,
     specialCreate: 'staffAccess',
     emptyTitle: 'No staff found',
     emptyText: 'Add teachers and staff to assign them to classes and subjects.',
@@ -268,6 +295,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'name', label: 'Name' },
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
+      { key: 'gender', label: 'Gender' },
+      { key: 'assignedClassGroup', label: 'Assigned Class Group' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -278,6 +307,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email', type: 'email', required: true },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
+      genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
       { key: 'permissions', label: 'Custom permissions', type: 'multiselect' },
@@ -288,7 +318,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'students',
     title: 'Students',
     subtitle: 'Create student and parent logins with correct academic mapping.',
-    collection: 'students',
+    collection: 'users',
+    allowDelete: true,
     fixedRole: 'student',
     allowCredentials: true,
     allowPromotion: true,
@@ -310,6 +341,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Student Mail' },
       { key: 'parentEmail', label: 'Parent Mail' },
       { key: 'mobileNumber', label: 'Mobile Number' },
+      { key: 'gender', label: 'Gender' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
       { key: 'credentialStatus', label: 'Credential Status', type: 'credentialStatus' },
@@ -320,6 +352,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'parentName', label: 'Parent display name', type: 'text' },
       { key: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
       { key: 'admissionDate', label: 'Admission date', type: 'date' },
+      genderField,
       { key: 'email', label: 'Student email (optional)', type: 'email' },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
@@ -335,7 +368,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'parents',
     title: 'Parents',
     subtitle: 'View parent accounts linked to students.',
-    collection: 'parents',
+    collection: 'users',
+    allowDelete: true,
     fixedRole: 'parent',
     allowDetails: true,
     emptyTitle: 'No parents found',
@@ -346,6 +380,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'name', label: 'Parent' },
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
+      { key: 'gender', label: 'Gender' },
       { key: 'studentNames', label: 'Students' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -354,6 +389,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     allowCredentials: true,
     fields: [
       { key: 'name', label: 'Parent name', type: 'text', required: true },
+      genderField,
       { key: 'email', label: 'Email', type: 'email' },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
@@ -367,6 +403,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     title: 'Courses',
     subtitle: 'Customize Maktab, Aalim, Hifz, Muballigh, and custom course structures.',
     collection: 'courses',
+    allowDelete: true,
     emptyTitle: 'No courses found',
     emptyText: 'Create courses like Maktab or Hifz to define your academic structure.',
     emptyButton: 'Add Course',
@@ -406,8 +443,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     title: 'Classes',
     subtitle: 'Create classes and map them to courses, stages, and sections.',
     collection: 'classes',
-    allowDetails: true,
     allowDelete: true,
+    allowDetails: true,
     emptyTitle: 'No classes found',
     emptyText: 'Create classes to organize students within specific courses and stages.',
     emptyButton: 'Add Class',
@@ -433,6 +470,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     title: 'Class Groups',
     subtitle: 'Manage groups or sections within a class.',
     collection: 'classGroups',
+    allowDelete: true,
     emptyTitle: 'No class groups found',
     emptyText: 'Create groups to split classes into multiple sections.',
     emptyButton: 'Add Group',
@@ -463,6 +501,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     title: 'Subjects',
     subtitle: 'Manage subjects within the course and class structure.',
     collection: 'subjects',
+    allowDelete: true,
     emptyTitle: 'No subjects found',
     emptyText: 'Add subjects to build out your curriculum within courses and classes.',
     emptyButton: 'Add Subject',
@@ -507,6 +546,7 @@ export class ManagementPage {
   readonly classFilter$ = new BehaviorSubject<string>('all');
   readonly stageFilter$ = new BehaviorSubject<string>('all');
   readonly statusFilter$ = new BehaviorSubject<string>('active');
+  readonly genderFilter$ = new BehaviorSubject<string>('all');
 
   readonly searchQuery$ = new BehaviorSubject<string>('');
   readonly pageIndex$ = new BehaviorSubject<number>(0);
@@ -519,11 +559,12 @@ export class ManagementPage {
     this.roleFilter$,
     this.organizationFilter$,
     this.searchQuery$,
+    this.genderFilter$,
     this.pageIndex$,
     this.pageSize$,
     combineLatest([this.courseFilter$, this.classFilter$, this.stageFilter$, this.statusFilter$])
   ]).pipe(
-    switchMap(([config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, pageIndex, pageSize, [courseFilter, classFilter, stageFilter, statusFilter]]) => {
+    switchMap(([config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, stageFilter, statusFilter]]) => {
       // For Madrasa Incharge, force the madrasa filter to their own
       if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource) && profile?.role === 'madrasaIncharge' && profile.madrasaIds?.length) {
         if (madrasaFilter !== profile.madrasaIds[0]) {
@@ -590,23 +631,30 @@ export class ManagementPage {
                  filteredRows = filteredRows.filter(r => (r['status'] || 'active') === statusFilter);
                }
 
-               if (searchQuery) {
-                 const q = searchQuery.toLowerCase();
-                 filteredRows = filteredRows.filter(r => 
-                   (r['name']?.toString().toLowerCase() || '').includes(q) ||
-                   (r['displayName']?.toString().toLowerCase() || '').includes(q) ||
-                   (r['email']?.toString().toLowerCase() || '').includes(q)
-                 );
+               if (genderFilter !== 'all') {
+                 filteredRows = filteredRows.filter(r => r['gender'] === genderFilter);
                }
- 
-               const totalItems = filteredRows.length;
-               const startIndex = pageIndex * pageSize;
-               filteredRows = filteredRows.slice(startIndex, startIndex + pageSize);
- 
+            }
+
+            if (searchQuery) {
+              const q = searchQuery.toLowerCase();
+              filteredRows = filteredRows.filter(r => 
+                (r['name']?.toString().toLowerCase() || '').includes(q) ||
+                (r['displayName']?.toString().toLowerCase() || '').includes(q) ||
+                (r['email']?.toString().toLowerCase() || '').includes(q) ||
+                (r['code']?.toString().toLowerCase() || '').includes(q)
+              );
+            }
+
+            const totalItems = filteredRows.length;
+            const startIndex = pageIndex * pageSize;
+            filteredRows = filteredRows.slice(startIndex, startIndex + pageSize);
+
+            if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource)) {
                return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, organizations };
             }
  
-            return { rows: filteredRows, profile, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, organizations };
+            return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, organizations };
         }),
         map(({ rows, profile, totalItems, madrasas, courses, classes, organizations }): PageState<ManagementVm> => ({
           data: {
@@ -910,8 +958,14 @@ export class ManagementPage {
           return of([] as EntityRecord[]);
         })
       ),
+      this.repo.list<EntityRecord>('classGroups', profile, [], undefined).pipe(
+        catchError((e) => {
+          console.warn('[Staff] Class groups load failed:', e);
+          return of([] as EntityRecord[]);
+        })
+      ),
     ]).pipe(
-      map(([staffs, users]) => staffs.map((row) => {
+      map(([staffs, users, groups]) => staffs.map((row) => {
         const userRow = users.find(u => u['uid'] === row['userId'] || u.id === row['userId'] || u['entityId'] === row.id) || row;
         const creds = this.credentialService.getCredentialStatus(userRow);
         return {
@@ -934,6 +988,15 @@ export class ManagementPage {
           ])),
           credentialStatus: creds.status,
           temporaryPasswordDisplay: creds.display,
+          assignedClassGroup: (() => {
+            const possibleIds = [row.id, userRow.id, userRow['uid'], userRow['userId'], row['userId'], userRow['entityId'], row['email'], userRow['email']]
+              .map(v => String(v || '').trim())
+              .filter(Boolean);
+            return groups
+              .filter(g => Array.isArray(g['assignedStaffIds']) && possibleIds.some(id => (g['assignedStaffIds'] as any[]).map(String).includes(id)))
+              .map(g => g['name'] || 'Unnamed Class')
+              .join(', ');
+          })(),
         } as EntityRecord;
       }))
     );
@@ -1251,11 +1314,15 @@ export class ManagementPage {
 
     if (config.collection === 'classGroups') {
       if (row['isDefault']) {
-        this.snackBar.open('Cannot deactivate the default class section.', 'Close', { duration: 4000 });
+        this.dialog.open(ConfirmDialogComponent, {
+          data: { title: 'Cannot Deactivate', message: 'Cannot deactivate the default class section.', hideCancel: true, confirmLabel: 'OK' }
+        });
         return;
       }
       if (row['studentCount'] && Number(row['studentCount']) > 0) {
-        this.snackBar.open('Cannot deactivate a group with enrolled students. Reassign them first.', 'Close', { duration: 5000 });
+        this.dialog.open(ConfirmDialogComponent, {
+          data: { title: 'Cannot Deactivate', message: 'Cannot deactivate a group with enrolled students. Reassign them first.', hideCancel: true, confirmLabel: 'OK' }
+        });
         return;
       }
     }
@@ -1336,59 +1403,6 @@ export class ManagementPage {
     }
   }
 
-  async permanentlyDelete(config: ManagementConfig, row: EntityRecord): Promise<void> {
-    if (config.collection !== 'classes' || !row.id) return;
-    
-    const profile = await firstValueFrom(this.auth.profile$);
-    
-    await this.loader.withLoader('Checking dependencies...', async () => {
-      const [students, timetables, attendance, reports, groups] = await Promise.all([
-        this.repo.getAllOnce('students', profile),
-        this.repo.getAllOnce('classPlans', profile),
-        this.repo.getAllOnce('attendance', profile),
-        this.repo.getAllOnce('reports', profile),
-        this.repo.getAllOnce('classGroups', profile)
-      ]);
-
-      const classStudents = students.filter(s => s['classId'] === row.id);
-      const classTimetables = timetables.filter(t => t['classId'] === row.id);
-      const classAttendance = attendance.filter(a => a['classId'] === row.id);
-      const classReports = reports.filter(r => r['classId'] === row.id);
-      const classGroups = groups.filter(g => g['classId'] === row.id);
-      const classStaffIds = this.uniqueStrings(
-        classGroups.flatMap(group => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'] : [])
-      );
-
-      if (classStudents.length || classStaffIds.length || classTimetables.length || classAttendance.length || classReports.length || classGroups.length) {
-        let message = 'Cannot delete Class. It still contains historical data: ';
-        const reasons = [];
-        if (classStudents.length) reasons.push(`${classStudents.length} Students`);
-        if (classStaffIds.length) reasons.push(`${classStaffIds.length} Staff`);
-        if (classTimetables.length) reasons.push(`${classTimetables.length} Timetables`);
-        if (classAttendance.length) reasons.push(`${classAttendance.length} Attendance Records`);
-        if (classReports.length) reasons.push(`${classReports.length} Reports`);
-        if (classGroups.length) reasons.push(`${classGroups.length} Groups`);
-        
-        message += reasons.join(', ') + '.';
-        this.snackBar.open(message, 'Close', { duration: 6000, panelClass: ['error-snackbar'] });
-        return;
-      }
-
-      const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
-        data: {
-          title: `Permanently Delete Class`,
-          message: `Are you absolutely sure you want to permanently delete "${row['name']}"? This action cannot be undone.`,
-          confirmLabel: 'Permanently Delete',
-        },
-      }).afterClosed());
-
-      if (confirmed) {
-        await this.repo.remove(config.collection, row.id!);
-        this.snackBar.open('Class permanently deleted.', 'Close', { duration: 3000 });
-      }
-    });
-  }
-
   async activate(config: ManagementConfig, row: EntityRecord): Promise<void> {
     const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
       data: {
@@ -1453,6 +1467,38 @@ export class ManagementPage {
       });
       this.snackBar.open(`${validRows.length} records deactivated.`, 'Close', { duration: 4000 });
       dataTable.selection.clear();
+    }
+  }
+
+  async permanentlyDelete(config: ManagementConfig, row: EntityRecord): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Permanently Delete ${config.title.slice(0, -1)}`,
+        message: `Are you sure you want to completely delete "${row['name'] || row['displayName'] || row['email'] || 'this record'}"? This action cannot be undone.`,
+        confirmLabel: 'Permanently Delete',
+        confirmColor: 'warn',
+      },
+    }).afterClosed());
+
+    if (confirmed && row.id) {
+      await this.loader.withLoader(`Deleting record...`, async () => {
+        try {
+          await this.repo.remove(config.collection, row.id!);
+          // If it's a person/business record, also delete the linked user account to avoid orphans
+          if (config.collection !== 'users' && row['userId']) {
+            await this.repo.remove('users', String(row['userId'])).catch(() => {});
+          }
+          // If it's a user account, also attempt to delete the business record
+          if (config.collection === 'users' && row['entityId'] && row['entityType']) {
+            await this.repo.remove(String(row['entityType']) + 's', String(row['entityId'])).catch(() => {});
+          }
+          this.snackBar.open(`Record permanently deleted.`, 'Close', { duration: 4000 });
+        } catch (error: any) {
+          this.dialog.open(ConfirmDialogComponent, {
+            data: { title: 'Cannot Delete', message: error.message || 'Failed to delete record.', hideCancel: true, confirmLabel: 'OK' }
+          });
+        }
+      });
     }
   }
 
@@ -1526,6 +1572,31 @@ export class ManagementPage {
       }
 
       this.snackBar.open(`Migration complete. Updated ${migratedCount} records.`, 'Close', { duration: 5000 });
+    });
+  }
+
+  async swap(row: EntityRecord): Promise<void> {
+    const role = row['role'];
+    const isStudent = role === 'student';
+    const isStaff = ['teacher', 'staff', 'madrasaIncharge', 'coordinator'].includes(String(role));
+
+    if (!isStudent && !isStaff) {
+      this.dialog.open(ConfirmDialogComponent, {
+        data: { title: 'Transfer Unavailable', message: 'Transfers are only supported for students and staff.', hideCancel: true, confirmLabel: 'OK' }
+      });
+      return;
+    }
+
+    const dialogRef = this.dialog.open(UserSwapDialogComponent, {
+      data: { currentUser: row },
+      width: '500px'
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.success) {
+        // Refresh rows
+        this.pageIndex$.next(0);
+      }
     });
   }
 

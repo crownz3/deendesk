@@ -24,12 +24,14 @@ export class DataTableComponent {
   @Input() allowDetails = false;
   @Input() allowDelete = false;
   @Input() allowTransfer = false;
+  @Input() allowSwap: boolean = false;
   @Input() generatedCredentials: Record<string, any> = {};
   @Input() currentUid?: string;
 
   @Output() edit = new EventEmitter<EntityRecord>();
   @Output() remove = new EventEmitter<EntityRecord>();
   @Output() activate = new EventEmitter<EntityRecord>();
+  @Output() swap = new EventEmitter<EntityRecord>();
   @Output() resetPassword = new EventEmitter<EntityRecord>();
   @Output() sendResetEmail = new EventEmitter<EntityRecord>();
   @Output() promote = new EventEmitter<EntityRecord>();

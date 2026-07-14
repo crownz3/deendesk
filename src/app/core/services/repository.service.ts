@@ -349,13 +349,13 @@ export class RepositoryService {
         const studentsQ = query(collection(this.firestore, 'students'), where('groupId', '==', id), limit(1));
         const studentsSnap = await getDocs(studentsQ);
         if (!studentsSnap.empty) {
-           throw new Error('Cannot delete this group because it contains students.');
+           throw new Error('Cannot delete this group because it contains students. You must first move the students to a different group or class before deleting this one.');
         }
         
         const staffQ = query(collection(this.firestore, 'users'), where('groupIds', 'array-contains', id), limit(1));
         const staffSnap = await getDocs(staffQ);
         if (!staffSnap.empty) {
-           throw new Error('Cannot delete this group because it contains staff.');
+           throw new Error('Cannot delete this group because it contains staff. You must first unassign them before deleting this one.');
         }
 
         const groupsQ = query(collection(this.firestore, 'classGroups'), where('classId', '==', groupData['classId']));
@@ -363,6 +363,48 @@ export class RepositoryService {
         if (groupsSnap.size <= 1) {
            throw new Error('Cannot delete the last remaining group of a class.');
         }
+      }
+    }
+
+    if (collectionName === 'classes') {
+      const studentsQ = query(collection(this.firestore, 'students'), where('classId', '==', id), limit(1));
+      const studentsSnap = await getDocs(studentsQ);
+      if (!studentsSnap.empty) {
+         throw new Error('Cannot delete this class because it contains students. You must first move the students to a different class before deleting this one.');
+      }
+      const groupsQ = query(collection(this.firestore, 'classGroups'), where('classId', '==', id), limit(1));
+      const groupsSnap = await getDocs(groupsQ);
+      if (!groupsSnap.empty) {
+         throw new Error('Cannot delete this class because it still has class groups attached.');
+      }
+    }
+
+    if (collectionName === 'courses') {
+      const classesQ = query(collection(this.firestore, 'classes'), where('courseId', '==', id), limit(1));
+      const classesSnap = await getDocs(classesQ);
+      if (!classesSnap.empty) {
+         throw new Error('Cannot delete this course because it has active classes. You must reassign or delete them first.');
+      }
+    }
+
+    if (collectionName === 'madrasas') {
+      const classesQ = query(collection(this.firestore, 'classes'), where('madrasaId', '==', id), limit(1));
+      const classesSnap = await getDocs(classesQ);
+      if (!classesSnap.empty) {
+         throw new Error('Cannot delete this madrasa because it has active classes.');
+      }
+      const usersQ = query(collection(this.firestore, 'users'), where('madrasaId', '==', id), limit(1));
+      const usersSnap = await getDocs(usersQ);
+      if (!usersSnap.empty) {
+         throw new Error('Cannot delete this madrasa because it has users assigned to it. Move them first.');
+      }
+    }
+
+    if (collectionName === 'organizations') {
+      const madrasasQ = query(collection(this.firestore, 'madrasas'), where('organizationId', '==', id), limit(1));
+      const madrasasSnap = await getDocs(madrasasQ);
+      if (!madrasasSnap.empty) {
+         throw new Error('Cannot delete this organization because it has active madrasas.');
       }
     }
     
