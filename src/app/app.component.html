@@ -33,7 +33,7 @@
               ></ion-input>
             </ion-item>
 
-            <ng-container *ngFor="let group of filteredNavGroups$ | async">
+            <ion-item-group *ngFor="let group of filteredNavGroups$ | async">
               <ion-item-divider class="menu-divider" sticky="true">
                 <ion-label>{{ group.label }}</ion-label>
               </ion-item-divider>
@@ -46,7 +46,7 @@
                   </ion-item>
                 </ion-menu-toggle>
               </ng-container>
-            </ng-container>
+            </ion-item-group>
           </ion-list>
         </ion-content>
       </ion-menu>
