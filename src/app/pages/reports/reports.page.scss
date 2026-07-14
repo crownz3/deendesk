@@ -1,7 +1,7 @@
 .report-builder-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 90vh;
   background-color: var(--ion-background-color, #f4f6f8);
   font-family: 'Inter', Roboto, sans-serif;
 }
@@ -218,8 +218,13 @@
     padding: 16px;
     display: flex;
     flex-direction: column;
-    height: 100%;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
     box-sizing: border-box;
+    overflow-y: auto;
     
     h4 {
       margin: 0 0 4px 0;
@@ -280,6 +285,9 @@
 
 .w-full {
   width: 100%;
+}
+.mb-3 {
+  margin-bottom: 12px;
 }
 .mb-3 {
   margin-bottom: 12px;

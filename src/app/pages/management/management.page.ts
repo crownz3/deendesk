@@ -36,6 +36,8 @@ import { ClassTransferWizardDialogComponent } from './class-transfer-wizard-dial
 import { StudentTransferDialogComponent } from './student-transfer-dialog/student-transfer-dialog.component';
 import { PromoteDemoteDialogComponent } from './promote-demote-dialog/promote-demote-dialog.component';
 import { UserSwapDialogComponent } from './user-swap-dialog/user-swap-dialog.component';
+import { AcademicTreeAssignStudentsDialogComponent } from '../tree-view/academic-tree-assign-students-dialog.component';
+import { AcademicTreeAssignStaffDialogComponent } from '../tree-view/academic-tree-assign-staff-dialog.component';
 
 interface ManagementConfig {
   resource: string;
@@ -55,6 +57,9 @@ interface ManagementConfig {
   allowDelete?: boolean;
   allowTransfer?: boolean;
   allowSwap?: boolean;
+  allowAssignStudents?: boolean;
+  allowAssignStaff?: boolean;
+  allowImpersonate?: boolean;
   specialCreate?: 'student' | 'userAccess' | 'staffAccess' | 'organization';
 }
 
@@ -189,6 +194,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     ],
     allowCredentials: true,
     allowDetails: true,
+    allowImpersonate: true,
     specialCreate: 'userAccess',
     fields: [
       { key: 'displayName', label: 'Full name', type: 'text', required: true },
@@ -212,6 +218,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     fixedRole: 'coordinator',
     allowCredentials: true,
     allowDetails: true,
+    allowImpersonate: true,
     specialCreate: 'userAccess',
     emptyTitle: 'No coordinators found',
     emptyText: 'Add coordinators and assign them to oversee one or more madrasas.',
@@ -445,6 +452,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     collection: 'classes',
     allowDelete: true,
     allowDetails: true,
+    allowAssignStudents: true,
+    allowAssignStaff: true,
     emptyTitle: 'No classes found',
     emptyText: 'Create classes to organize students within specific courses and stages.',
     emptyButton: 'Add Class',
@@ -471,6 +480,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     subtitle: 'Manage groups or sections within a class.',
     collection: 'classGroups',
     allowDelete: true,
+    allowAssignStudents: true,
+    allowAssignStaff: true,
     emptyTitle: 'No class groups found',
     emptyText: 'Create groups to split classes into multiple sections.',
     emptyButton: 'Add Group',
@@ -565,14 +576,6 @@ export class ManagementPage {
     combineLatest([this.courseFilter$, this.classFilter$, this.stageFilter$, this.statusFilter$])
   ]).pipe(
     switchMap(([config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, stageFilter, statusFilter]]) => {
-      // For Madrasa Incharge, force the madrasa filter to their own
-      if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource) && profile?.role === 'madrasaIncharge' && profile.madrasaIds?.length) {
-        if (madrasaFilter !== profile.madrasaIds[0]) {
-           // Update subject without emitting to avoid infinite loop (or just override locally)
-           madrasaFilter = profile.madrasaIds[0];
-        }
-      }
-
       return combineLatest([
         this.rowsForConfig(config, profile, madrasaFilter, roleFilter),
         this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([]))),
@@ -1179,6 +1182,32 @@ export class ManagementPage {
     return this.studentRecordIds(student).includes(String(id));
   }
 
+  async impersonateUser(row: EntityRecord) {
+    if (!row['id']) return;
+    
+    const confirm = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Login As User',
+        message: `Are you sure you want to log in as ${row['name'] || row['displayName'] || row['email']}? You will need to log out to return to your super admin account.`,
+        confirmText: 'Login As User',
+        isDestructive: false
+      }
+    }).afterClosed());
+
+    if (!confirm) return;
+
+    this.loader.show('Authenticating...');
+    try {
+      await this.auth.impersonateUser(row['id']);
+    } catch (error: any) {
+      this.snackBar.open(error?.message || 'Failed to login as user.', 'Close', { duration: 5000 });
+    } finally {
+      this.loader.hide();
+    }
+  }
+
+
+
   private studentRecordIds(student: EntityRecord): string[] {
     return this.uniqueStrings([
       student.id,
@@ -1597,6 +1626,104 @@ export class ManagementPage {
         // Refresh rows
         this.pageIndex$.next(0);
       }
+    });
+  }
+
+  async assignStudents(config: ManagementConfig, row: EntityRecord) {
+    if (config.resource !== 'classGroups' && config.resource !== 'classes') return;
+    
+    await this.loader.withLoader('Loading students...', async () => {
+      const users = await this.repo.getAllOnce<EntityRecord>('users', null);
+      const allStudents = users.filter((u: any) => u['role'] === 'student');
+      
+      let assignedStudents: any[] = [];
+      let nodeType = '';
+      if (config.resource === 'classGroups') {
+        nodeType = 'classGroup';
+        assignedStudents = allStudents.filter((s: any) => s['groupId'] === row.id);
+      } else if (config.resource === 'classes') {
+        nodeType = 'class';
+        assignedStudents = allStudents.filter((s: any) => s['classId'] === row.id);
+      }
+      
+      const node = {
+        id: row['id'] || row.id,
+        title: row['name'] || 'Class Group',
+        type: nodeType,
+        parentClassId: row['classId'],
+        parentClassName: row['className'],
+        parentCourseId: row['courseId'],
+        parentCourseName: row['courseName'],
+        parentMadrasaId: row['madrasaId'],
+        assignedStudents
+      };
+      
+      this.dialog.open(AcademicTreeAssignStudentsDialogComponent, {
+        width: '90vw',
+        height: '90vh',
+        maxWidth: '90vw',
+        maxHeight: '90vh',
+        panelClass: 'academic-tree-assign-dialog-panel',
+        data: {
+          mode: assignedStudents.length > 0 ? 'edit' : 'add',
+          node,
+          assignedStudents,
+          availableStudents: allStudents.filter((s: any) => {
+            if (config.resource === 'classGroups') return s['groupId'] !== row.id;
+            return s['classId'] !== row.id;
+          }),
+          allStudents
+        },
+        autoFocus: false,
+      });
+    });
+  }
+
+  async assignStaff(config: ManagementConfig, row: EntityRecord) {
+    if (config.resource !== 'classGroups' && config.resource !== 'classes') return;
+    
+    await this.loader.withLoader('Loading staff...', async () => {
+      const users = await this.repo.getAllOnce<EntityRecord>('users', null);
+      const allStaff = users.filter((u: any) => ['staff', 'coordinator', 'incharge', 'teacher'].includes(String(u['role'])));
+      
+      let assignedStaff: any[] = [];
+      let nodeType = '';
+      if (config.resource === 'classGroups') {
+        nodeType = 'classGroup';
+        const assignedStaffIds = Array.isArray(row['assignedStaffIds']) ? row['assignedStaffIds'] : [];
+        assignedStaff = allStaff.filter((s: any) => assignedStaffIds.includes(s.id));
+      } else if (config.resource === 'classes') {
+        nodeType = 'class';
+        const assignedStaffIds = Array.isArray(row['assignedStaffIds']) ? row['assignedStaffIds'] : [];
+        assignedStaff = allStaff.filter((s: any) => assignedStaffIds.includes(s.id));
+      }
+      
+      const node = {
+        id: row['id'] || row.id,
+        title: row['name'] || 'Class Group',
+        type: nodeType,
+        parentClassId: row['classId'],
+        parentCourseId: row['courseId'],
+        parentMadrasaId: row['madrasaId'],
+        assignedStaff
+      };
+      
+      const assignedIds = new Set(assignedStaff.map(s => s.id));
+      this.dialog.open(AcademicTreeAssignStaffDialogComponent, {
+        width: '90vw',
+        height: '90vh',
+        maxWidth: '90vw',
+        maxHeight: '90vh',
+        panelClass: 'academic-tree-assign-dialog-panel',
+        data: {
+          mode: assignedStaff.length > 0 ? 'edit' : 'add',
+          node,
+          assignedStaff,
+          availableStaff: allStaff.filter((s: any) => !assignedIds.has(s.id)),
+          allStaff
+        },
+        autoFocus: false,
+      });
     });
   }
 

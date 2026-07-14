@@ -219,6 +219,15 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
             courseId: this.node.parentCourseId || null,
             courseName: this.node.parentCourseName || null
           };
+        } else if (this.node.type === 'classGroup') {
+          patch = {
+            groupId: this.node.id,
+            groupName: this.node.title,
+            classId: this.node.parentClassId || null,
+            className: this.node.parentClassName || null,
+            courseId: this.node.parentCourseId || null,
+            courseName: this.node.parentCourseName || null
+          };
         }
         if (Object.keys(patch).length > 0) {
           await this.repo.update('users', this.getUserId(student), patch, user);
@@ -229,8 +238,12 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         let patch: any = {};
         if (this.node.type === 'class') {
           if (student.classId === this.node.id) {
-            patch = { classId: null, className: null };
+            patch = { classId: null, className: null, groupId: null, groupName: null };
             // Keeping courseId/courseName per user instruction
+          }
+        } else if (this.node.type === 'classGroup') {
+          if (student.groupId === this.node.id) {
+            patch = { groupId: null, groupName: null };
           }
         }
         

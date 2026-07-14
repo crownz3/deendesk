@@ -11,7 +11,9 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
   updatePassword,
+  signInWithCustomToken,
 } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import {
   deleteField,
   doc,
@@ -134,6 +136,28 @@ export class AuthService {
     await signOut(this.auth);
     localStorage.removeItem('deendesk.lastProfile');
     await this.router.navigateByUrl('/login');
+  }
+
+  async impersonateUser(targetUid: string): Promise<void> {
+    const functions = getFunctions(this.firebaseApp);
+    const impersonateFn = httpsCallable<{ targetUid: string }, { token: string }>(functions, 'impersonateUser');
+    
+    try {
+      const result = await impersonateFn({ targetUid });
+      const customToken = result.data.token;
+      
+      // Attempt login with custom token
+      await signInWithCustomToken(this.auth, customToken);
+      
+      // Clear any cached profile
+      localStorage.removeItem('deendesk.lastProfile');
+      
+      // Redirect to home/dashboard
+      await this.router.navigateByUrl('/');
+    } catch (error: any) {
+      console.error('[AuthService] Impersonation failed:', error);
+      throw new Error(error?.message || 'Failed to login as the specified user.');
+    }
   }
 
   async sendReset(email: string): Promise<void> {

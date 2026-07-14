@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bulkDeleteData = exports.resetUserTemporaryPassword = exports.createUserWithTemporaryPassword = exports.createOrganizationWithAdmin = void 0;
+exports.impersonateUser = exports.bulkDeleteData = exports.resetUserTemporaryPassword = exports.createUserWithTemporaryPassword = exports.createOrganizationWithAdmin = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 admin.initializeApp();
@@ -745,5 +745,28 @@ exports.bulkDeleteData = functions.https.onCall(async (data, context) => {
     const timeTakenMs = Date.now() - startTime;
     console.log(`[bulkDelete] Completed in ${timeTakenMs}ms. Docs: ${totalDocs}, Auth: ${totalAuth}`);
     return { results, totalDocs, totalAuth, timeTakenMs };
+});
+exports.impersonateUser = functions.https.onCall(async (data, context) => {
+    var _a;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+    }
+    const callerUid = context.auth.uid;
+    const callerDoc = await db.collection("users").doc(callerUid).get();
+    if (!callerDoc.exists || ((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a["role"]) !== "superAdmin") {
+        throw new functions.https.HttpsError("permission-denied", "Only Super Admin can impersonate users.");
+    }
+    const { targetUid } = data;
+    if (!targetUid) {
+        throw new functions.https.HttpsError("invalid-argument", "Missing target user ID.");
+    }
+    try {
+        const customToken = await admin.auth().createCustomToken(targetUid);
+        return { token: customToken };
+    }
+    catch (error) {
+        console.error("[impersonateUser] Error generating custom token:", error);
+        throw new functions.https.HttpsError("internal", "Failed to generate custom token.");
+    }
 });
 //# sourceMappingURL=index.js.map

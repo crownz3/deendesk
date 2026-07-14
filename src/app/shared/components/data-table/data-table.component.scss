@@ -11,6 +11,8 @@
 .data-table {
   min-width: 1400px;
   width: 100%;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .organization-table th,

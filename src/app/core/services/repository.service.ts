@@ -358,11 +358,7 @@ export class RepositoryService {
            throw new Error('Cannot delete this group because it contains staff. You must first unassign them before deleting this one.');
         }
 
-        const groupsQ = query(collection(this.firestore, 'classGroups'), where('classId', '==', groupData['classId']));
-        const groupsSnap = await getDocs(groupsQ);
-        if (groupsSnap.size <= 1) {
-           throw new Error('Cannot delete the last remaining group of a class.');
-        }
+        // Allowed to delete the last group, so they can subsequently delete the class
       }
     }
 

@@ -57,6 +57,7 @@ export class AttendancePage implements OnInit, OnDestroy {
   attendanceDetails: Record<string, any> = {};
 
   searchQuery = '';
+  madrasaSearch = '';
   pageIndex = 0;
   pageSize = 10;
   isSidebarCollapsed = false;
@@ -523,6 +524,27 @@ export class AttendancePage implements OnInit, OnDestroy {
       return isExplicitlyAdded;
     });
     return staff;
+  }
+
+  private _lastMadrasas: EntityRecord[] | null = null;
+  private _lastQuery = '';
+  private _cachedFilteredMadrasas: EntityRecord[] = [];
+
+  filterMadrasas(madrasas: EntityRecord[]): EntityRecord[] {
+    if (!madrasas) return [];
+    if (this._lastMadrasas === madrasas && this._lastQuery === this.madrasaSearch) {
+      return this._cachedFilteredMadrasas;
+    }
+    this._lastMadrasas = madrasas;
+    this._lastQuery = this.madrasaSearch;
+    
+    if (!this.madrasaSearch) {
+      this._cachedFilteredMadrasas = madrasas;
+    } else {
+      const q = this.madrasaSearch.toLowerCase();
+      this._cachedFilteredMadrasas = madrasas.filter(m => String(m['name'] || '').toLowerCase().includes(q));
+    }
+    return this._cachedFilteredMadrasas;
   }
 
   isGeneralStaff(vm: AttendanceVm, staffId: string | undefined): boolean {

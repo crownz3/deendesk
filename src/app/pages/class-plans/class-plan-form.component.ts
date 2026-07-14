@@ -47,6 +47,27 @@ export class ClassPlanFormComponent implements OnInit {
   courses: EntityRecord[] = [];
   classes: EntityRecord[] = [];
   
+  public _madrasaSearch = '';
+  public filteredMadrasas: EntityRecord[] = [];
+
+  get madrasaSearch(): string {
+    return this._madrasaSearch;
+  }
+  
+  set madrasaSearch(value: string) {
+    this._madrasaSearch = value;
+    this.updateFilteredMadrasas();
+  }
+
+  private updateFilteredMadrasas() {
+    if (!this._madrasaSearch) {
+      this.filteredMadrasas = this.madrasas;
+      return;
+    }
+    const q = this._madrasaSearch.toLowerCase();
+    this.filteredMadrasas = this.madrasas.filter(m => String(m['name'] || '').toLowerCase().includes(q));
+  }
+  
   readonly scheduleTypes = [
     { value: 'oneTime', label: 'One Time' },
     { value: 'weekly', label: 'Weekly' },
@@ -68,6 +89,7 @@ export class ClassPlanFormComponent implements OnInit {
     if (!profile) return;
 
     this.madrasas = await this.repo.getAllOnce('madrasas', profile);
+    this.filteredMadrasas = this.madrasas;
     this.courses = await this.repo.getAllOnce('courses', profile);
     this.classes = await this.repo.getAllOnce('classes', profile);
 

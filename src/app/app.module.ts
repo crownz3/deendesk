@@ -90,6 +90,7 @@ import { ReportExportWizardComponent } from './pages/reports/components/report-e
 import { ReportChartViewComponent } from './pages/reports/components/report-chart-view.component';
 import { AddCustomColumnDialogComponent } from './pages/reports/components/add-custom-column-dialog.component';
 import { AddUserInputColumnDialogComponent } from './pages/reports/components/add-user-input-column-dialog.component';
+import { SaveReportDialogComponent } from './pages/reports/components/save-report-dialog.component';
 import { ResolveNamePipe } from './shared/pipes/resolve-name.pipe';
 import { FeesPage } from './pages/fees/fees.page';
 import { FeePlanFormDialogComponent } from './pages/fees/fee-plan-form-dialog.component';
@@ -157,6 +158,7 @@ import { UserSwapDialogComponent } from './pages/management/user-swap-dialog/use
     ReportChartViewComponent,
     AddCustomColumnDialogComponent,
     AddUserInputColumnDialogComponent,
+    SaveReportDialogComponent,
     ResolveNamePipe,
     FeesPage,
     FeePlanFormDialogComponent,

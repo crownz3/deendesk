@@ -34,6 +34,7 @@ export type FilterType =
 
 export type AggregationLogic =
   | 'count-by-field'
+  | 'sum-by-field'
   | 'percentage'
   | 'activity-summary'
   | null;

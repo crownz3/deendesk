@@ -151,6 +151,10 @@
               <ion-icon name="create-outline"></ion-icon>
               <span>Edit</span>
             </button>
+            <button *ngIf="allowImpersonate" mat-menu-item type="button" (click)="impersonate.emit(row)">
+              <ion-icon name="log-in-outline"></ion-icon>
+              <span>Login As User</span>
+            </button>
             <button *ngIf="allowCredentials" mat-menu-item type="button" (click)="resetPassword.emit(row)">
               <ion-icon name="key-outline"></ion-icon>
               <span>Set temporary password</span>
@@ -158,6 +162,14 @@
             <button *ngIf="allowPromotion" mat-menu-item type="button" (click)="promote.emit(row)">
               <ion-icon name="trending-up-outline"></ion-icon>
               <span>Promote / demote</span>
+            </button>
+            <button *ngIf="allowAssignStudents" mat-menu-item type="button" (click)="assignStudents.emit(row)">
+              <ion-icon name="people-outline"></ion-icon>
+              <span>Assign Students</span>
+            </button>
+            <button *ngIf="allowAssignStaff" mat-menu-item type="button" (click)="assignStaff.emit(row)">
+              <ion-icon name="person-add-outline"></ion-icon>
+              <span>Assign Staff</span>
             </button>
             <button *ngIf="allowTransfer" mat-menu-item type="button" (click)="transfer.emit(row)">
               <ion-icon name="swap-horizontal-outline"></ion-icon>

@@ -411,11 +411,98 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     collection: 'feeAssignments',
     requiredFilters: ['status'],
     emptyText: 'No fee data to aggregate.',
-    aggregationLogic: 'count-by-field',
+    aggregationLogic: 'sum-by-field',
     groupByField: 'madrasaId',
     columns: [
       { key: 'groupLabel', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'count', label: 'Assignments', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'amount', label: 'Total Amount', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'paidAmount', label: 'Total Paid', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'balanceAmount', label: 'Total Balance', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+    ]
+  },
+  {
+    id: 'fee-collection-by-course',
+    name: 'Collection by Course',
+    category: 'fees',
+    collection: 'feeAssignments',
+    requiredFilters: ['madrasa', 'status'],
+    emptyText: 'No fee data to aggregate.',
+    aggregationLogic: 'sum-by-field',
+    groupByField: 'courseId',
+    columns: [
+      { key: 'groupLabel', label: 'Course', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'count', label: 'Assignments', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'amount', label: 'Total Amount', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'paidAmount', label: 'Total Paid', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'balanceAmount', label: 'Total Balance', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+    ]
+  },
+  {
+    id: 'fee-collection-by-class',
+    name: 'Collection by Class',
+    category: 'fees',
+    collection: 'feeAssignments',
+    requiredFilters: ['madrasa', 'course', 'status'],
+    emptyText: 'No fee data to aggregate.',
+    aggregationLogic: 'sum-by-field',
+    groupByField: 'classId',
+    columns: [
+      { key: 'groupLabel', label: 'Class', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'count', label: 'Assignments', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'amount', label: 'Total Amount', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'paidAmount', label: 'Total Paid', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'balanceAmount', label: 'Total Balance', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+    ]
+  },
+  {
+    id: 'fee-collection-by-plan',
+    name: 'Collection by Fee Plan',
+    category: 'fees',
+    collection: 'feeAssignments',
+    requiredFilters: ['madrasa', 'status'],
+    emptyText: 'No fee data to aggregate.',
+    aggregationLogic: 'sum-by-field',
+    groupByField: 'feePlanId',
+    columns: [
+      { key: 'groupLabel', label: 'Fee Plan', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'count', label: 'Assignments', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'amount', label: 'Total Amount', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'paidAmount', label: 'Total Paid', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'balanceAmount', label: 'Total Balance', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+    ]
+  },
+  {
+    id: 'fee-overdue-report',
+    name: 'Fee Overdue Report',
+    category: 'fees',
+    collection: 'feeAssignments',
+    requiredFilters: ['madrasa', 'dateRange'],
+    emptyText: 'No overdue fee assignments found.',
+    columns: [
+      { key: 'studentName', label: 'Student', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'feePlanTitle', label: 'Fee Plan', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'balanceAmount', label: 'Balance', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'dueDate', label: 'Due Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'paymentStatus', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+    ]
+  },
+  {
+    id: 'fee-payment-history',
+    name: 'Fee Payment History',
+    category: 'fees',
+    collection: 'feePayments',
+    requiredFilters: ['madrasa', 'dateRange'],
+    emptyText: 'No payment records found.',
+    columns: [
+      { key: 'studentName', label: 'Student', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'feePlanTitle', label: 'Fee Plan', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'amountPaid', label: 'Amount Paid', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'paymentDate', label: 'Payment Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'paymentMethod', label: 'Method', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'receiptNumber', label: 'Receipt #', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'collectedByStaffName', label: 'Collected By', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
     ]
   },
   {
@@ -433,6 +520,6 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
       { key: 'paymentMethod', label: 'Method', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'receiptNumber', label: 'Receipt #', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
     ]
-  },
+  }
 ];
 

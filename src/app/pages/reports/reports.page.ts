@@ -3,7 +3,7 @@ import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/dr
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { ReportBuilderService, ReportState } from './services/report-builder.service';
 import { ReportExportService, PdfExportOptions } from './services/report-export.service';
 import { REPORT_DEFINITIONS } from './report-definitions';
@@ -11,6 +11,10 @@ import { ReportFieldMetadata, ReportDefinition, SavedReportTemplate } from '../.
 import { ReportExportWizardComponent } from './components/report-export-wizard.component';
 import { AddCustomColumnDialogComponent } from './components/add-custom-column-dialog.component';
 import { AddUserInputColumnDialogComponent } from './components/add-user-input-column-dialog.component';
+import { SaveReportDialogComponent } from './components/save-report-dialog.component';
+import { RepositoryService } from '../../core/services/repository.service';
+import { AuthService } from '../../core/services/auth.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-reports',
@@ -28,6 +32,41 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     { name: 'Generic Count Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'count') },
     { name: 'Activity Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'activity') }
   ].filter(group => group.configs.length > 0);
+
+  public _reportSearch = '';
+  public filteredReportGroups = this.reportGroups;
+  public savedReports: SavedReportTemplate[] = [];
+  public filteredSavedReports: SavedReportTemplate[] = [];
+
+  get reportSearch(): string {
+    return this._reportSearch;
+  }
+  
+  set reportSearch(value: string) {
+    this._reportSearch = value;
+    this.updateFilteredGroups();
+  }
+
+  private updateFilteredGroups() {
+    if (!this._reportSearch) {
+      this.filteredReportGroups = this.reportGroups;
+      this.filteredSavedReports = this.savedReports;
+      return;
+    }
+    const q = this._reportSearch.toLowerCase();
+    
+    this.filteredReportGroups = this.reportGroups.map(group => {
+      // If group name matches, return all configs in it
+      if (group.name.toLowerCase().includes(q)) {
+        return group;
+      }
+      // Otherwise filter the configs
+      const filteredConfigs = group.configs.filter(c => c.name.toLowerCase().includes(q));
+      return { ...group, configs: filteredConfigs };
+    }).filter(group => group.configs.length > 0);
+
+    this.filteredSavedReports = this.savedReports.filter(r => r.name.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q));
+  }
 
   public availableFields: ReportFieldMetadata[] = [];
   public selectedColumns: ReportFieldMetadata[] = [];
@@ -49,8 +88,34 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     public builder: ReportBuilderService,
     private exportService: ReportExportService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private repo: RepositoryService,
+    private auth: AuthService,
+    private snackBar: MatSnackBar
   ) {}
+
+  get allFilterableFields(): ReportFieldMetadata[] {
+    if (!this.state.baseDefinition) return [];
+    
+    const all = [...this.state.baseDefinition.columns];
+    const baseKeys = new Set(all.map(c => c.key));
+    
+    for (const col of this.selectedColumns) {
+      if (!baseKeys.has(col.key)) {
+        all.push(col);
+        baseKeys.add(col.key);
+      }
+    }
+    
+    for (const col of this.availableFields) {
+      if (!baseKeys.has(col.key)) {
+        all.push(col);
+        baseKeys.add(col.key);
+      }
+    }
+    
+    return all.filter(c => !c.hidden);
+  }
 
   ngOnInit() {
     this.sub.add(
@@ -62,6 +127,8 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
         this.updateAvailableFields();
       })
     );
+
+    this.loadSavedReports();
 
     // Load default report on init
     this.builder.loadReportDefinition('student-list');
@@ -75,8 +142,73 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     this.sub.unsubscribe();
   }
 
+  async loadSavedReports() {
+    const profile = await firstValueFrom(this.auth.profile$);
+    if (!profile) return;
+    this.savedReports = await this.repo.getAllOnce<SavedReportTemplate & Record<string, any>>('reports', profile) as SavedReportTemplate[];
+    this.filteredSavedReports = [...this.savedReports];
+  }
+
   public selectReport(reportId: string) {
-    this.builder.loadReportDefinition(reportId);
+    const saved = this.savedReports.find(r => r.id === reportId);
+    if (saved) {
+      this.builder.loadReportDefinition(saved.baseReportId);
+      // Wait for base to load, then apply saved state
+      setTimeout(() => {
+        this.builder.updateColumns(saved.columns);
+        this.builder.updateFilters(saved.filters || []);
+      }, 50);
+    } else {
+      this.builder.loadReportDefinition(reportId);
+    }
+  }
+
+  public openSaveReportDialog() {
+    const dialogRef = this.dialog.open(SaveReportDialogComponent, {
+      width: '400px'
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result && result.name) {
+        const profile = await firstValueFrom(this.auth.profile$);
+        if (!profile) return;
+        
+        if (!this.state.baseDefinition) {
+          this.snackBar.open('Cannot save report without a base definition.', 'Close', {duration: 3000});
+          return;
+        }
+
+        const template: any = {
+          name: result.name,
+          description: result.description || '',
+          baseReportId: this.state.baseDefinition.id,
+          category: this.state.baseDefinition.category,
+          columns: this.selectedColumns,
+          filters: this.state.filters,
+          sorting: [], // To be implemented if sorting is added to UI
+          grouping: [], // To be implemented
+          aggregations: {},
+          exportSettings: {},
+          appearance: {},
+          pageSize: 50
+        };
+
+        if (profile.madrasaId) {
+          template.madrasaId = profile.madrasaId;
+        }
+        if (profile.organizationId) {
+          template.organizationId = profile.organizationId;
+        }
+
+        try {
+          await this.repo.create('reports', template, profile);
+          this.snackBar.open('Report saved successfully', 'Close', {duration: 3000});
+          this.loadSavedReports(); // Reload list
+        } catch (error: any) {
+          this.snackBar.open('Error saving report: ' + error.message, 'Close', {duration: 5000});
+        }
+      }
+    });
   }
 
   // --- Drag and Drop Logic ---

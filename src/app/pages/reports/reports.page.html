@@ -7,7 +7,19 @@
         <h1>Report Builder</h1>
         <mat-form-field appearance="outline" class="report-selector" style="background-color: transparent;">
           <mat-select [value]="state.activeReportId" (selectionChange)="selectReport($event.value)">
-            <mat-optgroup *ngFor="let group of reportGroups" [label]="group.name">
+            <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
+              <input type="text" matInput placeholder="Search Reports..." [(ngModel)]="reportSearch" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <mat-optgroup *ngIf="filteredSavedReports && filteredSavedReports.length > 0" label="Saved Reports">
+              <mat-option *ngFor="let saved of filteredSavedReports" [value]="saved.id">
+                <div style="display: flex; flex-direction: column; line-height: normal; padding: 4px 0;">
+                  <span style="font-weight: 500;">{{ saved.name }}</span>
+                  <span style="font-size: 11px; color: #777;" *ngIf="saved.description">{{ saved.description }}</span>
+                </div>
+              </mat-option>
+            </mat-optgroup>
+            
+            <mat-optgroup *ngFor="let group of filteredReportGroups" [label]="group.name">
               <mat-option *ngFor="let config of group.configs" [value]="config.id">{{ config.name }}</mat-option>
             </mat-optgroup>
           </mat-select>
@@ -26,7 +38,7 @@
         <button mat-button (click)="visualizationMode = 'bar'" [color]="visualizationMode === 'bar' ? 'primary' : ''">
           <mat-icon>bar_chart</mat-icon> Chart
         </button>
-        <button mat-flat-button color="primary">Save Report</button>
+        <button mat-flat-button color="primary" (click)="openSaveReportDialog()">Save Report</button>
       </div>
     </header>
 
@@ -187,7 +199,8 @@
             <div class="settings-content">
               <h4>Filters</h4>
               <app-report-filter-builder 
-                 [availableFields]="availableFields"
+                 [availableFields]="allFilterableFields"
+                 [currentFilters]="state.filters"
                  (filtersApplied)="builder.updateFilters($event)">
               </app-report-filter-builder>
             </div>

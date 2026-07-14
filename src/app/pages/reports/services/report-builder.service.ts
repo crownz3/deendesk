@@ -196,10 +196,12 @@ export class ReportBuilderService {
     // 2. Computed Columns evaluation
     processed = this.evaluateComputedColumns(processed, this.state.value.columns);
 
-    // 3. Built-in Report Aggregation (for count reports)
+    // 3. Built-in Report Aggregation
     const definition = this.state.value.baseDefinition;
     if (definition?.aggregationLogic === 'count-by-field' && definition.groupByField) {
       processed = this.applyCountAggregation(processed, definition.groupByField);
+    } else if (definition?.aggregationLogic === 'sum-by-field' && definition.groupByField) {
+      processed = this.applySumAggregation(processed, definition.groupByField);
     } else {
       // 4. Dynamic Grouping and Aggregations (from UI)
       if (this.state.value.grouping.length > 0) {
@@ -214,9 +216,41 @@ export class ReportBuilderService {
   }
 
   private applyClientFilters(data: any[], filters: any): any[] {
-    // TODO: implement advanced dynamic filtering based on filter type
-    // e.g., gt, lt, between, startsWith, etc.
-    return data;
+    if (!filters || !Array.isArray(filters) || filters.length === 0) return data;
+
+    return data.filter(row => {
+      return filters.every(f => {
+        if (!f.fieldKey) return true;
+        
+        const rowValue = row[f.fieldKey];
+        const val1 = f.value1;
+        const val2 = f.value2;
+
+        const isEmpty = rowValue === undefined || rowValue === null || String(rowValue).trim() === '';
+
+        if (f.operator === 'isEmpty') return isEmpty;
+        if (f.operator === 'isNotEmpty') return !isEmpty;
+
+        if (isEmpty) {
+          return false;
+        }
+
+        switch (f.operator) {
+          case 'equals':
+            return String(rowValue).toLowerCase() === String(val1).toLowerCase();
+          case 'contains':
+            return String(rowValue).toLowerCase().includes(String(val1).toLowerCase());
+          case 'greaterThan':
+            return Number(rowValue) > Number(val1);
+          case 'lessThan':
+            return Number(rowValue) < Number(val1);
+          case 'between':
+            return Number(rowValue) >= Number(val1) && Number(rowValue) <= Number(val2);
+          default:
+            return true;
+        }
+      });
+    });
   }
 
   private resolveReferences(data: any[]): any[] {
@@ -306,6 +340,7 @@ export class ReportBuilderService {
          if (groupByField === 'madrasaId') labels.set(key, row.madrasaNameDisplay || key);
          else if (groupByField === 'courseId') labels.set(key, row.courseNameDisplay || key);
          else if (groupByField === 'classId') labels.set(key, row.classNameDisplay || key);
+         else if (groupByField === 'feePlanId') labels.set(key, row.feePlanTitle || key);
          else labels.set(key, String(key));
        }
     }
@@ -314,6 +349,47 @@ export class ReportBuilderService {
       ...firstRows.get(key),
       groupLabel: labels.get(key) || key,
       count: count
+    }));
+  }
+
+  private applySumAggregation(data: any[], groupByField: string): any[] {
+    const sums = new Map<string, { amount: number, paidAmount: number, balanceAmount: number, count: number }>();
+    const labels = new Map<string, string>();
+    const firstRows = new Map<string, any>();
+
+    for (const row of data) {
+       const key = row[groupByField] || 'Unknown';
+       
+       if (!sums.has(key)) {
+         sums.set(key, { amount: 0, paidAmount: 0, balanceAmount: 0, count: 0 });
+       }
+       
+       const currentSum = sums.get(key)!;
+       currentSum.amount += Number(row.amount || 0);
+       currentSum.paidAmount += Number(row.paidAmount || 0);
+       currentSum.balanceAmount += Number(row.balanceAmount || 0);
+       currentSum.count += 1;
+       
+       if (!firstRows.has(key)) {
+         firstRows.set(key, row);
+       }
+
+       if (!labels.has(key)) {
+         if (groupByField === 'madrasaId') labels.set(key, row.madrasaNameDisplay || key);
+         else if (groupByField === 'courseId') labels.set(key, row.courseNameDisplay || key);
+         else if (groupByField === 'classId') labels.set(key, row.classNameDisplay || key);
+         else if (groupByField === 'feePlanId') labels.set(key, row.feePlanTitle || key);
+         else labels.set(key, String(key));
+       }
+    }
+
+    return Array.from(sums.entries()).map(([key, sum]) => ({
+      ...firstRows.get(key),
+      groupLabel: labels.get(key) || key,
+      amount: sum.amount,
+      paidAmount: sum.paidAmount,
+      balanceAmount: sum.balanceAmount,
+      count: sum.count
     }));
   }
 

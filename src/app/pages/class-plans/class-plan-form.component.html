@@ -12,7 +12,10 @@
       <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
         <mat-label>Madrasa</mat-label>
         <mat-select formControlName="madrasaId">
-          <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+          <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
+            <input type="text" matInput placeholder="Search Madrasas..." [(ngModel)]="madrasaSearch" [ngModelOptions]="{standalone: true}" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+          </div>
+          <mat-option *ngFor="let m of filteredMadrasas" [value]="m.id">{{ m['name'] }}</mat-option>
         </mat-select>
       </mat-form-field>
 

@@ -25,6 +25,9 @@ export class DataTableComponent {
   @Input() allowDelete = false;
   @Input() allowTransfer = false;
   @Input() allowSwap: boolean = false;
+  @Input() allowAssignStudents: boolean = false;
+  @Input() allowAssignStaff: boolean = false;
+  @Input() allowImpersonate = false;
   @Input() generatedCredentials: Record<string, any> = {};
   @Input() currentUid?: string;
 
@@ -38,7 +41,10 @@ export class DataTableComponent {
   @Output() viewDetails = new EventEmitter<EntityRecord>();
   @Output() permanentlyDelete = new EventEmitter<EntityRecord>();
   @Output() transfer = new EventEmitter<EntityRecord>();
+  @Output() assignStudents = new EventEmitter<EntityRecord>();
+  @Output() assignStaff = new EventEmitter<EntityRecord>();
   @Output() emptyAction = new EventEmitter<void>();
+  @Output() impersonate = new EventEmitter<any>();
 
   constructor(private snackBar: MatSnackBar) {}
 

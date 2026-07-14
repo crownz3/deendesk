@@ -916,3 +916,33 @@ export const bulkDeleteData = functions.https.onCall(async (data, context) => {
 
   return { results, totalDocs, totalAuth, timeTakenMs };
 });
+
+export const impersonateUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+  }
+
+  const callerUid = context.auth.uid;
+  const callerDoc = await db.collection("users").doc(callerUid).get();
+
+  if (!callerDoc.exists || callerDoc.data()?.["role"] !== "superAdmin") {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only Super Admin can impersonate users."
+    );
+  }
+
+  const { targetUid } = data;
+
+  if (!targetUid) {
+    throw new functions.https.HttpsError("invalid-argument", "Missing target user ID.");
+  }
+
+  try {
+    const customToken = await admin.auth().createCustomToken(targetUid);
+    return { token: customToken };
+  } catch (error) {
+    console.error("[impersonateUser] Error generating custom token:", error);
+    throw new functions.https.HttpsError("internal", "Failed to generate custom token.");
+  }
+});
