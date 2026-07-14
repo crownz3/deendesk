@@ -19,6 +19,11 @@ interface NavItem {
   roleRequired?: UserRole;
 }
 
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
 @Component({
   selector: 'app-root',
   templateUrl: 'app.component.html',
@@ -33,33 +38,82 @@ export class AppComponent {
     map(() => this.router.url.startsWith('/login') || this.router.url.startsWith('/continue') || this.router.url.startsWith('/change-password')),
   );
 
-  readonly navItems: NavItem[] = [
-    { label: 'Dashboard', route: '/dashboard', icon: 'grid-outline', permission: 'viewDashboard' },
-    { label: 'Organizations', route: '/organizations', icon: 'business-outline', permission: 'manageOrganizations', roleRequired: 'superAdmin' },
-    { label: 'Madrasas', route: '/madrasas', icon: 'school-outline', permission: 'manageMadrasas' },
-    { label: 'Users', route: '/users', icon: 'people-outline', permission: 'manageUsers' },
-    { label: 'Roles', route: '/roles-permissions', icon: 'shield-checkmark-outline', permission: 'managePermissions' },
-    { label: 'Coordinators', route: '/coordinators', icon: 'git-network-outline', permission: 'manageCoordinators' },
-    { label: 'Incharges', route: '/madrasa-incharges', icon: 'person-circle-outline', permission: 'manageIncharges' },
-    { label: 'Staff', route: '/staff', icon: 'briefcase-outline', permission: 'manageStaff' },
-    { label: 'Students', route: '/students', icon: 'person-outline', permission: 'manageStudents' },
-    { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permission: 'manageParents' },
-    { label: 'Courses', route: '/courses', icon: 'library-outline', permission: 'manageCourses' },
-    { label: 'Classes', route: '/classes', icon: 'easel-outline', permission: 'manageClasses' },
-    { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permission: 'manageClasses' },
-    { label: 'Subjects', route: '/subjects', icon: 'book-outline', permission: 'manageSubjects' },
-    { label: 'Class Plans', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] },
-    { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
-    { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
-    { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees', 'viewFees'] },
-    { label: 'CSV Imports', route: '/csv-imports', icon: 'cloud-upload-outline', permission: 'importCsv' },
-    { label: 'Academic Tree', route: '/academic-tree', icon: 'git-branch-outline', permissionsAny: ['viewDashboard', 'manageAcademicPlans'] },
-    { label: 'Password Requests', route: '/password-requests', icon: 'lock-open-outline', permission: 'managePasswordRequests' },
-    { label: 'Notifications', route: '/notifications', icon: 'notifications-outline' },
-    { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', permissionsAny: ['manageOrganizations'] }, // Roughly maps to org admin/super admin
-    { label: 'Profile', route: '/profile', icon: 'person-circle-outline', permission: 'editProfile' },
-    { label: 'Settings', route: '/settings', icon: 'settings-outline', permission: 'manageSettings' },
+  readonly navGroups: NavGroup[] = [
+    {
+      label: 'Overview',
+      items: [
+        { label: 'Dashboard', route: '/dashboard', icon: 'grid-outline', permission: 'viewDashboard' },
+        { label: 'Notifications', route: '/notifications', icon: 'notifications-outline' },
+        { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', permissionsAny: ['manageOrganizations'] },
+      ]
+    },
+    {
+      label: 'Administration',
+      items: [
+        { label: 'Organizations', route: '/organizations', icon: 'business-outline', permission: 'manageOrganizations', roleRequired: 'superAdmin' },
+        { label: 'Madrasas', route: '/madrasas', icon: 'school-outline', permission: 'manageMadrasas' },
+        { label: 'Roles', route: '/roles-permissions', icon: 'shield-checkmark-outline', permission: 'managePermissions' },
+        { label: 'Users', route: '/users', icon: 'people-outline', permission: 'manageUsers' },
+      ]
+    },
+    {
+      label: 'People',
+      items: [
+        { label: 'Coordinators', route: '/coordinators', icon: 'git-network-outline', permission: 'manageCoordinators' },
+        { label: 'Incharges', route: '/madrasa-incharges', icon: 'person-circle-outline', permission: 'manageIncharges' },
+        { label: 'Staff', route: '/staff', icon: 'briefcase-outline', permission: 'manageStaff' },
+        { label: 'Students', route: '/students', icon: 'person-outline', permission: 'manageStudents' },
+        { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permission: 'manageParents' },
+      ]
+    },
+    {
+      label: 'Academics',
+      items: [
+        { label: 'Courses', route: '/courses', icon: 'library-outline', permission: 'manageCourses' },
+        { label: 'Classes', route: '/classes', icon: 'easel-outline', permission: 'manageClasses' },
+        { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permission: 'manageClasses' },
+        { label: 'Subjects', route: '/subjects', icon: 'book-outline', permission: 'manageSubjects' },
+        { label: 'Class Plans', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] },
+        { label: 'Academic Tree', route: '/academic-tree', icon: 'git-branch-outline', permissionsAny: ['viewDashboard', 'manageAcademicPlans'] },
+      ]
+    },
+    {
+      label: 'Operations',
+      items: [
+        { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
+        { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees', 'viewFees'] },
+        { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
+        { label: 'CSV Imports', route: '/csv-imports', icon: 'cloud-upload-outline', permission: 'importCsv' },
+        { label: 'Password Requests', route: '/password-requests', icon: 'lock-open-outline', permission: 'managePasswordRequests' },
+      ]
+    },
+    {
+      label: 'Account',
+      items: [
+        { label: 'Profile', route: '/profile', icon: 'person-circle-outline', permission: 'editProfile' },
+        { label: 'Settings', route: '/settings', icon: 'settings-outline', permission: 'manageSettings' },
+      ]
+    }
   ];
+
+  readonly searchQuery$ = new BehaviorSubject<string>('');
+
+  readonly filteredNavGroups$: Observable<NavGroup[]> = combineLatest([
+    this.profile$,
+    this.searchQuery$
+  ]).pipe(
+    map(([profile, query]) => {
+      const lowerQuery = query.toLowerCase();
+      return this.navGroups.map(group => {
+        return {
+          ...group,
+          items: group.items.filter(item => 
+            this.visible(item, profile) && item.label.toLowerCase().includes(lowerQuery)
+          )
+        };
+      }).filter(group => group.items.length > 0);
+    })
+  );
 
   constructor(
     private readonly auth: AuthService,

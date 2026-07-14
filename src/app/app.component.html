@@ -23,13 +23,30 @@
           </div>
 
           <ion-list class="menu-list" *ngIf="profile$ | async as profile">
-            <ng-container *ngFor="let item of navItems">
-              <ion-menu-toggle auto-hide="false" *ngIf="visible(item, profile)">
-                <ion-item class="menu-item" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
-                  <ion-icon slot="start" [name]="item.icon"></ion-icon>
-                  <ion-label>{{ item.label }}</ion-label>
-                </ion-item>
-              </ion-menu-toggle>
+            <!-- Search bar styled like a menu item -->
+            <ion-item class="menu-item search-item" lines="none">
+              <ion-icon slot="start" name="search-outline"></ion-icon>
+              <ion-input
+                placeholder="Search menu..."
+                [ngModel]="searchQuery$ | async"
+                (ngModelChange)="searchQuery$.next($event)"
+                clearInput="true"
+              ></ion-input>
+            </ion-item>
+
+            <ng-container *ngFor="let group of filteredNavGroups$ | async">
+              <ion-item-divider class="menu-divider" sticky="true">
+                <ion-label>{{ group.label }}</ion-label>
+              </ion-item-divider>
+
+              <ng-container *ngFor="let item of group.items">
+                <ion-menu-toggle auto-hide="false">
+                  <ion-item class="menu-item" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
+                    <ion-icon slot="start" [name]="item.icon"></ion-icon>
+                    <ion-label>{{ item.label }}</ion-label>
+                  </ion-item>
+                </ion-menu-toggle>
+              </ng-container>
             </ng-container>
           </ion-list>
         </ion-content>

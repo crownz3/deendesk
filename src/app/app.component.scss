@@ -82,6 +82,26 @@ ion-menu ion-content {
   padding: 14px 12px 24px;
 }
 
+.menu-divider {
+  --background: transparent;
+  --padding-start: 14px;
+  --padding-bottom: 4px;
+  --padding-top: 16px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  color: var(--app-text-muted);
+  border: none;
+  opacity: 0.8;
+}
+
+.search-item {
+  margin-bottom: 8px;
+  --background: rgba(0, 0, 0, 0.03);
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
+}
+
 .menu-item {
   --background: transparent;
   --color: var(--app-text-muted);
