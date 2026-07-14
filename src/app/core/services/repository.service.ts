@@ -342,6 +342,18 @@ export class RepositoryService {
   async remove(collectionName: string, id: string): Promise<void> {
     console.log(`[Firestore Write - DELETE] collection=${collectionName}, targetId=${id}`);
     
+    let targetName = '';
+    try {
+      const docRef = doc(this.firestore, `${collectionName}/${id}`);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data();
+        targetName = String(data['name'] || data['displayName'] || data['email'] || '');
+      }
+    } catch (e) {
+      console.error('Failed to fetch doc for delete audit log', e);
+    }
+    
     if (collectionName === 'classGroups') {
       const groupDoc = await getDoc(doc(this.firestore, `${collectionName}/${id}`));
       const groupData = groupDoc.data();
@@ -410,6 +422,7 @@ export class RepositoryService {
       module: collectionName,
       action: 'Delete',
       targetId: id,
+      targetName: targetName || undefined,
       status: 'success'
     });
   }
