@@ -86,7 +86,10 @@
           <ng-container matColumnDef="target">
             <th mat-header-cell *matHeaderCellDef>Target</th>
             <td mat-cell *matCellDef="let log">
-              {{ log.targetName }}
+              <span *ngIf="log.targetName">{{ log.targetName }}</span>
+              <span *ngIf="!log.targetName && log.targetId">
+                {{ log.targetId | resolveName: getResolvableType(log.module) | async }}
+              </span>
               <div class="text-muted text-xs" *ngIf="log.targetId">{{ log.targetId }}</div>
               <div class="text-xs text-primary mt-1" *ngIf="log.message && log.status === 'success'" style="color: var(--ion-color-primary, #3880ff); font-weight: 500;">
                 {{ log.message }}

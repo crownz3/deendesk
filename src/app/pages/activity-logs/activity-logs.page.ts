@@ -119,7 +119,7 @@ export class ActivityLogsPage implements OnInit {
   async exportLogs(): Promise<void> {
     const filters = this.filterForm.value;
     if (!filters.startDate || !filters.endDate) {
-      this.snackBar.open('Please select a Date Range (Start and End Date) before exporting.', 'Close', { duration: 5000 });
+      this.snackBar.open('Please select a Date Range (Start & End Date) to export logs', 'Close', { duration: 4000 });
       return;
     }
     
@@ -145,5 +145,20 @@ export class ActivityLogsPage implements OnInit {
     } catch (e) {
       this.snackBar.open('Failed to export logs', 'Close', { duration: 3000 });
     }
+  }
+
+  getResolvableType(module: string): any {
+    const map: { [key: string]: string } = {
+      'organizations': 'organization',
+      'madrasas': 'madrasa',
+      'users': 'user',
+      'staff': 'staff',
+      'courses': 'course',
+      'classes': 'class',
+      'classGroups': 'classGroup',
+      'subjects': 'subject',
+      'students': 'student'
+    };
+    return map[module] || 'user';
   }
 }
