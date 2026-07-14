@@ -244,3 +244,111 @@ mat-dialog-content {
   border-top: 1px solid #dde8e3;
   margin: 0;
 }
+
+.success-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #e8f5e9;
+  border: 1px solid #a5d6a7;
+  color: #2e7d32;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  font-size: 14px;
+}
+
+.transfer-item-wrapper {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 4px;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-icon.transfer-icon {
+  font-size: 24px;
+  cursor: pointer;
+  color: #1565c0;
+  &:hover { color: #0d47a1; }
+}
+
+.transfer-dropdown {
+  background: #fff;
+  border: 1px solid #c8d8d2;
+  border-radius: 8px;
+  margin: 4px 0 8px 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  overflow: hidden;
+  z-index: 100;
+
+  .transfer-dropdown-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #f5f8f7;
+    border-bottom: 1px solid #e0ece8;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0c4d36;
+
+    input {
+      flex: 1;
+      border: 1px solid #c8d8d2;
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 13px;
+      outline: none;
+      &:focus { border-color: #0c4d36; }
+    }
+  }
+
+  .transfer-dropdown-list {
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .transfer-dropdown-empty {
+    padding: 12px 16px;
+    color: #8a9e99;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .transfer-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid #f0f5f3;
+
+    &:hover { background: #e8f5ee; }
+
+    mat-icon {
+      color: #0c4d36;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .group-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1a2b26;
+    }
+
+    .group-meta {
+      font-size: 11px;
+      color: #60726d;
+      margin-top: 1px;
+    }
+  }
+}
+

@@ -25,9 +25,16 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   availableStudents: any[] = [];
   selectedStudents: any[] = [];
   originalSelectedIds = new Set<string>();
+
+  // Transfer feature
+  allGroups: any[] = [];
+  transferMenuStudentId: string | null = null;
+  isTransferring = false;
+  transferSearch = '';
   
   isSaving = false;
   errorMsg = '';
+  successMsg = '';;
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: AssignStudentsDialogData,
@@ -38,33 +45,9 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.node = this.data?.node;
-    const all = this.data?.allStudents || [];
     
-    const incomingAssigned = (Array.isArray(this.data?.assignedStudents) ? this.data.assignedStudents : []).filter((user: any) => this.isStudentUser(user));
-    const incomingAvailable = (Array.isArray(this.data?.availableStudents) ? this.data.availableStudents : []).filter((user: any) => this.isStudentUser(user));
-    const allStudents = (this.data?.allStudents || []).filter((user: any) => this.isStudentUser(user));
-
-    this.selectedStudents = this.uniqueUsers(incomingAssigned);
-    this.availableStudents = this.uniqueUsers(
-      incomingAvailable.filter((student: any) => !this.isAlreadySelected(student))
-    );
-
-    console.log('[Assign Students Dialog Role Filter Debug]', {
-      incomingAssignedCount: this.data?.assignedStudents?.length || 0,
-      incomingAvailableCount: this.data?.availableStudents?.length || 0,
-      filteredAssignedCount: this.selectedStudents.length,
-      filteredAvailableCount: this.availableStudents.length,
-      invalidIncomingAssigned: (this.data?.assignedStudents || []).filter((user: any) => !this.isStudentUser(user)).map((user: any) => ({
-        id: user.id || user.uid,
-        role: user.role,
-        name: user.name || user.displayName
-      })),
-      invalidIncomingAvailable: (this.data?.availableStudents || []).filter((user: any) => !this.isStudentUser(user)).map((user: any) => ({
-        id: user.id || user.uid,
-        role: user.role,
-        name: user.name || user.displayName
-      })),
-    });
+    const incomingAssigned = Array.isArray(this.data?.assignedStudents) ? this.data.assignedStudents : [];
+    const incomingAvailable = Array.isArray(this.data?.availableStudents) ? this.data.availableStudents : [];
 
     this.selectedStudents = this.uniqueUsers(incomingAssigned);
     this.availableStudents = this.uniqueUsers(
@@ -77,21 +60,25 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       if (id) this.originalSelectedIds.add(id);
     });
 
-    console.log('[Assign Students Dialog Init Debug]', {
-      mode: this.data?.mode,
-      classId: this.node?.id,
-      className: this.node?.title,
-      parentCourseId: this.node?.parentCourseId,
-      parentCourseName: this.node?.parentCourseName,
-      incomingAssignedCount: incomingAssigned.length,
-      selectedStudentsCount: this.selectedStudents.length,
-      incomingAvailableCount: incomingAvailable.length,
-      availableStudentsCount: this.availableStudents.length,
-      selectedStudentIds: this.selectedStudents.map(student => this.getUserId(student)),
-    });
+    this.loadTransferTargets();
   }
 
-  private getUserId(user: any): string {
+  async loadTransferTargets() {
+    try {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const groups = await this.repo.getAllOnce<any>('classGroups', profile);
+      const classes = await this.repo.getAllOnce<any>('classes', profile);
+      // Combine groups and classes, exclude current node
+      this.allGroups = [
+        ...groups.filter((g: any) => g.id !== this.node?.id).map((g: any) => ({ ...g, _type: 'classGroup' })),
+        ...classes.filter((c: any) => c.id !== this.node?.id).map((c: any) => ({ ...c, _type: 'class' }))
+      ];
+    } catch (e) {
+      // Transfer targets not critical
+    }
+  }
+
+  public getUserId(user: any): string {
     return user?.id || user?.uid || user?.docId || '';
   }
 
@@ -159,6 +146,52 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.selectedStudents = this.selectedStudents.filter(item => this.getUserId(item) !== this.getUserId(student));
   }
 
+  toggleTransferMenu(studentId: string): void {
+    this.transferMenuStudentId = this.transferMenuStudentId === studentId ? null : studentId;
+    this.transferSearch = '';
+  }
+
+  get filteredTransferGroups(): any[] {
+    if (!this.transferSearch) return this.allGroups;
+    const q = this.transferSearch.toLowerCase();
+    return this.allGroups.filter(g => (g.name || '').toLowerCase().includes(q));
+  }
+
+  async transferStudent(student: any, targetGroup: any): Promise<void> {
+    this.transferMenuStudentId = null;
+    this.isTransferring = true;
+    this.errorMsg = '';
+    try {
+      const userProfile = await firstValueFrom(this.auth.profile$);
+      const targetType = targetGroup._type;
+      let patch: any = {};
+      if (targetType === 'classGroup') {
+        patch = {
+          groupId: targetGroup.id,
+          groupName: targetGroup.name || '',
+          classId: targetGroup.classId || null,
+          className: targetGroup.className || null,
+        };
+      } else {
+        patch = {
+          classId: targetGroup.id,
+          className: targetGroup.name || '',
+          groupId: null,
+          groupName: null,
+        };
+      }
+      await this.repo.update('students', this.getUserId(student), patch, userProfile);
+      // Remove from selected list (they are now assigned elsewhere)
+      this.selectedStudents = this.selectedStudents.filter(s => this.getUserId(s) !== this.getUserId(student));
+      this.successMsg = `${student.name || 'Student'} transferred to ${targetGroup.name || 'target'}.`;
+      setTimeout(() => this.successMsg = '', 3000);
+    } catch (e: any) {
+      this.errorMsg = e?.message || 'Transfer failed.';
+    } finally {
+      this.isTransferring = false;
+    }
+  }
+
   addAll(): void {
     const validStudents = this.availableStudents.filter((user: any) => this.isStudentUser(user));
     this.selectedStudents = this.uniqueUsers([...this.selectedStudents, ...validStudents]);
@@ -175,20 +208,6 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.errorMsg = '';
     const user = await firstValueFrom(this.auth.profile$);
 
-    this.selectedStudents = this.selectedStudents.filter((u: any) => this.isStudentUser(u));
-
-    const invalidSelected = this.selectedStudents.filter((u: any) => !this.isStudentUser(u));
-    if (invalidSelected.length) {
-      console.error('[Blocked Save Invalid Student Dialog Roles]', {
-        invalidSelected: invalidSelected.map((u: any) => ({
-          id: u.id || u.uid,
-          role: u.role,
-          name: u.name || u.displayName
-        }))
-      });
-      return;
-    }
-
     const selectedIds = new Set(this.selectedStudents.map(student => this.getUserId(student)));
 
     const addedStudents = this.selectedStudents.filter(student => !this.originalSelectedIds.has(this.getUserId(student)));
@@ -197,16 +216,6 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     const removedStudents = allStudents.filter((student: any) => {
       const id = this.getUserId(student);
       return this.originalSelectedIds.has(id) && !selectedIds.has(id);
-    });
-
-    console.log('[Assign Students Save Diff Debug]', {
-      classId: this.node?.id,
-      originalAssignedCount: this.originalSelectedIds.size,
-      selectedCount: this.selectedStudents.length,
-      addedCount: addedStudents.length,
-      removedCount: removedStudents.length,
-      addedIds: addedStudents.map(student => this.getUserId(student)),
-      removedIds: removedStudents.map(student => this.getUserId(student)),
     });
 
     try {
@@ -230,7 +239,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
           };
         }
         if (Object.keys(patch).length > 0) {
-          await this.repo.update('users', this.getUserId(student), patch, user);
+          await this.repo.update('students', this.getUserId(student), patch, user);
         }
       }
 
@@ -248,7 +257,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         }
         
         if (Object.keys(patch).length > 0) {
-          await this.repo.update('users', this.getUserId(student), patch, user);
+          await this.repo.update('students', this.getUserId(student), patch, user);
         }
       }
 

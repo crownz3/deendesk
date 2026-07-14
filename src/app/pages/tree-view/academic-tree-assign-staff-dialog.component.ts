@@ -23,6 +23,14 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   node: any;
   availableUsers: any[] = [];
   selectedUsers: any[] = [];
+  originalSelectedIds = new Set<string>();
+
+  // Transfer feature
+  allGroups: any[] = [];
+  transferMenuUserId: string | null = null;
+  isTransferring = false;
+  transferSearch = '';
+  successMsg = '';
   
   isSaving = false;
   errorMsg = '';
@@ -37,33 +45,36 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   ngOnInit(): void {
     this.node = this.data.node;
     
-    const incomingAssigned = (this.data.assignedStaff || []).filter((user: any) => this.isStaffUser(user));
-    const incomingAvailable = (this.data.availableStaff || []).filter((user: any) => this.isStaffUser(user));
+    const incomingAssigned = this.data.assignedStaff || [];
+    const incomingAvailable = this.data.availableStaff || [];
 
     this.selectedUsers = this.uniqueUsers(incomingAssigned);
     this.availableUsers = this.uniqueUsers(
       incomingAvailable.filter((staff: any) => !this.isAlreadySelected(staff))
     );
 
-    console.log('[Assign Staff Dialog Role Filter Debug]', {
-      incomingAssignedCount: this.data.assignedStaff?.length || 0,
-      incomingAvailableCount: this.data.availableStaff?.length || 0,
-      filteredAssignedCount: this.selectedUsers.length,
-      filteredAvailableCount: this.availableUsers.length,
-      invalidIncomingAssigned: (this.data.assignedStaff || []).filter((user: any) => !this.isStaffUser(user)).map((user: any) => ({
-        id: user.id || user.uid,
-        role: user.role,
-        name: user.name || user.displayName
-      })),
-      invalidIncomingAvailable: (this.data.availableStaff || []).filter((user: any) => !this.isStaffUser(user)).map((user: any) => ({
-        id: user.id || user.uid,
-        role: user.role,
-        name: user.name || user.displayName
-      })),
+    this.originalSelectedIds = new Set();
+    this.selectedUsers.forEach(staff => {
+      const id = this.getUserId(staff);
+      if (id) this.originalSelectedIds.add(id);
     });
+
+    this.loadTransferTargets();
   }
 
-  private getUserId(user: any): string {
+  async loadTransferTargets() {
+    try {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const groups = await this.repo.getAllOnce<any>('classGroups', profile);
+      this.allGroups = groups
+        .filter((g: any) => g.id !== this.node?.id)
+        .map((g: any) => ({ ...g, _type: 'classGroup' }));
+    } catch (e) {
+      // Transfer targets not critical
+    }
+  }
+
+  public getUserId(user: any): string {
     return user?.id || user?.uid || user?.docId || '';
   }
 
@@ -138,6 +149,53 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   removeAll() {
     this.availableUsers.push(...this.selectedUsers);
     this.selectedUsers = [];
+  }
+
+  removeStaff(staff: any): void {
+    if (!staff) return;
+    this.availableUsers = [...this.availableUsers, staff];
+    this.selectedUsers = this.selectedUsers.filter(u => this.getUserId(u) !== this.getUserId(staff));
+  }
+
+  toggleTransferMenu(userId: string): void {
+    this.transferMenuUserId = this.transferMenuUserId === userId ? null : userId;
+    this.transferSearch = '';
+  }
+
+  get filteredTransferGroups(): any[] {
+    if (!this.transferSearch) return this.allGroups;
+    const q = this.transferSearch.toLowerCase();
+    return this.allGroups.filter(g => (g.name || '').toLowerCase().includes(q));
+  }
+
+  async transferStaff(staff: any, targetGroup: any): Promise<void> {
+    this.transferMenuUserId = null;
+    this.isTransferring = true;
+    this.errorMsg = '';
+    try {
+      const userProfile = await firstValueFrom(this.auth.profile$);
+      const staffId = this.getUserId(staff);
+      // Remove from current group
+      const currentIds: string[] = Array.isArray(this.node?.assignedStaff)
+        ? this.node.assignedStaff.map((s: any) => this.getUserId(s))
+        : [];
+      const newCurrentIds = currentIds.filter(id => id !== staffId);
+      await this.repo.update('classGroups', this.node.id, { assignedStaffIds: newCurrentIds }, userProfile);
+      // Add to target group
+      const targetAssignedIds: string[] = Array.isArray(targetGroup.assignedStaffIds)
+        ? [...targetGroup.assignedStaffIds]
+        : [];
+      if (!targetAssignedIds.includes(staffId)) targetAssignedIds.push(staffId);
+      await this.repo.update('classGroups', targetGroup.id, { assignedStaffIds: targetAssignedIds }, userProfile);
+      // Remove from selected list
+      this.selectedUsers = this.selectedUsers.filter(u => this.getUserId(u) !== staffId);
+      this.successMsg = `${staff.name || 'Staff'} transferred to ${targetGroup.name || 'target'}.`;
+      setTimeout(() => this.successMsg = '', 3000);
+    } catch (e: any) {
+      this.errorMsg = e?.message || 'Transfer failed.';
+    } finally {
+      this.isTransferring = false;
+    }
   }
 
   async save() {

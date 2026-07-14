@@ -1633,8 +1633,8 @@ export class ManagementPage {
     if (config.resource !== 'classGroups' && config.resource !== 'classes') return;
     
     await this.loader.withLoader('Loading students...', async () => {
-      const users = await this.repo.getAllOnce<EntityRecord>('users', null);
-      const allStudents = users.filter((u: any) => u['role'] === 'student');
+      const profile = await firstValueFrom(this.auth.profile$);
+      const allStudents = await this.repo.getAllOnce<EntityRecord>('students', profile);
       
       let assignedStudents: any[] = [];
       let nodeType = '';
