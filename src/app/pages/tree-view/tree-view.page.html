@@ -170,6 +170,7 @@
                         <ion-icon [name]="getIconForType(node.type)"></ion-icon>
                       </div>
                       <h3 class="node-title">{{ node.title }}</h3>
+                      <span class="type-badge">{{ node.type === 'classGroup' ? 'Group' : (node.type | titlecase) }}</span>
                       <span class="status-badge" *ngIf="node.raw?.status === 'inactive'">INACTIVE</span>
                       <span class="status-badge active" *ngIf="node.raw?.status !== 'inactive'">ACTIVE</span>
                       <span class="default-badge" *ngIf="node.isDefaultGroup">[Default]</span>

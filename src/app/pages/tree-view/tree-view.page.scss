@@ -215,6 +215,13 @@
     margin:0; font-size:13px; font-weight:600; color:#1e2535;
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
+  .type-badge {
+    font-size:10px; font-weight:700; padding:1px 6px;
+    border-radius:6px; letter-spacing:.3px; flex-shrink:0;
+    background:var(--ion-color-light); color:var(--ion-color-dark);
+    text-transform: uppercase;
+    border: 1px solid var(--app-border);
+  }
   .status-badge {
     font-size:9px; font-weight:700; padding:1px 6px;
     border-radius:20px; letter-spacing:.4px; flex-shrink:0;
