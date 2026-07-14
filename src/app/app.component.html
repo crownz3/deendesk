@@ -11,17 +11,16 @@
       <ion-menu contentId="main-content" [type]="menuType$ | async" class="app-sidebar"
                 (ionWillOpen)="onMenuWillOpen()"
                 (ionDidClose)="onMenuDidClose()">
-        <ion-content>
-          <div class="menu-header">
-            <div class="app-logo">
-              <img src="assets/images/deendesk-logo.png" alt="Deen Desk Logo" class="sidebar-logo-img" />
-            </div>
-            <div>
-              <h2 class="app-name">Deen Desk</h2>
-              <p class="app-subtitle">Madrasa Management</p>
-            </div>
+        <div class="menu-header">
+          <div class="app-logo">
+            <img src="assets/images/deendesk-logo.png" alt="Deen Desk Logo" class="sidebar-logo-img" />
           </div>
-
+          <div>
+            <h2 class="app-name">Deen Desk</h2>
+            <p class="app-subtitle">Madrasa Management</p>
+          </div>
+        </div>
+        <ion-content>
           <ion-list class="menu-list" *ngIf="profile$ | async as profile">
             <!-- Search bar styled like a menu item -->
             <ion-item class="menu-item search-item" lines="none">
