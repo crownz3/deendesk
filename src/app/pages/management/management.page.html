@@ -251,7 +251,6 @@
         </div>
 
           <mat-paginator
-            *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(vm.config.resource)"
             class="table-paginator"
             [length]="vm.totalItems"
             [pageSize]="pageSize$ | async"
