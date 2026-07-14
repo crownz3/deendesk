@@ -1499,6 +1499,46 @@ export class ManagementPage {
     }
   }
 
+  async bulkDelete(config: ManagementConfig, rows: EntityRecord[], dataTable: any): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Delete ${rows.length} ${config.title}`,
+        message: `Are you sure you want to permanently delete ${rows.length} records? This action cannot be undone.`,
+        confirmLabel: 'Delete All',
+        confirmColor: 'warn'
+      },
+    }).afterClosed());
+
+    if (confirmed) {
+      await this.loader.withLoader(`Deleting ${rows.length} records...`, async () => {
+        let successCount = 0;
+        let failCount = 0;
+        await Promise.all(rows.map(async (row) => {
+          if (row.id) {
+            try {
+              await this.repo.remove(config.collection, row.id);
+              if (config.collection !== 'users' && row['userId']) {
+                await this.repo.remove('users', String(row['userId'])).catch(() => {});
+              }
+              if (config.collection === 'users' && row['entityId'] && row['entityType']) {
+                await this.repo.remove(String(row['entityType']) + 's', String(row['entityId'])).catch(() => {});
+              }
+              successCount++;
+            } catch (e) {
+              failCount++;
+            }
+          }
+        }));
+        if (failCount > 0) {
+          this.snackBar.open(`Deleted ${successCount} records. Failed to delete ${failCount}.`, 'Close', { duration: 5000 });
+        } else {
+          this.snackBar.open(`${successCount} records permanently deleted.`, 'Close', { duration: 4000 });
+        }
+      });
+      dataTable.selection.clear();
+    }
+  }
+
   async permanentlyDelete(config: ManagementConfig, row: EntityRecord): Promise<void> {
     const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
       data: {

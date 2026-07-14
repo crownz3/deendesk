@@ -142,18 +142,11 @@
     width: 100%;
     
     ::ng-deep .mat-mdc-header-cell, ::ng-deep th.mat-header-cell {
-      background-color: #fafafa;
-      color: #333;
-      font-weight: 600;
-      font-size: 13px;
-      border-bottom: 2px solid #eee;
       text-align: center !important;
       justify-content: center;
     }
     
     ::ng-deep .mat-mdc-cell, ::ng-deep td.mat-cell {
-      font-size: 14px;
-      color: #555;
       text-align: center !important;
       justify-content: center;
     }

@@ -516,3 +516,59 @@ select:-webkit-autofill {
     flex-direction: column !important;
   }
 }
+
+/* =====================================================
+   Global Modern Table UI
+   ===================================================== */
+.mat-mdc-table, table.mat-table {
+  width: 100%;
+  background: #ffffff;
+  border-collapse: separate !important;
+  border-spacing: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important;
+  border: 1px solid var(--app-border, #e0e0e0) !important;
+
+  /* Header Cells */
+  .mat-mdc-header-cell, th.mat-header-cell {
+    background-color: #f0f7ff !important; /* Soft blue background */
+    color: #1e3a8a !important; /* Deep blue text for contrast */
+    font-weight: 700 !important;
+    font-size: 13px !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 16px 20px !important;
+    border-bottom: 2px solid #dbeafe !important;
+    border-top: none !important;
+    
+    /* Ensure sorting arrows align nicely */
+    .mat-sort-header-container {
+      justify-content: inherit;
+    }
+  }
+
+  /* Data Rows */
+  .mat-mdc-row, tr.mat-row, .mat-mdc-header-row, tr.mat-header-row {
+    transition: background-color 0.2s ease, transform 0.2s ease;
+  }
+
+  .mat-mdc-row:hover, tr.mat-row:hover {
+    background-color: #f1f5f9 !important; /* Soft blue/grey hover */
+  }
+
+  /* Data Cells */
+  .mat-mdc-cell, td.mat-cell {
+    padding: 14px 20px !important;
+    font-size: 14px !important;
+    color: #334155 !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    vertical-align: middle;
+  }
+
+  /* Remove bottom border from last row */
+  .mat-mdc-row:last-child .mat-mdc-cell,
+  tr.mat-row:last-child td.mat-cell {
+    border-bottom: none !important;
+  }
+}

@@ -73,6 +73,16 @@
           </button>
 
           <button
+            *ngIf="dataTable?.selection?.selected?.length && vm.config.resource === 'users' && (vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin')"
+            mat-stroked-button
+            color="warn"
+            type="button"
+            (click)="bulkDelete(vm.config, dataTable.selection.selected, dataTable)">
+            <ion-icon name="close-circle-outline"></ion-icon>
+            Delete ({{ dataTable.selection.selected.length }})
+          </button>
+
+          <button
             *ngIf="vm.config.collection === 'organizations' && vm.rows.length > 0"
             mat-stroked-button
             type="button"

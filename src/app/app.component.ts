@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { Observable, filter, map, startWith } from 'rxjs';
+import { BehaviorSubject, Observable, combineLatest, filter, map, startWith } from 'rxjs';
 import { PermissionKey, UserRole } from './core/models/domain.model';
 import { AppUser } from './core/models/domain.model';
 import { AuthService } from './core/services/auth.service';
