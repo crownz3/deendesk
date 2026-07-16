@@ -1,9 +1,11 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnChanges, AfterViewInit, ViewChild, SimpleChanges } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { TableColumn } from '../../../core/models/domain.model';
 import { ROLE_LABELS } from '../../../core/constants/defaults';
 import { EntityRecord } from '../../../core/services/repository.service';
 import { SelectionModel } from '@angular/cdk/collections';
+import { MatTableDataSource } from '@angular/material/table';
+import { MatSort } from '@angular/material/sort';
 
 @Component({
   selector: 'app-data-table',
@@ -11,7 +13,7 @@ import { SelectionModel } from '@angular/cdk/collections';
   styleUrls: ['./data-table.component.scss'],
   standalone: false,
 })
-export class DataTableComponent {
+export class DataTableComponent implements OnChanges, AfterViewInit {
   @Input() columns: TableColumn[] = [];
   @Input() rows: EntityRecord[] = [];
   @Input() emptyTitle = 'No data found';
@@ -46,9 +48,39 @@ export class DataTableComponent {
   @Output() emptyAction = new EventEmitter<void>();
   @Output() impersonate = new EventEmitter<any>();
 
+  @ViewChild(MatSort) sort!: MatSort;
+
+  dataSource = new MatTableDataSource<EntityRecord>();
+  selection = new SelectionModel<EntityRecord>(true, []);
+
   constructor(private snackBar: MatSnackBar) {}
 
-  selection = new SelectionModel<EntityRecord>(true, []);
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['rows']) {
+      this.dataSource.data = this.rows || [];
+    }
+  }
+
+  ngAfterViewInit(): void {
+    this.dataSource.sort = this.sort;
+    this.dataSource.sortingDataAccessor = (item, property) => {
+      // Special sort handling for different column types
+      const column = this.columns.find(c => c.key === property);
+      if (column?.type === 'date') {
+        const dateVal = this.getDate(item, property);
+        return dateVal ? new Date(dateVal).getTime() : 0;
+      }
+      if (column?.type === 'role') {
+        return this.formatRole(item[property]);
+      }
+      if (column?.type === 'boolean') {
+        return item[property] ? 1 : 0;
+      }
+      // Fallback to the displayed text
+      const textVal = this.text(item, property);
+      return textVal === 'N/A' ? '' : textVal.toLowerCase();
+    };
+  }
 
   get displayedColumns(): string[] {
     const cols = ['select', ...this.columns.map((column) => column.key)];

@@ -24,6 +24,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatIcon, MatIconModule } from '@angular/material/icon';
+import { MatSortModule } from '@angular/material/sort';
 import { MatCardModule } from '@angular/material/card';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -189,6 +190,7 @@ import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
     MatSelectModule,
     MatSnackBarModule,
     MatTableModule,
+    MatSortModule,
     MatProgressSpinnerModule,
     MatRadioModule,
     MatTooltipModule,
