@@ -412,7 +412,14 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
     const searchQuery = (this.searchQueries[field.key] || '').toLowerCase();
     if (searchQuery) {
-      options = options.filter((opt: any) => opt.label?.toLowerCase().includes(searchQuery));
+      const currentValue = this.form.get(field.key)?.value;
+      const selectedValues = Array.isArray(currentValue) ? currentValue : (currentValue ? [currentValue] : []);
+      
+      options = options.filter((opt: any) => {
+        const matchesSearch = opt.label?.toLowerCase().includes(searchQuery);
+        const isSelected = selectedValues.includes(opt.value);
+        return matchesSearch || isSelected;
+      });
     }
 
     return options;
