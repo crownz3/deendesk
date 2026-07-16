@@ -98,6 +98,7 @@ import { FeePaymentDialogComponent } from './pages/fees/fee-payment-dialog.compo
 import { FeeAssignStudentsDialogComponent } from './pages/fees/fee-assign-students-dialog.component';
 import { FeePaymentHistoryDialogComponent } from './pages/fees/fee-payment-history-dialog.component';
 import { UserSwapDialogComponent } from './pages/management/user-swap-dialog/user-swap-dialog.component';
+import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
 
 @NgModule({
   declarations: [
@@ -166,6 +167,7 @@ import { UserSwapDialogComponent } from './pages/management/user-swap-dialog/use
     FeeAssignStudentsDialogComponent,
     FeePaymentHistoryDialogComponent,
     UserSwapDialogComponent,
+    MyAssignmentsPage,
   ],
   imports: [
     BrowserModule,

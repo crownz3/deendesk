@@ -88,7 +88,7 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
 
   private isStaffUser(user: any): boolean {
     const role = this.normalizeRole(user?.role);
-    return role === 'teacher' || role === 'staff';
+    return ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'].includes(role);
   }
 
   private isAlreadySelected(staff: any): boolean {

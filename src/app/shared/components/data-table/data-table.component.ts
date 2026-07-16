@@ -222,4 +222,10 @@ Please login and change your password immediately.`;
       this.snackBar.open('Failed to copy password.', 'Close', { duration: 3000 });
     }
   }
+
+  formatRole(roleRaw: any): string {
+    if (!roleRaw) return '';
+    const roles = String(roleRaw).split(',').map(r => r.trim());
+    return roles.map(r => r in ROLE_LABELS ? ROLE_LABELS[r as keyof typeof ROLE_LABELS] : (r.charAt(0).toUpperCase() + r.slice(1).replace('_', ' '))).join(', ');
+  }
 }

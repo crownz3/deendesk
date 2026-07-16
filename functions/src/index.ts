@@ -283,6 +283,9 @@ export const createUserWithTemporaryPassword = functions.https.onCall(async (dat
     stage,
     level,
     stageLevel,
+    phone,
+    mobileNumber,
+    gender,
   } = data;
 
   if (!email || !password || !role) {
@@ -414,6 +417,9 @@ export const createUserWithTemporaryPassword = functions.https.onCall(async (dat
       madrasaId: madrasaId ?? null,
       madrasaIds: Array.isArray(madrasaIds) ? madrasaIds : [],
       linkedStudentIds: Array.isArray(linkedStudentIds) ? linkedStudentIds : [],
+      phone: phone || '',
+      mobileNumber: mobileNumber || '',
+      gender: gender || '',
 
       status: "active",
       authProvider: "password",

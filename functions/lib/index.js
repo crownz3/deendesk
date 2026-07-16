@@ -201,7 +201,7 @@ exports.createUserWithTemporaryPassword = functions.https.onCall(async (data, co
     }
     const callerData = callerDoc.data();
     const callerRole = callerData['role'];
-    const { email, password, displayName, studentName, name, role, organizationId, madrasaId, madrasaIds, classId, classIds, subjectIds, linkedStudentIds, courseId, courseName, className, fatherName, parentName, stage, level, stageLevel, } = data;
+    const { email, password, displayName, studentName, name, role, organizationId, madrasaId, madrasaIds, classId, classIds, subjectIds, linkedStudentIds, courseId, courseName, className, fatherName, parentName, stage, level, stageLevel, phone, mobileNumber, gender, } = data;
     if (!email || !password || !role) {
         throw new functions.https.HttpsError("invalid-argument", "Missing required fields: email, password, role.");
     }
@@ -316,6 +316,9 @@ exports.createUserWithTemporaryPassword = functions.https.onCall(async (data, co
             madrasaId: madrasaId !== null && madrasaId !== void 0 ? madrasaId : null,
             madrasaIds: Array.isArray(madrasaIds) ? madrasaIds : [],
             linkedStudentIds: Array.isArray(linkedStudentIds) ? linkedStudentIds : [],
+            phone: phone || '',
+            mobileNumber: mobileNumber || '',
+            gender: gender || '',
             status: "active",
             authProvider: "password",
             // Temporary password flow

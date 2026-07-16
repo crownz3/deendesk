@@ -128,7 +128,13 @@
                   </button>
                 </div>
                 <ng-template #plainContent>
-                  <span>{{ text(row, column.key) }}</span>
+                  <div *ngIf="column.key === 'name' && row['role'] && row['role'] !== 'teacher' && row['role'] !== 'staff' && row['role'] !== 'student' && row['role'] !== 'parent'; else justText" class="name-with-badge">
+                    <span class="role-badge small-badge">{{ formatRole(row['role']) }}</span>
+                    <span class="staff-chip-name">{{ text(row, column.key) }}</span>
+                  </div>
+                  <ng-template #justText>
+                    <span>{{ text(row, column.key) }}</span>
+                  </ng-template>
                 </ng-template>
               </ng-container>
             </ng-container>

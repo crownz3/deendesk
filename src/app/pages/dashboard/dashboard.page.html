@@ -25,7 +25,15 @@
       <div *ngIf="!vm.isOrgAdmin">
         <p class="welcome-eyebrow">Welcome back</p>
         <h2>Hi {{ vm.displayName }}, you are {{ vm.formattedRole }}!</h2>
-        <p>Here is your role-based overview for today.</p>
+        
+        <p *ngIf="vm.madrasaIds && vm.madrasaIds.length > 0" style="font-weight: 500; color: var(--ion-color-medium); margin-top: 4px; display: flex; align-items: center; gap: 6px; font-size: 0.95rem;">
+          <ion-icon name="school-outline" style="font-size: 1.1rem; color: var(--ion-color-primary);"></ion-icon>
+          <span *ngFor="let mId of vm.madrasaIds; let last = last">
+            {{ (resolver.resolveName(mId, 'madrasa') | async) || 'Loading Madrasa...' }}<span *ngIf="!last">, </span>
+          </span>
+        </p>
+        
+        <p style="margin-top: 12px;">Here is your role-based overview for today.</p>
       </div>
     </div>
 

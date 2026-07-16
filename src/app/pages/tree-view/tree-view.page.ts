@@ -150,7 +150,7 @@ export class TreeViewPage {
           users: type === 'people' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff', 'student', 'parent'] }) : of([]),
           academicStudents: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['student'] }) : of([]),
           studentsCollection: type === 'academic' ? this.repo.list<EntityRecord>('students', profile) : of([]),
-          academicStaff: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff'] }) : of([]),
+          academicStaff: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin'] }) : of([]),
           academicAdmins: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['coordinator', 'madrasaIncharge'] }) : of([]),
         }).pipe(
           map((data) => {
@@ -247,7 +247,7 @@ export class TreeViewPage {
                  madrasaIds: profile?.madrasaIds,
                });
                console.log('[Academic Tree Staff Load Debug]', {
-                 requestedRoles: ['teacher', 'staff'],
+                 requestedRoles: ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin'],
                  totalStaffLoaded: staffUsers.length,
                  organizationId: profile?.organizationId,
                  madrasaId: profile?.madrasaId,
@@ -302,7 +302,7 @@ export class TreeViewPage {
 
   private isStaffUser(user: any): boolean {
     const role = this.normalizeRole(user?.role);
-    return role === 'teacher' || role === 'staff';
+    return ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'].includes(role);
   }
 
   private getUserId(user: any): string {

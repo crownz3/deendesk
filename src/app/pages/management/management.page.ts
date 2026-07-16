@@ -549,6 +549,35 @@ export class ManagementPage {
     map((data) => MANAGEMENT_CONFIGS[String(data['resource'])]),
   );
 
+  orgSearch = '';
+  madrasaSearch = '';
+  courseSearch = '';
+  classSearch = '';
+
+  getFilteredOrganizations(orgs: EntityRecord[]): EntityRecord[] {
+    if (!orgs || !this.orgSearch) return orgs;
+    const q = this.orgSearch.toLowerCase();
+    return orgs.filter(o => String(o['name'] || '').toLowerCase().includes(q));
+  }
+
+  getFilteredMadrasas(madrasas: EntityRecord[]): EntityRecord[] {
+    if (!madrasas || !this.madrasaSearch) return madrasas;
+    const q = this.madrasaSearch.toLowerCase();
+    return madrasas.filter(m => String(m['name'] || '').toLowerCase().includes(q));
+  }
+
+  getFilteredCourses(courses: EntityRecord[]): EntityRecord[] {
+    if (!courses || !this.courseSearch) return courses;
+    const q = this.courseSearch.toLowerCase();
+    return courses.filter(c => String(c['name'] || '').toLowerCase().includes(q));
+  }
+
+  getFilteredClasses(classes: EntityRecord[]): EntityRecord[] {
+    if (!classes || !this.classSearch) return classes;
+    const q = this.classSearch.toLowerCase();
+    return classes.filter(c => String(c['name'] || '').toLowerCase().includes(q));
+  }
+
   readonly madrasaFilter$ = new BehaviorSubject<string>('all');
   readonly roleFilter$ = new BehaviorSubject<string>('all');
   readonly organizationFilter$ = new BehaviorSubject<string>('all');
@@ -834,7 +863,7 @@ export class ManagementPage {
     switch (resource) {
       case 'coordinators': return ['coordinator'];
       case 'incharges': return ['madrasaIncharge'];
-      case 'staff': return ['teacher', 'staff'];
+      case 'staff': return ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin'];
       case 'students': return ['student'];
       case 'parents': return ['parent'];
       default: return undefined;
@@ -848,6 +877,8 @@ export class ManagementPage {
         ...row,
         name: row['name'] || row['displayName'] || row['email'] || 'N/A',
         displayName: row['displayName'] || row['name'] || row['email'] || 'N/A',
+        mobileNumber: row['mobileNumber'] || row['phone'] || '',
+        phone: row['phone'] || row['mobileNumber'] || '',
         credentialStatus: creds.status,
         temporaryPasswordDisplay: creds.display,
       } as EntityRecord;
@@ -904,17 +935,17 @@ export class ManagementPage {
           name: row['name'] || row['studentName'] || userRow['displayName'] || userRow['name'] || '',
           email: row['email'] || userRow['email'] || '',
           fatherName: row['fatherName'] || userRow['fatherName'] || row['parentName'] || userRow['parentName'] || '',
-          courseId: row['courseId'] || userRow['courseId'],
-          classId: row['classId'] || userRow['classId'],
-          groupId: row['groupId'] || userRow['groupId'],
-          courseName: row['courseName'] || courses.find((c: any) => c.id === (row['courseId'] || userRow['courseId']))?.['title'] || courses.find((c: any) => c.id === (row['courseId'] || userRow['courseId']))?.['name'] || '',
-          className: row['className'] || classes.find((c: any) => c.id === (row['classId'] || userRow['classId']))?.['name'] || classes.find((c: any) => c.id === (row['classId'] || userRow['classId']))?.['title'] || '',
-          madrasaName: row['madrasaName'] || madrasas.find((m: any) => m.id === row['madrasaId'])?.['name'] || '',
-          stage: this.getStudentStage(row) !== '-' ? this.getStudentStage(row) : this.getStudentStage(userRow),
+          courseId: userRow['courseId'] || row['courseId'],
+          classId: userRow['classId'] || row['classId'],
+          groupId: userRow['groupId'] || row['groupId'],
+          courseName: row['courseName'] || courses.find((c: any) => c.id === (userRow['courseId'] || row['courseId']))?.['title'] || courses.find((c: any) => c.id === (userRow['courseId'] || row['courseId']))?.['name'] || '',
+          className: row['className'] || classes.find((c: any) => c.id === (userRow['classId'] || row['classId']))?.['name'] || classes.find((c: any) => c.id === (userRow['classId'] || row['classId']))?.['title'] || '',
+          madrasaName: row['madrasaName'] || madrasas.find((m: any) => m.id === (userRow['madrasaId'] || row['madrasaId']))?.['name'] || '',
+          stage: this.getStudentStage(userRow) !== '-' ? this.getStudentStage(userRow) : this.getStudentStage(row),
           parentEmail,
-          organizationId: row['organizationId'] || userRow['organizationId'],
-          madrasaId: row['madrasaId'] || userRow['madrasaId'],
-          madrasaIds: row['madrasaIds'] || userRow['madrasaIds'],
+          organizationId: userRow['organizationId'] || row['organizationId'],
+          madrasaId: userRow['madrasaId'] || row['madrasaId'],
+          madrasaIds: (Array.isArray(userRow['madrasaIds']) && userRow['madrasaIds'].length > 0) ? userRow['madrasaIds'] : row['madrasaIds'],
           credentialStatus: creds.status,
           temporaryPasswordDisplay: creds.display,
         } as EntityRecord;
@@ -955,7 +986,6 @@ export class ManagementPage {
     return combineLatest([
       staffObs$,
       this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(
-        map(rows => rows.filter(r => ['teacher', 'staff', 'coordinator', 'madrasaIncharge'].includes(String(r['role'])))),
         catchError((e) => {
           console.warn('[Staff] Users load failed:', e);
           return of([] as EntityRecord[]);
@@ -968,23 +998,48 @@ export class ManagementPage {
         })
       ),
     ]).pipe(
-      map(([staffs, users, groups]) => staffs.map((row) => {
-        const userRow = users.find(u => u['uid'] === row['userId'] || u.id === row['userId'] || u['entityId'] === row.id) || row;
-        const creds = this.credentialService.getCredentialStatus(userRow);
+      map(([staffs, users, groups]) => {
+        const allStaffRecordsMap = new Map<string, any>();
+        staffs.forEach(s => allStaffRecordsMap.set(String(s['userId'] || s.id || ''), s));
+        
+        // Only explicitly add users to the staff table if they have a staff role
+        const staffRoleUsers = users.filter(r => ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'].includes(String(r['role'])));
+        
+        staffRoleUsers.forEach(u => {
+          const uidStr = String(u['uid'] || u.id || '');
+          const uEmail = String(u['email'] || '').toLowerCase().trim();
+          const existingByEmail = Array.from(allStaffRecordsMap.values()).find(s => {
+             const sEmail = String(s['email'] || '').toLowerCase().trim();
+             return sEmail && sEmail === uEmail;
+          });
+          if (!allStaffRecordsMap.has(uidStr) && !existingByEmail) {
+            allStaffRecordsMap.set(uidStr, u);
+          }
+        });
+        const combinedStaffRaw = Array.from(allStaffRecordsMap.values());
+
+        return combinedStaffRaw.map((row) => {
+          const rowEmail = String(row['email'] || '').toLowerCase().trim();
+          const userRow = users.find(u => {
+             const uEmail = String(u['email'] || '').toLowerCase().trim();
+             return u['uid'] === row['userId'] || u.id === row['userId'] || u['entityId'] === row.id || (uEmail && uEmail === rowEmail);
+          }) || row;
+          const creds = this.credentialService.getCredentialStatus(userRow);
         return {
           ...userRow,
           ...row,
           id: row.id,
           uid: userRow['uid'] || userRow.id || row.id,
-          name: row['name'] || userRow['displayName'] || userRow['name'] || '',
-          displayName: row['name'] || userRow['displayName'] || userRow['name'] || '',
-          email: row['email'] || userRow['email'] || '',
-          role: row['role'] || userRow['role'] || 'teacher',
-          phone: row['phone'] || userRow['phone'] || '',
-          designation: row['designation'] || userRow['designation'] || '',
-          organizationId: row['organizationId'] || userRow['organizationId'],
-          madrasaId: row['madrasaId'] || userRow['madrasaId'],
-          madrasaIds: row['madrasaIds'] || userRow['madrasaIds'],
+          name: userRow['displayName'] || userRow['name'] || row['name'] || '',
+          displayName: userRow['displayName'] || userRow['name'] || row['name'] || '',
+          email: userRow['email'] || row['email'] || '',
+          role: userRow['role'] || row['role'] || 'teacher',
+          mobileNumber: userRow['mobileNumber'] || row['mobileNumber'] || userRow['phone'] || row['phone'] || '',
+          phone: userRow['phone'] || row['phone'] || userRow['mobileNumber'] || row['mobileNumber'] || '',
+          designation: userRow['designation'] || row['designation'] || '',
+          organizationId: userRow['organizationId'] || row['organizationId'],
+          madrasaId: userRow['madrasaId'] || row['madrasaId'],
+          madrasaIds: (Array.isArray(userRow['madrasaIds']) && userRow['madrasaIds'].length > 0) ? userRow['madrasaIds'] : row['madrasaIds'],
           roles: Array.from(new Set([
             ...(Array.isArray(userRow['roles']) ? userRow['roles'] : []),
             ...(Array.isArray(row['roles']) ? row['roles'] : [])
@@ -1001,7 +1056,8 @@ export class ManagementPage {
               .join(', ');
           })(),
         } as EntityRecord;
-      }))
+        });
+      })
     );
   }
 
@@ -1973,12 +2029,40 @@ export class ManagementPage {
 
             await this.repo.update(config.collection, initial.id, processedPayload, profile);
 
+            // Sync coordinator/incharge into madrasa documents when madrasaIds changes
+            const userRole = String(initial['role'] || processedPayload['role'] || '');
+            const updatedMadrasaIds = this.asStringArray(processedPayload['madrasaIds'] || initial['madrasaIds'] || []);
+            const userUid = String(initial['uid'] || initial.id || '');
+            if (['coordinator', 'madrasaIncharge'].includes(userRole) && updatedMadrasaIds.length > 0 && userUid) {
+              await this.syncUserToMadrasas(userUid, userRole, updatedMadrasaIds, profile);
+            }
+
+            // If we are editing a user document and it has an associated business entity, update that entity
+            if (config.collection === 'users' && initial['entityId'] && initial['entityType']) {
+              const entityCollection = initial['entityType'] === 'student' ? 'students' : 
+                                       initial['entityType'] === 'parent' ? 'parents' : 'staff';
+              const entityPayload: Partial<EntityRecord> = {};
+              if ('permissions' in processedPayload) entityPayload['permissions'] = processedPayload['permissions'];
+              if ('madrasaId' in processedPayload) entityPayload['madrasaId'] = processedPayload['madrasaId'];
+              if ('madrasaIds' in processedPayload) entityPayload['madrasaIds'] = processedPayload['madrasaIds'];
+              if ('linkedStudentIds' in processedPayload) entityPayload['linkedStudentIds'] = processedPayload['linkedStudentIds'];
+              if ('organizationId' in processedPayload) entityPayload['organizationId'] = processedPayload['organizationId'];
+              
+              if (Object.keys(entityPayload).length > 0) {
+                 await this.repo.update(entityCollection, String(initial['entityId']), entityPayload, profile);
+              }
+            }
+
             if (initial['userId']) {
               const userPayload: Partial<EntityRecord> = {};
               if ('permissions' in processedPayload) userPayload['permissions'] = processedPayload['permissions'];
+              if ('madrasaId' in processedPayload) userPayload['madrasaId'] = processedPayload['madrasaId'];
               if ('madrasaIds' in processedPayload) userPayload['madrasaIds'] = processedPayload['madrasaIds'];
               if ('linkedStudentIds' in processedPayload) userPayload['linkedStudentIds'] = processedPayload['linkedStudentIds'];
               if ('organizationId' in processedPayload) userPayload['organizationId'] = processedPayload['organizationId'];
+              if ('phone' in processedPayload) userPayload['phone'] = processedPayload['phone'];
+              if ('mobileNumber' in processedPayload) userPayload['mobileNumber'] = processedPayload['mobileNumber'];
+              if ('gender' in processedPayload) userPayload['gender'] = processedPayload['gender'];
 
               if (Object.keys(userPayload).length > 0) {
                 const finalUserPayload = { ...userPayload };
@@ -2027,6 +2111,30 @@ export class ManagementPage {
       const loaderMessage = initial?.id ? `Record updated.` : `Record created.`;
       this.snackBar.open(loaderMessage, 'Close', { duration: 3000 });
     }
+  }
+
+  /**
+   * When a coordinator or incharge is created/updated, sync their UID into the
+   * madrasa documents' coordinatorIds / inchargeIds arrays.
+   */
+  private async syncUserToMadrasas(uid: string, role: string, madrasaIds: string[], profile: AppUser | null): Promise<void> {
+    if (!['coordinator', 'madrasaIncharge'].includes(role) || madrasaIds.length === 0) return;
+    const field = role === 'coordinator' ? 'coordinatorIds' : 'inchargeIds';
+    const allMadrasas = await this.repo.getAllOnce<EntityRecord>('madrasas', profile);
+    await Promise.all(
+      madrasaIds.map(async (madrasaId) => {
+        try {
+          const madrasa = allMadrasas.find(m => m.id === madrasaId);
+          if (!madrasa) return;
+          const existing: string[] = Array.isArray(madrasa[field]) ? (madrasa[field] as string[]) : [];
+          if (!existing.includes(uid)) {
+            await this.repo.update('madrasas', madrasaId, { [field]: [...existing, uid] } as any, profile, true);
+          }
+        } catch (e) {
+          console.warn(`[syncUserToMadrasas] Failed to update madrasa ${madrasaId}:`, e);
+        }
+      })
+    );
   }
 
   private async createOrganization(payload: EntityRecord, profile: AppUser | null): Promise<void> {
@@ -2089,6 +2197,9 @@ export class ManagementPage {
         organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
         madrasaId: this.asStringArray(payload['madrasaIds'])[0] || '',
         madrasaIds: this.asStringArray(payload['madrasaIds']),
+        phone: String(payload['phone'] || ''),
+        mobileNumber: String(payload['mobileNumber'] || ''),
+        gender: String(payload['gender'] || ''),
       });
 
       const credential = {
@@ -2111,6 +2222,14 @@ export class ManagementPage {
       }, profile);
 
       await this.repo.update('users', credential.uid, { entityId: staffId, entityType: 'staff' }, profile);
+
+      // Sync coordinator/incharge into madrasa documents
+      await this.syncUserToMadrasas(
+        credential.uid,
+        role,
+        this.asStringArray(payload['madrasaIds']),
+        profile
+      );
 
       this.credentials.splice(0, this.credentials.length, credential);
       this.snackBar.open('User access created. Save the generated credentials.', 'Close', { duration: 5000 });
@@ -2140,6 +2259,9 @@ export class ManagementPage {
         organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
         madrasaId: this.asStringArray(payload['madrasaIds'])[0] || '',
         madrasaIds: this.asStringArray(payload['madrasaIds']),
+        phone: String(payload['phone'] || ''),
+        mobileNumber: String(payload['mobileNumber'] || ''),
+        gender: String(payload['gender'] || ''),
       });
 
       const credential = {
@@ -2525,7 +2647,7 @@ export class ManagementPage {
     }
 
     if (config.fixedRole === 'teacher') {
-      return rows.filter((row) => row['role'] === 'teacher' || row['role'] === 'staff');
+      return rows.filter((row) => ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'].includes(String(row['role'])));
     }
 
     return rows.filter((row) => row['role'] === config.fixedRole);

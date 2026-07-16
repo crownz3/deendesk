@@ -43,6 +43,7 @@ export class AppComponent {
       label: 'Overview',
       items: [
         { label: 'Dashboard', route: '/dashboard', icon: 'grid-outline', permission: 'viewDashboard' },
+        { label: 'My Assignments', route: '/my-assignments', icon: 'calendar-number-outline' },
         { label: 'Notifications', route: '/notifications', icon: 'notifications-outline' },
         { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', permissionsAny: ['manageOrganizations'] },
       ]

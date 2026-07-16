@@ -1,0 +1,155 @@
+<ion-content>
+  <main class="page" *ngIf="vm$ | async as vm; else loading">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">{{ vm.roleTitle }} Profile</p>
+        <h1>My Assignments</h1>
+      </div>
+    </header>
+
+    <div class="dashboard-welcome-card" style="margin-bottom: 24px;">
+      <p class="welcome-eyebrow">Your Schedule Overview</p>
+      <h2>Hi {{ vm.displayName }}, here are your classes and activities!</h2>
+      <p>View your timetable and class plans below.</p>
+    </div>
+
+    <mat-tab-group animationDuration="0ms">
+      <!-- TODAY'S SCHEDULE -->
+      <mat-tab label="Today's Schedule">
+        <div class="tab-content">
+          <section class="dashboard-grid" *ngIf="vm.todaySchedule.length > 0; else noToday">
+            <article class="panel">
+              <div class="panel-heading">
+                <h2>Activities for Today</h2>
+                <span>{{ vm.todaySchedule.length }} activities</span>
+              </div>
+              <div style="display: flex; gap: 16px; overflow-x: auto; padding: 16px 0; padding-bottom: 24px;">
+                <mat-card *ngFor="let entry of vm.todaySchedule" style="min-width: 280px; padding: 0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column;">
+                  <div style="background: var(--ion-color-primary, #3880ff); padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 6px;">
+                      <ion-icon name="time-outline" style="font-size: 1.2rem;"></ion-icon>
+                      <span *ngIf="entry.startTime">{{ entry.startTime }} - {{ entry.endTime }}</span>
+                      <span *ngIf="!entry.startTime">All Day</span>
+                    </div>
+                    <span *ngIf="entry.scheduleType === 'fullDay'" style="font-size: 0.75rem; background: var(--ion-color-tertiary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600;">FULL DAY</span>
+                  </div>
+                  
+                  <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
+                    <div style="font-size: 1.15rem; font-weight: 600; color: var(--ion-color-dark);">
+                      {{ entry.activityName }}
+                    </div>
+                    
+                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--ion-color-medium);">
+                      <div *ngIf="entry.classId" style="display: flex; align-items: flex-start; gap: 8px;">
+                        <ion-icon name="people-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-secondary);"></ion-icon> 
+                        <span style="flex: 1; line-height: 1.4;">Class: <strong style="color: var(--ion-color-dark);">{{ entry.className }}</strong></span>
+                      </div>
+                      <div *ngIf="entry.subjectId" style="display: flex; align-items: flex-start; gap: 8px;">
+                        <ion-icon name="book-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-tertiary);"></ion-icon> 
+                        <span style="flex: 1; line-height: 1.4;">Subject: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.subjectId, 'subject') | async) || 'Loading...' }}</strong></span>
+                      </div>
+                      <div *ngIf="entry.teacherId" style="display: flex; align-items: flex-start; gap: 8px;">
+                        <ion-icon name="person-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-warning);"></ion-icon> 
+                        <span style="flex: 1; line-height: 1.4;">Teacher: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.teacherId, 'user') | async) || 'Loading...' }}</strong></span>
+                      </div>
+                      <div *ngIf="entry.roomId" style="display: flex; align-items: flex-start; gap: 8px;">
+                        <ion-icon name="location-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-danger);"></ion-icon> 
+                        <span style="flex: 1; line-height: 1.4;">Room: <strong style="color: var(--ion-color-dark);">{{ entry.roomId }}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+                </mat-card>
+              </div>
+            </article>
+          </section>
+          <ng-template #noToday>
+            <app-empty-state icon="calendar-clear-outline" title="No activities today" message="You don't have any classes scheduled for today."></app-empty-state>
+          </ng-template>
+        </div>
+      </mat-tab>
+
+      <!-- WEEKLY TIMETABLE -->
+      <mat-tab label="Weekly Timetable">
+        <div class="tab-content">
+          <section class="weekly-grid">
+            <article class="panel" *ngFor="let day of days">
+              <div class="panel-heading">
+                <h2>{{ day }}</h2>
+                <span>{{ vm.weeklySchedule[day].length }} activities</span>
+              </div>
+              <div class="schedule-list" *ngIf="vm.weeklySchedule[day].length > 0; else noDay">
+                <div class="schedule-list-item" *ngFor="let entry of vm.weeklySchedule[day]">
+                  <div class="time-block">
+                    <strong>{{ entry.startTime || 'All Day' }}</strong>
+                    <span *ngIf="entry.endTime">{{ entry.endTime }}</span>
+                  </div>
+                  <div class="details-block">
+                    <strong>{{ entry.activityName }}</strong>
+                    <span *ngIf="entry.classId">{{ entry.className }}</span>
+                  </div>
+                </div>
+              </div>
+              <ng-template #noDay>
+                <div style="padding: 16px; color: var(--ion-color-medium); font-size: 0.9rem;">No activities scheduled.</div>
+              </ng-template>
+            </article>
+          </section>
+        </div>
+      </mat-tab>
+
+      <!-- MY CLASSES/PLANS -->
+      <mat-tab label="My Classes">
+        <div class="tab-content">
+          <section class="dashboard-grid" *ngIf="vm.allPlans.length > 0; else noPlans">
+            <article class="access-card" *ngFor="let plan of vm.allPlans">
+              <div class="card-header">
+                <div class="icon-box warning">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                </div>
+                <div class="title-box">
+                  <h3>{{ plan.title }}</h3>
+                  <p>{{ plan.className }} ({{ plan.courseName }})</p>
+                </div>
+              </div>
+              <div class="card-stats">
+                <div class="stat-item">
+                  <span>Schedule Type</span>
+                  <strong style="text-transform: capitalize;">{{ plan.scheduleType }}</strong>
+                </div>
+                <div class="stat-item">
+                  <span>Status</span>
+                  <strong>{{ plan.status }}</strong>
+                </div>
+              </div>
+              <div class="card-actions">
+                <ion-button fill="clear" size="small" routerLink="/class-plans">
+                  <ion-icon slot="start" name="eye-outline"></ion-icon>
+                  View Plan
+                </ion-button>
+                <ion-button fill="clear" size="small" routerLink="/attendance">
+                  <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+                  Take Attendance
+                </ion-button>
+              </div>
+            </article>
+          </section>
+          <ng-template #noPlans>
+            <app-empty-state icon="easel-outline" title="No assigned classes" message="You don't have any class plans assigned to you yet."></app-empty-state>
+          </ng-template>
+        </div>
+      </mat-tab>
+
+    </mat-tab-group>
+
+  </main>
+
+  <ng-template #loading>
+    <main class="page">
+      <header class="page-header" style="display: flex; gap: 20px;">
+        <div class="skeleton-card" style="width: 250px; height: 60px;"></div>
+      </header>
+      <div class="skeleton-card" style="height: 120px; margin-bottom: 24px;"></div>
+      <div class="skeleton-card" style="height: 300px;"></div>
+    </main>
+  </ng-template>
+</ion-content>

@@ -704,9 +704,7 @@ export class RepositoryService {
       }
 
       if (collectionName === 'users') {
-        const allowedRoles = role === 'coordinator' 
-          ? ['madrasaIncharge', 'teacher', 'staff', 'student', 'parent']
-          : ['teacher', 'staff', 'student', 'parent'];
+        const allowedRoles = ['teacher', 'staff', 'student', 'parent', 'madrasaIncharge', 'coordinator', 'organizationAdmin'];
 
         const finalRoles = options?.roles?.length 
           ? options.roles.filter(r => allowedRoles.includes(r))

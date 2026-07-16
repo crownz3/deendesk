@@ -93,7 +93,23 @@ export class MadrasaDetailsDialogComponent implements OnInit {
         Array.isArray(s['madrasaIds']) && s['madrasaIds'].includes(mId)
       );
 
-      this.staffList = madrasaStaffRaw.map(s => {
+      const staffRoles = ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'];
+      const extraStaffUsers = users.filter(u => 
+        staffRoles.includes(String(u['role'] || '').trim().toLowerCase()) &&
+        (u['madrasaId'] === mId || (Array.isArray(u['madrasaIds']) && u['madrasaIds'].includes(mId)))
+      );
+
+      const allStaffRecordsMap = new Map<string, any>();
+      madrasaStaffRaw.forEach(s => allStaffRecordsMap.set(String(s['userId'] || s.id || ''), s));
+      extraStaffUsers.forEach(u => {
+        const uidStr = String(u['uid'] || u.id || '');
+        if (!allStaffRecordsMap.has(uidStr)) {
+          allStaffRecordsMap.set(uidStr, u);
+        }
+      });
+      const combinedStaffRaw = Array.from(allStaffRecordsMap.values());
+
+      this.staffList = combinedStaffRaw.map(s => {
         const merged = mergeUser(s, 'teacher');
         const assignedGroups = groups.filter(g =>
           g['madrasaId'] === mId &&

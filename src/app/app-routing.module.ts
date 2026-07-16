@@ -19,12 +19,14 @@ import { TreeViewPage } from './pages/tree-view/tree-view.page';
 import { PasswordRequestsPage } from './pages/password-requests/password-requests.page';
 import { ClassPlansPage } from './pages/class-plans/class-plans.page';
 import { FeesPage } from './pages/fees/fees.page';
+import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
   { path: 'change-password', component: ChangePasswordPage, canActivate: [authGuard] },
   { path: 'continue', component: ContinueAccountPage },
   { path: 'dashboard', component: DashboardPage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewDashboard' } },
+  { path: 'my-assignments', component: MyAssignmentsPage, canActivate: [authGuard] },
   { path: 'organizations', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'organizations', permission: 'manageOrganizations', roleRequired: 'superAdmin' } },
   { path: 'madrasas', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'madrasas', permission: 'manageMadrasas' } },
   { path: 'users', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'users', permission: 'manageUsers' } },

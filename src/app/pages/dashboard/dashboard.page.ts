@@ -59,6 +59,7 @@ interface DashboardVm {
   isSuperAdmin: boolean;
   isOrgAdmin: boolean;
   organizationId?: string;
+  madrasaIds?: string[];
   stats: DashboardStat[];
   courseDistribution: ChartSlice[];
   attendance: {
@@ -275,6 +276,7 @@ export class DashboardPage {
       isSuperAdmin: profile.role === 'superAdmin',
       isOrgAdmin: profile.role === 'organizationAdmin',
       organizationId: profile.organizationId,
+      madrasaIds: Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0 ? profile.madrasaIds : (profile.madrasaId ? [profile.madrasaId] : []),
       stats,
       attendance,
       courseDistribution,

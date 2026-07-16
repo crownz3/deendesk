@@ -105,8 +105,11 @@
         <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role === 'superAdmin'">
           <mat-label>Filter by Organization</mat-label>
           <mat-select [ngModel]="organizationFilter$ | async" (ngModelChange)="organizationFilter$.next($event); pageIndex$.next(0); madrasaFilter$.next('all')">
+            <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
+              <input type="text" matInput placeholder="Search Organizations..." [(ngModel)]="orgSearch" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
             <mat-option value="all">All Organizations</mat-option>
-            <mat-option *ngFor="let org of vm.organizations" [value]="org.id">
+            <mat-option *ngFor="let org of getFilteredOrganizations(vm.organizations || [])" [value]="org.id">
               {{ org['name'] }}
             </mat-option>
           </mat-select>
@@ -116,8 +119,11 @@
         <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role !== 'madrasaIncharge' && vm.config.resource !== 'madrasas'">
           <mat-label>Filter by Madrasa</mat-label>
           <mat-select [ngModel]="madrasaFilter$ | async" (ngModelChange)="madrasaFilter$.next($event); pageIndex$.next(0)">
+            <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
+              <input type="text" matInput placeholder="Search Madrasas..." [(ngModel)]="madrasaSearch" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
             <mat-option value="all">All Madrasas</mat-option>
-            <mat-option *ngFor="let madrasa of vm.madrasas" [value]="madrasa.id">
+            <mat-option *ngFor="let madrasa of getFilteredMadrasas(vm.madrasas || [])" [value]="madrasa.id">
               {{ madrasa['name'] }}
             </mat-option>
           </mat-select>
@@ -142,8 +148,11 @@
         <mat-form-field appearance="outline" class="filter-field" *ngIf="['students', 'classGroups'].includes(vm.config.resource)">
           <mat-label>Course</mat-label>
           <mat-select [ngModel]="courseFilter$ | async" (ngModelChange)="courseFilter$.next($event); pageIndex$.next(0)">
+            <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
+              <input type="text" matInput placeholder="Search Courses..." [(ngModel)]="courseSearch" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
             <mat-option value="all">All Courses</mat-option>
-            <mat-option *ngFor="let course of vm.courses" [value]="course.id">
+            <mat-option *ngFor="let course of getFilteredCourses(vm.courses || [])" [value]="course.id">
               {{ course['name'] }}
             </mat-option>
           </mat-select>
@@ -153,8 +162,11 @@
         <mat-form-field appearance="outline" class="filter-field" *ngIf="['students', 'classGroups'].includes(vm.config.resource)">
           <mat-label>Class</mat-label>
           <mat-select [ngModel]="classFilter$ | async" (ngModelChange)="classFilter$.next($event); pageIndex$.next(0)">
+            <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
+              <input type="text" matInput placeholder="Search Classes..." [(ngModel)]="classSearch" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
             <mat-option value="all">All Classes</mat-option>
-            <mat-option *ngFor="let cls of vm.classes" [value]="cls.id">
+            <mat-option *ngFor="let cls of getFilteredClasses(vm.classes || [])" [value]="cls.id">
               {{ cls['name'] }}
             </mat-option>
           </mat-select>
