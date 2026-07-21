@@ -1,0 +1,327 @@
+<h2 mat-dialog-title>Report Safety or Operational Issue</h2>
+
+<mat-dialog-content class="issue-form-dialog-content">
+  <div class="loader-overlay" *ngIf="isLoading || isSaving">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p style="margin-top: 10px;">{{ isSaving ? 'Submitting issue details...' : 'Loading...' }}</p>
+  </div>
+
+  <mat-stepper #stepper linear>
+    <!-- STEP 1: Basic Details -->
+    <mat-step [stepControl]="step1Form">
+      <form [formGroup]="step1Form">
+        <ng-template matStepLabel>Details</ng-template>
+        
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Issue Title / Incident Summary</mat-label>
+            <input matInput formControlName="title" placeholder="e.g. Student misconduct in classroom, RO water system leak">
+            <mat-error>Title is required.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Detailed Description</mat-label>
+            <textarea matInput formControlName="description" rows="3" placeholder="Provide factual details, timelines, and observations..."></textarea>
+            <mat-error>Description is required.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Madrasa / School</mat-label>
+            <mat-select formControlName="madrasaId">
+              <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Issue Category</mat-label>
+            <mat-select formControlName="categoryId">
+              <mat-option *ngFor="let cat of categories" [value]="cat.id">{{ cat.name }}</mat-option>
+            </mat-select>
+            <mat-error>Category is required.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Incident Date</mat-label>
+            <input matInput [matDatepicker]="incidentDatePicker" formControlName="incidentDate">
+            <mat-datepicker-toggle matIconSuffix [for]="incidentDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #incidentDatePicker></mat-datepicker>
+          </mat-form-field>
+
+          <div class="time-row time-field-wrapper">
+            <ion-item class="time-field" button [matMenuTriggerFor]="incidentTimeMenu" detail="false" lines="none">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              <ion-label>Incident Time</ion-label>
+              <div slot="end" class="time-display">{{ step1Form.get('incidentTime')?.value }}</div>
+            </ion-item>
+
+            <mat-menu #incidentTimeMenu="matMenu" class="datetime-menu" xPosition="after">
+              <div (click)="$event.stopPropagation()" class="datetime-wrapper">
+                <ion-datetime presentation="time" [value]="getIsoTime(step1Form.get('incidentTime')?.value)"
+                  (ionChange)="onTimeChange('incidentTime', $event)">
+                </ion-datetime>
+              </div>
+            </mat-menu>
+          </div>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Location / Room</mat-label>
+            <input matInput formControlName="location" placeholder="e.g. Room 3, Dining Hall, Bathroom A">
+            <mat-error>Location is required.</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Assessed Priority</mat-label>
+            <mat-select formControlName="priority">
+              <mat-option value="low">Low</mat-option>
+              <mat-option value="medium">Medium</mat-option>
+              <mat-option value="high">High</mat-option>
+              <mat-option value="critical">Critical</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <div class="checkbox-group col-double">
+            <mat-checkbox formControlName="confidential">Confidential Safeguarding Issue</mat-checkbox>
+            <mat-checkbox formControlName="emergency">Emergency / Requires Immediate Action</mat-checkbox>
+          </div>
+        </div>
+
+        <div class="stepper-actions">
+          <button mat-flat-button color="primary" type="button" matStepperNext>Next</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 2: People Involved (Shown only if category requires it) -->
+    <mat-step [stepControl]="step2Form" *ngIf="showPeopleStep">
+      <form [formGroup]="step2Form">
+        <ng-template matStepLabel>People Involved</ng-template>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Person Affected (Name / Role / Details)</mat-label>
+            <input matInput formControlName="personAffectedDetails" placeholder="Who was affected? (e.g. Student name, Teacher name)">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Person Mapped Against (Accused / Details)</mat-label>
+            <input matInput formControlName="personAgainstDetails" placeholder="Against whom is this reported? (Leave blank if not applicable)">
+          </mat-form-field>
+
+          <!-- Searchable Students Selector -->
+          <div class="selector-box col-double">
+            <label>Search and Link Students</label>
+            <div class="search-bar-row">
+              <mat-form-field appearance="outline" class="search-input">
+                <mat-label>Student Name</mat-label>
+                <input matInput #studentQuery (input)="filterStudents(studentQuery.value)" placeholder="Search active students...">
+              </mat-form-field>
+              
+              <div class="dropdown-matches" *ngIf="studentQuery.value && filteredStudents.length > 0">
+                <div class="dropdown-item" *ngFor="let s of filteredStudents | slice:0:5" (click)="addStudent(s); studentQuery.value = ''">
+                  {{ s.displayName || s.name }} ({{ s.admissionNumber || 'No Admission Num' }})
+                </div>
+              </div>
+            </div>
+
+            <!-- Chips -->
+            <div class="chips-row">
+              <span class="chip-item" *ngFor="let s of selectedStudents">
+                {{ s.displayName || s.name }}
+                <ion-icon name="close-circle" (click)="removeStudent(s.uid)"></ion-icon>
+              </span>
+            </div>
+          </div>
+
+          <!-- Searchable Staff Selector -->
+          <div class="selector-box col-double">
+            <label>Search and Link Staff / Teachers</label>
+            <div class="search-bar-row">
+              <mat-form-field appearance="outline" class="search-input">
+                <mat-label>Staff Name</mat-label>
+                <input matInput #staffQuery (input)="filterStaff(staffQuery.value)" placeholder="Search active staff members...">
+              </mat-form-field>
+
+              <div class="dropdown-matches" *ngIf="staffQuery.value && filteredStaff.length > 0">
+                <div class="dropdown-item" *ngFor="let s of filteredStaff | slice:0:5" (click)="addStaff(s); staffQuery.value = ''">
+                  {{ s.displayName || s.name }} ({{ s.employeeNumber || 'No Employee Num' }})
+                </div>
+              </div>
+            </div>
+
+            <!-- Chips -->
+            <div class="chips-row">
+              <span class="chip-item" *ngFor="let s of selectedStaff">
+                {{ s.displayName || s.name }}
+                <ion-icon name="close-circle" (click)="removeStaff(s.uid)"></ion-icon>
+              </span>
+            </div>
+          </div>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>External / Unregistered People Involved</mat-label>
+            <input matInput formControlName="externalPersonDetails" placeholder="Name and details of external actors involved...">
+          </mat-form-field>
+        </div>
+
+        <div class="stepper-actions">
+          <button mat-button type="button" matStepperPrevious>Back</button>
+          <button mat-flat-button color="primary" type="button" matStepperNext>Next</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 3: Infrastructure / Asset (Shown only if category requires it) -->
+    <mat-step [stepControl]="step3Form" *ngIf="showAssetStep">
+      <form [formGroup]="step3Form">
+        <ng-template matStepLabel>Infrastructure</ng-template>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Asset Mapped / Damaged Property</mat-label>
+            <input matInput formControlName="assetName" placeholder="e.g. RO Purifier System, Room 4 ceiling fan">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Damage description / Specific observation</mat-label>
+            <textarea matInput formControlName="damageDescription" rows="2" placeholder="e.g. Pipe leaked causing water pooling, fan sparks on level 3"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Asset Location details</mat-label>
+            <input matInput formControlName="locationDetails" placeholder="Specific corridor, level, or room">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Initial Safety Risk</mat-label>
+            <mat-select formControlName="riskRating">
+              <mat-option value="low">Low Risk</mat-option>
+              <mat-option value="medium">Medium Risk</mat-option>
+              <mat-option value="high">High Risk</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="stepper-actions">
+          <button mat-button type="button" matStepperPrevious>Back</button>
+          <button mat-flat-button color="primary" type="button" matStepperNext>Next</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 4: Evidence Attachments -->
+    <mat-step [stepControl]="step4Form">
+      <form [formGroup]="step4Form">
+        <ng-template matStepLabel>Evidence</ng-template>
+
+        <div class="evidence-box">
+          <label>Add Attachments (Images, Videos, PDFs, Reports)</label>
+          <input type="file" multiple (change)="triggerAttachmentUpload($event)" accept="image/*,video/*,application/pdf">
+          
+          <div class="attachments-list" *ngIf="attachmentsList.length > 0">
+            <div class="attachment-item" *ngFor="let att of attachmentsList; let idx = index">
+              <span>{{ att.fileName }} ({{ att.fileSize | number }} bytes)</span>
+              <button mat-icon-button color="warn" type="button" (click)="removeAttachment(idx)">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stepper-actions">
+          <button mat-button type="button" matStepperPrevious>Back</button>
+          <button mat-flat-button color="primary" type="button" matStepperNext>Next</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 5: Assignment (Admins/Managers only) -->
+    <mat-step [stepControl]="step5Form" *ngIf="canManageAssignments">
+      <form [formGroup]="step5Form">
+        <ng-template matStepLabel>Assignment</ng-template>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Assignment Type</mat-label>
+            <mat-select formControlName="assignmentType">
+              <mat-option value="coordinator">Assign Coordinator</mat-option>
+              <mat-option value="incharge">Assign Madrasa Incharge</mat-option>
+              <mat-option value="staff">Assign Staff Member</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Search Assignee</mat-label>
+            <mat-select formControlName="assigneeId">
+              <mat-option *ngFor="let s of staffList" [value]="s.uid">{{ s.displayName || s.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Resolution Due Date</mat-label>
+            <input matInput [matDatepicker]="dueDatePicker" formControlName="dueDate">
+            <mat-datepicker-toggle matIconSuffix [for]="dueDatePicker"></mat-datepicker-toggle>
+            <mat-datepicker #dueDatePicker></mat-datepicker>
+          </mat-form-field>
+
+          <div class="checkbox-group col-double">
+            <mat-checkbox formControlName="followUpRequired">Escalated Follow-up Required</mat-checkbox>
+          </div>
+
+          <mat-form-field appearance="outline" *ngIf="step5Form.get('followUpRequired')?.value" class="col-double">
+            <mat-label>Follow-up Date</mat-label>
+            <input matInput type="date" formControlName="followUpDate">
+          </mat-form-field>
+        </div>
+
+        <div class="stepper-actions">
+          <button mat-button type="button" matStepperPrevious>Back</button>
+          <button mat-flat-button color="primary" type="button" matStepperNext>Next</button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 6: Review & Submit -->
+    <mat-step>
+      <ng-template matStepLabel>Review</ng-template>
+
+      <div class="review-box">
+        <h3>Submit Issue Report</h3>
+        <p>Please review the details below. Once submitted, notifications will be sent to the incharges, and the issue will be logged in the system.</p>
+
+        <div class="review-grid">
+          <div class="review-item">
+            <strong>Title:</strong>
+            <span>{{ step1Form.get('title')?.value }}</span>
+          </div>
+          <div class="review-item">
+            <strong>Category:</strong>
+            <span>{{ selectedCategory?.name }}</span>
+          </div>
+          <div class="review-item">
+            <strong>Confidential:</strong>
+            <span>{{ step1Form.get('confidential')?.value ? 'Yes (Restricted Access)' : 'No' }}</span>
+          </div>
+          <div class="review-item">
+            <strong>Emergency:</strong>
+            <span>{{ step1Form.get('emergency')?.value ? 'Yes' : 'No' }}</span>
+          </div>
+          <div class="review-item">
+            <strong>Attached Files:</strong>
+            <span>{{ attachmentsList.length }} files</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="stepper-actions">
+        <button mat-button type="button" matStepperPrevious>Back</button>
+        <button mat-flat-button color="success" type="button" [disabled]="isSaving" (click)="submitIssue()">
+          Submit Report
+        </button>
+      </div>
+    </mat-step>
+  </mat-stepper>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

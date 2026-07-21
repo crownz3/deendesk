@@ -1,0 +1,52 @@
+<h2 mat-dialog-title>Review Rejoin Request</h2>
+
+<mat-dialog-content>
+  <div class="info-panel">
+    <div class="info-row">
+      <span class="label">User ID:</span>
+      <span class="value">{{ data.request.previousUserId }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Type:</span>
+      <span class="value">{{ data.request.personType | titlecase }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Previous Exit Status:</span>
+      <span class="value">{{ data.request.previousExitReason || 'Unknown' }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Requested Madrasa:</span>
+      <span class="value">{{ data.request.requestedMadrasaId }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Requested Start:</span>
+      <span class="value">{{ data.request.requestedStartDate?.toMillis() | date:'longDate' }}</span>
+    </div>
+    <div class="info-row">
+      <span class="label">Reason for Return:</span>
+      <span class="value">"{{ data.request.reasonForReturn }}"</span>
+    </div>
+  </div>
+
+  <form [formGroup]="form" class="dialog-form" style="margin-top: 16px;">
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Review Notes (Required for approval or rejection)</mat-label>
+        <textarea matInput formControlName="reviewNotes" rows="3" placeholder="Enter notes from management review..."></textarea>
+      </mat-form-field>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="loading">Cancel</button>
+  <button mat-stroked-button color="warn" (click)="reject()" [disabled]="form.invalid || loading">
+    <mat-icon *ngIf="!loading">close</mat-icon>
+    Reject
+  </button>
+  <button mat-flat-button color="primary" (click)="approve()" [disabled]="form.invalid || loading">
+    <mat-spinner *ngIf="loading" diameter="20" class="btn-spinner"></mat-spinner>
+    <mat-icon *ngIf="!loading">check</mat-icon>
+    Approve Rejoin
+  </button>
+</mat-dialog-actions>

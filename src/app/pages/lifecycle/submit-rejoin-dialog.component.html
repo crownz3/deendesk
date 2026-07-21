@@ -1,0 +1,76 @@
+<h2 mat-dialog-title>Submit Rejoin Request</h2>
+
+<mat-dialog-content>
+  <div class="user-summary">
+    <div class="avatar-placeholder">
+      {{ data.user.displayName | slice:0:1 | uppercase }}
+    </div>
+    <div class="user-details">
+      <h3>{{ data.user.displayName }}</h3>
+      <p>Type: {{ data.user.entityType | titlecase }} | Previous Status: {{ data.user.status }}</p>
+    </div>
+  </div>
+
+  <form [formGroup]="form" class="dialog-form">
+    
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Requested Madrasa</mat-label>
+        <mat-select formControlName="requestedMadrasaId">
+          <mat-option *ngFor="let m of madrasas" [value]="m.id">
+            {{ m.name }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <!-- Student Specific Fields -->
+    <ng-container *ngIf="data.user.entityType === 'student'">
+      <div class="form-row cols-2">
+        <mat-form-field appearance="outline">
+          <mat-label>Requested Course</mat-label>
+          <input matInput formControlName="requestedCourseId">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Requested Class</mat-label>
+          <input matInput formControlName="requestedClassId">
+        </mat-form-field>
+      </div>
+    </ng-container>
+
+    <!-- Staff Specific Fields -->
+    <ng-container *ngIf="data.user.entityType !== 'student'">
+      <div class="form-row">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Requested Role</mat-label>
+          <input matInput formControlName="requestedRole">
+        </mat-form-field>
+      </div>
+    </ng-container>
+
+    <div class="form-row cols-2 align-center">
+      <mat-form-field appearance="outline">
+        <mat-label>Reason for Return</mat-label>
+        <input matInput formControlName="reasonForReturn" placeholder="e.g. Cleared wait period">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Requested Start Date</mat-label>
+        <input matInput [matDatepicker]="effPicker" formControlName="requestedStartDate">
+        <mat-datepicker-toggle matIconSuffix [for]="effPicker"></mat-datepicker-toggle>
+        <mat-datepicker #effPicker></mat-datepicker>
+      </mat-form-field>
+    </div>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="loading">Cancel</button>
+  <button mat-flat-button color="primary" (click)="submit()" [disabled]="form.invalid || loading">
+    <mat-spinner *ngIf="loading" diameter="20" class="btn-spinner"></mat-spinner>
+    <mat-icon *ngIf="!loading">assignment_return</mat-icon>
+    Submit Request
+  </button>
+</mat-dialog-actions>

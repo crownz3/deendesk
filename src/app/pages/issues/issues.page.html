@@ -1,0 +1,238 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as state">
+
+    <!-- Loading State -->
+    <ng-container *ngIf="state.loading && !state.data">
+      <div class="loading-state">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading issues dashboard...</p>
+      </div>
+    </ng-container>
+
+    <!-- Error State -->
+    <ng-container *ngIf="!state.loading && state.error">
+      <div class="error-state">
+        <app-empty-state
+          icon="alert-circle-outline"
+          title="Unable to load issues"
+          [message]="state.error"
+        ></app-empty-state>
+      </div>
+    </ng-container>
+
+    <!-- Data State -->
+    <ng-container *ngIf="!state.error && state.data as vm">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Operations</p>
+          <h1>Issue Tracking & Incident Management</h1>
+          <p>Register safeguarding, disciplinary, or operational incidents and track their resolutions.</p>
+        </div>
+        <div class="page-actions">
+          <button mat-stroked-button color="primary" type="button" (click)="refreshData()">
+            <ion-icon name="refresh-outline" style="margin-right: 6px;"></ion-icon>
+            Refresh
+          </button>
+          <button mat-stroked-button *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin' || vm.profile?.permissions?.includes('manageIssues')" (click)="openCategoryConfig(vm)">
+            <ion-icon name="options-outline" style="margin-right: 6px;"></ion-icon>
+            Config Categories
+          </button>
+          
+          <button mat-flat-button color="primary" (click)="openIssueForm(vm)">
+            <ion-icon name="add-outline" style="margin-right: 6px;"></ion-icon>
+            Report Issue
+          </button>
+        </div>
+      </header>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <div class="stat-card stat-total">
+          <div class="stat-icon"><ion-icon name="warning-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.total }}</span>
+            <span class="stat-label">Total Reported</span>
+          </div>
+        </div>
+        <div class="stat-card stat-open">
+          <div class="stat-icon"><ion-icon name="alert-circle-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.open }}</span>
+            <span class="stat-label">Open Cases</span>
+          </div>
+        </div>
+        <div class="stat-card stat-critical">
+          <div class="stat-icon"><ion-icon name="flame-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.critical }}</span>
+            <span class="stat-label">Critical cases</span>
+          </div>
+        </div>
+        <div class="stat-card stat-today">
+          <div class="stat-icon"><ion-icon name="today-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.today }}</span>
+            <span class="stat-label">Reported Today</span>
+          </div>
+        </div>
+        <div class="stat-card stat-overdue">
+          <div class="stat-icon"><ion-icon name="hourglass-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value" [class.danger]="vm.stats.overdue > 0">{{ vm.stats.overdue }}</span>
+            <span class="stat-label">Overdue Resolution</span>
+          </div>
+        </div>
+        <div class="stat-card stat-resolved">
+          <div class="stat-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.resolved }}</span>
+            <span class="stat-label">Resolved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters toolbar -->
+      <div class="filters-toolbar">
+        <div class="filter-inputs">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Search issues</mat-label>
+            <mat-icon matPrefix>search</mat-icon>
+            <input matInput [(ngModel)]="searchQuery" placeholder="Search by title, details...">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin' || vm.profile?.role === 'coordinator'">
+            <mat-label>Madrasa</mat-label>
+            <mat-select [(ngModel)]="madrasaFilter">
+              <mat-option value="all">All Madrasas</mat-option>
+              <mat-option *ngFor="let m of vm.madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Category</mat-label>
+            <mat-select [(ngModel)]="categoryFilter">
+              <mat-option value="all">All Categories</mat-option>
+              <mat-option *ngFor="let c of vm.categories" [value]="c.id">{{ c['name'] }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Priority</mat-label>
+            <mat-select [(ngModel)]="priorityFilter">
+              <mat-option value="all">All Priorities</mat-option>
+              <mat-option value="low">Low</mat-option>
+              <mat-option value="medium">Medium</mat-option>
+              <mat-option value="high">High</mat-option>
+              <mat-option value="critical">Critical</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="statusFilter">
+              <mat-option value="all">All Statuses</mat-option>
+              <mat-option value="reported">Reported</mat-option>
+              <mat-option value="acknowledged">Acknowledged</mat-option>
+              <mat-option value="assigned">Assigned</mat-option>
+              <mat-option value="underInvestigation">Under Investigation</mat-option>
+              <mat-option value="actionRequired">Action Required</mat-option>
+              <mat-option value="inProgress">In Progress</mat-option>
+              <mat-option value="resolved">Resolved</mat-option>
+              <mat-option value="closed">Closed</mat-option>
+              <mat-option value="reopened">Reopened</mat-option>
+              <mat-option value="rejected">Rejected</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Confidentiality</mat-label>
+            <mat-select [(ngModel)]="confidentialFilter">
+              <mat-option value="all">All Access</mat-option>
+              <mat-option value="confidential">Confidential Safeguarding</mat-option>
+              <mat-option value="normal">Normal / Public</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-checkbox [(ngModel)]="overdueOnly" class="overdue-checkbox">Overdue Only</mat-checkbox>
+
+          <button mat-stroked-button type="button" class="btn-clear" (click)="clearFilters()">Clear Filters</button>
+        </div>
+      </div>
+
+      <!-- Main Content Panel -->
+      <div class="main-content-panel">
+        <div class="empty-state-box" *ngIf="getFilteredIssues(vm.issues).length === 0">
+          <app-empty-state
+            icon="warning-outline"
+            title="No issues found"
+            message="No active incident reports match your criteria. Toggle filters or file a new issue report."
+          ></app-empty-state>
+        </div>
+
+        <div class="list-view-container" *ngIf="getFilteredIssues(vm.issues).length > 0">
+          <!-- Desktop Table -->
+          <div class="desktop-only table-wrapper">
+            <table class="deen-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Reported Date</th>
+                  <th>Due Date</th>
+                  <th>Type</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let i of getFilteredIssues(vm.issues)">
+                  <td>
+                    <div class="issue-name-cell">
+                      <strong>{{ i.title }}</strong>
+                      <span class="sub-desc" *ngIf="i.description">{{ i.description | slice:0:80 }}...</span>
+                    </div>
+                  </td>
+                  <td>{{ i.categoryId }}</td>
+                  <td><span class="priority-chip" [class]="i.priority">{{ i.priority }}</span></td>
+                  <td><span class="status-chip" [class]="i.status">{{ i.status }}</span></td>
+                  <td>{{ formatDate(i.reportedAt) }}</td>
+                  <td>
+                    <span [class.overdue-text]="isOverdue(i)">{{ formatDate(i.dueAt) }}</span>
+                  </td>
+                  <td>
+                    <span class="confidential-badge" *ngIf="i.confidential">CONFIDENTIAL</span>
+                    <span class="normal-badge" *ngIf="!i.confidential">NORMAL</span>
+                  </td>
+                  <td class="actions-col">
+                    <button mat-icon-button (click)="openIssueDetails(vm, i)" matTooltip="View details and timelines">
+                      <ion-icon name="eye-outline"></ion-icon>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile Cards -->
+          <div class="mobile-only cards-wrapper">
+            <mat-card class="issue-mobile-card" *ngFor="let i of getFilteredIssues(vm.issues)">
+              <mat-card-header>
+                <mat-card-title>{{ i.title }}</mat-card-title>
+                <mat-card-subtitle>{{ i.categoryId }} • <span class="status-chip" [class]="i.status">{{ i.status }}</span></mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <p><strong>Priority:</strong> {{ i.priority | uppercase }}</p>
+                <p *ngIf="i.dueAt"><strong>Due Date:</strong> <span [class.overdue-text]="isOverdue(i)">{{ formatDate(i.dueAt) }}</span></p>
+                <p *ngIf="i.confidential"><span class="confidential-badge">CONFIDENTIAL</span></p>
+              </mat-card-content>
+              <mat-card-actions align="end">
+                <button mat-button color="primary" (click)="openIssueDetails(vm, i)">View Details</button>
+              </mat-card-actions>
+            </mat-card>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </section>
+</ion-content>

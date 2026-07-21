@@ -1,0 +1,110 @@
+<h2 mat-dialog-title>{{ isCloseMode ? 'Resolve Maintenance Task' : 'Schedule Asset Maintenance / Service' }}</h2>
+
+<mat-dialog-content class="dialog-content-pad">
+  <form [formGroup]="form" class="dialog-form-layout">
+    <!-- Close Mode Fields -->
+    <ng-container *ngIf="isCloseMode">
+      <p class="warning-alert-text">
+        Resolving maintenance logged for: <strong>{{ asset.name }}</strong>.<br>
+        Complaint: <em>"{{ maintenance.complaint }}"</em>
+      </p>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Actual Cost (INR)</mat-label>
+        <span matPrefix>₹&nbsp;</span>
+        <input matInput type="number" formControlName="actualCost">
+        <mat-error *ngIf="form.get('actualCost')?.hasError('required')">Actual cost is required</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Resolution Notes</mat-label>
+        <textarea matInput formControlName="resolution" rows="3" placeholder="Explain how the issue was fixed..."></textarea>
+        <mat-error *ngIf="form.get('resolution')?.hasError('required')">Resolution notes are required</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Asset Post-Service Condition</mat-label>
+        <mat-select formControlName="condition">
+          <mat-option value="new">New</mat-option>
+          <mat-option value="excellent">Excellent</mat-option>
+          <mat-option value="good">Good</mat-option>
+          <mat-option value="fair">Fair</mat-option>
+          <mat-option value="poor">Poor</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Post-Service Operational Status</mat-label>
+        <mat-select formControlName="status">
+          <mat-option value="available">Available</mat-option>
+          <mat-option value="inUse">In Use</mat-option>
+          <mat-option value="reserved">Reserved</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Next Maintenance Schedule Date (Optional)</mat-label>
+        <input matInput type="date" formControlName="nextMaintenanceAt">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Internal Notes</mat-label>
+        <textarea matInput formControlName="notes" rows="2" placeholder="Additional technician notes, support contacts..."></textarea>
+      </mat-form-field>
+    </ng-container>
+
+    <!-- Create/Schedule Mode Fields -->
+    <ng-container *ngIf="!isCloseMode">
+      <p class="warning-alert-text">
+        Report maintenance need for: <strong>{{ asset.name }} ({{ asset.assetCode }})</strong>.
+      </p>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Service Type</mat-label>
+        <mat-select formControlName="maintenanceType">
+          <mat-option value="routine">Routine Check / Service</mat-option>
+          <mat-option value="repair">Breakdown Repair</mat-option>
+          <mat-option value="calibration">Calibration / Optimization</mat-option>
+          <mat-option value="upgrade">Hardware Upgrade</mat-option>
+          <mat-option value="other">Other</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Scheduled Date</mat-label>
+        <input matInput type="date" formControlName="scheduledAt">
+        <mat-error *ngIf="form.get('scheduledAt')?.hasError('required')">Scheduled date is required</mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Estimated Cost (INR)</mat-label>
+        <span matPrefix>₹&nbsp;</span>
+        <input matInput type="number" formControlName="estimatedCost">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Service Provider / Technician</mat-label>
+        <input matInput formControlName="serviceProvider" placeholder="e.g. BlueStar Tech, Dell Support">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Service Provider Contact</mat-label>
+        <input matInput formControlName="serviceProviderContact" placeholder="e.g. Phone or email">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Complaint Details / Issue Description</mat-label>
+        <textarea matInput formControlName="complaint" rows="3" placeholder="Describe the fault or details of work required..."></textarea>
+        <mat-error *ngIf="form.get('complaint')?.hasError('required')">Complaint is required</mat-error>
+      </mat-form-field>
+    </ng-container>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()" [disabled]="isSaving">Cancel</button>
+  <button mat-raised-button color="primary" [disabled]="form.invalid || isSaving" (click)="submit()">
+    <mat-spinner diameter="18" *ngIf="isSaving"></mat-spinner>
+    {{ isCloseMode ? 'Complete & Close' : 'Schedule Service' }}
+  </button>
+</mat-dialog-actions>

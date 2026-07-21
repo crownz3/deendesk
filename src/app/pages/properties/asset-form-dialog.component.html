@@ -1,0 +1,354 @@
+<h2 mat-dialog-title>{{ isEditMode ? 'Modify Asset Details' : 'Register Madrasa Property & Asset' }}</h2>
+
+<mat-dialog-content class="form-dialog-content">
+  <mat-stepper linear #stepper>
+    <!-- Step 1: Basic Details -->
+    <mat-step [stepControl]="step1Form">
+      <form [formGroup]="step1Form" class="stepper-form-grid">
+        <ng-template matStepLabel>Basic Details</ng-template>
+
+        <mat-form-field appearance="outline" class="col-span-2">
+          <mat-label>Asset / Property Name</mat-label>
+          <input matInput formControlName="name" placeholder="e.g. RO Water Purifier, Projector">
+          <mat-error *ngIf="step1Form.get('name')?.hasError('required')">Asset name is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Category</mat-label>
+          <mat-select formControlName="categoryId">
+            <mat-option *ngFor="let c of categories" [value]="c.id">{{ c['name'] }}</mat-option>
+          </mat-select>
+          <mat-error *ngIf="step1Form.get('categoryId')?.hasError('required')">Category is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Asset Type</mat-label>
+          <mat-select formControlName="assetTypeId">
+            <mat-option value="appliance">Appliance / Equipment</mat-option>
+            <mat-option value="furniture">Furniture</mat-option>
+            <mat-option value="it">IT / Computers</mat-option>
+            <mat-option value="vehicle">Vehicle</mat-option>
+            <mat-option value="books">Books / Library</mat-option>
+            <mat-option value="other">Other / Custom</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="col-span-2" *ngIf="step1Form.get('assetTypeId')?.value === 'other'">
+          <mat-label>Custom Asset Type Name</mat-label>
+          <input matInput formControlName="customAssetType" placeholder="e.g. Prayer Mat, Water Tank">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" *ngIf="!isEditMode">
+          <mat-label>Madrasa Location</mat-label>
+          <mat-select formControlName="madrasaId">
+            <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+          </mat-select>
+          <mat-error *ngIf="step1Form.get('madrasaId')?.hasError('required')">Madrasa is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Asset Code (Optional)</mat-label>
+          <input matInput formControlName="assetCode" placeholder="Auto-generated if left blank">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Barcode / QR Code Value</mat-label>
+          <input matInput formControlName="barcodeValue" placeholder="Scan or input code">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Quantity</mat-label>
+          <input matInput type="number" formControlName="quantity">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Unit</mat-label>
+          <input matInput formControlName="unit" placeholder="e.g. pcs, units, sets">
+        </mat-form-field>
+
+        <div class="col-span-2 tracking-mode-selector">
+          <label class="section-label">Tracking Mode</label>
+          <mat-radio-group formControlName="trackingMode" color="primary">
+            <mat-radio-button value="bulk">Bulk / Quantity Tracking (Chairs, Mats)</mat-radio-button>
+            <mat-radio-button value="individual">Individual Item Tracking (Computers, CCTV - Creates Serial Units)</mat-radio-button>
+          </mat-radio-group>
+        </div>
+
+        <mat-form-field appearance="outline" class="col-span-2">
+          <mat-label>Description</mat-label>
+          <textarea matInput formControlName="description" rows="3" placeholder="Additional details or context..."></textarea>
+        </mat-form-field>
+
+        <div class="step-actions col-span-2">
+          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- Step 2: Product Details -->
+    <mat-step [stepControl]="step2Form">
+      <form [formGroup]="step2Form" class="stepper-form-grid">
+        <ng-template matStepLabel>Product Details</ng-template>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Brand</mat-label>
+          <input matInput formControlName="brand" placeholder="e.g. Voltas, Dell">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Model</mat-label>
+          <input matInput formControlName="model" placeholder="e.g. Latitude 3420">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Manufacturer</mat-label>
+          <input matInput formControlName="manufacturer">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" *ngIf="step1Form.get('trackingMode')?.value === 'bulk'">
+          <mat-label>Serial Number (Main)</mat-label>
+          <input matInput formControlName="serialNumber">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Current Condition</mat-label>
+          <mat-select formControlName="condition">
+            <mat-option value="new">New</mat-option>
+            <mat-option value="excellent">Excellent</mat-option>
+            <mat-option value="good">Good</mat-option>
+            <mat-option value="fair">Fair</mat-option>
+            <mat-option value="poor">Poor</mat-option>
+            <mat-option value="damaged">Damaged / Broken</mat-option>
+            <mat-option value="unusable">Unusable</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Operational Status</mat-label>
+          <mat-select formControlName="status">
+            <mat-option value="available">Available</mat-option>
+            <mat-option value="inUse">In Use</mat-option>
+            <mat-option value="reserved">Reserved</mat-option>
+            <mat-option value="underMaintenance">Under Maintenance</mat-option>
+            <mat-option value="damaged">Damaged</mat-option>
+            <mat-option value="missing">Missing</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="col-span-2">
+          <mat-label>Location Inside Madrasa</mat-label>
+          <input matInput formControlName="location" placeholder="e.g. Main Office, Room 4, Kitchen">
+          <mat-error *ngIf="step2Form.get('location')?.hasError('required')">Location is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="col-span-2">
+          <mat-label>Product Specifications</mat-label>
+          <textarea matInput formControlName="specifications" rows="3" placeholder="RAM, Storage, Capacity details..."></textarea>
+        </mat-form-field>
+
+        <div class="step-actions col-span-2">
+          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
+          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- Step 3: Purchase & Financial -->
+    <mat-step [stepControl]="step3Form">
+      <form [formGroup]="step3Form" class="stepper-form-grid">
+        <ng-template matStepLabel>Financial Details</ng-template>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Purchase Date</mat-label>
+          <input matInput type="date" formControlName="purchaseAt">
+          <mat-error *ngIf="step3Form.get('purchaseAt')?.hasError('required')">Purchase date is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Purchase Quantity</mat-label>
+          <input matInput type="number" formControlName="purchaseQuantity" readonly>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Unit Price (INR)</mat-label>
+          <span matPrefix>₹&nbsp;</span>
+          <input matInput type="number" formControlName="unitPrice">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Total Purchase Amount (INR)</mat-label>
+          <span matPrefix>₹&nbsp;</span>
+          <input matInput type="number" formControlName="purchaseAmount" readonly>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Vendor Name</mat-label>
+          <input matInput formControlName="vendorName">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Vendor Contact</mat-label>
+          <input matInput formControlName="vendorContact">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Invoice Number</mat-label>
+          <input matInput formControlName="invoiceNumber">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Funding Source</mat-label>
+          <mat-select formControlName="fundingSource">
+            <mat-option value="general">General Budget</mat-option>
+            <mat-option value="donation">Specific Donation</mat-option>
+            <mat-option value="government">Government Grant</mat-option>
+            <mat-option value="other">Other</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="col-span-2" *ngIf="step3Form.get('fundingSource')?.value === 'donation'">
+          <mat-label>Donor Details (Name, Note)</mat-label>
+          <input matInput formControlName="donorDetails" placeholder="e.g. Al-Fatah Trust, Haji Ismail">
+        </mat-form-field>
+
+        <div class="step-actions col-span-2">
+          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
+          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- Step 4: Warranty & Maintenance -->
+    <mat-step [stepControl]="step4Form">
+      <form [formGroup]="step4Form" class="stepper-form-grid">
+        <ng-template matStepLabel>Warranty / Maintenance</ng-template>
+
+        <div class="col-span-2 checkbox-row">
+          <mat-checkbox formControlName="warrantyAvailable" color="primary">Warranty Applicable</mat-checkbox>
+        </div>
+
+        <ng-container *ngIf="step4Form.get('warrantyAvailable')?.value">
+          <mat-form-field appearance="outline">
+            <mat-label>Warranty Start Date</mat-label>
+            <input matInput type="date" formControlName="warrantyStartAt">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Warranty End Date</mat-label>
+            <input matInput type="date" formControlName="warrantyEndAt">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-span-2">
+            <mat-label>Warranty Provider / Support Center</mat-label>
+            <input matInput formControlName="warrantyProvider" placeholder="e.g. Samsung Support, LG Care">
+          </mat-form-field>
+        </ng-container>
+
+        <div class="col-span-2 checkbox-row border-top">
+          <mat-checkbox formControlName="maintenanceRequired" color="primary">Periodic Maintenance Required</mat-checkbox>
+        </div>
+
+        <ng-container *ngIf="step4Form.get('maintenanceRequired')?.value">
+          <mat-form-field appearance="outline">
+            <mat-label>Maintenance Frequency (Days)</mat-label>
+            <input matInput type="number" formControlName="maintenanceFrequencyDays">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Last Maintenance Date</mat-label>
+            <input matInput type="date" formControlName="lastMaintenanceAt">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Next Maintenance Due Date</mat-label>
+            <input matInput type="date" formControlName="nextMaintenanceAt">
+          </mat-form-field>
+        </ng-container>
+
+        <div class="step-actions col-span-2">
+          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
+          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- Step 5: Responsibility -->
+    <mat-step [stepControl]="step5Form">
+      <form [formGroup]="step5Form" class="stepper-form-grid">
+        <ng-template matStepLabel>Responsibility</ng-template>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Responsible Staff / Incharge</mat-label>
+          <mat-select formControlName="responsibleInchargeId">
+            <mat-option *ngFor="let s of staff" [value]="s.id">{{ s['displayName'] || s['name'] }}</mat-option>
+          </mat-select>
+          <mat-error *ngIf="step5Form.get('responsibleInchargeId')?.hasError('required')">Incharge assignment is required</mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Assigned Date</mat-label>
+          <input matInput type="date" formControlName="assignedAt">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="col-span-2">
+          <mat-label>Handover Notes / Instructions</mat-label>
+          <textarea matInput formControlName="notes" rows="4" placeholder="Instruction details for handling or security..."></textarea>
+        </mat-form-field>
+
+        <div class="step-actions col-span-2">
+          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
+          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- Step 6: Review & Uploads -->
+    <mat-step>
+      <ng-template matStepLabel>Review & Attachments</ng-template>
+      <div class="review-step-container">
+        <h3>File Uploads</h3>
+        <div class="upload-buttons-row">
+          <input type="file" #photoInput style="display: none" (change)="onFileSelected($event, 'photo')">
+          <button mat-stroked-button type="button" (click)="photoInput.click()"><mat-icon>add_photo_alternate</mat-icon> Upload Photo</button>
+
+          <input type="file" #invoiceInput style="display: none" (change)="onFileSelected($event, 'invoice')">
+          <button mat-stroked-button type="button" (click)="invoiceInput.click()"><mat-icon>receipt</mat-icon> Upload Bill/Invoice</button>
+
+          <input type="file" #warrantyInput style="display: none" (change)="onFileSelected($event, 'warranty')">
+          <button mat-stroked-button type="button" (click)="warrantyInput.click()"><mat-icon>security</mat-icon> Upload Warranty Doc</button>
+        </div>
+
+        <div class="attachments-list" *ngIf="attachmentsList.length > 0">
+          <div class="attachment-item" *ngFor="let att of attachmentsList; let i = index">
+            <span class="file-icon"><mat-icon>insert_drive_file</mat-icon></span>
+            <span class="file-name">{{ att.fileName }} ({{ att.attachmentType }})</span>
+            <button mat-icon-button color="warn" (click)="removeAttachment(i)"><mat-icon>delete</mat-icon></button>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <h3>Summary Review</h3>
+        <div class="summary-details-box">
+          <div class="sum-row"><strong>Asset Name:</strong> <span>{{ step1Form.get('name')?.value }}</span></div>
+          <div class="sum-row"><strong>Tracking:</strong> <span>{{ step1Form.get('trackingMode')?.value === 'bulk' ? 'Bulk Qty' : 'Serialized Units' }}</span></div>
+          <div class="sum-row"><strong>Registered Quantity:</strong> <span>{{ step1Form.get('quantity')?.value }} {{ step1Form.get('unit')?.value }}</span></div>
+          <div class="sum-row"><strong>Total Cost:</strong> <span>₹{{ step3Form.get('purchaseAmount')?.value }}</span></div>
+          <div class="sum-row"><strong>Location:</strong> <span>{{ step2Form.get('location')?.value }}</span></div>
+        </div>
+
+        <div class="step-actions">
+          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
+          <button mat-raised-button color="primary" [disabled]="isSaving" (click)="save()">
+            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+            <mat-icon *ngIf="!isSaving">save</mat-icon> Register Asset
+          </button>
+        </div>
+      </div>
+    </mat-step>
+  </mat-stepper>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions-padding">
+  <button mat-button (click)="cancel()" [disabled]="isSaving">Close</button>
+</mat-dialog-actions>

@@ -183,6 +183,20 @@ service cloud.firestore {
       return sameOrg(data) && (data.get('madrasaId', null) == null || data.get('madrasaId', null) == '');
     }
 
+    function currentEntityId() {
+      return signedIn() ? currentUser().get('entityId', null) : null;
+    }
+
+    function isEventResponsibleStaff(data) {
+      let eId = currentEntityId();
+      let additional = data.get('additionalResponsibleStaffIds', []);
+      let safeAdditional = additional is list ? additional : [];
+      return isActive() && eId != null && (
+        data.get('staffInChargeId', null) == eId
+        || (safeAdditional.size() > 0 && eId in safeAdditional)
+      );
+    }
+
     function assignedClass(data) {
       let currentClasses = currentUser().get('classIds', []);
       let safeCurrentClasses = currentClasses is list ? currentClasses : [];
@@ -295,6 +309,16 @@ service cloud.firestore {
         && oldData.get('organizationId', null) == newData.get('organizationId', null)
         && oldData.get('uid', null) == newData.get('uid', null)
         && oldData.get('userId', null) == newData.get('userId', null);
+    }
+
+    function unchangedCoreFields(oldData, newData) {
+      return oldData.get('organizationId', null) == newData.get('organizationId', null)
+        && oldData.get('createdBy', null) == newData.get('createdBy', null)
+        && oldData.get('createdAt', null) == newData.get('createdAt', null)
+        && oldData.get('userId', null) == newData.get('userId', null)
+        && oldData.get('eventId', null) == newData.get('eventId', null)
+        && oldData.get('issueId', null) == newData.get('issueId', null)
+        && oldData.get('assetId', null) == newData.get('assetId', null);
     }
 
     function selfProfileUpdateFieldsOnly(oldData, newData) {
@@ -752,6 +776,152 @@ service cloud.firestore {
       allow read: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
       allow create: if signedIn() && request.resource.data.actorUserId == request.auth.uid;
       allow update, delete: if false; // Append-only by design
+    }
+
+    // ==========================================
+    // 9. Events, Issues, Properties & Lifecycle Rules
+    // ==========================================
+    match /events/{id} {
+      allow read: if isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || isStudent() || isParent()));
+      allow create: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageEvents'));
+      allow update: if sameOrg(resource.data) && unchangedCoreFields(resource.data, request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageEvents') || isEventResponsibleStaff(resource.data));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /eventParticipants/{id} {
+      allow read: if isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || isStudent() || isParent()));
+      allow create: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageEvents'));
+      allow update: if sameOrg(resource.data) && unchangedCoreFields(resource.data, request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageEvents'));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /eventScheduleHistory/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageEvents'));
+      allow update, delete: if false;
+    }
+
+    match /eventAttendance/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff());
+      allow create, update: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('recordEventAttendance'));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /issueCategories/{id} {
+      allow read: if isActive() && sameOrg(resource.data);
+      allow write: if isSuper() || (isOrgAdmin() && sameOrg(request.resource.data));
+    }
+
+    match /issues/{id} {
+      allow read: if isSuper()
+                  || (isOrgAdmin() && sameOrg(resource.data))
+                  || (isCoordinator() && inAssignedMadrasaScope(resource.data))
+                  || (isMadrasaIncharge() && inAssignedMadrasaScope(resource.data))
+                  || (isTeacherOrStaff() && sameOrg(resource.data) && (resource.data.reportedBy == request.auth.uid || resource.data.assignedStaffId == request.auth.uid))
+                  || (ownUserData(resource.data) && resource.data.confidential == false);
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('reportIssues'));
+      allow update: if sameOrg(resource.data) && unchangedCoreFields(resource.data, request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || (isTeacherOrStaff() && resource.data.assignedStaffId == request.auth.uid));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /issuePrivateDetails/{id} {
+      allow read, write: if isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge()) && (hasPermission('viewConfidentialIssues') || hasPermission('manageIssues')));
+    }
+
+    match /issueInternalNotes/{id} {
+      allow read, write: if isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || (isTeacherOrStaff() && hasPermission('viewConfidentialIssues'))));
+    }
+
+    match /issueStatusHistory/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+      allow create: if signedIn() && sameOrg(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /issueAssignments/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff());
+      allow create: if signedIn() && sameOrg(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /issueAttachments/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || (isTeacherOrStaff() && (resource.data.uploadedBy == request.auth.uid || resource.data.issueId != null)));
+      allow create: if signedIn() && sameOrg(request.resource.data);
+      allow update, delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+
+    match /propertyCategories/{id} {
+      allow read: if isActive() && sameOrg(resource.data);
+      allow write: if isSuper() || (isOrgAdmin() && sameOrg(request.resource.data));
+    }
+
+    match /madrasaAssets/{id} {
+      allow read: if isActive() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff());
+      allow create, update: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || (isTeacherOrStaff() && hasPermission('reportPropertyDamage')));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /assetTransactions/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+      allow create: if signedIn() && sameOrg(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /assetMaintenance/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff());
+      allow create, update: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /assetUnits/{id} {
+      allow read: if isActive() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff());
+      allow create, update: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /assetAttachments/{id} {
+      allow read: if sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff());
+      allow create: if signedIn() && sameOrg(request.resource.data);
+      allow update, delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /userLifecycleHistory/{id} {
+      allow read: if isSuper() || (isOrgAdmin() && sameOrg(resource.data)) || (ownUserData(resource.data) && hasPermission('viewLifecycleHistory'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageUserLifecycle'));
+      allow update, delete: if false;
+    }
+
+    match /userServicePeriods/{id} {
+      allow read: if isSuper() || (isOrgAdmin() && sameOrg(resource.data)) || (ownUserData(resource.data) && hasPermission('viewLifecycleHistory'));
+      allow create, update: if sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageUserLifecycle'));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /lifecycleRecords/{id} {
+      allow read: if isSuper() || (isOrgAdmin() && sameOrg(resource.data)) || (isCoordinator() && inAssignedMadrasaScope(resource.data)) || (isMadrasaIncharge() && inAssignedMadrasaScope(resource.data));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageUserLifecycle'));
+      allow update: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageUserLifecycle'));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /rejoinRequests/{id} {
+      allow read: if isSuper() || (isOrgAdmin() && sameOrg(resource.data)) || (isCoordinator() && inAssignedMadrasaScope(resource.data)) || (isMadrasaIncharge() && inAssignedMadrasaScope(resource.data)) || (ownUserData(resource.data));
+      allow create: if signedIn() && sameOrg(request.resource.data);
+      allow update: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageUserLifecycle'));
+      allow delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+    }
+
+    match /courseTypes/{id} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageCourses'));
+      allow delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageCourses'));
+    }
+
+    match /userLifecycleHistory/{id} {
+      allow read: if signedIn() && sameOrg(resource.data);
+      allow create: if signedIn() && sameOrg(request.resource.data);
+      allow update, delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
     }
 
     match /{document=**} {

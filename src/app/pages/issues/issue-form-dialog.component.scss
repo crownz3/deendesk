@@ -1,0 +1,246 @@
+.issue-form-dialog-content {
+  min-width: 320px;
+  max-width: 1050px;
+  width: 100%;
+  padding: 1rem 0;
+  position: relative;
+  min-height: 400px;
+}
+
+.loader-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.col-double {
+  grid-column: span 2;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.selector-box {
+  background: var(--ion-color-light, #f4f5f8);
+  border-radius: 8px;
+  padding: 1rem;
+  border: 1px solid var(--ion-color-light-shade, #e0e0e0);
+  
+  label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ion-color-medium, #666);
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+}
+
+.search-bar-row {
+  position: relative;
+  
+  .search-input {
+    width: 100%;
+  }
+}
+
+.dropdown-matches {
+  position: absolute;
+  top: 56px;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border: 1px solid var(--ion-color-light-shade, #e0e0e0);
+  border-radius: 4px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  z-index: 20;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.dropdown-item {
+  padding: 0.75rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--ion-color-light-shade, #f4f4f4);
+  font-size: 0.9rem;
+  
+  &:hover {
+    background: var(--ion-color-light, #f4f5f8);
+  }
+  
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.chips-row {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.chip-item {
+  background: var(--ion-color-primary-tint, #e8f0fe);
+  color: var(--ion-color-primary, #3880ff);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+  
+  ion-icon {
+    cursor: pointer;
+    font-size: 16px;
+    color: var(--ion-color-primary, #3880ff);
+    
+    &:hover {
+      color: var(--ion-color-primary-shade, #1565c0);
+    }
+  }
+}
+
+.evidence-box {
+  background: var(--ion-color-light, #f4f5f8);
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px dashed var(--ion-color-medium, #999);
+  margin: 1rem 0;
+  
+  label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  
+  input[type="file"] {
+    display: inline-block;
+    margin-bottom: 1rem;
+  }
+}
+
+.attachments-list {
+  margin-top: 1rem;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.time-field-wrapper {
+  width: 100%;
+  
+  .time-field {
+    width: 100%;
+    height: 56px;
+    margin: 0;
+    --background: #fff;
+    --padding-start: 16px;
+    --padding-end: 16px;
+    border: 1px solid rgba(0, 0, 0, 0.38);
+    border-radius: 4px;
+    transition: border-color 0.2s;
+    
+    &:hover {
+      border-color: rgba(0, 0, 0, 0.87);
+    }
+
+    ion-icon {
+      margin-right: 8px;
+      color: rgba(0, 0, 0, 0.6);
+    }
+
+    ion-label {
+      font-size: 1rem;
+      color: rgba(0, 0, 0, 0.6);
+    }
+
+    .time-display {
+      font-size: 1rem;
+      font-weight: 400;
+      color: rgba(0, 0, 0, 0.87);
+    }
+  }
+}
+
+.datetime-menu {
+  .mat-mdc-menu-content {
+    padding: 0;
+  }
+}
+
+.datetime-wrapper {
+  padding: 8px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.review-box {
+  background: var(--ion-color-light, #f4f5f8);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  
+  h3 {
+    margin-top: 0;
+    font-weight: 600;
+  }
+}
+
+.review-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+.review-item {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--ion-color-light-shade, #e0e0e0);
+  padding-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.stepper-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .col-double {
+    grid-column: span 1;
+  }
+}

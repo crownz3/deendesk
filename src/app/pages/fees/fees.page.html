@@ -29,6 +29,10 @@
           <p>Manage fee plans, assignments, collections, and track dues.</p>
         </div>
         <div class="page-actions">
+          <button mat-stroked-button color="primary" type="button" (click)="refreshData()">
+            <ion-icon name="refresh-outline"></ion-icon>
+            Refresh
+          </button>
           <button mat-flat-button color="primary" type="button" (click)="openFeePlanForm()">
             <ion-icon name="add-outline"></ion-icon>
             New Fee Plan

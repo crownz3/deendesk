@@ -1,0 +1,282 @@
+<h2 mat-dialog-title>Issue Details: {{ issue.title }}</h2>
+
+<mat-dialog-content class="details-dialog-content">
+  <div class="loader-overlay" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-tab-group animationDuration="200ms" [(selectedIndex)]="activeTab">
+    <!-- TAB 1: Overview -->
+    <mat-tab label="Overview">
+      <div class="tab-pane">
+        <div class="meta-section">
+          <div class="status-badge-container">
+            <span class="status-chip" [class]="issue.status">{{ issue.status | uppercase }}</span>
+            <span class="priority-chip" [class]="issue.priority">{{ issue.priority | uppercase }} PRIORITY</span>
+            <span class="severity-chip" [class]="issue.severity" *ngIf="issue.severity">{{ issue.severity | uppercase }} SEVERITY</span>
+          </div>
+
+          <div class="action-buttons-row" *ngIf="canManageStatus">
+            <button mat-flat-button color="accent" *ngIf="isManager" (click)="assignIssue()">Assign Issue</button>
+            
+            <button mat-button [matMenuTriggerFor]="statusMenu">Status</button>
+            <mat-menu #statusMenu="matMenu">
+              <button mat-menu-item (click)="changeStatus('acknowledged')">Acknowledge</button>
+              <button mat-menu-item (click)="changeStatus('underInvestigation')">Start Investigation</button>
+              <button mat-menu-item (click)="changeStatus('actionRequired')">Flag Action Required</button>
+              <button mat-menu-item (click)="changeStatus('inProgress')">Mark In Progress</button>
+              <button mat-menu-item (click)="resolveIssue()">Resolve Issue</button>
+              <button mat-menu-item (click)="closeIssue()" *ngIf="canClose">Close Issue</button>
+              <button mat-menu-item (click)="reopenIssue()" *ngIf="canReopen">Reopen Issue</button>
+              <button mat-menu-item (click)="changeStatus('rejected')">Reject</button>
+            </mat-menu>
+          </div>
+        </div>
+
+        <div class="overview-grid">
+          <div class="info-item col-span-2">
+            <label>Incident Details & Description</label>
+            <p>{{ issue.description }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Category</label>
+            <p>{{ issue.categoryId }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Location / Room</label>
+            <p>{{ issue.location }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Incident Date & Time</label>
+            <p>{{ formatDate(issue.incidentAt) }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Reported Date & Time</label>
+            <p>{{ formatDate(issue.reportedAt) }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Reporter</label>
+            <p>{{ issue.reporterNameSnapshot }} ({{ issue.reporterRole | uppercase }})</p>
+          </div>
+
+          <div class="info-item">
+            <label>Emergency Action Required</label>
+            <p>{{ issue.emergency ? 'YES' : 'NO' }}</p>
+          </div>
+
+          <div class="info-item" *ngIf="issue.dueAt">
+            <label>Due Date</label>
+            <p>{{ formatDate(issue.dueAt) }}</p>
+          </div>
+
+          <div class="info-item" *ngIf="issue.followUpAt">
+            <label>Follow Up Date</label>
+            <p>{{ formatDate(issue.followUpAt) }}</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 2: Involved People (Restricted access) -->
+    <mat-tab label="People Involved" *ngIf="canViewPrivateDetails">
+      <div class="tab-pane">
+        <h3>Resolved Involved Persons</h3>
+        
+        <div class="empty-state" *ngIf="!privateDetails">
+          <p>No confidential mappings resolved for this issue.</p>
+        </div>
+
+        <div class="details-section" *ngIf="privateDetails">
+          <div class="info-block" *ngIf="privateDetails.personAffectedDetails">
+            <strong>Person Affected / Victim:</strong>
+            <p>{{ privateDetails.personAffectedDetails }}</p>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.personAgainstDetails">
+            <strong>Person Accused / Subject:</strong>
+            <p>{{ privateDetails.personAgainstDetails }}</p>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.studentIds?.length > 0">
+            <strong>Linked Students (UIDs):</strong>
+            <ul>
+              <li *ngFor="let sId of privateDetails.studentIds">{{ sId }}</li>
+            </ul>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.staffIds?.length > 0">
+            <strong>Linked Staff / Teachers (UIDs):</strong>
+            <ul>
+              <li *ngFor="let stId of privateDetails.staffIds">{{ stId }}</li>
+            </ul>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.externalPersonDetails">
+            <strong>External People Mapped:</strong>
+            <p>{{ privateDetails.externalPersonDetails }}</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 3: Investigation (Restricted to Managers) -->
+    <mat-tab label="Investigation Summary" *ngIf="canViewPrivateDetails">
+      <div class="tab-pane">
+        <h3>Investigation Findings & Safeguarding Notes</h3>
+
+        <div class="empty-state" *ngIf="!privateDetails">
+          <p>Investigation notes not yet generated.</p>
+        </div>
+
+        <div class="details-section" *ngIf="privateDetails">
+          <div class="info-block" *ngIf="privateDetails.investigationSummary">
+            <strong>Investigation Summary:</strong>
+            <p>{{ privateDetails.investigationSummary }}</p>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.safeguardingDetails">
+            <strong>Safeguarding & Disciplinary Notes:</strong>
+            <p>{{ privateDetails.safeguardingDetails }}</p>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.disciplinaryRecommendation">
+            <strong>Disciplinary Recommendation:</strong>
+            <p>{{ privateDetails.disciplinaryRecommendation }}</p>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.resolution">
+            <strong>Resolution Logged:</strong>
+            <p>{{ privateDetails.resolution }}</p>
+          </div>
+
+          <div class="info-block" *ngIf="privateDetails.actionTaken">
+            <strong>Action Taken Summary:</strong>
+            <p>{{ privateDetails.actionTaken }}</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 4: Internal Notes (Restricted) -->
+    <mat-tab label="Internal Notes" *ngIf="canViewInternalNotes">
+      <div class="tab-pane">
+        <h3>Timelines of Internal notes</h3>
+
+        <div class="add-note-box">
+          <mat-form-field appearance="outline" class="note-input">
+            <mat-label>Post new internal note...</mat-label>
+            <textarea matInput [(ngModel)]="newNoteText" rows="2"></textarea>
+          </mat-form-field>
+
+          <div class="note-type-actions">
+            <mat-form-field appearance="outline">
+              <mat-label>Note Scope</mat-label>
+              <mat-select [(ngModel)]="newNoteType">
+                <mat-option value="general">General Internal Note</mat-option>
+                <mat-option value="confidential">Confidential Findings</mat-option>
+                <mat-option value="safeguarding">Safeguarding / Legal</mat-option>
+                <mat-option value="action">Action Step Log</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <button mat-flat-button color="primary" (click)="addNote()" [disabled]="!newNoteText.trim()">Add Note</button>
+          </div>
+        </div>
+
+        <div class="notes-timeline" *ngIf="internalNotes.length > 0">
+          <div class="note-card" *ngFor="let n of internalNotes">
+            <div class="note-header">
+              <strong>{{ n.createdByNameSnapshot }}</strong>
+              <span class="note-badge" [class]="n.noteType">{{ n.noteType | uppercase }}</span>
+              <span class="time">{{ formatDate(n.createdAt) }}</span>
+            </div>
+            <p class="note-text">{{ n.note }}</p>
+          </div>
+        </div>
+
+        <div class="empty-state" *ngIf="internalNotes.length === 0">
+          <p>No internal notes added to this issue yet.</p>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 5: Timelines History -->
+    <mat-tab label="Status & Assignment History">
+      <div class="tab-pane">
+        <div class="history-grid">
+          <div>
+            <h3>Status Transition Timeline</h3>
+            <div class="timeline" *ngIf="statusHistory.length > 0">
+              <div class="timeline-item" *ngFor="let h of statusHistory">
+                <div class="time-marker">{{ formatDate(h.changedAt) }}</div>
+                <div class="timeline-content">
+                  <h4>{{ h.previousStatus || 'REPORTED' | uppercase }} → {{ h.newStatus | uppercase }}</h4>
+                  <p><strong>Actor:</strong> {{ h.changedByNameSnapshot }}</p>
+                  <p *ngIf="h.reason"><strong>Reason/Notes:</strong> {{ h.reason }}</p>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="statusHistory.length === 0" class="sub-text">No status transitions logged.</p>
+          </div>
+
+          <div>
+            <h3>Assignment Logs</h3>
+            <div class="timeline" *ngIf="assignments.length > 0">
+              <div class="timeline-item" *ngFor="let a of assignments">
+                <div class="time-marker">{{ formatDate(a.assignedAt) }}</div>
+                <div class="timeline-content">
+                  <h4>Assigned Assignee: {{ a.newAssigneeId }}</h4>
+                  <p><strong>Role:</strong> {{ a.assignmentType | uppercase }}</p>
+                  <p><strong>Reason:</strong> {{ a.reason }}</p>
+                  <p *ngIf="a.endedAt"><strong>Ended:</strong> {{ formatDate(a.endedAt) }}</p>
+                </div>
+              </div>
+            </div>
+            <p *ngIf="assignments.length === 0" class="sub-text">No assignment changes logged.</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 6: Evidence & Attachments -->
+    <mat-tab label="Attachments">
+      <div class="tab-pane">
+        <h3>Evidence Mapped ({{ attachments.length }})</h3>
+
+        <div class="empty-state" *ngIf="attachments.length === 0">
+          <p>No uploaded attachments or files found.</p>
+        </div>
+
+        <table class="data-table-simple" *ngIf="attachments.length > 0">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>Type</th>
+              <th>Size (bytes)</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let att of attachments">
+              <td>{{ att.fileName }}</td>
+              <td>{{ att.fileType }}</td>
+              <td>{{ att.fileSize | number }}</td>
+              <td>
+                <a [href]="att.fileUrl" target="_blank" mat-stroked-button>Download</a>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

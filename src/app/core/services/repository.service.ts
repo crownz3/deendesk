@@ -22,7 +22,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { Observable, combineLatest, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { map, shareReplay } from 'rxjs/operators';
 import { AppUser, ScopedEntity } from '../models/domain.model';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
@@ -90,7 +90,8 @@ export class RepositoryService {
         });
         const docs = Array.from(uniqueMap.values());
         return this.inMemoryFilter(collectionName, docs, user);
-      })
+      }),
+      shareReplay({ bufferSize: 1, refCount: true })
     );
   }
 
@@ -237,6 +238,7 @@ export class RepositoryService {
           status: 'success'
         });
       }
+      this.clearCache(collectionName);
       return id;
     }
 
@@ -253,6 +255,7 @@ export class RepositoryService {
         status: 'success'
       });
     }
+    this.clearCache(collectionName);
     return created.id;
   }
 
@@ -276,6 +279,21 @@ export class RepositoryService {
         data.teacherUids = [];
       }
     }
+  }
+
+  get<T extends EntityRecord>(collectionName: string, id: string): Observable<T> {
+    const docRef = doc(this.firestore, `${collectionName}/${id}`);
+    return new Observable<T>((subscriber) => {
+      return onSnapshot(docRef, (snapshot) => {
+        if (snapshot.exists()) {
+          subscriber.next({ id: snapshot.id, ...snapshot.data() } as T);
+        } else {
+          subscriber.error(new Error(`Document not found: ${collectionName}/${id}`));
+        }
+      }, (error) => {
+        subscriber.error(error);
+      });
+    });
   }
 
   async update<T extends EntityRecord>(collectionName: string, id: string, data: Partial<T>, currentUser: AppUser | null, skipAudit?: boolean): Promise<void> {
@@ -337,6 +355,7 @@ export class RepositoryService {
         message: message || undefined
       });
     }
+    this.clearCache(collectionName);
   }
 
   async remove(collectionName: string, id: string): Promise<void> {
@@ -417,6 +436,7 @@ export class RepositoryService {
     }
     
     await deleteDoc(doc(this.firestore, `${collectionName}/${id}`));
+    this.clearCache(collectionName);
 
     this.auditLogService.logAction({
       module: collectionName,
@@ -478,16 +498,33 @@ export class RepositoryService {
     return rows.length;
   }
 
-  async getAllOnce<T extends EntityRecord>(collectionName: string, user: AppUser | null, options?: { roles?: string[] }, extra: QueryConstraint[] = []): Promise<T[]> {
+  private memoryCache = new Map<string, { timestamp: number; data: any[] }>();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minute TTL
+
+  clearCache(collectionName?: string) {
+    if (collectionName) {
+      for (const key of Array.from(this.memoryCache.keys())) {
+        if (key.startsWith(collectionName)) {
+          this.memoryCache.delete(key);
+        }
+      }
+    } else {
+      this.memoryCache.clear();
+    }
+  }
+
+  async getAllOnce<T extends EntityRecord>(collectionName: string, user: AppUser | null, options?: { roles?: string[]; forceRefresh?: boolean }, extra: QueryConstraint[] = []): Promise<T[]> {
+    const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}`;
+    
+    if (!options?.forceRefresh && this.memoryCache.has(cacheKey)) {
+      const cached = this.memoryCache.get(cacheKey)!;
+      if (Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
+        return cached.data as T[];
+      }
+    }
+
     const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
     const constraintGroups = this.scopeConstraints(collectionName, user, options);
-
-    console.log('[Repository Query Debug]', {
-      collectionName,
-      role: user?.role,
-      queryGroupCount: constraintGroups.length,
-      scopeType: user?.role || 'anonymous'
-    });
 
     if (constraintGroups.length === 0) {
       return [];
@@ -509,7 +546,9 @@ export class RepositoryService {
       });
     });
 
-    return this.inMemoryFilter(collectionName, Array.from(uniqueMap.values()), user);
+    const result = this.inMemoryFilter(collectionName, Array.from(uniqueMap.values()), user);
+    this.memoryCache.set(cacheKey, { timestamp: Date.now(), data: result });
+    return result;
   }
 
   private inMemoryFilter<T extends EntityRecord>(collectionName: string, docs: T[], user: AppUser | null): T[] {
@@ -542,9 +581,19 @@ export class RepositoryService {
             // For other collections (students, classGroups, courses, classPlans), 
             // rely on the specific Firestore queries made by the frontend (and Firestore rules)
             // instead of hardcoded user arrays, since we no longer sync those arrays.
-            if (['students', 'classGroups', 'courses', 'classes', 'classPlans', 'subjects', 'timetableEntries'].includes(collectionName)) {
+            if (['events', 'students', 'classGroups', 'courses', 'classes', 'classPlans', 'subjects', 'timetableEntries', 'issues', 'issueCategories'].includes(collectionName)) {
                 return true; 
             }
+        }
+
+        if (collectionName === 'issueCategories') return true;
+
+        if (collectionName === 'events' && user.permissions?.includes('manageEvents')) {
+            return true;
+        }
+
+        if (collectionName === 'issues' && user.permissions?.includes('manageIssues')) {
+            return true;
         }
 
         let hasMatch = false;
@@ -760,7 +809,7 @@ export class RepositoryService {
         return groups;
       }
 
-      if (['courses', 'classes', 'classGroups', 'subjects', 'academicPlans'].includes(collectionName)) {
+      if (['events', 'courses', 'classes', 'classGroups', 'subjects', 'academicPlans', 'issues', 'issueCategories'].includes(collectionName)) {
         return [[where('organizationId', '==', orgId)]];
       }
 
@@ -784,7 +833,7 @@ export class RepositoryService {
         return groups;
       }
 
-      if (collectionName === 'staff' || collectionName === 'reports') {
+      if (['staff', 'reports', 'userLifecycleHistory', 'userServicePeriods', 'lifecycleRecords', 'lifecycleApprovals', 'lifecycleClearances', 'lifecycleAttachments', 'rejoinRequests'].includes(collectionName)) {
         madrasaChunks.forEach(chunk => {
           groups.push([where('organizationId', '==', orgId), where('madrasaIds', 'array-contains-any', chunk)]);
           groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]);
@@ -837,8 +886,12 @@ export class RepositoryService {
         return [[where('organizationId', '==', orgId), where('responsibleStaffId', '==', user.uid)]];
       }
 
-      if (collectionName === 'courses' || collectionName === 'madrasas' || collectionName === 'staff') {
+      if (collectionName === 'events' || collectionName === 'courses' || collectionName === 'madrasas' || collectionName === 'staff' || collectionName === 'issues' || collectionName === 'issueCategories') {
         return [[where('organizationId', '==', orgId)]];
+      }
+
+      if (['userLifecycleHistory', 'userServicePeriods', 'lifecycleRecords', 'lifecycleApprovals', 'lifecycleClearances', 'lifecycleAttachments', 'rejoinRequests'].includes(collectionName)) {
+        return [[where('organizationId', '==', orgId), where('userId', '==', user.uid)]];
       }
 
       return [];

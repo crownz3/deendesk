@@ -6,7 +6,7 @@ import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWi
 import { CollectionReference, DocumentData, collection, getFirestore } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
-import { PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
+import { DEFAULT_STAGES_BY_COURSE_TYPE, PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
 import {
   AppUser,
   GeneratedCredential,
@@ -36,6 +36,7 @@ import { ClassTransferWizardDialogComponent } from './class-transfer-wizard-dial
 import { StudentTransferDialogComponent } from './student-transfer-dialog/student-transfer-dialog.component';
 import { PromoteDemoteDialogComponent } from './promote-demote-dialog/promote-demote-dialog.component';
 import { UserSwapDialogComponent } from './user-swap-dialog/user-swap-dialog.component';
+import { CourseStagesDialogComponent } from './course-stages-dialog/course-stages-dialog.component';
 import { AcademicTreeAssignStudentsDialogComponent } from '../tree-view/academic-tree-assign-students-dialog.component';
 import { AcademicTreeAssignStaffDialogComponent } from '../tree-view/academic-tree-assign-staff-dialog.component';
 
@@ -99,6 +100,17 @@ const genderField: QuickAddField = {
   options: [
     { label: 'Male', value: 'male' },
     { label: 'Female', value: 'female' },
+  ],
+};
+
+const joinTypeField: QuickAddField = {
+  key: 'joinType',
+  label: 'Join Method',
+  type: 'select',
+  required: true,
+  options: [
+    { label: 'New Join / Enrollment', value: 'new' },
+    { label: 'Rejoin / Re-enrollment', value: 'rejoin' },
   ],
 };
 
@@ -202,6 +214,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
       { key: 'role', label: 'Role', type: 'select', required: true },
+      joinTypeField,
       genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', quickAddResource: 'madrasas' },
@@ -239,6 +252,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email', type: 'email', required: true },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
+      joinTypeField,
       genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
@@ -275,6 +289,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email', type: 'email', required: true },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
+      joinTypeField,
       genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
@@ -314,6 +329,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email', type: 'email', required: true },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'password', label: 'Initial password', type: 'password' },
+      joinTypeField,
       genderField,
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaIds', label: 'Assigned madrasas', type: 'multiselect', required: true, quickAddResource: 'madrasas' },
@@ -325,7 +341,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     resource: 'students',
     title: 'Students',
     subtitle: 'Create student and parent logins with correct academic mapping.',
-    collection: 'users',
+    collection: 'students',
     allowDelete: true,
     fixedRole: 'student',
     allowCredentials: true,
@@ -359,12 +375,14 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'parentName', label: 'Parent display name', type: 'text' },
       { key: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true },
       { key: 'admissionDate', label: 'Admission date', type: 'date' },
+      joinTypeField,
       genderField,
       { key: 'email', label: 'Student email (optional)', type: 'email' },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
       { key: 'courseId', label: 'Course', type: 'select', quickAddResource: 'courses' },
+      { key: 'courseTypeDisplay', label: 'Course Type', type: 'info' },
       { key: 'classId', label: 'Class', type: 'select', quickAddResource: 'classes' },
       { key: 'groupId', label: 'Group (Section)', type: 'select', quickAddResource: 'classGroups' },
       { key: 'stage', label: 'Stage', type: 'text' },
@@ -396,6 +414,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     allowCredentials: true,
     fields: [
       { key: 'name', label: 'Parent name', type: 'text', required: true },
+      joinTypeField,
       genderField,
       { key: 'email', label: 'Email', type: 'email' },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
@@ -420,8 +439,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
       { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
       { key: 'code', label: 'Code' },
-      { key: 'typeDisplay', label: 'Type' },
-
+      { key: 'typeDisplay', label: 'Course Type' },
+      { key: 'stagesDisplay', label: 'Stages' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     allowDetails: true,
@@ -439,8 +458,61 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
           { label: 'Custom', value: 'custom' },
         ]
       },
-      { key: 'stages', label: 'Stages', type: 'multiselect' },
       { key: 'levels', label: 'Levels (comma separated)', type: 'text' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      baseStatusField,
+    ],
+  },
+  stages: {
+    resource: 'stages',
+    title: 'Course Stages',
+    subtitle: 'Define, order, and configure stages for each course structure.',
+    collection: 'stages',
+    allowDelete: true,
+    emptyTitle: 'No course stages found',
+    emptyText: 'Add stages (e.g. Stage 1, Miftah, Sabaq) and assign them to your courses.',
+    emptyButton: 'Add Stage',
+    emptyIcon: 'layers-outline',
+    columns: [
+      { key: 'courseName', label: 'Course' },
+      { key: 'name', label: 'Stage Name' },
+      { key: 'order', label: 'Sequence Order' },
+      { key: 'description', label: 'Description' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    allowDetails: true,
+    fields: [
+      { key: 'organizationId', label: 'Organization', type: 'select', quickAddResource: 'organizations' },
+      { key: 'madrasaId', label: 'Madrasa', type: 'select', quickAddResource: 'madrasas' },
+      { key: 'courseId', label: 'Course', type: 'select', required: true, quickAddResource: 'courses' },
+      { key: 'name', label: 'Stage Name', type: 'text', required: true, placeholder: 'e.g. Stage 1 or Miftah' },
+      { key: 'order', label: 'Sequence Order Number', type: 'text', required: true, placeholder: '1, 2, 3...' },
+      { key: 'description', label: 'Description', type: 'textarea' },
+      baseStatusField,
+    ],
+  },
+  courseTypes: {
+    resource: 'courseTypes',
+    title: 'Course Types',
+    subtitle: 'Customize course categories and default academic structures.',
+    collection: 'courseTypes',
+    allowDelete: true,
+    emptyTitle: 'No course types found',
+    emptyText: 'Create course types like Maktab, Aalim, or Hifz to organize your curriculum.',
+    emptyButton: 'Add Course Type',
+    emptyIcon: 'library-outline',
+    columns: [
+      { key: 'name', label: 'Course Type Name' },
+      { key: 'code', label: 'Code' },
+      { key: 'defaultStagesDisplay', label: 'Default Stages' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    allowDetails: true,
+    fields: [
+      { key: 'organizationId', label: 'Organization', type: 'select', quickAddResource: 'organizations' },
+      { key: 'madrasaId', label: 'Madrasa', type: 'select', quickAddResource: 'madrasas' },
+      { key: 'name', label: 'Course Type Name', type: 'text', required: true, placeholder: 'e.g. Maktab, Aalim, Hifz' },
+      { key: 'code', label: 'Code', type: 'text', required: true, placeholder: 'e.g. MAKTAB, AALIM' },
       { key: 'description', label: 'Description', type: 'textarea' },
       baseStatusField,
     ],
@@ -530,6 +602,28 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'classId', label: 'Class', type: 'select', quickAddResource: 'classes' },
       { key: 'name', label: 'Subject name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
+      baseStatusField,
+    ],
+  },
+  propertyCategories: {
+    resource: 'propertyCategories',
+    title: 'Property Categories',
+    subtitle: 'Manage categories for Madrasa properties and assets.',
+    collection: 'propertyCategories',
+    allowDelete: true,
+    emptyTitle: 'No categories found',
+    emptyText: 'Add property categories to organize assets and properties.',
+    emptyButton: 'Add Category',
+    emptyIcon: 'category',
+    columns: [
+      { key: 'name', label: 'Category' },
+      { key: 'description', label: 'Description' },
+      { key: 'status', label: 'Status', type: 'status' },
+    ],
+    fields: [
+      { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
+      { key: 'name', label: 'Category name', type: 'text', required: true },
+      { key: 'description', label: 'Description', type: 'textarea' },
       baseStatusField,
     ],
   },
@@ -732,6 +826,12 @@ export class ManagementPage {
     private readonly nameResolver: NameResolverService,
     private readonly rolePermissionsService: RolePermissionsService
   ) { }
+
+  refreshData() {
+    this.repo.clearCache();
+    // Force re-emission by re-publishing the current search query
+    this.searchQuery$.next(this.searchQuery$.value);
+  }
 
   private rowsForConfig(config: ManagementConfig, profile: AppUser | null, madrasaFilter: string = 'all', roleFilter: string = 'all'): Observable<EntityRecord[]> {
     if (['students', 'parents', 'staff'].includes(config.resource)) {
@@ -1972,6 +2072,20 @@ export class ManagementPage {
     }
   }
 
+  async openCourseStagesDialog(courseId?: string): Promise<void> {
+    const result = await firstValueFrom(
+      this.dialog.open(CourseStagesDialogComponent, {
+        data: { courseId },
+        width: '680px',
+        maxWidth: '92vw'
+      }).afterClosed()
+    );
+
+    if (result?.success) {
+      this.pageIndex$.next(this.pageIndex$.value);
+    }
+  }
+
   async transfer(row: EntityRecord): Promise<void> {
     const result = await firstValueFrom(this.dialog.open(StudentTransferDialogComponent, {
       data: { student: row },
@@ -2490,6 +2604,24 @@ export class ManagementPage {
         }, profile);
       }
 
+      const joinMethod = String(payload['joinType'] || 'new').toLowerCase();
+      const isRejoin = joinMethod === 'rejoin';
+
+      await this.repo.create('userLifecycleHistory', {
+        userId: studentId,
+        userName: studentCredential.label || 'Student',
+        personType: 'student',
+        lifecycleAction: isRejoin ? 'Rejoined' : 'Joined',
+        actionType: isRejoin ? 'Rejoin' : 'Enrollment',
+        reason: isRejoin ? 'Rejoined / Re-enrolled student account' : 'Newly enrolled student account',
+        effectiveDate: new Date().toISOString(),
+        effectiveDateMs: Date.now(),
+        performedBy: profile?.displayName || profile?.email || 'System',
+        organizationId: profile?.organizationId || '',
+        madrasaId,
+        status: 'active'
+      }, profile).catch(e => console.warn('Failed to log student lifecycle join history', e));
+
     } catch (metadataError: any) {
       this.credentials.splice(0, this.credentials.length, studentCredential, parentCredential);
       console.warn('[Students] Created successfully but metadata/reload failed:', metadataError);
@@ -2602,9 +2734,16 @@ export class ManagementPage {
     if (config.resource === 'courses') {
       return {
         ...initial,
-        stages: this.normalizeStages(initial['stages']),
+        stages: Array.isArray(initial['stages']) ? initial['stages'].join(', ') : String(initial['stages'] || ''),
         levels: Array.isArray(initial['levels']) ? initial['levels'].join(', ') : String(initial['levels'] || ''),
         passwordStatus: initial['mustChangePassword'] ? 'Temporary password pending' : 'Password changed',
+      };
+    }
+
+    if (config.resource === 'courseTypes') {
+      return {
+        ...initial,
+        defaultStages: Array.isArray(initial['defaultStages']) ? initial['defaultStages'].join(', ') : String(initial['defaultStages'] || ''),
       };
     }
 
@@ -2632,10 +2771,19 @@ export class ManagementPage {
     }
 
     if (config.resource === 'courses') {
-      payload['stages'] = this.normalizeStages(payload['stages']);
+      let stages = this.normalizeStages(payload['stages']);
+      const courseType = String(payload['type'] || 'custom').toLowerCase();
+      if (!stages || stages.length === 0) {
+        stages = DEFAULT_STAGES_BY_COURSE_TYPE[courseType] || DEFAULT_STAGES_BY_COURSE_TYPE['custom'];
+      }
+      payload['stages'] = stages;
       payload['levels'] = this.splitList(String(payload['levels'] || ''));
       delete payload['stagesText'];
       delete payload['levelsText'];
+    }
+
+    if (config.resource === 'courseTypes') {
+      payload['defaultStages'] = this.normalizeStages(payload['defaultStages']);
     }
 
     return payload;
@@ -2646,11 +2794,30 @@ export class ManagementPage {
       return rows;
     }
 
-    if (config.fixedRole === 'teacher') {
-      return rows.filter((row) => ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'].includes(String(row['role'])));
+    if (config.fixedRole === 'student') {
+      return rows.filter((row) => {
+        const role = String(row['role'] || '').trim().toLowerCase();
+        const entityType = String(row['entityType'] || '').trim().toLowerCase();
+        if (['parent', 'teacher', 'staff', 'coordinator', 'madrasaincharge', 'organizationadmin', 'superadmin'].includes(role)) {
+          return false;
+        }
+        return role === 'student' || entityType === 'student' || !role || !!row['fatherName'];
+      });
     }
 
-    return rows.filter((row) => row['role'] === config.fixedRole);
+    if (config.fixedRole === 'teacher') {
+      return rows.filter((row) => ['teacher', 'staff', 'coordinator', 'madrasaincharge', 'organizationadmin'].includes(String(row['role'] || '').trim().toLowerCase()));
+    }
+
+    if (config.fixedRole === 'parent') {
+      return rows.filter((row) => {
+        const role = String(row['role'] || '').trim().toLowerCase();
+        const entityType = String(row['entityType'] || '').trim().toLowerCase();
+        return role === 'parent' || entityType === 'parent';
+      });
+    }
+
+    return rows.filter((row) => String(row['role'] || '').trim().toLowerCase() === String(config.fixedRole).trim().toLowerCase());
   }
 
   private decorateRows(config: ManagementConfig, rows: EntityRecord[]): EntityRecord[] {
@@ -2662,6 +2829,7 @@ export class ManagementPage {
       courseName: row['courseName'] || row['courseId'] || '-',
       className: row['className'] || row['classId'] || '-',
       stagesDisplay: this.formatList(row['stages']),
+      defaultStagesDisplay: this.formatList(row['defaultStages'] || row['stages']),
       levelsDisplay: this.formatList(row['levels']),
       studentNames:
         row['studentNames'] ||
@@ -2669,7 +2837,7 @@ export class ManagementPage {
         (Array.isArray(row['linkedStudentIds'])
           ? row['linkedStudentIds'].join(', ')
           : '-'),
-      typeDisplay: row['courseType'] || row['type'] || '-',
+      typeDisplay: this.formatCourseType(row['courseType'] || row['type']),
     }));
 
     if (config.resource === 'courses') {
@@ -2710,6 +2878,17 @@ export class ManagementPage {
 
   private splitList(value: string): string[] {
     return value.split(',').map((item) => item.trim()).filter((item) => item.length > 0);
+  }
+
+  formatCourseType(val: any): string {
+    if (!val) return 'Maktab';
+    const s = String(val).trim();
+    if (s === 'maktab') return 'Maktab';
+    if (s === 'aalim') return 'Aalim';
+    if (s === 'hifz') return 'Hifz';
+    if (s === 'muballigh') return 'Muballigh';
+    if (s === 'custom') return 'Custom';
+    return s.charAt(0).toUpperCase() + s.slice(1);
   }
 
   private normalizeStages(value: any): string[] {

@@ -1,0 +1,123 @@
+<div class="dialog-header">
+  <div class="header-title-group">
+    <h2 mat-dialog-title>Manage Course Stages</h2>
+    <p class="header-subtitle">Configure stage ordering by Course Type or by Specific Course</p>
+  </div>
+  <button mat-icon-button type="button" (click)="close()" aria-label="Close dialog">
+    <ion-icon name="close"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="stages-dialog-content">
+  <div *ngIf="loading" class="loading-state">
+    <mat-spinner diameter="36"></mat-spinner>
+    <p>Loading course details...</p>
+  </div>
+
+  <div *ngIf="!loading" class="dialog-body">
+    <!-- Mode Toggle Switch -->
+    <div class="mode-toggle-bar">
+      <mat-button-toggle-group [(ngModel)]="mode" (change)="onModeChange()" name="stagesMode">
+        <mat-button-toggle value="courseType">
+          <ion-icon name="layers-outline"></ion-icon> Configure by Course Type
+        </mat-button-toggle>
+        <mat-button-toggle value="course">
+          <ion-icon name="library-outline"></ion-icon> Configure by Specific Course
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+
+    <!-- Mode Selector Dropdown -->
+    <div class="course-selector-box">
+      <!-- By Course Type -->
+      <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'courseType'">
+        <mat-label>Select Course Type</mat-label>
+        <mat-select [(ngModel)]="selectedCourseTypeId" (selectionChange)="onSelectionChange()">
+          <mat-option *ngFor="let type of courseTypes" [value]="type.id">
+            <strong>{{ type['name'] || type.id }}</strong> <span class="course-code-pill">({{ type['code'] || type.id }})</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- By Specific Course -->
+      <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'course'">
+        <mat-label>Select Specific Course</mat-label>
+        <mat-select [(ngModel)]="selectedCourseId" (selectionChange)="onSelectionChange()">
+          <mat-option *ngFor="let course of courses" [value]="course.id">
+            <strong>{{ course['name'] }}</strong> <span class="course-code-pill">({{ course['code'] || course.id }})</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <!-- Quick Presets Bar -->
+    <div class="presets-bar">
+      <span class="preset-label"><ion-icon name="flash-outline"></ion-icon> Quick Presets:</span>
+      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('maktab')">+ Maktab</button>
+      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('hifz')">+ Hifz</button>
+      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('aalim')">+ Aalim</button>
+      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('numbered')">+ Stage 1-5</button>
+    </div>
+
+    <!-- Active Stages List -->
+    <div class="stages-section">
+      <div class="section-header">
+        <h3>
+          Sequential Stage Sequence
+          <span class="count-badge">{{ stagesList.length }} Stage(s)</span>
+        </h3>
+        <button mat-button color="warn" type="button" *ngIf="stagesList.length > 0" (click)="clearAllStages()">
+          <ion-icon name="trash-outline"></ion-icon> Clear All
+        </button>
+      </div>
+
+      <div class="stages-list" *ngIf="stagesList.length > 0">
+        <div class="stage-item-row" *ngFor="let stage of stagesList; let i = index; trackBy: trackByIndex">
+          <div class="stage-order-number">{{ i + 1 }}</div>
+          <input type="text" class="stage-name-input" [(ngModel)]="stagesList[i]" placeholder="Stage Name">
+
+          <div class="stage-row-actions">
+            <button mat-icon-button type="button" (click)="moveUp(i)" [disabled]="i === 0" matTooltip="Move Up">
+              <ion-icon name="arrow-up-outline"></ion-icon>
+            </button>
+            <button mat-icon-button type="button" (click)="moveDown(i)" [disabled]="i === stagesList.length - 1" matTooltip="Move Down">
+              <ion-icon name="arrow-down-outline"></ion-icon>
+            </button>
+            <button mat-icon-button color="warn" type="button" (click)="removeStage(i)" matTooltip="Delete Stage">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-stages" *ngIf="stagesList.length === 0">
+        <ion-icon name="layers-outline"></ion-icon>
+        <p>No stages added yet.</p>
+        <small>Use the bulk add box below or click a quick preset above.</small>
+      </div>
+    </div>
+
+    <!-- Bulk Add Box -->
+    <div class="bulk-add-card">
+      <h4><ion-icon name="add-circle-outline"></ion-icon> Bulk Add Multiple Stages at Once</h4>
+      <p class="bulk-hint">Enter stage names separated by commas or line breaks (e.g. <code>Stage 1, Stage 2, Stage 3</code>)</p>
+      
+      <mat-form-field appearance="outline" class="full-field">
+        <mat-label>Multiple Stages (comma or newline separated)</mat-label>
+        <textarea matInput [(ngModel)]="bulkInputText" rows="3" placeholder="e.g. Miftah, Tilawatul Quran, Hifz 1, Hifz 2"></textarea>
+      </mat-form-field>
+      
+      <button mat-flat-button color="accent" type="button" (click)="addBulkStages()" [disabled]="!bulkInputText.trim()">
+        <ion-icon name="add-outline"></ion-icon> Add Multiple Stages
+      </button>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-footer">
+  <button mat-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="loading || saving">
+    <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+    <span *ngIf="!saving">Save Stage Sequence</span>
+  </button>
+</mat-dialog-actions>

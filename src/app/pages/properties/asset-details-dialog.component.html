@@ -1,0 +1,218 @@
+<h2 mat-dialog-title>Asset Specifications & Logs</h2>
+
+<mat-dialog-content class="details-dialog-content">
+  <!-- Asset Quick Summary Card Header -->
+  <div class="asset-quick-header">
+    <div class="img-wrapper">
+      <img [src]="asset.photoUrl || 'assets/placeholder-asset.png'" alt="Asset photo" onerror="this.src='assets/placeholder-asset.png'">
+    </div>
+    <div class="identity">
+      <h3>{{ asset.name }}</h3>
+      <span class="code">{{ asset.assetCode }}</span>
+    </div>
+    <div class="state-chips">
+      <span class="badge-chip status-chip" [class]="'status-' + asset.status">{{ asset.status }}</span>
+      <span class="badge-chip condition-chip" [class]="'cond-' + asset.condition">{{ asset.condition }}</span>
+    </div>
+  </div>
+
+  <mat-tab-group color="primary" class="detail-tabs">
+    <!-- Tab 1: Overview Specs -->
+    <mat-tab label="Overview">
+      <div class="overview-grid">
+        <div class="details-box">
+          <h4>General Specifications</h4>
+          <div class="spec-row"><span class="label">Category:</span> <span class="val">{{ categoryName(asset.categoryId) }}</span></div>
+          <div class="spec-row" *ngIf="asset.brand"><span class="label">Brand:</span> <span class="val">{{ asset.brand }}</span></div>
+          <div class="spec-row" *ngIf="asset.model"><span class="label">Model:</span> <span class="val">{{ asset.model }}</span></div>
+          <div class="spec-row" *ngIf="asset.manufacturer"><span class="label">Manufacturer:</span> <span class="val">{{ asset.manufacturer }}</span></div>
+          <div class="spec-row"><span class="label">Madrasa:</span> <span class="val">{{ madrasaName(asset.madrasaId) }}</span></div>
+          <div class="spec-row"><span class="label">Room / Location:</span> <span class="val">{{ asset.location || 'N/A' }}</span></div>
+          <div class="spec-row"><span class="label">Registered Quantity:</span> <span class="val">{{ asset.quantity }} {{ asset.unit }} ({{ asset.availableQuantity }} available)</span></div>
+          <div class="spec-row" *ngIf="asset.specifications"><span class="label">Specifications:</span> <span class="val">{{ asset.specifications }}</span></div>
+        </div>
+
+        <div class="details-box">
+          <h4>Financial & Purchase Details</h4>
+          <div class="spec-row"><span class="label">Purchase Date:</span> <span class="val">{{ formatDate(asset.purchaseAt) }}</span></div>
+          <div class="spec-row"><span class="label">Unit Price:</span> <span class="val">{{ formatCurrency(asset.unitPrice) }}</span></div>
+          <div class="spec-row"><span class="label">Total Amount:</span> <span class="val">{{ formatCurrency(asset.purchaseAmount) }}</span></div>
+          <div class="spec-row"><span class="label">Funding Source:</span> <span class="val font-capitalize">{{ asset.fundingSource }}</span></div>
+          <div class="spec-row" *ngIf="asset.donorDetails"><span class="label">Donor:</span> <span class="val">{{ asset.donorDetails }}</span></div>
+          <div class="spec-row" *ngIf="asset.vendorName"><span class="label">Vendor:</span> <span class="val">{{ asset.vendorName }} ({{ asset.vendorContact || 'No contact' }})</span></div>
+          <div class="spec-row" *ngIf="asset.invoiceNumber"><span class="label">Invoice No:</span> <span class="val">{{ asset.invoiceNumber }}</span></div>
+        </div>
+
+        <div class="details-box">
+          <h4>Warranty & Service</h4>
+          <div class="spec-row"><span class="label">Warranty Status:</span> <span class="val">{{ asset.warrantyAvailable ? 'Yes' : 'No' }}</span></div>
+          <ng-container *ngIf="asset.warrantyAvailable">
+            <div class="spec-row"><span class="label">Warranty Starts:</span> <span class="val">{{ formatDate(asset.warrantyStartAt) }}</span></div>
+            <div class="spec-row"><span class="label">Warranty Ends:</span> <span class="val">{{ formatDate(asset.warrantyEndAt) }}</span></div>
+            <div class="spec-row" *ngIf="asset.warrantyProvider"><span class="label">Provider:</span> <span class="val">{{ asset.warrantyProvider }}</span></div>
+          </ng-container>
+          <div class="spec-row border-top"><span class="label">Periodic Maintenance:</span> <span class="val">{{ asset.maintenanceRequired ? 'Required' : 'No' }}</span></div>
+          <ng-container *ngIf="asset.maintenanceRequired">
+            <div class="spec-row"><span class="label">Frequency:</span> <span class="val">Every {{ asset.maintenanceFrequencyDays }} days</span></div>
+            <div class="spec-row"><span class="label">Last Service:</span> <span class="val">{{ formatDate(asset.lastMaintenanceAt) }}</span></div>
+            <div class="spec-row"><span class="label">Next Service Due:</span> <span class="val font-semibold color-warn">{{ formatDate(asset.nextMaintenanceAt) }}</span></div>
+          </ng-container>
+        </div>
+
+        <div class="details-box">
+          <h4>Assigned Responsibility</h4>
+          <div class="spec-row"><span class="label">Madrasa Incharge:</span> <span class="val font-bold">{{ staffName(asset.responsibleInchargeId) }}</span></div>
+          <div class="spec-row"><span class="label">Assigned Date:</span> <span class="val">{{ formatDate(asset.assignedAt) }}</span></div>
+          <div class="spec-row" *ngIf="asset.notes"><span class="label">Handover Notes:</span> <span class="val">{{ asset.notes }}</span></div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- Tab 2: Serialized Units (Only visible if individual tracking is enabled) -->
+    <mat-tab label="Serial Units" *ngIf="asset.trackingMode === 'individual'">
+      <div class="units-tab-container">
+        <ng-container *ngIf="units$ | async as units">
+          <div class="empty-state" *ngIf="units.length === 0">
+            <mat-icon class="large-icon">qr_code</mat-icon>
+            <h3>No unit instances created</h3>
+            <p>Ensure quantity matches registered units.</p>
+          </div>
+
+          <table class="inner-spec-table" *ngIf="units.length > 0">
+            <thead>
+              <tr>
+                <th>Unit Code</th>
+                <th>Serial Number</th>
+                <th>Condition</th>
+                <th>Status</th>
+                <th>Current Assignee</th>
+                <th>Warranty Expiry</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let u of units">
+                <td><strong>{{ u['unitCode'] }}</strong></td>
+                <td>{{ u['serialNumber'] || 'N/A' }}</td>
+                <td>
+                  <span class="badge-chip condition-chip" [class]="'cond-' + u['condition']">{{ u['condition'] }}</span>
+                </td>
+                <td>
+                  <span class="badge-chip status-chip" [class]="'status-' + u['status']">{{ u['status'] }}</span>
+                </td>
+                <td>{{ staffName($any(u['responsiblePersonId'])) }}</td>
+                <td>{{ formatDate(u['warrantyEndAt']) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </ng-container>
+      </div>
+    </mat-tab>
+
+    <!-- Tab 3: Transactions Timeline -->
+    <mat-tab label="Transactions History">
+      <div class="transactions-timeline">
+        <ng-container *ngIf="transactions$ | async as transactions">
+          <div class="empty-state" *ngIf="transactions.length === 0">
+            <mat-icon class="large-icon">history</mat-icon>
+            <h3>No transactions recorded</h3>
+            <p>Transactions are logged automatically when the asset state is modified.</p>
+          </div>
+
+          <div class="timeline-list" *ngIf="transactions.length > 0">
+            <div class="timeline-item" *ngFor="let t of transactions">
+              <div class="timeline-meta">
+                <span class="date">{{ formatDate(t['performedAt']) }}</span>
+                <span class="actor">by {{ staffName($any(t['performedBy'])) }}</span>
+              </div>
+              <div class="timeline-content">
+                <div class="title-row">
+                  <span class="badge-chip status-chip status-available font-capitalize">{{ t['transactionType'] }}</span>
+                  <strong *ngIf="t['quantityChanged']">Qty Change: {{ t['quantityChanged'] }}</strong>
+                </div>
+                <p class="reason" *ngIf="t['reason']"><strong>Reason:</strong> {{ t['reason'] }}</p>
+                <p class="notes" *ngIf="t['notes']"><strong>Details:</strong> {{ t['notes'] }}</p>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+    </mat-tab>
+
+    <!-- Tab 4: Maintenance Logs -->
+    <mat-tab label="Maintenance Logs">
+      <div class="maintenance-tab-container">
+        <div class="header-action-row">
+          <h3>Service & Repair Log</h3>
+          <button mat-flat-button color="accent" (click)="openAddMaintenance()">
+            <mat-icon>construction</mat-icon> Report Service Need
+          </button>
+        </div>
+
+        <ng-container *ngIf="maintenance$ | async as maintenance">
+          <div class="empty-state" *ngIf="maintenance.length === 0">
+            <mat-icon class="large-icon">plumbing</mat-icon>
+            <h3>No maintenance logs found</h3>
+            <p>Periodic and repair logs will be displayed here.</p>
+          </div>
+
+          <div class="maintenance-list" *ngIf="maintenance.length > 0">
+            <div class="maint-card-item" *ngFor="let m of maintenance">
+              <div class="card-header">
+                <div>
+                  <span class="badge-chip" [class]="m['status'] === 'completed' ? 'status-chip status-available' : 'status-chip status-underMaintenance'">
+                    {{ m['status'] }}
+                  </span>
+                  <strong class="maint-type">{{ m['maintenanceType'] }}</strong>
+                </div>
+                <button mat-stroked-button color="primary" size="small" *ngIf="m['status'] !== 'completed' && m['status'] !== 'cancelled'" (click)="closeMaintenance(m)">
+                  Complete / Resolve
+                </button>
+              </div>
+              <div class="card-body">
+                <p><strong>Complaint:</strong> {{ m['complaint'] }}</p>
+                <p *ngIf="m['resolution']"><strong>Resolution:</strong> {{ m['resolution'] }}</p>
+                <div class="specs-grid">
+                  <div><strong>Reported:</strong> {{ formatDate(m['reportedAt']) }}</div>
+                  <div><strong>Scheduled:</strong> {{ formatDate(m['scheduledAt']) }}</div>
+                  <div *ngIf="m['estimatedCost']"><strong>Est. Cost:</strong> ₹{{ m['estimatedCost'] }}</div>
+                  <div *ngIf="m['actualCost']"><strong>Actual Cost:</strong> ₹{{ m['actualCost'] }}</div>
+                  <div *ngIf="m['serviceProvider']"><strong>Provider:</strong> {{ m['serviceProvider'] }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </ng-container>
+      </div>
+    </mat-tab>
+
+    <!-- Tab 5: Attachments -->
+    <mat-tab label="Documents & Attachments">
+      <div class="attachments-tab-container">
+        <ng-container *ngIf="attachments$ | async as attachments">
+          <div class="empty-state" *ngIf="attachments.length === 0">
+            <mat-icon class="large-icon">folder_open</mat-icon>
+            <h3>No documents uploaded</h3>
+            <p>Invoices, product manuals, and warranty files will be listed here.</p>
+          </div>
+
+          <div class="attachments-grid" *ngIf="attachments.length > 0">
+            <mat-card class="attachment-doc-card" *ngFor="let a of attachments">
+              <mat-card-content>
+                <div class="file-icon"><mat-icon>insert_drive_file</mat-icon></div>
+                <div class="file-meta">
+                  <span class="name">{{ a['fileName'] }}</span>
+                  <span class="type">{{ a['attachmentType'] }}</span>
+                </div>
+                <a [href]="a['fileUrl']" target="_blank" mat-icon-button color="primary"><mat-icon>download</mat-icon></a>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </ng-container>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions-padding">
+  <button mat-button mat-dialog-close>Close Specifications</button>
+</mat-dialog-actions>

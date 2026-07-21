@@ -133,6 +133,9 @@ export class FeeService {
       assignedCount: count,
     } as EntityRecord, user);
 
+    this.repo.clearCache('feeAssignments');
+    this.repo.clearCache('feePlans');
+
     this.auditLogService.logAction({
       module: 'Fees',
       action: 'Bulk Assign',

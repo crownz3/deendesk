@@ -31,9 +31,15 @@
               <ion-icon name="calendar-outline"></ion-icon>
               <h2>Attendance Context</h2>
             </div>
-            <button mat-icon-button (click)="isSidebarCollapsed = !isSidebarCollapsed" [matTooltip]="isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'">
-              <mat-icon>{{ isSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
-            </button>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button mat-stroked-button color="primary" type="button" (click)="refreshData()" style="height:36px; font-size:12px;">
+                <ion-icon name="refresh-outline"></ion-icon>
+                <span *ngIf="!isSidebarCollapsed"> Refresh</span>
+              </button>
+              <button mat-icon-button (click)="isSidebarCollapsed = !isSidebarCollapsed" [matTooltip]="isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'">
+                <mat-icon>{{ isSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+              </button>
+            </div>
           </div>
           
           <form class="context-form" [formGroup]="form" *ngIf="!isSidebarCollapsed">

@@ -135,6 +135,11 @@ export class FeesPage {
     private readonly loader: LoaderService
   ) {}
 
+  refreshData(): void {
+    this.repo.clearCache();
+    this.refresh$.next();
+  }
+
   trackById(_: number, item: EntityRecord): string {
     return item.id || '';
   }

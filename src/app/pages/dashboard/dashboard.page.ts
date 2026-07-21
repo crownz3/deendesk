@@ -767,4 +767,10 @@ export class DashboardPage {
 
     return undefined;
   }
+
+  refreshData(): void {
+    this.repo.clearCache();
+    // vm$ is driven by auth.profile$ which is a live stream; clearing cache
+    // ensures next emission fetches fresh data from Firestore.
+  }
 }

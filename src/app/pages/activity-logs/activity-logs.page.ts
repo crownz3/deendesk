@@ -51,7 +51,11 @@ export class ActivityLogsPage implements OnInit {
     'attendance',
     'fees',
     'csvImports',
-    'Permissions'
+    'Permissions',
+    'events',
+    'issues',
+    'properties',
+    'userLifecycle'
   ];
 
   filterForm = this.fb.group({
@@ -72,6 +76,11 @@ export class ActivityLogsPage implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.currentUser = await firstValueFrom(this.auth.profile$);
+    this.loadLogs(true);
+  }
+
+  refreshData(): void {
+    this.auditLogService.clearAllCaches();
     this.loadLogs(true);
   }
 

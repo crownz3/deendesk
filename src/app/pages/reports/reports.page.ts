@@ -30,7 +30,11 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     { name: 'Academic Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'academic') },
     { name: 'Attendance Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'attendance') },
     { name: 'Generic Count Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'count') },
-    { name: 'Activity Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'activity') }
+    { name: 'Activity Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'activity') },
+    { name: 'Event Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'events') },
+    { name: 'Issue Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'issues') },
+    { name: 'Property Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'properties') },
+    { name: 'Lifecycle Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'lifecycle') }
   ].filter(group => group.configs.length > 0);
 
   public _reportSearch = '';
@@ -93,6 +97,12 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     private auth: AuthService,
     private snackBar: MatSnackBar
   ) {}
+
+  refreshData(): void {
+    this.repo.clearCache();
+    // Re-trigger the ngOnInit flow to reload data
+    this.ngOnInit();
+  }
 
   get allFilterableFields(): ReportFieldMetadata[] {
     if (!this.state.baseDefinition) return [];

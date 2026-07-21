@@ -6,6 +6,9 @@
         <p>Monitor system activity and audit trails.</p>
       </div>
       <div class="actions">
+        <button mat-stroked-button color="primary" type="button" (click)="refreshData()">
+          <mat-icon>refresh</mat-icon> Refresh
+        </button>
         <button mat-stroked-button (click)="exportLogs()" matTooltip="Export requires Date Range filter">
           <mat-icon>download</mat-icon> Export CSV
         </button>

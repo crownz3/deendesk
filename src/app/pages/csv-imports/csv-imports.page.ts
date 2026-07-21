@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom } from 'rxjs';
@@ -27,7 +27,7 @@ interface CsvModuleConfig {
   styleUrls: ['./csv-imports.page.scss'],
   standalone: false,
 })
-export class CsvImportsPage {
+export class CsvImportsPage implements OnInit {
   readonly modules: CsvModuleConfig[] = [
     // { key: 'organizations', label: 'Organizations', collection: 'organizations', required: ['name', 'code'], template: { name: 'Example Trust', code: 'ORG001', email: 'admin@example.com', phone: '9999999999', status: 'active' } },
     // { key: 'madrasas', label: 'Madrasas', collection: 'madrasas', required: ['name', 'code', 'organizationId'], template: { name: 'Central Madrasa', code: 'MAD001', organizationId: 'organization-id', status: 'active' } },

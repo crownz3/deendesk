@@ -1,0 +1,301 @@
+<ion-content>
+  <section class="page-shell" *ngIf="vm$ | async as state">
+
+    <!-- Initial Loading State -->
+    <ng-container *ngIf="state.loading && !state.data">
+      <div class="loading-state">
+        <mat-spinner diameter="48"></mat-spinner>
+        <p>Loading events data...</p>
+      </div>
+    </ng-container>
+
+    <!-- Error State -->
+    <ng-container *ngIf="!state.loading && state.error">
+      <div class="error-state">
+        <app-empty-state
+          icon="alert-circle-outline"
+          title="Unable to load events"
+          [message]="state.error"
+        ></app-empty-state>
+      </div>
+    </ng-container>
+
+    <!-- Data State -->
+    <ng-container *ngIf="!state.error && state.data as vm">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Operations</p>
+          <h1>Events Planning & Management</h1>
+          <p>Organize, schedule, and track attendance for emergency, academic, and religious events.</p>
+        </div>
+        <div class="page-actions">
+          <button mat-stroked-button color="primary" type="button" (click)="refreshData()">
+            <ion-icon name="refresh-outline"></ion-icon>
+            Refresh
+          </button>
+          <button *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin' || vm.profile?.permissions?.includes('manageEvents')" mat-flat-button color="primary" type="button" (click)="openEventForm(vm)">
+            <ion-icon name="add-outline"></ion-icon>
+            New Event
+          </button>
+        </div>
+      </header>
+
+      <!-- Dashboard Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card stat-total">
+          <div class="stat-icon"><ion-icon name="calendar-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.total }}</span>
+            <span class="stat-label">Total Events</span>
+          </div>
+        </div>
+        <div class="stat-card stat-today">
+          <div class="stat-icon"><ion-icon name="today-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.today }}</span>
+            <span class="stat-label">Events Today</span>
+          </div>
+        </div>
+        <div class="stat-card stat-upcoming">
+          <div class="stat-icon"><ion-icon name="time-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.upcoming }}</span>
+            <span class="stat-label">Upcoming</span>
+          </div>
+        </div>
+        <div class="stat-card stat-inprogress">
+          <div class="stat-icon"><ion-icon name="play-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.inProgress }}</span>
+            <span class="stat-label">In Progress</span>
+          </div>
+        </div>
+        <div class="stat-card stat-completed">
+          <div class="stat-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.completed }}</span>
+            <span class="stat-label">Completed</span>
+          </div>
+        </div>
+        <div class="stat-card stat-postponed">
+          <div class="stat-icon"><ion-icon name="swap-horizontal-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-value">{{ vm.stats.postponed }}</span>
+            <span class="stat-label">Postponed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters & View Toggle Toolbar -->
+      <div class="filters-toolbar">
+        <div class="filter-inputs">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Search events</mat-label>
+            <mat-icon matPrefix>search</mat-icon>
+            <input matInput [(ngModel)]="searchQuery" placeholder="Search by name, description...">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin' || vm.profile?.role === 'coordinator'">
+            <mat-label>Madrasa</mat-label>
+            <mat-select [(ngModel)]="madrasaFilter">
+              <mat-option value="all">All Madrasas</mat-option>
+              <mat-option *ngFor="let m of vm.madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Event Type</mat-label>
+            <mat-select [(ngModel)]="eventTypeFilter">
+              <mat-option value="all">All Types</mat-option>
+              <mat-option value="emergency">Emergency</mat-option>
+              <mat-option value="scheduled">Scheduled</mat-option>
+              <mat-option value="academic">Academic</mat-option>
+              <mat-option value="religious">Religious</mat-option>
+              <mat-option value="staffMeeting">Staff Meeting</mat-option>
+              <mat-option value="studentProgramme">Student Programme</mat-option>
+              <mat-option value="parentMeeting">Parent Meeting</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="statusFilter">
+              <mat-option value="all">All Statuses</mat-option>
+              <mat-option value="scheduled">Scheduled</mat-option>
+              <mat-option value="upcoming">Upcoming</mat-option>
+              <mat-option value="inProgress">In Progress</mat-option>
+              <mat-option value="completed">Completed</mat-option>
+              <mat-option value="postponed">Postponed</mat-option>
+              <mat-option value="preponed">Preponed</mat-option>
+              <mat-option value="cancelled">Cancelled</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Start Date From</mat-label>
+            <input matInput type="date" [(ngModel)]="startDateFilter">
+          </mat-form-field>
+
+          <button mat-stroked-button type="button" class="btn-clear" (click)="clearFilters()">Clear Filters</button>
+        </div>
+
+        <div class="view-toggles">
+          <button mat-icon-button [color]="activeView === 'list' ? 'primary' : ''" (click)="toggleView('list', vm.events)" matTooltip="List View">
+            <ion-icon name="list-outline"></ion-icon>
+          </button>
+          <button mat-icon-button [color]="activeView === 'calendar' ? 'primary' : ''" (click)="toggleView('calendar', vm.events)" matTooltip="Calendar Month View">
+            <ion-icon name="calendar-clear-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- MAIN AREA -->
+      <div class="main-content-panel">
+        <div class="empty-state-box" *ngIf="getFilteredEvents(vm.events, vm.profile).length === 0">
+          <app-empty-state
+            icon="calendar-outline"
+            title="No events found"
+            message="No events match your current filter settings. Click Clear Filters or create a new event."
+          ></app-empty-state>
+        </div>
+
+        <!-- VIEW: LIST VIEW -->
+        <div class="list-view-container" *ngIf="activeView === 'list' && getFilteredEvents(vm.events, vm.profile).length > 0">
+          <!-- Desktop Table -->
+          <div class="desktop-only table-wrapper">
+            <table class="deen-table">
+              <thead>
+                <tr>
+                  <th>Event Name</th>
+                  <th>Type</th>
+                  <th>Status</th>
+                  <th>Start Date</th>
+                  <th>Venue</th>
+                  <th>Responsible Staff</th>
+                  <th>Budget</th>
+                  <th class="actions-col">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let e of getFilteredEvents(vm.events, vm.profile)">
+                  <td>
+                    <div class="event-name-cell">
+                      <strong>{{ e.name }}</strong>
+                      <span class="sub-desc" *ngIf="e.description">{{ e.description | slice:0:80 }}...</span>
+                    </div>
+                  </td>
+                  <td>{{ e.eventType | uppercase }}</td>
+                  <td>
+                    <span class="status-chip" [class]="e.status">{{ e.status }}</span>
+                  </td>
+                  <td>
+                    {{ e.startDate?.toDate ? (e.startDate.toDate() | date:'short') : e.startDate }}
+                  </td>
+                  <td>{{ e.customVenueName || 'Madrasa Level Venue' }}</td>
+                  <td>
+                    {{ getStaffName(e.staffInChargeId, vm.staff) }}
+                  </td>
+                  <td>{{ e.estimatedBudget ? (e.estimatedBudget | currency:'INR') : 'N/A' }}</td>
+                  <td class="actions-col">
+                    <button mat-icon-button [matMenuTriggerFor]="actionMenu">
+                      <ion-icon name="ellipsis-vertical-outline"></ion-icon>
+                    </button>
+                    <mat-menu #actionMenu="matMenu">
+                      <button mat-menu-item (click)="openEventDetails(vm, e)">
+                        <ion-icon name="information-circle-outline" class="menu-icon"></ion-icon>
+                        View Details
+                      </button>
+                      <button mat-menu-item *ngIf="canRecordAttendance(vm.profile, e)" (click)="openAttendanceRecorder(vm, e)">
+                        <ion-icon name="checkbox-outline" class="menu-icon"></ion-icon>
+                        Mark Attendance
+                      </button>
+                      <button mat-menu-item *ngIf="canManage(vm.profile, e)" (click)="openEventForm(vm, e)">
+                        <ion-icon name="create-outline" class="menu-icon"></ion-icon>
+                        Edit Details
+                      </button>
+                      <!-- <button mat-menu-item *ngIf="vm.profile?.permissions?.includes('rescheduleEvents')" (click)="rescheduleEvent(vm, e)">
+                        <ion-icon name="time-outline" class="menu-icon"></ion-icon>
+                        Reschedule / Postpone
+                      </button> -->
+                      <button mat-menu-item class="delete-action" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'" (click)="deleteEvent(e)">
+                        <ion-icon name="trash-outline" class="menu-icon delete-icon"></ion-icon>
+                        Delete
+                      </button>
+                    </mat-menu>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mobile Cards -->
+          <div class="mobile-only cards-wrapper">
+            <mat-card class="event-mobile-card" *ngFor="let e of getFilteredEvents(vm.events, vm.profile)">
+              <mat-card-header>
+                <mat-card-title>{{ e.name }}</mat-card-title>
+                <mat-card-subtitle>{{ e.eventType | uppercase }} • <span class="status-chip" [class]="e.status">{{ e.status }}</span></mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <p><strong>Starts:</strong> {{ e.startDate?.toDate ? (e.startDate.toDate() | date:'short') : e.startDate }}</p>
+                <p><strong>Venue:</strong> {{ e.customVenueName || 'Madrasa level' }}</p>
+              </mat-card-content>
+              <mat-card-actions align="end">
+                <button mat-button (click)="openEventDetails(vm, e)">View</button>
+                <button mat-button color="primary" *ngIf="canRecordAttendance(vm.profile, e)" (click)="openAttendanceRecorder(vm, e)">Attendance</button>
+                <button mat-icon-button [matMenuTriggerFor]="mobMenu">
+                  <ion-icon name="ellipsis-vertical-outline"></ion-icon>
+                </button>
+                <mat-menu #mobMenu="matMenu">
+                  <button mat-menu-item *ngIf="canManage(vm.profile, e)" (click)="openEventForm(vm, e)">Edit</button>
+                  <button mat-menu-item *ngIf="vm.profile?.permissions?.includes('rescheduleEvents')" (click)="rescheduleEvent(vm, e)">Reschedule</button>
+                  <button mat-menu-item class="delete-action" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'" (click)="deleteEvent(e)">Delete</button>
+                </mat-menu>
+              </mat-card-actions>
+            </mat-card>
+          </div>
+        </div>
+
+        <!-- VIEW: CALENDAR MONTH VIEW -->
+        <div class="calendar-view-container" *ngIf="activeView === 'calendar' && getFilteredEvents(vm.events, vm.profile).length > 0">
+          <div class="calendar-nav-header">
+            <button mat-icon-button (click)="prevMonth(vm.events)">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </button>
+            <h2 class="month-label">{{ currentDate | date:'MMMM yyyy' }}</h2>
+            <button mat-icon-button (click)="nextMonth(vm.events)">
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+          </div>
+
+          <div class="calendar-grid">
+            <div class="day-name-header">Sun</div>
+            <div class="day-name-header">Mon</div>
+            <div class="day-name-header">Tue</div>
+            <div class="day-name-header">Wed</div>
+            <div class="day-name-header">Thu</div>
+            <div class="day-name-header">Fri</div>
+            <div class="day-name-header">Sat</div>
+
+            <div class="calendar-day-cell" 
+                 *ngFor="let day of calendarDays" 
+                 [class.outside-month]="!day.isCurrentMonth">
+              <div class="day-num">{{ day.date.getDate() }}</div>
+              
+              <div class="day-events-list">
+                <div class="cal-event-chip" 
+                     *ngFor="let ev of day.events | slice:0:3" 
+                     [class]="ev.status"
+                     (click)="openEventDetails(vm, ev)">
+                  {{ ev.name }}
+                </div>
+                <div class="more-events-indicator" *ngIf="day.events.length > 3">
+                  +{{ day.events.length - 3 }} more
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </section>
+</ion-content>

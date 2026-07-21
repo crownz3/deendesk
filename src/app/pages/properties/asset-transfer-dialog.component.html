@@ -1,0 +1,57 @@
+<h2 mat-dialog-title>Transfer Asset Between Madrasas</h2>
+
+<mat-dialog-content class="dialog-content-pad">
+  <form [formGroup]="form" class="dialog-form-layout">
+    <p class="warning-alert-text">
+      Transferring asset: <strong>{{ asset.name }} ({{ asset.assetCode }})</strong>.<br>
+      Available quantity in source madrasa: <strong>{{ asset.availableQuantity }} {{ asset.unit }}</strong>.
+    </p>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Destination Madrasa</mat-label>
+      <mat-select formControlName="destinationMadrasaId">
+        <mat-option *ngFor="let m of filteredMadrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+      </mat-select>
+      <mat-error *ngIf="form.get('destinationMadrasaId')?.hasError('required')">Destination madrasa is required</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Receiving Staff / Incharge</mat-label>
+      <mat-select formControlName="responsibleInchargeId" [disabled]="destStaff.length === 0">
+        <mat-option *ngFor="let s of destStaff" [value]="s.id">{{ s['displayName'] || s['name'] }}</mat-option>
+      </mat-select>
+      <mat-error *ngIf="form.get('responsibleInchargeId')?.hasError('required')">Receiving staff is required</mat-error>
+    </mat-form-field>
+
+    <div class="radio-row-margin">
+      <mat-radio-group formControlName="transferType" color="primary">
+        <mat-radio-button value="full">Transfer Full Available Qty ({{ asset.availableQuantity }})</mat-radio-button>
+        <mat-radio-button value="quantity">Transfer Selected Quantity</mat-radio-button>
+      </mat-radio-group>
+    </div>
+
+    <mat-form-field appearance="outline" *ngIf="form.get('transferType')?.value === 'quantity'">
+      <mat-label>Quantity to Transfer</mat-label>
+      <input matInput type="number" formControlName="quantity">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Reason for Transfer</mat-label>
+      <input matInput formControlName="reason" placeholder="e.g. Allocation re-balancing, temporary loan">
+      <mat-error *ngIf="form.get('reason')?.hasError('required')">Reason is required</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Handover Notes</mat-label>
+      <textarea matInput formControlName="notes" rows="3" placeholder="Condition details or handling guidelines..."></textarea>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()" [disabled]="isSaving">Cancel</button>
+  <button mat-raised-button color="primary" [disabled]="form.invalid || isSaving" (click)="submit()">
+    <mat-spinner diameter="18" *ngIf="isSaving"></mat-spinner>
+    Confirm Transfer
+  </button>
+</mat-dialog-actions>

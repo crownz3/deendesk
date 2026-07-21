@@ -25,6 +25,7 @@ export class ClassPlanFormComponent implements OnInit {
   private _plan?: ClassPlan;
 
   @Output() saveCompleted = new EventEmitter<ClassPlan>();
+  // eslint-disable-next-line @angular-eslint/no-output-native
   @Output() cancel = new EventEmitter<void>();
 
   form = this.fb.nonNullable.group({

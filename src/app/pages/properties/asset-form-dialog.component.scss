@@ -1,0 +1,140 @@
+.form-dialog-content {
+  width: 100%;
+  max-height: 80vh;
+}
+
+.stepper-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  padding: 16px 4px;
+
+  .col-span-2 {
+    grid-column: span 2;
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    .col-span-2 {
+      grid-column: span 1;
+    }
+  }
+}
+
+.tracking-mode-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+  
+  .section-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ion-color-medium, #666);
+  }
+
+  mat-radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+.checkbox-row {
+  margin: 8px 0;
+  
+  &.border-top {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    padding-top: 16px;
+    margin-top: 16px;
+  }
+}
+
+.step-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+// Review page
+.review-step-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px 4px;
+
+  h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 4px 0;
+  }
+}
+
+.upload-buttons-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.attachments-list {
+  background: var(--ion-color-light, #f8f9fa);
+  border-radius: 8px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .attachment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    background: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+
+    .file-icon {
+      color: var(--ion-color-medium, #888);
+      display: flex;
+      align-items: center;
+    }
+
+    .file-name {
+      flex: 1;
+      margin-left: 8px;
+      font-weight: 500;
+      color: var(--ion-color-dark, #333);
+    }
+  }
+}
+
+.summary-details-box {
+  background: rgba(56, 128, 255, 0.04);
+  border: 1px solid rgba(56, 128, 255, 0.1);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  .sum-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+
+    strong {
+      color: var(--ion-color-medium, #555);
+    }
+
+    span {
+      font-weight: 600;
+      color: var(--ion-color-dark, #222);
+    }
+  }
+}
+
+.dialog-actions-padding {
+  padding: 8px 16px;
+}

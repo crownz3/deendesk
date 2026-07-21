@@ -29,9 +29,31 @@
           <p>{{ vm.config.subtitle }}</p>
         </div>
         <div class="page-actions">
+          <button mat-stroked-button color="primary" type="button" (click)="refreshData()">
+            <ion-icon name="refresh-outline"></ion-icon>
+            Refresh
+          </button>
           <button mat-flat-button color="primary" type="button" (click)="openCreate(vm.config)">
             <ion-icon name="add-outline"></ion-icon>
             Add
+          </button>
+          <button
+            *ngIf="vm.config.resource === 'courses' || vm.config.resource === 'stages' || vm.config.resource === 'courseTypes'"
+            mat-stroked-button
+            color="accent"
+            type="button"
+            (click)="openCourseStagesDialog()">
+            <ion-icon name="layers-outline"></ion-icon>
+            Manage Course Stages
+          </button>
+          <button
+            *ngIf="vm.config.resource === 'courses' || vm.config.resource === 'stages' || vm.config.resource === 'courseTypes'"
+            mat-stroked-button
+            color="primary"
+            type="button"
+            routerLink="/course-types">
+            <ion-icon name="options-outline"></ion-icon>
+            Config Course Types
           </button>
           <button
             *ngIf="vm.config.resource === 'students'"

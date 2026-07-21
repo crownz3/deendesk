@@ -1,0 +1,119 @@
+<h2 mat-dialog-title>Record Event Attendance: {{ event.name }}</h2>
+
+<mat-dialog-content class="attendance-dialog-content">
+  <div class="loader-overlay" *ngIf="isLoading || isSaving">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p style="margin-top: 10px;">{{ isSaving ? 'Saving attendance...' : 'Loading audience...' }}</p>
+  </div>
+
+  <div class="header-metadata">
+    <span><strong>Date:</strong> {{ event.startDate?.toDate ? event.startDate.toDate().toLocaleDateString() : event.startDate }}</span>
+    <span><strong>Venue:</strong> {{ event.customVenueName || 'Madrasa Venue' }}</span>
+  </div>
+
+  <div class="stats-row" *ngIf="!isLoading">
+    <div class="stat-bubble total">
+      <span class="value">{{ stats.total }}</span>
+      <span class="label">Total Invitees</span>
+    </div>
+    <div class="stat-bubble present">
+      <span class="value">{{ stats.present }}</span>
+      <span class="label">Present</span>
+    </div>
+    <div class="stat-bubble absent">
+      <span class="value">{{ stats.absent }}</span>
+      <span class="label">Absent</span>
+    </div>
+    <div class="stat-bubble excused">
+      <span class="value">{{ stats.excused }}</span>
+      <span class="label">Excused</span>
+    </div>
+    <div class="stat-bubble not-marked">
+      <span class="value">{{ stats.notMarked }}</span>
+      <span class="label">Not Marked</span>
+    </div>
+  </div>
+
+  <!-- Filters & Bulk Actions -->
+  <div class="filters-and-actions" *ngIf="!isLoading">
+    <div class="filters-row">
+      <mat-form-field appearance="outline" class="search-box">
+        <mat-label>Search Name</mat-label>
+        <input matInput [(ngModel)]="searchQuery" placeholder="Search invitees...">
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="select-box">
+        <mat-label>Role</mat-label>
+        <mat-select [(ngModel)]="roleFilter">
+          <mat-option value="all">All Roles</mat-option>
+          <mat-option value="student">Student</mat-option>
+          <mat-option value="teacher">Teacher</mat-option>
+          <mat-option value="staff">Staff</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="select-box">
+        <mat-label>Attendance Status</mat-label>
+        <mat-select [(ngModel)]="statusFilter">
+          <mat-option value="all">All Statuses</mat-option>
+          <mat-option value="present">Present</mat-option>
+          <mat-option value="absent">Absent</mat-option>
+          <mat-option value="excused">Excused</mat-option>
+          <mat-option value="notApplicable">Not Marked</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="bulk-actions" *ngIf="canRecord">
+      <button mat-stroked-button color="primary" (click)="bulkMark('present')">Mark All Present</button>
+      <button mat-stroked-button color="warn" (click)="bulkMark('absent')">Mark All Absent</button>
+      <button mat-stroked-button (click)="bulkMark('excused')">Mark All Excused</button>
+      <button mat-button (click)="resetAll()">Reset All</button>
+    </div>
+  </div>
+
+  <!-- Participant List -->
+  <div class="attendance-list-container" *ngIf="!isLoading">
+    <div class="empty-state-box" *ngIf="filteredParticipants.length === 0">
+      <p>No matching invitees found.</p>
+    </div>
+
+    <div class="participant-row" *ngFor="let p of filteredParticipants">
+      <div class="p-info">
+        <span class="p-name">{{ p.participantNameSnapshot }}</span>
+        <span class="p-role">{{ p.participantType | uppercase }}</span>
+      </div>
+
+      <div class="p-buttons">
+        <button mat-button 
+                [class.selected-present]="attendanceChanges.get(p.participantId) === 'present'"
+                [disabled]="!canRecord"
+                (click)="markStatus(p.participantId, 'present')">
+          Present
+        </button>
+        <button mat-button 
+                [class.selected-absent]="attendanceChanges.get(p.participantId) === 'absent'"
+                [disabled]="!canRecord"
+                (click)="markStatus(p.participantId, 'absent')">
+          Absent
+        </button>
+        <button mat-button 
+                [class.selected-excused]="attendanceChanges.get(p.participantId) === 'excused'"
+                [disabled]="!canRecord"
+                (click)="markStatus(p.participantId, 'excused')">
+          Excused
+        </button>
+        <button mat-icon-button 
+                *ngIf="attendanceChanges.get(p.participantId) !== 'notApplicable' && canRecord"
+                (click)="markStatus(p.participantId, 'notApplicable')">
+          <ion-icon name="close-circle-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="cancel()" [disabled]="isSaving">Discard</button>
+  <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving || !canRecord || !hasUnsavedChanges">Save Changes</button>
+</mat-dialog-actions>

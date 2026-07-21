@@ -9,7 +9,11 @@ export type ReportCategory =
   | 'count'
   | 'activity'
   | 'fees'
-  | 'custom';
+  | 'custom'
+  | 'events'
+  | 'issues'
+  | 'properties'
+  | 'lifecycle';
 
 export type FilterType =
   | 'madrasa'
@@ -30,6 +34,9 @@ export type FilterType =
   | 'feePlan'
   | 'feeType'
   | 'paidStatus'
+  | 'eventType'
+  | 'participantType'
+  | 'attendanceStatus'
   | 'custom';
 
 export type AggregationLogic =

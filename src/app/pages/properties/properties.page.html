@@ -1,0 +1,328 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Madrasa Property & Asset Register</ion-title>
+    <ion-buttons slot="end" *ngIf="vm$ | async as vm">
+      <button mat-stroked-button color="primary" style="margin-right: 12px;" (click)="refreshData()">
+        <mat-icon>refresh</mat-icon> Refresh
+      </button>
+      <button mat-stroked-button color="primary" style="margin-right: 12px;"
+              *ngIf="vm.data?.profile?.role === 'superAdmin' || vm.data?.profile?.role === 'organizationAdmin' || (vm.data?.profile?.permissions?.includes('manageProperties') ?? false)"
+              routerLink="/property-categories">
+        <mat-icon>category</mat-icon> Config Categories
+      </button>
+      <button mat-raised-button color="primary" class="add-btn"
+              *ngIf="vm.data?.profile?.role === 'superAdmin' || vm.data?.profile?.role === 'organizationAdmin'"
+              (click)="openAddAssetDialog(vm.data!)">
+        <mat-icon>add</mat-icon> Register Asset
+      </button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <ng-container *ngIf="vm$ | async as vm">
+    <div class="loader-container" *ngIf="vm.loading">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading asset registers...</p>
+    </div>
+
+    <div class="error-container" *ngIf="vm.error">
+      <mat-icon color="warn" class="large-icon">error</mat-icon>
+      <h3>Unable to load assets</h3>
+      <p>{{ vm.error }}</p>
+      <button mat-stroked-button (click)="triggerRefresh()">Retry</button>
+    </div>
+
+    <div class="properties-dashboard" *ngIf="!vm.loading && !vm.error && vm.data">
+      <!-- Summary metrics cards -->
+      <div class="metrics-grid">
+        <mat-card class="metric-card val-card">
+          <mat-card-content>
+            <div class="metric-icon val-icon"><mat-icon>payments</mat-icon></div>
+            <div class="metric-info">
+              <span class="label">Total Asset Value</span>
+              <span class="value">{{ formatCurrency(vm.data.stats.totalPurchaseValue) }}</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="metric-card qty-card">
+          <mat-card-content>
+            <div class="metric-icon qty-icon"><mat-icon>inventory</mat-icon></div>
+            <div class="metric-info">
+              <span class="label">Total Quantity</span>
+              <span class="value">{{ vm.data.stats.totalQuantity }}</span>
+              <span class="subtext">{{ vm.data.stats.totalAssets }} unique models</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="metric-card active-card">
+          <mat-card-content>
+            <div class="metric-icon active-icon"><mat-icon>check_circle</mat-icon></div>
+            <div class="metric-info">
+              <span class="label">Available / In Use</span>
+              <span class="value">{{ vm.data.stats.available + vm.data.stats.inUse }}</span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="metric-card maint-card" [class.warning-badge]="vm.data.stats.overdueMaintenance > 0">
+          <mat-card-content>
+            <div class="metric-icon maint-icon"><mat-icon>build_circle</mat-icon></div>
+            <div class="metric-info">
+              <span class="label">Under Maintenance</span>
+              <span class="value">{{ vm.data.stats.underMaintenance }}</span>
+              <span class="subtext" *ngIf="vm.data.stats.overdueMaintenance > 0">
+                {{ vm.data.stats.overdueMaintenance }} overdue!
+              </span>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+
+      <!-- Filters toolbar -->
+      <mat-card class="filter-card">
+        <mat-card-content>
+          <div class="filter-row">
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-label>Search Assets</mat-label>
+              <mat-icon matPrefix>search</mat-icon>
+              <input matInput [(ngModel)]="searchQuery" placeholder="Search by name, code, brand...">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-select" *ngIf="vm.data.profile?.role === 'superAdmin' || vm.data.profile?.role === 'organizationAdmin' || vm.data.profile?.role === 'coordinator'">
+              <mat-label>Madrasa</mat-label>
+              <mat-select [(ngModel)]="madrasaFilter">
+                <mat-option value="all">All Madrasas</mat-option>
+                <mat-option *ngFor="let m of vm.data.madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Category</mat-label>
+              <mat-select [(ngModel)]="categoryFilter">
+                <mat-option value="all">All Categories</mat-option>
+                <mat-option *ngFor="let c of vm.data.categories" [value]="c.id">{{ c['name'] }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Status</mat-label>
+              <mat-select [(ngModel)]="statusFilter">
+                <mat-option value="all">All Statuses</mat-option>
+                <mat-option value="available">Available</mat-option>
+                <mat-option value="inUse">In Use</mat-option>
+                <mat-option value="underMaintenance">Under Maintenance</mat-option>
+                <mat-option value="damaged">Damaged</mat-option>
+                <mat-option value="missing">Missing</mat-option>
+                <mat-option value="transferred">Transferred</mat-option>
+                <mat-option value="disposed">Disposed</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="filter-select">
+              <mat-label>Condition</mat-label>
+              <mat-select [(ngModel)]="conditionFilter">
+                <mat-option value="all">All Conditions</mat-option>
+                <mat-option value="new">New</mat-option>
+                <mat-option value="excellent">Excellent</mat-option>
+                <mat-option value="good">Good</mat-option>
+                <mat-option value="fair">Fair</mat-option>
+                <mat-option value="poor">Poor</mat-option>
+                <mat-option value="damaged">Damaged</mat-option>
+                <mat-option value="unusable">Unusable</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </div>
+
+          <div class="filter-actions-row">
+            <div class="checkbox-options">
+              <mat-checkbox [(ngModel)]="groupByCategory" color="primary">Group by Category</mat-checkbox>
+            </div>
+            <button mat-button color="warn" (click)="clearFilters()">
+              <mat-icon>clear_all</mat-icon> Clear Filters
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Asset list containers -->
+      <div class="assets-container">
+        <!-- Category Grouped View -->
+        <ng-container *ngIf="groupByCategory">
+          <div class="category-group-block" *ngFor="let g of getGroupedAssets(vm.data.assets, vm.data.categories)">
+            <h3 class="category-title">{{ g.categoryName }} ({{ g.assets.length }})</h3>
+            <ng-container *ngTemplateOutlet="assetTableTemplate; context: { $implicit: g.assets, vm: vm.data }"></ng-container>
+          </div>
+          <div class="empty-state" *ngIf="getFilteredAssets(vm.data.assets).length === 0">
+            <mat-icon class="large-icon">inventory_2</mat-icon>
+            <h3>No assets match your search</h3>
+            <p>Try refining your filters or search keywords.</p>
+          </div>
+        </ng-container>
+
+        <!-- Un-grouped Plain View -->
+        <ng-container *ngIf="!groupByCategory">
+          <ng-container *ngTemplateOutlet="assetTableTemplate; context: { $implicit: getFilteredAssets(vm.data.assets), vm: vm.data }"></ng-container>
+        </ng-container>
+      </div>
+    </div>
+  </ng-container>
+</ion-content>
+
+<!-- Shared Asset Table Template (Desktop) and Card List Template (Mobile) -->
+<ng-template #assetTableTemplate let-assetsList let-vm="vm">
+  <div class="empty-state" *ngIf="assetsList.length === 0">
+    <mat-icon class="large-icon">inventory_2</mat-icon>
+    <h3>No registered assets found</h3>
+    <p>Get started by clicking the "Register Asset" button above.</p>
+  </div>
+
+  <div class="responsive-table-wrapper" *ngIf="assetsList.length > 0">
+    <table class="desktop-table">
+      <thead>
+        <tr>
+          <th>Asset Details</th>
+          <th>Madrasa / Location</th>
+          <th>Qty</th>
+          <th>Condition</th>
+          <th>Status</th>
+          <th>Responsible Staff</th>
+          <th>Warranty Ends</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let asset of assetsList">
+          <td>
+            <div class="asset-details-cell">
+              <div class="img-wrapper">
+                <img [src]="asset.photoUrl || 'assets/placeholder-asset.png'" alt="Asset photo" onerror="this.src='assets/placeholder-asset.png'">
+              </div>
+              <div class="asset-info">
+                <span class="name">{{ asset.name }}</span>
+                <span class="code">{{ asset.assetCode }}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="location-info">
+              <span class="madrasa">{{ nameOf(vm.madrasas, asset.madrasaId) }}</span>
+              <span class="room" *ngIf="asset.location">{{ asset.location }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="qty">{{ asset.availableQuantity }} / {{ asset.quantity }}</span>
+            <span class="unit">{{ asset.unit }}</span>
+          </td>
+          <td>
+            <span class="badge-chip condition-chip" [class]="'cond-' + asset.condition">
+              {{ asset.condition }}
+            </span>
+          </td>
+          <td>
+            <span class="badge-chip status-chip" [class]="'status-' + asset.status">
+              {{ asset.status }}
+            </span>
+          </td>
+          <td>
+            <span class="staff-name">{{ staffName(vm.staff, asset.responsibleInchargeId) }}</span>
+          </td>
+          <td>
+            <span class="date">{{ formatDate(asset.warrantyEndAt) }}</span>
+          </td>
+          <td class="actions-col">
+            <button mat-icon-button [matMenuTriggerFor]="actionMenu" aria-label="Asset actions">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #actionMenu="matMenu">
+              <button mat-menu-item (click)="openAssetDetails(vm, asset)">
+                <mat-icon>visibility</mat-icon> View Details
+              </button>
+              <button mat-menu-item (click)="openEditAssetDialog(vm, asset)" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'">
+                <mat-icon>edit</mat-icon> Edit Details
+              </button>
+              <button mat-menu-item (click)="openMaintenanceDialog(vm, asset)">
+                <mat-icon>construction</mat-icon> Maintenance
+              </button>
+              <button mat-menu-item (click)="openTransferAsset(vm, asset)" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'">
+                <mat-icon>swap_horiz</mat-icon> Transfer Asset
+              </button>
+              <button mat-menu-item (click)="openDisposeAsset(vm, asset)" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'">
+                <mat-icon>delete_forever</mat-icon> Dispose Asset
+              </button>
+            </mat-menu>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Mobile list cards (Visible on mobile viewports) -->
+    <div class="mobile-cards-list">
+      <mat-card class="mobile-asset-card" *ngFor="let asset of assetsList">
+        <mat-card-content>
+          <div class="card-header-row">
+            <div class="asset-identity">
+              <div class="img-wrapper">
+                <img [src]="asset.photoUrl || 'assets/placeholder-asset.png'" alt="Asset photo" onerror="this.src='assets/placeholder-asset.png'">
+              </div>
+              <div class="text-meta">
+                <h4>{{ asset.name }}</h4>
+                <span class="code">{{ asset.assetCode }}</span>
+              </div>
+            </div>
+            <div class="chips-badges">
+              <span class="badge-chip status-chip" [class]="'status-' + asset.status">{{ asset.status }}</span>
+            </div>
+          </div>
+
+          <div class="card-detail-lines">
+            <div class="detail-line">
+              <span class="lbl">Madrasa</span>
+              <span class="val">{{ nameOf(vm.madrasas, asset.madrasaId) }}</span>
+            </div>
+            <div class="detail-line" *ngIf="asset.location">
+              <span class="lbl">Location</span>
+              <span class="val">{{ asset.location }}</span>
+            </div>
+            <div class="detail-line">
+              <span class="lbl">Qty</span>
+              <span class="val">{{ asset.availableQuantity }} / {{ asset.quantity }} {{ asset.unit }}</span>
+            </div>
+            <div class="detail-line">
+              <span class="lbl">Condition</span>
+              <span class="badge-chip condition-chip" [class]="'cond-' + asset.condition">{{ asset.condition }}</span>
+            </div>
+          </div>
+
+          <div class="card-actions-row">
+            <button mat-button color="primary" (click)="openAssetDetails(vm, asset)">
+              <mat-icon>visibility</mat-icon> Details
+            </button>
+            <button mat-icon-button [matMenuTriggerFor]="mMobileMenu">
+              <mat-icon>more_horiz</mat-icon>
+            </button>
+            <mat-menu #mMobileMenu="matMenu">
+              <button mat-menu-item (click)="openEditAssetDialog(vm, asset)" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'">
+                <mat-icon>edit</mat-icon> Edit Details
+              </button>
+              <button mat-menu-item (click)="openMaintenanceDialog(vm, asset)">
+                <mat-icon>construction</mat-icon> Maintenance
+              </button>
+              <button mat-menu-item (click)="openTransferAsset(vm, asset)" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'">
+                <mat-icon>swap_horiz</mat-icon> Transfer
+              </button>
+              <button mat-menu-item (click)="openDisposeAsset(vm, asset)" *ngIf="vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin'">
+                <mat-icon>delete_forever</mat-icon> Dispose
+              </button>
+            </mat-menu>
+          </div>
+        </mat-card-content>
+      </mat-card>
+    </div>
+  </div>
+</ng-template>

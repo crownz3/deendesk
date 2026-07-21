@@ -2,6 +2,7 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { EntityRecord, RepositoryService } from '../../../core/services/repository.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { DEFAULT_STAGES_BY_COURSE_TYPE } from '../../../core/constants/defaults';
 import { firstValueFrom } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
@@ -23,6 +24,12 @@ export class PromoteDemoteDialogComponent implements OnInit {
   newStage = '';
   reason = '';
   
+  availableStages: string[] = [];
+  selectedStageOption = '';
+  customNewStage = '';
+  isCustomStage = false;
+  currentCourseRecord: EntityRecord | null = null;
+
   courseName = 'None';
   className = 'None';
   groupName = 'None';
@@ -54,8 +61,16 @@ export class PromoteDemoteDialogComponent implements OnInit {
       const courseId = this.data.student['courseId'];
       if (courseId) {
         const course = courses.find(c => c.id === courseId);
-        if (course) this.courseName = String(course['name'] || courseId);
+        if (course) {
+          this.currentCourseRecord = course;
+          this.courseName = String(course['name'] || courseId);
+          this.extractStages(course);
+        }
       }
+      if (this.availableStages.length === 0) {
+        this.availableStages = ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5'];
+      }
+      this.autoSelectStage();
 
       const classId = this.data.student['classId'];
       if (classId) {
@@ -85,11 +100,78 @@ export class PromoteDemoteDialogComponent implements OnInit {
     }
   }
 
+  private extractStages(course: EntityRecord) {
+    let stages: string[] = [];
+    const rawStages = course['stages'];
+    if (Array.isArray(rawStages) && rawStages.length) {
+      stages = rawStages.map(s => String(s).trim()).filter(Boolean);
+    } else if (typeof rawStages === 'string' && rawStages.trim()) {
+      stages = rawStages.split(',').map(s => s.trim()).filter(Boolean);
+    } else {
+      const type = String(course['type'] || course['courseType'] || '').toLowerCase();
+      stages = [...(DEFAULT_STAGES_BY_COURSE_TYPE[type] || DEFAULT_STAGES_BY_COURSE_TYPE['custom'])];
+    }
+    this.availableStages = stages;
+  }
+
+  onActionChange() {
+    this.autoSelectStage();
+  }
+
+  autoSelectStage() {
+    const current = String(this.data.student['stage'] || '').trim().toLowerCase();
+    const idx = this.availableStages.findIndex(s => s.toLowerCase() === current);
+
+    if (this.action === 'promotion') {
+      if (idx >= 0 && idx < this.availableStages.length - 1) {
+        this.newStage = this.availableStages[idx + 1];
+      } else if (idx === -1 && this.availableStages.length > 0) {
+        this.newStage = this.availableStages[0];
+      } else if (this.availableStages.length > 0) {
+        this.newStage = this.availableStages[this.availableStages.length - 1];
+      }
+    } else {
+      // Demotion
+      if (idx > 0) {
+        this.newStage = this.availableStages[idx - 1];
+      } else if (this.availableStages.length > 0) {
+        this.newStage = this.availableStages[0];
+      }
+    }
+
+    this.selectedStageOption = this.newStage;
+    this.isCustomStage = false;
+  }
+
+  onStageOptionChange(val: string) {
+    if (val === '__ADD_NEW__') {
+      this.isCustomStage = true;
+      this.newStage = this.customNewStage.trim();
+    } else {
+      this.isCustomStage = false;
+      this.newStage = val;
+    }
+  }
+
+  onCustomStageInput(val: string) {
+    this.customNewStage = val;
+    this.newStage = val.trim();
+  }
+
+  isCurrentStage(stage: string): boolean {
+    const current = String(this.data?.student?.['stage'] || '').trim().toLowerCase();
+    return String(stage || '').trim().toLowerCase() === current;
+  }
+
   close() {
     this.dialogRef.close();
   }
 
   async submit() {
+    if (this.isCustomStage) {
+      this.newStage = this.customNewStage.trim();
+    }
+
     if (!this.newStage) {
       this.snackBar.open('New stage is required', 'Close', { duration: 3000 });
       return;
@@ -108,8 +190,11 @@ export class PromoteDemoteDialogComponent implements OnInit {
       const profile = await firstValueFrom(this.auth.profile$);
       const studentId = this.data.student.id!;
 
+      const studentName = String(this.data.student['name'] || this.data.student['displayName'] || 'Student');
+
       await this.repo.create('promotionHistory', {
         studentId: studentId,
+        studentName: studentName,
         organizationId: this.data.student['organizationId'],
         madrasaId: this.data.student['madrasaId'],
         previousCourseId: String(this.data.student['courseId'] ?? ''),
@@ -120,12 +205,43 @@ export class PromoteDemoteDialogComponent implements OnInit {
         action: this.action,
         actionDate: new Date().toISOString().slice(0, 10),
         status: 'active',
+        createdBy: profile?.displayName || profile?.email || 'System',
+      }, profile);
+
+      await this.repo.create('userLifecycleHistory', {
+        userId: studentId,
+        userName: studentName,
+        personType: 'student',
+        lifecycleAction: this.action === 'promote' ? 'Promoted' : 'Demoted',
+        actionType: this.action === 'promote' ? 'Promotion' : 'Demotion',
+        reason: `${this.action === 'promote' ? 'Promoted' : 'Demoted'} from ${this.data.student['stage'] || 'Initial'} to ${this.newStage}. Reason: ${this.reason}`,
+        fromStage: String(this.data.student['stage'] ?? ''),
+        toStage: this.newStage,
+        effectiveDate: new Date().toISOString(),
+        effectiveDateMs: Date.now(),
+        performedBy: profile?.displayName || profile?.email || 'System',
+        organizationId: this.data.student['organizationId'],
+        madrasaId: this.data.student['madrasaId'],
+        status: 'active',
       }, profile);
 
       await this.repo.update('students', studentId, {
         stage: this.newStage,
       }, profile);
       
+      // If custom new stage, append to course stages
+      if (this.isCustomStage && this.currentCourseRecord && this.newStage) {
+        const existingStages = Array.isArray(this.currentCourseRecord['stages'])
+          ? [...this.currentCourseRecord['stages']]
+          : this.availableStages;
+        if (!existingStages.map(s => String(s).toLowerCase()).includes(this.newStage.toLowerCase())) {
+          existingStages.push(this.newStage);
+          await this.repo.update('courses', this.currentCourseRecord.id!, {
+            stages: existingStages
+          }, profile).catch(e => console.warn('Failed to update course stages', e));
+        }
+      }
+
       const userUid = String(this.data.student['userId'] || this.data.student['uid'] || '');
       if (userUid) {
         await this.repo.update('users', userUid, {

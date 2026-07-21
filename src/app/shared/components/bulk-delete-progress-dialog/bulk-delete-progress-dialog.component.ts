@@ -18,7 +18,7 @@ export type ProgressState = 'running' | 'done' | 'error';
   templateUrl: './bulk-delete-progress-dialog.component.html',
   styleUrl: './bulk-delete-progress-dialog.component.scss',
 })
-export class BulkDeleteProgressDialogComponent implements OnDestroy {
+export class BulkDeleteProgressDialogComponent {
 
   state: ProgressState = 'running';
   progressPercent = 0;
@@ -39,8 +39,6 @@ export class BulkDeleteProgressDialogComponent implements OnDestroy {
     this.dialogRef.disableClose = true;
     this.startDeletion();
   }
-
-  ngOnDestroy(): void {}
 
   // ── Helpers ────────────────────────────────────────────────────────────────
 

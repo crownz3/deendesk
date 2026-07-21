@@ -6,6 +6,10 @@
         <h1>Operational overview</h1>
       </div>
       <div class="header-right-actions">
+        <button mat-stroked-button color="primary" type="button" (click)="refreshData()" class="help-guide-btn">
+          <ion-icon name="refresh-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
+          <span class="btn-text">Refresh</span>
+        </button>
         <button mat-stroked-button color="primary" (click)="openHelpGuide()" class="help-guide-btn">
           <ion-icon name="help-circle-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
           <span class="btn-text">Help Guide / உதவி வழிகாட்டி</span>

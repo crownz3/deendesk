@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { CommonModule } from '@angular/common';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouteReuseStrategy } from '@angular/router';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -32,6 +33,7 @@ import { MatPaginatorModule } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatStepperModule } from '@angular/material/stepper';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
@@ -86,6 +88,7 @@ import { ClassDeactivationDialogComponent } from './pages/management/class-deact
 import { ClassTransferWizardDialogComponent } from './pages/management/class-transfer-wizard-dialog/class-transfer-wizard-dialog.component';
 import { StudentTransferDialogComponent } from './pages/management/student-transfer-dialog/student-transfer-dialog.component';
 import { PromoteDemoteDialogComponent } from './pages/management/promote-demote-dialog/promote-demote-dialog.component';
+import { CourseStagesDialogComponent } from './pages/management/course-stages-dialog/course-stages-dialog.component';
 import { ReportFilterBuilderComponent } from './pages/reports/components/report-filter-builder.component';
 import { ReportExportWizardComponent } from './pages/reports/components/report-export-wizard.component';
 import { ReportChartViewComponent } from './pages/reports/components/report-chart-view.component';
@@ -100,7 +103,34 @@ import { FeeAssignStudentsDialogComponent } from './pages/fees/fee-assign-studen
 import { FeePaymentHistoryDialogComponent } from './pages/fees/fee-payment-history-dialog.component';
 import { UserSwapDialogComponent } from './pages/management/user-swap-dialog/user-swap-dialog.component';
 import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
+import { EventsPage } from './pages/events/events.page';
+import { IssuesPage } from './pages/issues/issues.page';
+import { PropertiesPage } from './pages/properties/properties.page';
+import { LifecyclePage } from './pages/lifecycle/lifecycle.page';
+import { EventFormDialogComponent } from './pages/events/event-form-dialog.component';
+import { EventDetailsDialogComponent } from './pages/events/event-details-dialog.component';
+import { EventAttendanceDialogComponent } from './pages/events/event-attendance-dialog.component';
+import { IssueFormDialogComponent } from './pages/issues/issue-form-dialog.component';
+import { IssueDetailsDialogComponent } from './pages/issues/issue-details-dialog.component';
+import { IssueCategoryDialogComponent } from './pages/issues/issue-category-dialog.component';
 
+import { AssetFormDialogComponent } from './pages/properties/asset-form-dialog.component';
+import { AssetDetailsDialogComponent } from './pages/properties/asset-details-dialog.component';
+import { AssetTransferDialogComponent } from './pages/properties/asset-transfer-dialog.component';
+import { AssetDisposalDialogComponent } from './pages/properties/asset-disposal-dialog.component';
+import { AssetMaintenanceDialogComponent } from './pages/properties/asset-maintenance-dialog.component';
+
+import { StudentDismissalDialogComponent } from './pages/lifecycle/student-dismissal-dialog.component';
+import { StaffRelievingDialogComponent } from './pages/lifecycle/staff-relieving-dialog.component';
+import { StudentGraduationDialogComponent } from './pages/lifecycle/student-graduation-dialog.component';
+import { StudentCourseCompletionDialogComponent } from './pages/lifecycle/student-course-completion-dialog.component';
+import { StudentWithdrawalDialogComponent } from './pages/lifecycle/student-withdrawal-dialog.component';
+import { UserTransferDialogComponent } from './pages/lifecycle/user-transfer-dialog.component';
+import { UserSuspensionDialogComponent } from './pages/lifecycle/user-suspension-dialog.component';
+import { UserReactivationDialogComponent } from './pages/lifecycle/user-reactivation-dialog.component';
+import { UserArchiveDialogComponent } from './pages/lifecycle/user-archive-dialog.component';
+import { SubmitRejoinDialogComponent } from './pages/lifecycle/submit-rejoin-dialog.component';
+import { RejoinReviewDialogComponent } from './pages/lifecycle/rejoin-review-dialog.component';
 @NgModule({
   declarations: [
     AppComponent,
@@ -155,6 +185,7 @@ import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
     ClassTransferWizardDialogComponent,
     StudentTransferDialogComponent,
     PromoteDemoteDialogComponent,
+    CourseStagesDialogComponent,
     ReportFilterBuilderComponent,
     ReportExportWizardComponent,
     ReportChartViewComponent,
@@ -169,9 +200,36 @@ import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
     FeePaymentHistoryDialogComponent,
     UserSwapDialogComponent,
     MyAssignmentsPage,
+    EventsPage,
+    IssuesPage,
+    PropertiesPage,
+    LifecyclePage,
+    EventFormDialogComponent,
+    EventDetailsDialogComponent,
+    EventAttendanceDialogComponent,
+    IssueFormDialogComponent,
+    IssueDetailsDialogComponent,
+    IssueCategoryDialogComponent,
+    AssetFormDialogComponent,
+    AssetDetailsDialogComponent,
+    AssetTransferDialogComponent,
+    AssetDisposalDialogComponent,
+    AssetMaintenanceDialogComponent,
+    StudentDismissalDialogComponent,
+    StaffRelievingDialogComponent,
+    StudentGraduationDialogComponent,
+    StudentCourseCompletionDialogComponent,
+    StudentWithdrawalDialogComponent,
+    UserTransferDialogComponent,
+    UserSuspensionDialogComponent,
+    UserReactivationDialogComponent,
+    UserArchiveDialogComponent,
+    SubmitRejoinDialogComponent,
+    RejoinReviewDialogComponent,
   ],
   imports: [
     BrowserModule,
+    CommonModule,
     BrowserAnimationsModule,
     FormsModule,
     ReactiveFormsModule,
@@ -204,7 +262,8 @@ import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
     MatProgressBarModule,
     MatTabsModule,
     MatChipsModule,
-    MatIconModule
+    MatIconModule,
+    MatStepperModule
   ],
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
   bootstrap: [AppComponent],

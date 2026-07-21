@@ -1,0 +1,236 @@
+<h2 mat-dialog-title>Event Details: {{ event.name }}</h2>
+
+<mat-dialog-content class="details-dialog-content">
+  <div class="loader-overlay" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <mat-tab-group animationDuration="200ms" [(selectedIndex)]="activeTab">
+    <!-- TAB 1: Overview -->
+    <mat-tab label="Overview">
+      <div class="tab-pane">
+        <div class="meta-section">
+          <div class="status-badge-container">
+            <span class="status-chip" [class]="event.status">{{ event.status | uppercase }}</span>
+          </div>
+          
+          <div class="action-buttons-row" *ngIf="canManage">
+            <button mat-stroked-button (click)="syncParticipants()" [disabled]="isLoading">Sync Participants</button>
+            
+            <button mat-button [matMenuTriggerFor]="statusMenu" [disabled]="isLoading">Change Status</button>
+            <mat-menu #statusMenu="matMenu">
+              <button mat-menu-item (click)="changeStatus('scheduled')">Mark Scheduled</button>
+              <button mat-menu-item (click)="changeStatus('upcoming')">Mark Upcoming</button>
+              <button mat-menu-item (click)="changeStatus('inProgress')">Start Event (In Progress)</button>
+              <button mat-menu-item (click)="changeStatus('completed')">Complete Event</button>
+              <button mat-menu-item (click)="rescheduleEvent()">Reschedule Event</button>
+              <button mat-menu-item (click)="rescheduleEvent(true)">Postpone Event</button>
+              <button mat-menu-item (click)="changeStatus('cancelled')">Cancel Event</button>
+            </mat-menu>
+          </div>
+        </div>
+
+        <div class="overview-grid">
+          <div class="info-item col-span-2" *ngIf="event.description">
+            <label>Description</label>
+            <p>{{ event.description }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Event Type</label>
+            <p>{{ event.eventType }}{{ event.customEventType ? ' - ' + event.customEventType : '' }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Conduct Level</label>
+            <p>{{ event.venueLevel }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Start Date & Time</label>
+            <p>{{ formatDate(event.startDate) }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>End Date & Time</label>
+            <p>{{ formatDate(event.endDate) }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Venue Name / Details</label>
+            <p>{{ event.customVenueName || 'Madrasa Level Venue' }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Address</label>
+            <p>{{ event.venueAddress || 'N/A' }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Conductor</label>
+            <p>{{ event.conductorType === 'internal' ? 'Internal Staff Member' : event.externalConductorDetails }}</p>
+          </div>
+
+          <div class="info-item">
+            <label>Responsible Staff</label>
+            <p>{{ getStaffName(event.staffInChargeId) }}</p>
+          </div>
+
+          <div class="info-item" *ngIf="event.chiefGuestDetails">
+            <label>Chief Guest</label>
+            <p>{{ event.chiefGuestDetails }}</p>
+          </div>
+
+          <div class="info-item" *ngIf="event.estimatedBudget">
+            <label>Estimated Budget</label>
+            <p>{{ event.estimatedBudget | currency:'INR' }}</p>
+          </div>
+
+          <div class="info-item" *ngIf="event.instructions" class="col-span-2">
+            <label>Instructions</label>
+            <p>{{ event.instructions }}</p>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 2: Participants -->
+    <mat-tab label="Participants">
+      <div class="tab-pane">
+        <h3>Resolved Participants ({{ participants.length }})</h3>
+        
+        <div class="list-wrapper">
+          <div class="empty-state-box" *ngIf="participants.length === 0">
+            <p>No resolved participant records found. Click 'Sync Participants' to resolve.</p>
+          </div>
+          
+          <table class="data-table-simple" *ngIf="participants.length > 0">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of participants">
+                <td>{{ p.participantNameSnapshot }}</td>
+                <td>{{ p.participantType | uppercase }}</td>
+                <td><span class="status-chip" [class]="p.invitationStatus">{{ p.invitationStatus }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 3: Attendance -->
+    <mat-tab label="Attendance Summary">
+      <div class="tab-pane">
+        <div class="stats-row">
+          <div class="stat-bubble">
+            <span class="value">{{ attendanceStats.percentage }}%</span>
+            <span class="label">Attendance %</span>
+          </div>
+          <div class="stat-bubble">
+            <span class="value">{{ attendanceStats.present }}</span>
+            <span class="label">Present</span>
+          </div>
+          <div class="stat-bubble">
+            <span class="value">{{ attendanceStats.absent }}</span>
+            <span class="label">Absent</span>
+          </div>
+          <div class="stat-bubble">
+            <span class="value">{{ attendanceStats.excused }}</span>
+            <span class="label">Excused</span>
+          </div>
+        </div>
+
+        <div class="list-wrapper">
+          <h3>Marked Attendance Records</h3>
+          <div class="empty-state-box" *ngIf="attendanceRecords.length === 0">
+            <p>No attendance has been recorded for this event yet.</p>
+          </div>
+
+          <table class="data-table-simple" *ngIf="attendanceRecords.length > 0">
+            <thead>
+              <tr>
+                <th>Participant</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Marked By</th>
+                <th>Marked At</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let a of attendanceRecords">
+                <td>{{ a.participantName || a.participantId }}</td>
+                <td>{{ a.participantType | uppercase }}</td>
+                <td><span class="status-chip" [class]="a.status">{{ a.status }}</span></td>
+                <td>{{ a.markedBy }}</td>
+                <td>{{ formatDate(a.markedAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 4: Schedule History -->
+    <mat-tab label="Schedule History">
+      <div class="tab-pane">
+        <h3>Reschedules, Postponements, and Preponements</h3>
+
+        <div class="empty-state-box" *ngIf="scheduleHistory.length === 0">
+          <p>This event has not been rescheduled or modified.</p>
+        </div>
+
+        <div class="timeline" *ngIf="scheduleHistory.length > 0">
+          <div class="timeline-item" *ngFor="let h of scheduleHistory">
+            <div class="time-marker">{{ formatDate(h.changedAt) }}</div>
+            <div class="timeline-content">
+              <h4>{{ h.changeType | uppercase }}</h4>
+              <p><strong>Previous:</strong> {{ formatDate(h.previousStartDate) }} - {{ formatDate(h.previousEndDate) }}</p>
+              <p><strong>New:</strong> {{ formatDate(h.newStartDate) }} - {{ formatDate(h.newEndDate) }}</p>
+              <p><strong>Reason:</strong> {{ h.reason }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 5: Activity Logs -->
+    <mat-tab label="Activity Logs">
+      <div class="tab-pane">
+        <h3>Event Logs</h3>
+
+        <div class="empty-state-box" *ngIf="activityLogs.length === 0">
+          <p>No audit log entries for this event.</p>
+        </div>
+
+        <table class="data-table-simple" *ngIf="activityLogs.length > 0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let log of activityLogs">
+              <td>{{ formatDate(log.createdAt) }}</td>
+              <td>{{ log.actorName }} ({{ log.actorRole }})</td>
+              <td>{{ log.action }}</td>
+              <td>{{ log.message }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

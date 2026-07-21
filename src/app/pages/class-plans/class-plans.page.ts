@@ -33,7 +33,7 @@ interface ClassPlansVm {
   styleUrls: ['./class-plans.page.scss'],
   standalone: false,
 })
-export class ClassPlansPage implements OnInit, OnDestroy {
+export class ClassPlansPage {
   readonly vm$: Observable<PageState<ClassPlansVm>>;
   
   selectedPlan?: ClassPlan;
@@ -80,8 +80,6 @@ export class ClassPlansPage implements OnInit, OnDestroy {
     );
   }
 
-  ngOnInit() {}
-  ngOnDestroy() {}
 
   nameOf(rows: EntityRecord[], id: string): string {
     return String(rows.find((row) => row.id === id)?.['name'] ?? id);

@@ -20,6 +20,10 @@ import { PasswordRequestsPage } from './pages/password-requests/password-request
 import { ClassPlansPage } from './pages/class-plans/class-plans.page';
 import { FeesPage } from './pages/fees/fees.page';
 import { MyAssignmentsPage } from './pages/my-assignments/my-assignments.page';
+import { EventsPage } from './pages/events/events.page';
+import { IssuesPage } from './pages/issues/issues.page';
+import { PropertiesPage } from './pages/properties/properties.page';
+import { LifecyclePage } from './pages/lifecycle/lifecycle.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -37,6 +41,8 @@ const routes: Routes = [
   { path: 'students', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'students', permissionsAny: ['manageStudents', 'viewDashboard'] } },
   { path: 'parents', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'parents', permission: 'manageParents' } },
   { path: 'courses', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courses', permission: 'manageCourses' } },
+  { path: 'course-types', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courseTypes', permission: 'manageCourses' } },
+  { path: 'stages', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'stages', permission: 'manageCourses' } },
   { path: 'classes', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classes', permission: 'manageClasses' } },
   { path: 'classGroups', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classGroups', permission: 'manageClasses' } },
   { path: 'subjects', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'subjects', permission: 'manageSubjects' } },
@@ -52,6 +58,11 @@ const routes: Routes = [
   { path: 'settings', component: SettingsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageSettings' } },
   { path: 'password-requests', component: PasswordRequestsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePasswordRequests' } },
   { path: 'fees', component: FeesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageFees', 'viewFees'] } },
+  { path: 'events', component: EventsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewEvents', 'manageEvents'] } },
+  { path: 'issues', component: IssuesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewIssues', 'reportIssues', 'manageIssues'] } },
+  { path: 'properties', component: PropertiesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewProperties', 'manageProperties'] } },
+  { path: 'property-categories', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'propertyCategories', permission: 'manageProperties' } },
+  { path: 'lifecycle', component: LifecyclePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] } },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: 'dashboard' },
 ];

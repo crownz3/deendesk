@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { combineLatest, firstValueFrom, of, Subject } from 'rxjs';
+import { BehaviorSubject, combineLatest, firstValueFrom, of, Subject } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, filter, take } from 'rxjs/operators';
 import { where } from 'firebase/firestore';
 import { AppUser, AttendanceStatus, ClassPlan, ClassPlanException, TimetableEntry } from '../../core/models/domain.model';
@@ -131,36 +131,39 @@ export class AttendancePage implements OnInit, OnDestroy {
     }
   }
 
-  readonly vm$ = this.auth.profile$.pipe(
+  readonly refresh$ = new BehaviorSubject<void>(undefined);
+
+  readonly vm$ = this.refresh$.pipe(
+    switchMap(() => this.auth.profile$),
     switchMap((profile) => {
       if (!profile) return of({ loading: false } as PageState<AttendanceVm>);
-      
+
       return combineLatest({
         profile: of(profile),
         students: this.repo.list<EntityRecord>('students', profile),
         staffUsers: this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin', 'superAdmin'] }).pipe(catchError(() => of([]))),
         staffDocs: this.repo.list<EntityRecord>('staff', profile),
-      classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile),
-      classPlanExceptions: this.repo.list<EntityRecord & ClassPlanException>('classPlanExceptions', profile),
-      madrasas: this.repo.list<EntityRecord>('madrasas', profile),
-      courses: this.repo.list<EntityRecord>('courses', profile),
-      classes: this.repo.list<EntityRecord>('classes', profile),
-      classGroups: this.repo.list<EntityRecord>('classGroups', profile),
-      timetableEntries: this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile),
-    }).pipe(
-      map((data): PageState<AttendanceVm> => ({
-        data,
-        loading: false,
-      })),
-      startWith({ loading: true } as PageState<AttendanceVm>),
-      catchError((err) => {
-        console.error(err);
-        return of({
+        classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile),
+        classPlanExceptions: this.repo.list<EntityRecord & ClassPlanException>('classPlanExceptions', profile),
+        madrasas: this.repo.list<EntityRecord>('madrasas', profile),
+        courses: this.repo.list<EntityRecord>('courses', profile),
+        classes: this.repo.list<EntityRecord>('classes', profile),
+        classGroups: this.repo.list<EntityRecord>('classGroups', profile),
+        timetableEntries: this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile),
+      }).pipe(
+        map((data): PageState<AttendanceVm> => ({
+          data,
           loading: false,
-          error: 'Something went wrong while loading this page. Please try again.',
-        } as PageState<AttendanceVm>);
-      })
-    );
+        })),
+        startWith({ loading: true } as PageState<AttendanceVm>),
+        catchError((err) => {
+          console.error(err);
+          return of({
+            loading: false,
+            error: 'Something went wrong while loading this page. Please try again.',
+          } as PageState<AttendanceVm>);
+        })
+      );
     }),
   );
 
@@ -173,6 +176,11 @@ export class AttendancePage implements OnInit, OnDestroy {
     private readonly dialog: MatDialog,
     private readonly route: ActivatedRoute
   ) {}
+
+  refreshData(): void {
+    this.repo.clearCache();
+    this.refresh$.next();
+  }
 
   private destroy$ = new Subject<void>();
 

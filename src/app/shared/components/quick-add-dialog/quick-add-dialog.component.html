@@ -52,7 +52,7 @@
           <!-- Standard inputs -->
           <ng-container *ngIf="!(isStageField(field.key) && shouldShowStageSelect())">
             <input
-              *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'info' || field.type === 'mobileNumber'"
+              *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'info' || field.type === 'mobileNumber' || field.type === 'datetime-local' || field.type === 'time'"
               matInput
               [type]="field.type === 'password' ? (hidePasswords[field.key] ? 'password' : 'text') : (field.type === 'info' ? 'text' : (field.type === 'mobileNumber' ? 'tel' : field.type))"
               [placeholder]="field.placeholder || ''" [formControlName]="field.key" [readonly]="field.type === 'info'" />
@@ -101,7 +101,9 @@
 
           <!-- Dynamic Stage Select Override -->
           <mat-select *ngIf="isStageField(field.key) && shouldShowStageSelect()" [multiple]="field.type === 'multiselect'" [formControlName]="field.key">
-            <mat-option *ngFor="let stage of getStageOptions(field.key)" [value]="stage" [disabled]="stage === getOriginalStage()">{{ stage }}</mat-option>
+            <mat-option *ngFor="let stage of getStageOptions(field.key)" [value]="stage" [disabled]="stage === getOriginalStage()">
+              {{ stage }} <span *ngIf="stage === getOriginalStage()" class="current-stage-tag">(Current Stage)</span>
+            </mat-option>
           </mat-select>
 
           <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>

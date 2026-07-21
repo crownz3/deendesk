@@ -1,0 +1,376 @@
+<h2 mat-dialog-title>{{ isEdit ? 'Edit Event' : 'Create Event' }}</h2>
+
+<mat-dialog-content class="event-form-dialog-content">
+  <mat-stepper #stepper linear labelPosition="bottom">
+    <!-- STEP 1: Basic Details -->
+    <mat-step [stepControl]="step1Form">
+      <form [formGroup]="step1Form">
+        <ng-template matStepLabel>Basic Details</ng-template>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="col-double" *ngIf="!profile?.organizationId">
+            <mat-label>Organization</mat-label>
+            <mat-select formControlName="organizationId">
+              <mat-option *ngFor="let org of organizations" [value]="org.id">{{ org['name'] }}</mat-option>
+            </mat-select>
+            <mat-error *ngIf="step1Form.get('organizationId')?.hasError('required')">Organization is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Event Name</mat-label>
+            <input matInput formControlName="name" placeholder="e.g. Annual Day Celebration" required>
+            <mat-error *ngIf="step1Form.get('name')?.hasError('required')">Name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Description</mat-label>
+            <textarea matInput formControlName="description" rows="3" placeholder="Brief details about the event..."></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Event Type</mat-label>
+            <mat-select formControlName="eventType">
+              <mat-option *ngFor="let type of eventTypes" [value]="type.value">{{ type.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" *ngIf="step1Form.get('eventType')?.value === 'custom'">
+            <mat-label>Custom Event Type</mat-label>
+            <input matInput formControlName="customEventType" placeholder="Enter custom type">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Venue Level</mat-label>
+            <mat-select formControlName="venueLevel">
+              <mat-option *ngFor="let lvl of venueLevels" [value]="lvl.value">{{ lvl.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" *ngIf="step1Form.get('venueLevel')?.value === 'madrasa'">
+            <mat-label>Madrasa Venue</mat-label>
+            <mat-select formControlName="madrasaVenueId">
+              <mat-option *ngFor="let m of orgMadrasas" [value]="m.id">{{ m['name'] }}{{ getOrgName(m['organizationId']) }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" *ngIf="step1Form.get('venueLevel')?.value === 'external'">
+            <mat-label>External Venue Name</mat-label>
+            <input matInput formControlName="customVenueName" placeholder="e.g. Community Hall">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-double" *ngIf="step1Form.get('venueLevel')?.value !== 'madrasa'">
+            <mat-label>Venue Address</mat-label>
+            <input matInput formControlName="venueAddress" placeholder="Physical location/address">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Conductor Type</mat-label>
+            <mat-select formControlName="conductorType">
+              <mat-option value="internal">Internal (Staff)</mat-option>
+              <mat-option value="external">External Speaker/Conductor</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" *ngIf="step1Form.get('conductorType')?.value === 'internal'">
+            <mat-label>Internal Conductor (Staff)</mat-label>
+            <mat-select formControlName="conductorStaffId">
+              <mat-option *ngFor="let s of staff" [value]="s.id">{{ s['name'] }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" *ngIf="step1Form.get('conductorType')?.value === 'external'" class="col-double">
+            <mat-label>External Conductor Details</mat-label>
+            <input matInput formControlName="externalConductorDetails" placeholder="Name, Organization, Bio...">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Chief Guest</mat-label>
+            <input matInput formControlName="chiefGuestDetails" placeholder="Name of Chief Guest">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Special Guest(s)</mat-label>
+            <input matInput formControlName="specialGuestDetails" placeholder="Names of Special Guests">
+          </mat-form-field>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 2: Date, Time and Venue -->
+    <mat-step [stepControl]="step2Form">
+      <form [formGroup]="step2Form">
+        <ng-template matStepLabel>Date & Time</ng-template>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Start Date</mat-label>
+            <input matInput [matDatepicker]="startPicker" formControlName="startDate" required>
+            <mat-datepicker-toggle matSuffix [for]="startPicker"></mat-datepicker-toggle>
+            <mat-datepicker #startPicker></mat-datepicker>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>End Date</mat-label>
+            <input matInput [matDatepicker]="endPicker" formControlName="endDate" required>
+            <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
+            <mat-datepicker #endPicker></mat-datepicker>
+          </mat-form-field>
+
+          <div class="time-row col-double" *ngIf="!step2Form.get('allDay')?.value">
+            <ion-item class="time-field" button [matMenuTriggerFor]="startMenu" detail="false">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              <ion-label>Start Time</ion-label>
+              <div slot="end" class="time-display">{{ step2Form.value.startTime }}</div>
+            </ion-item>
+
+            <mat-menu #startMenu="matMenu" class="datetime-menu" xPosition="after">
+              <div (click)="$event.stopPropagation()" class="datetime-wrapper">
+                <ion-datetime presentation="time" [value]="getIsoTime(step2Form.get('startTime')?.value)"
+                  (ionChange)="onTimeChange('startTime', $event)">
+                </ion-datetime>
+              </div>
+            </mat-menu>
+
+            <div class="time-arrow">
+              <mat-icon>arrow_forward</mat-icon>
+            </div>
+
+            <ion-item class="time-field" button [matMenuTriggerFor]="endMenu" detail="false">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              <ion-label>End Time</ion-label>
+              <div slot="end" class="time-display">{{ step2Form.value.endTime }}</div>
+            </ion-item>
+
+            <mat-menu #endMenu="matMenu" class="datetime-menu" xPosition="after">
+              <div (click)="$event.stopPropagation()" class="datetime-wrapper">
+                <ion-datetime presentation="time" [value]="getIsoTime(step2Form.get('endTime')?.value)"
+                  (ionChange)="onTimeChange('endTime', $event)">
+                </ion-datetime>
+              </div>
+            </mat-menu>
+          </div>
+
+          <div class="col-double check-box-row">
+            <mat-checkbox formControlName="allDay">All-day Event</mat-checkbox>
+          </div>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>Instructions for Attendees</mat-label>
+            <textarea matInput formControlName="instructions" rows="2" placeholder="e.g. Please bring study material, wear uniform..."></textarea>
+          </mat-form-field>
+        </div>
+
+        <div class="date-error" *ngIf="step2Form.hasError('invalidRange')" style="color: #f44336; font-size: 14px; padding: 10px 0;">
+          End Date/Time must be after Start Date/Time
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 3: Participants -->
+    <mat-step [stepControl]="step3Form">
+      <form [formGroup]="step3Form">
+        <ng-template matStepLabel>Audience Selection</ng-template>
+
+        <div class="form-grid">
+          <div class="col-double check-box-row">
+            <mat-checkbox formControlName="entireOrganizationParticipation">Entire Organization Participation</mat-checkbox>
+          </div>
+
+          <ng-container *ngIf="!step3Form.get('entireOrganizationParticipation')?.value">
+            
+            <div formArrayName="audienceGroups" class="col-double">
+              <div *ngFor="let group of audienceGroups.controls; let i=index" [formGroupName]="i" class="audience-group-box">
+                <div class="audience-header">
+                  <h4>Audience Target #{{i + 1}}</h4>
+                  <button mat-icon-button color="warn" (click)="removeAudienceGroup(i)" type="button"><mat-icon>delete</mat-icon></button>
+                </div>
+                
+                <div class="check-box-row" style="margin-bottom: 15px;">
+                  <mat-checkbox formControlName="entireMadrasaParticipation">Entire Madrasa Participation</mat-checkbox>
+                </div>
+
+                <div class="form-grid inner-grid">
+                  <mat-form-field appearance="outline" class="col-double">
+                    <mat-label>Target Madrasa</mat-label>
+                    <mat-select formControlName="targetMadrasaIds">
+                      <input class="search-input" matInput placeholder="Search madrasa..." #searchMadrasa (input)="0" (keydown)="$event.stopPropagation()">
+                      <mat-option *ngFor="let m of filterOptions(orgMadrasas, searchMadrasa.value)" [value]="m.id">{{ m['name'] }}{{ getOrgName(m['organizationId']) }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="col-double" *ngIf="!group.get('entireMadrasaParticipation')?.value">
+                    <mat-label>Target Courses</mat-label>
+                    <mat-select formControlName="targetCourseIds" multiple>
+                      <input class="search-input" matInput placeholder="Search courses..." #searchCourse (input)="0" (keydown)="$event.stopPropagation()">
+                      <mat-option *ngFor="let c of filterOptions(getFilteredCourses(i), searchCourse.value)" [value]="c.id">{{ c['name'] }}{{ getOrgName(c['organizationId']) }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="col-double" *ngIf="!group.get('entireMadrasaParticipation')?.value">
+                    <mat-label>Target Classes</mat-label>
+                    <mat-select formControlName="targetClassIds" multiple>
+                      <input class="search-input" matInput placeholder="Search classes..." #searchClass (input)="0" (keydown)="$event.stopPropagation()">
+                      <mat-option *ngFor="let cls of filterOptions(getFilteredClasses(i), searchClass.value)" [value]="cls.id">{{ cls['name'] }}{{ getOrgName(cls['organizationId']) }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="col-double" *ngIf="!group.get('entireMadrasaParticipation')?.value">
+                    <mat-label>Target Class Groups</mat-label>
+                    <mat-select formControlName="targetClassGroupIds" multiple>
+                      <input class="search-input" matInput placeholder="Search groups..." #searchGroup (input)="0" (keydown)="$event.stopPropagation()">
+                      <mat-option *ngFor="let g of filterOptions(getFilteredClassGroups(i), searchGroup.value)" [value]="g.id">{{ g['name'] }}{{ getOrgName(g['organizationId']) }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+
+                  <mat-form-field appearance="outline" class="col-double" *ngIf="!group.get('entireMadrasaParticipation')?.value">
+                    <mat-label>Select Individual Students</mat-label>
+                    <mat-select formControlName="selectedStudentIds" multiple>
+                      <input class="search-input" matInput placeholder="Search students..." #searchStudent (input)="0" (keydown)="$event.stopPropagation()">
+                      <mat-option *ngFor="let stud of filterOptions(getFilteredStudents(i), searchStudent.value)" [value]="stud.id">{{ stud['name'] }}{{ getOrgName(stud['organizationId']) }}</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+              </div>
+              
+              <button mat-stroked-button color="primary" type="button" (click)="addAudienceGroup()" class="add-target-btn">
+                <mat-icon>add</mat-icon> Add Audience Target
+              </button>
+            </div>
+
+            <mat-form-field appearance="outline" class="col-double">
+              <mat-label>Select Individual Staff</mat-label>
+              <mat-select formControlName="selectedStaffIds" multiple>
+                <input class="search-input" matInput placeholder="Search staff..." #searchStaff (input)="0" (keydown)="$event.stopPropagation()">
+                <mat-option *ngFor="let s of filterOptions(orgStaff, searchStaff.value)" [value]="s.id">{{ s['name'] }}{{ getOrgName(s['organizationId']) }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+          </ng-container>
+
+          <div class="col-double check-box-row">
+            <mat-checkbox formControlName="attendanceRequired">Attendance Required for this Event</mat-checkbox>
+          </div>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 4: Responsibility and Budget -->
+    <mat-step [stepControl]="step4Form">
+      <form [formGroup]="step4Form">
+        <ng-template matStepLabel>Responsibility & Budget</ng-template>
+
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Primary Staff In Charge</mat-label>
+            <mat-select formControlName="staffInChargeId" required>
+              <input class="search-input" (keydown)="$event.stopPropagation()" placeholder="Search staff..." (input)="searchStaff1 = $any($event.target).value">
+              <mat-option *ngFor="let s of filterOptions(staff, searchStaff1)" [value]="s.id">{{ s['name'] || s['displayName'] }}</mat-option>
+            </mat-select>
+            <mat-error *ngIf="step4Form.get('staffInChargeId')?.hasError('required')">Primary staff in charge is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Additional Responsible Staff</mat-label>
+            <mat-select formControlName="additionalResponsibleStaffIds" multiple>
+              <input class="search-input" (keydown)="$event.stopPropagation()" placeholder="Search staff..." (input)="searchStaff2 = $any($event.target).value">
+              <mat-option *ngFor="let s of filterOptions(staff, searchStaff2)" [value]="s.id">{{ s['name'] || s['displayName'] }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Estimated Budget (INR)</mat-label>
+            <input matInput type="number" formControlName="estimatedBudget" min="0">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="col-double">
+            <mat-label>General Notes</mat-label>
+            <textarea matInput formControlName="notes" rows="2" placeholder="Budget notes, checklist..."></textarea>
+          </mat-form-field>
+
+          <div formArrayName="collectedFunds" class="col-double funds-box">
+             <div class="funds-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h4 style="margin:0;">Expense Tracking (Collected Funds)</h4>
+                <button mat-stroked-button color="primary" type="button" (click)="addCollectedFund()"><mat-icon>add</mat-icon> Add Fund Record</button>
+             </div>
+             <div *ngFor="let fund of collectedFunds.controls; let i=index" [formGroupName]="i" style="display: flex; gap: 15px; align-items: center; margin-bottom: 10px;">
+               <mat-form-field appearance="outline" style="flex: 1;">
+                 <mat-label>Amount (INR)</mat-label>
+                 <input matInput type="number" formControlName="amount">
+               </mat-form-field>
+               <mat-form-field appearance="outline" style="flex: 2;">
+                 <mat-label>Contributor Name</mat-label>
+                 <input matInput formControlName="contributor">
+               </mat-form-field>
+               <button mat-icon-button color="warn" type="button" (click)="removeCollectedFund(i)" style="margin-top: -15px;"><mat-icon>delete</mat-icon></button>
+             </div>
+          </div>
+        </div>
+      </form>
+    </mat-step>
+
+    <!-- STEP 5: Review & Save -->
+    <mat-step>
+      <ng-template matStepLabel>Review & Save</ng-template>
+      
+      <div class="review-box">
+        <h3>Review Event Configuration</h3>
+        
+        <div class="review-grid">
+          <div class="review-item">
+            <strong>Name:</strong>
+            <span>{{ summaryData.name }}</span>
+          </div>
+          <div class="review-item">
+            <strong>Event Type:</strong>
+            <span>{{ summaryData.eventType }}</span>
+          </div>
+          <div class="review-item">
+            <strong>Venue:</strong>
+            <span>{{ summaryData.venueLevel }} <span *ngIf="summaryData.customVenueName || summaryData.venueAddress">({{ summaryData.customVenueName || summaryData.venueAddress }})</span></span>
+          </div>
+          <div class="review-item" *ngIf="summaryData.startDate">
+            <strong>Dates:</strong>
+            <span>{{ summaryData.startDate | date:'mediumDate' }} to {{ summaryData.endDate | date:'mediumDate' }}</span>
+          </div>
+          
+          <div class="review-item" *ngIf="summaryData.entireOrganizationParticipation">
+            <strong>Audience:</strong>
+            <span>Entire Organization</span>
+          </div>
+          <div class="review-item" *ngIf="!summaryData.entireOrganizationParticipation && summaryData.audienceGroups?.length">
+            <strong>Audience Groups:</strong>
+            <span>{{ summaryData.audienceGroups.length }} group(s) configured</span>
+          </div>
+          
+          <div class="review-item">
+            <strong>Estimated Budget:</strong>
+            <span>{{ summaryData.estimatedBudget | currency:'INR':'symbol':'1.0-0' }}</span>
+          </div>
+          <div class="review-item" *ngIf="summaryData.collectedFunds?.length">
+            <strong>Collected Funds:</strong>
+            <span>{{ summaryData.collectedFunds.length }} record(s)</span>
+          </div>
+          <div class="review-item" *ngIf="summaryData.notes">
+            <strong>Notes:</strong>
+            <span>{{ summaryData.notes }}</span>
+          </div>
+        </div>
+      </div>
+    </mat-step>
+  </mat-stepper>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions-footer">
+  <button mat-button (click)="cancel()" [disabled]="isSaving">Cancel</button>
+  <button mat-button *ngIf="stepper.selectedIndex > 0" (click)="stepper.previous()" [disabled]="isSaving">Back</button>
+  <button mat-flat-button color="primary" *ngIf="stepper.selectedIndex !== 4" (click)="stepper.next()" 
+    [disabled]="(stepper.selectedIndex === 0 && step1Form.invalid) || 
+                (stepper.selectedIndex === 1 && step2Form.invalid) || 
+                (stepper.selectedIndex === 2 && step3Form.invalid) || 
+                (stepper.selectedIndex === 3 && step4Form.invalid)">
+    Next
+  </button>
+  <button mat-flat-button color="primary" *ngIf="stepper.selectedIndex === 4" (click)="save()" [disabled]="isSaving">
+    <mat-spinner diameter="20" *ngIf="isSaving" style="display:inline-block; margin-right:8px;"></mat-spinner>
+    {{ isSaving ? 'Saving...' : (isEdit ? 'Save Changes' : 'Create Event') }}
+  </button>
+</mat-dialog-actions>

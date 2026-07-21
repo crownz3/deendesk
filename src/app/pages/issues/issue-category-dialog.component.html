@@ -1,0 +1,103 @@
+<h2 mat-dialog-title>Configure Issue Categories</h2>
+
+<mat-dialog-content class="category-dialog-content">
+  <div class="loader-overlay" *ngIf="isLoading">
+    <mat-spinner diameter="40"></mat-spinner>
+  </div>
+
+  <div class="category-grid">
+    <!-- Left: Add/Edit Category Form (Admin only) -->
+    <div class="form-panel" *ngIf="canManage">
+      <h3>{{ editingCategory ? 'Edit Category' : 'Add New Category' }}</h3>
+      
+      <div class="form-inputs">
+        <mat-form-field appearance="outline" class="col-full">
+          <mat-label>Category Name</mat-label>
+          <input matInput [(ngModel)]="name" placeholder="e.g. Student Safety, Bathroom Repair">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="col-full">
+          <mat-label>Description</mat-label>
+          <textarea matInput [(ngModel)]="description" rows="2" placeholder="Detail the scope of this issue category..."></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Default Severity</mat-label>
+          <mat-select [(ngModel)]="defaultSeverity">
+            <mat-option value="low">Low</mat-option>
+            <mat-option value="medium">Medium</mat-option>
+            <mat-option value="high">High</mat-option>
+            <mat-option value="critical">Critical</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Default Priority</mat-label>
+          <mat-select [(ngModel)]="defaultPriority">
+            <mat-option value="low">Low</mat-option>
+            <mat-option value="medium">Medium</mat-option>
+            <mat-option value="high">High</mat-option>
+            <mat-option value="critical">Critical</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="col-full">
+          <mat-label>Default Resolution Deadline (Days)</mat-label>
+          <input matInput type="number" [(ngModel)]="defaultResolutionDays" min="1">
+        </mat-form-field>
+
+        <div class="checkbox-group col-full">
+          <mat-checkbox [(ngModel)]="personInvolved">Person Involved</mat-checkbox>
+          <mat-checkbox [(ngModel)]="assetInvolved">Infrastructure/Asset Mapped</mat-checkbox>
+          <mat-checkbox [(ngModel)]="evidenceRequired">Evidence / Photo Required</mat-checkbox>
+          <mat-checkbox [(ngModel)]="confidentialByDefault">Confidential by Default</mat-checkbox>
+        </div>
+      </div>
+
+      <div class="form-actions-row">
+        <button mat-button (click)="resetForm()">Cancel</button>
+        <button mat-flat-button color="primary" (click)="saveCategory()">
+          {{ editingCategory ? 'Update Category' : 'Create Category' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Right: Categories List -->
+    <div class="list-panel" [class.full-width]="!canManage">
+      <h3>Active & Inactive Categories</h3>
+
+      <div class="empty-state" *ngIf="categories.length === 0 && !isLoading">
+        <p>No configured issue categories found.</p>
+      </div>
+
+      <div class="category-cards-timeline" *ngIf="categories.length > 0">
+        <div class="category-card-item" *ngFor="let cat of categories">
+          <div class="card-header-row">
+            <h4>{{ cat.name }}</h4>
+            <span class="status-chip" [class]="cat.status">{{ cat.status | uppercase }}</span>
+          </div>
+          <p class="desc" *ngIf="cat.description">{{ cat.description }}</p>
+          
+          <div class="badge-row">
+            <span class="meta-badge">Severity: {{ cat.defaultSeverity }}</span>
+            <span class="meta-badge">Resolution: {{ cat.defaultResolutionDays }}d</span>
+            <span class="meta-badge" *ngIf="cat.confidentialByDefault">Confidential</span>
+            <span class="meta-badge" *ngIf="cat.personInvolved">Person Involved</span>
+            <span class="meta-badge" *ngIf="cat.assetInvolved">Asset Mapped</span>
+          </div>
+
+          <div class="card-actions" *ngIf="canManage">
+            <button mat-button color="primary" (click)="editCategory(cat)">Edit</button>
+            <button mat-button [color]="cat.status === 'active' ? 'warn' : 'primary'" (click)="toggleCategoryStatus(cat)">
+              {{ cat.status === 'active' ? 'Deactivate' : 'Activate' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

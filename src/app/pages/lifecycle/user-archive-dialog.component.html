@@ -1,0 +1,47 @@
+<h2 mat-dialog-title>Archive User</h2>
+
+<mat-dialog-content>
+  <div class="user-summary">
+    <div class="avatar-placeholder">
+      {{ data.user.displayName | slice:0:1 | uppercase }}
+    </div>
+    <div class="user-details">
+      <h3>{{ data.user.displayName }}</h3>
+      <p>Type: {{ data.user.entityType | titlecase }} | Role: {{ data.user.role || 'N/A' }}</p>
+    </div>
+  </div>
+
+  <mat-card class="warn-card" style="margin-bottom: 16px; background-color: #fff3e0; color: #e65100;">
+    <mat-card-content style="display: flex; gap: 8px; align-items: center; padding: 12px;">
+      <mat-icon>warning</mat-icon>
+      <p style="margin: 0;">Archiving hides the user from standard views but preserves history. This action can be reversed.</p>
+    </mat-card-content>
+  </mat-card>
+
+  <form [formGroup]="form" class="dialog-form">
+    
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Archiving Reason</mat-label>
+        <textarea matInput formControlName="reasonText" rows="2" placeholder="e.g. Left organization long ago"></textarea>
+      </mat-form-field>
+    </div>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Additional Notes</mat-label>
+        <textarea matInput formControlName="notes" rows="2"></textarea>
+      </mat-form-field>
+    </div>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="loading">Cancel</button>
+  <button mat-flat-button color="warn" (click)="submit()" [disabled]="form.invalid || loading">
+    <mat-spinner *ngIf="loading" diameter="20" class="btn-spinner"></mat-spinner>
+    <mat-icon *ngIf="!loading">archive</mat-icon>
+    Archive User
+  </button>
+</mat-dialog-actions>

@@ -1,0 +1,91 @@
+<h2 mat-dialog-title>Dismiss Student</h2>
+
+<mat-dialog-content>
+  <div class="user-summary">
+    <div class="avatar-placeholder">
+      {{ data.user.displayName | slice:0:1 | uppercase }}
+    </div>
+    <div class="user-details">
+      <h3>{{ data.user.displayName }}</h3>
+      <p>Admission #: {{ $any(data.user).admissionNumber || 'N/A' }} | Roll #: {{ $any(data.user).rollNumber || 'N/A' }}</p>
+    </div>
+  </div>
+
+  <form [formGroup]="form" class="dialog-form">
+    
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Dismissal Reason</mat-label>
+        <mat-select formControlName="reasonCode">
+          <mat-option *ngFor="let r of reasons" [value]="r.value">
+            {{ r.label }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Detailed Reason / Remarks</mat-label>
+        <textarea matInput formControlName="reasonText" rows="3" placeholder="Enter detailed reason..."></textarea>
+      </mat-form-field>
+    </div>
+
+    <div class="form-row cols-2">
+      <mat-form-field appearance="outline">
+        <mat-label>Effective Date</mat-label>
+        <input matInput [matDatepicker]="effPicker" formControlName="effectiveDate">
+        <mat-datepicker-toggle matIconSuffix [for]="effPicker"></mat-datepicker-toggle>
+        <mat-datepicker #effPicker></mat-datepicker>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Last Study Date</mat-label>
+        <input matInput [matDatepicker]="studyPicker" formControlName="lastStudyDate">
+        <mat-datepicker-toggle matIconSuffix [for]="studyPicker"></mat-datepicker-toggle>
+        <mat-datepicker #studyPicker></mat-datepicker>
+      </mat-form-field>
+    </div>
+
+    <div class="form-section">
+      <h4>Clearance & Approval Settings</h4>
+      
+      <div class="checkbox-group">
+        <mat-checkbox color="primary" formControlName="requiresApproval">Requires Admin Approval</mat-checkbox>
+        <mat-checkbox color="primary" formControlName="requiresClearance">Requires Department Clearance</mat-checkbox>
+        <mat-checkbox color="primary" formControlName="notifyParent">Notify Parent/Guardian</mat-checkbox>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h4>Rejoin Policy</h4>
+      
+      <div class="form-row cols-2 align-center">
+        <mat-checkbox color="primary" formControlName="rejoinEligible">Eligible to Rejoin Later</mat-checkbox>
+        
+        <mat-form-field appearance="outline">
+          <mat-label>Waiting Period (Days)</mat-label>
+          <input matInput type="number" formControlName="rejoinWaitingDays" min="0">
+          <span matTextSuffix>days</span>
+        </mat-form-field>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Internal Admin Notes (Optional)</mat-label>
+        <textarea matInput formControlName="notes" rows="2"></textarea>
+      </mat-form-field>
+    </div>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button mat-dialog-close [disabled]="loading">Cancel</button>
+  <button mat-flat-button color="warn" (click)="submit()" [disabled]="form.invalid || loading">
+    <mat-spinner *ngIf="loading" diameter="20" class="btn-spinner"></mat-spinner>
+    <mat-icon *ngIf="!loading">person_remove</mat-icon>
+    Initiate Dismissal
+  </button>
+</mat-dialog-actions>

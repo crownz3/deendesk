@@ -55,6 +55,7 @@ export class AppComponent {
         { label: 'Madrasas', route: '/madrasas', icon: 'school-outline', permission: 'manageMadrasas' },
         { label: 'Roles', route: '/roles-permissions', icon: 'shield-checkmark-outline', permission: 'managePermissions' },
         { label: 'Users', route: '/users', icon: 'people-outline', permission: 'manageUsers' },
+        { label: 'Lifecycle History', route: '/lifecycle', icon: 'time-outline', permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] },
       ]
     },
     {
@@ -83,6 +84,9 @@ export class AppComponent {
       items: [
         { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
         { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees', 'viewFees'] },
+        { label: 'Events', route: '/events', icon: 'calendar-outline', permissionsAny: ['viewEvents', 'manageEvents'] },
+        { label: 'Issues', route: '/issues', icon: 'warning-outline', permissionsAny: ['viewIssues', 'reportIssues', 'manageIssues'] },
+        { label: 'Properties & Assets', route: '/properties', icon: 'cube-outline', permissionsAny: ['viewProperties', 'manageProperties'] },
         { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
         { label: 'CSV Imports', route: '/csv-imports', icon: 'cloud-upload-outline', permission: 'importCsv' },
         { label: 'Password Requests', route: '/password-requests', icon: 'lock-open-outline', permission: 'managePasswordRequests' },

@@ -28,15 +28,27 @@
     <form class="transfer-form">
       <mat-form-field appearance="outline">
         <mat-label>Action</mat-label>
-        <mat-select [(ngModel)]="action" name="action" required>
+        <mat-select [(ngModel)]="action" name="action" (selectionChange)="onActionChange()" required>
           <mat-option value="promotion">Promote</mat-option>
           <mat-option value="demotion">Demote</mat-option>
         </mat-select>
       </mat-form-field>
 
       <mat-form-field appearance="outline">
-        <mat-label>New Stage</mat-label>
-        <input matInput type="text" [(ngModel)]="newStage" name="newStage" required>
+        <mat-label>Target New Stage</mat-label>
+        <mat-select [(ngModel)]="selectedStageOption" name="selectedStageOption" (selectionChange)="onStageOptionChange($event.value)" required>
+          <mat-option *ngFor="let s of availableStages; let i = index" [value]="s" [disabled]="isCurrentStage(s)">
+            {{ i + 1 }}. {{ s }} <span *ngIf="isCurrentStage(s)" class="current-stage-tag">(Current Stage)</span>
+          </mat-option>
+          <mat-option value="__ADD_NEW__" style="color: var(--ion-color-primary, #3880ff); font-weight: 600;">
+            + Add New Stage...
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" *ngIf="isCustomStage">
+        <mat-label>Enter New Custom Stage Name</mat-label>
+        <input matInput type="text" [(ngModel)]="customNewStage" name="customNewStage" (ngModelChange)="onCustomStageInput($event)" placeholder="e.g. Advanced Hifz / Stage 6" required>
       </mat-form-field>
 
       <mat-form-field appearance="outline">

@@ -12,6 +12,9 @@ export class AuditLogService {
   private readonly collectionName = 'auditLogs';
   private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
 
+  private targetLogsCache = new Map<string, { timestamp: number; logs: any[] }>();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000;
+
   constructor(
     private injector: Injector
   ) {}
@@ -47,9 +50,38 @@ export class AuditLogService {
 
       const docRef = doc(this.firestore, this.collectionName, logId);
       await setDoc(docRef, cleanAuditLog);
+      if (partialLog.targetId) {
+        this.targetLogsCache.delete(partialLog.targetId);
+      }
     } catch (error) {
       console.error('Failed to save audit log', error);
     }
+  }
+
+  async getLogsForTarget(targetId: string): Promise<any[]> {
+    if (this.targetLogsCache.has(targetId)) {
+      const cached = this.targetLogsCache.get(targetId)!;
+      if (Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
+        return cached.logs;
+      }
+    }
+    const q = query(
+      collection(this.firestore, this.collectionName),
+      where('targetId', '==', targetId)
+    );
+    const snap = await getDocs(q);
+    const logs = snap.docs.map(doc => doc.data());
+    logs.sort((a: any, b: any) => {
+      const ta = a['createdAt']?.toMillis?.() || 0;
+      const tb = b['createdAt']?.toMillis?.() || 0;
+      return tb - ta;
+    });
+    this.targetLogsCache.set(targetId, { timestamp: Date.now(), logs });
+    return logs;
+  }
+
+  clearAllCaches(): void {
+    this.targetLogsCache.clear();
   }
 
   async getLogs(filters: any, lastDoc?: QueryDocumentSnapshot<AuditLog>, limitCount: number = 50) {
@@ -97,7 +129,6 @@ export class AuditLogService {
 
     const logs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AuditLog));
     
-    // Apply client-side date filtering if provided, since we can't easily do multiple inequality/range queries without more composite indexes
     let filteredLogs = logs;
     if (filters.startDate || filters.endDate) {
        filteredLogs = logs.filter(log => {
