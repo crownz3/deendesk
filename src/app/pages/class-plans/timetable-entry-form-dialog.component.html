@@ -171,11 +171,59 @@
             <!-- Room -->
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Room / Location (Optional)</mat-label>
-
               <mat-icon matPrefix>location_on</mat-icon>
-
               <input matInput formControlName="roomId" placeholder="e.g. Room 101, Main Hall">
             </mat-form-field>
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Book & Syllabus Portion Section (Aalim / Kitab / Hifz / Maktab) -->
+        <mat-card class="section-card">
+          <mat-card-header>
+            <mat-card-title>
+              <mat-icon>auto_stories</mat-icon>
+              Section 3 &mdash; Book & Syllabus Target (Optional)
+            </mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 180px;">
+                <mat-label>Book Name</mat-label>
+                <input matInput formControlName="bookName" placeholder="e.g. Bukhari Sharif, Hidayah, Qaida">
+              </mat-form-field>
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 180px;">
+                <mat-label>Lesson / Chapter Name</mat-label>
+                <input matInput formControlName="lessonName" placeholder="e.g. Kitab at-Taharah, Lesson 5">
+              </mat-form-field>
+            </div>
+
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 120px;">
+                <mat-label>Start Page / Unit</mat-label>
+                <input matInput type="number" formControlName="startPage" placeholder="e.g. 1">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 120px;">
+                <mat-label>End Page / Unit</mat-label>
+                <input matInput type="number" formControlName="endPage" placeholder="e.g. 450">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 120px;">
+                <mat-label>Daily Target</mat-label>
+                <input matInput type="number" formControlName="dailyTargetPages" placeholder="e.g. 5">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 120px;">
+                <mat-label>Unit Type</mat-label>
+                <mat-select formControlName="unitType">
+                  <mat-option value="pages">Pages</mat-option>
+                  <mat-option value="hadith">Hadith</mat-option>
+                  <mat-option value="lessons">Lessons</mat-option>
+                  <mat-option value="paras">Paras / Juz</mat-option>
+                  <mat-option value="chapters">Chapters</mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
           </mat-card-content>
         </mat-card>
 

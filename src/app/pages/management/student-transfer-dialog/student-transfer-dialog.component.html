@@ -1,5 +1,7 @@
 <div class="dialog-header">
-  <h2 mat-dialog-title>Transfer Student</h2>
+  <h2 mat-dialog-title>
+    {{ targetStudents.length > 1 ? 'Bulk Transfer (' + targetStudents.length + ' Students)' : 'Transfer Student' }}
+  </h2>
   <button mat-icon-button type="button" (click)="close()" aria-label="Close dialog">
     <ion-icon name="close"></ion-icon>
   </button>
@@ -12,15 +14,20 @@
   </div>
 
   <div *ngIf="!loading">
-    <p class="subtitle">Transfer <strong>{{ data.student['name'] }}</strong> to a new assignment.</p>
+    <p class="subtitle" *ngIf="targetStudents.length === 1">
+      Transfer <strong>{{ firstStudent?.['name'] || firstStudent?.['displayName'] }}</strong> to a new assignment.
+    </p>
+    <p class="subtitle" *ngIf="targetStudents.length > 1">
+      Transferring <strong>{{ targetStudents.length }} selected students</strong> to a new academic assignment simultaneously.
+    </p>
     
-    <div class="current-details">
+    <div class="current-details" *ngIf="targetStudents.length === 1">
       <h3>Current Assignment</h3>
       <ul>
-        <li><strong>Madrasa:</strong> {{ getMadrasaName(data.student['madrasaId']) }}</li>
-        <li><strong>Course:</strong> {{ getCourseName(data.student['courseId']) }}</li>
-        <li><strong>Class:</strong> {{ getClassName(data.student['classId']) }}</li>
-        <li><strong>Group:</strong> {{ getGroupName(data.student['groupId']) }}</li>
+        <li><strong>Madrasa:</strong> {{ getMadrasaName(firstStudent?.['madrasaId']) }}</li>
+        <li><strong>Course:</strong> {{ getCourseName(firstStudent?.['courseId']) }}</li>
+        <li><strong>Class:</strong> {{ getClassName(firstStudent?.['classId']) }}</li>
+        <li><strong>Group:</strong> {{ getGroupName(firstStudent?.['groupId']) }}</li>
       </ul>
     </div>
 
@@ -70,6 +77,8 @@
   <button mat-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
   <button mat-flat-button color="primary" type="button" (click)="submit()" [disabled]="loading || saving">
     <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
-    <span *ngIf="!saving">Transfer Student</span>
+    <span *ngIf="!saving">
+      {{ targetStudents.length > 1 ? 'Transfer All (' + targetStudents.length + ')' : 'Transfer Student' }}
+    </span>
   </button>
 </mat-dialog-actions>

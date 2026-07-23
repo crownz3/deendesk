@@ -63,6 +63,7 @@ export class AppComponent {
       items: [
         { label: 'Coordinators', route: '/coordinators', icon: 'git-network-outline', permission: 'manageCoordinators' },
         { label: 'Incharges', route: '/madrasa-incharges', icon: 'person-circle-outline', permission: 'manageIncharges' },
+        { label: 'Stage Heads', route: '/stage-heads', icon: 'ribbon-outline', permissionsAny: ['manageStaff', 'manageCourses', 'viewDashboard'] },
         { label: 'Staff', route: '/staff', icon: 'briefcase-outline', permission: 'manageStaff' },
         { label: 'Students', route: '/students', icon: 'person-outline', permission: 'manageStudents' },
         { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permission: 'manageParents' },
@@ -130,6 +131,14 @@ export class AppComponent {
   ) { }
 
   isMenuOpen = false;
+
+  navigateToQuran(): void {
+    this.router.navigate(['/quran']);
+  }
+
+  isQuranActive(): boolean {
+    return this.router.url.startsWith('/quran');
+  }
 
   onMenuWillOpen() {
     this.isMenuOpen = true;

@@ -29,6 +29,15 @@
           <p>{{ vm.config.subtitle }}</p>
         </div>
         <div class="page-actions">
+          <button
+            *ngIf="vm.config.resource === 'propertyCategories'"
+            mat-stroked-button
+            color="primary"
+            type="button"
+            routerLink="/properties">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+            Return to Properties
+          </button>
           <button mat-stroked-button color="primary" type="button" (click)="refreshData()">
             <ion-icon name="refresh-outline"></ion-icon>
             Refresh
@@ -83,6 +92,26 @@
             <ion-icon name="build-outline"></ion-icon>
             Migrate Legacy Users
           </button> -->
+
+          <button
+            *ngIf="dataTable?.selection?.selected?.length && vm.config.resource === 'students'"
+            mat-stroked-button
+            color="primary"
+            type="button"
+            (click)="bulkPromote(dataTable.selection.selected, dataTable)">
+            <ion-icon name="trending-up-outline"></ion-icon>
+            Bulk Promote ({{ dataTable.selection.selected.length }})
+          </button>
+
+          <button
+            *ngIf="dataTable?.selection?.selected?.length && vm.config.resource === 'students'"
+            mat-stroked-button
+            color="accent"
+            type="button"
+            (click)="bulkTransfer(dataTable.selection.selected, dataTable)">
+            <ion-icon name="swap-horizontal-outline"></ion-icon>
+            Bulk Transfer ({{ dataTable.selection.selected.length }})
+          </button>
 
           <button
             *ngIf="dataTable?.selection?.selected?.length"
@@ -160,6 +189,7 @@
             <mat-option value="organizationAdmin" *ngIf="vm.profile?.role === 'superAdmin'">Organization Admin</mat-option>
             <mat-option value="coordinator">Coordinator</mat-option>
             <mat-option value="madrasaIncharge">Madrasa Incharge</mat-option>
+            <mat-option value="stageHead">Stage Head / Course Lead</mat-option>
             <mat-option value="teacher">Teacher</mat-option>
             <mat-option value="student">Student</mat-option>
             <mat-option value="parent">Parent</mat-option>
@@ -199,16 +229,9 @@
           <mat-label>Stage</mat-label>
           <mat-select [ngModel]="stageFilter$ | async" (ngModelChange)="stageFilter$.next($event); pageIndex$.next(0)">
             <mat-option value="all">All Stages</mat-option>
-            <mat-option value="Kindergarten">Kindergarten</mat-option>
-            <mat-option value="Primary">Primary</mat-option>
-            <mat-option value="Middle">Middle</mat-option>
-            <mat-option value="High School">High School</mat-option>
-            <mat-option value="Higher Secondary">Higher Secondary</mat-option>
-            <mat-option value="Undergraduate">Undergraduate</mat-option>
-            <mat-option value="Postgraduate">Postgraduate</mat-option>
-            <mat-option value="Diploma">Diploma</mat-option>
-            <mat-option value="Certificate">Certificate</mat-option>
-            <mat-option value="Other">Other</mat-option>
+            <mat-option *ngFor="let st of getAvailableStages(vm.rows, vm.courses)" [value]="st">
+              {{ st }}
+            </mat-option>
           </mat-select>
         </mat-form-field>
 

@@ -21,11 +21,12 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { Observable, combineLatest, of } from 'rxjs';
-import { map, shareReplay } from 'rxjs/operators';
-import { AppUser, ScopedEntity } from '../models/domain.model';
+import { Observable, combineLatest, of, BehaviorSubject } from 'rxjs';
+import { map, shareReplay, switchMap } from 'rxjs/operators';
+import { AppUser, AppModuleId, ScopedEntity } from '../models/domain.model';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
+import { FirebaseUsageTrackerService } from './firebase-usage-tracker.service';
 
 export type EntityRecord = Record<string, unknown> & ScopedEntity;
 
@@ -33,9 +34,78 @@ export type EntityRecord = Record<string, unknown> & ScopedEntity;
 export class RepositoryService {
   private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
 
-  constructor(private auditLogService: AuditLogService) {}
+  constructor(
+    private auditLogService: AuditLogService,
+    private usageTracker: FirebaseUsageTrackerService
+  ) {}
+
+  private mapCollectionToModule(collectionName: string): AppModuleId {
+    switch (collectionName) {
+      case 'events':
+      case 'eventAttendance':
+        return 'events';
+      case 'issues':
+      case 'issueCategories':
+      case 'issueComments':
+        return 'issues';
+      case 'properties':
+      case 'propertyCategories':
+      case 'propertyTransfers':
+        return 'properties';
+      case 'userLifecycleLogs':
+      case 'lifecycle':
+        return 'lifecycle';
+      case 'classPlans':
+      case 'attendance':
+      case 'classPlanAttendance':
+        return 'attendance';
+      case 'fees':
+      case 'feePayments':
+      case 'feeStructures':
+        return 'fees';
+      case 'users':
+      case 'coordinators':
+      case 'incharges':
+      case 'staff':
+      case 'students':
+      case 'parents':
+        return 'users';
+      case 'organizations':
+      case 'madrasas':
+      case 'courses':
+      case 'classes':
+      case 'subjects':
+        return 'management';
+      default:
+        return 'system';
+    }
+  }
+
+  private stringifyConstraints(extra: QueryConstraint[]): string {
+    if (!extra || extra.length === 0) return '';
+    return extra.map(c => {
+      const anyC = c as any;
+      if (anyC._type) {
+        const field = anyC._field?.path || anyC._field || '';
+        const op = anyC._op || '';
+        const val = JSON.stringify(anyC._value ?? '');
+        return `${anyC._type}:${field}:${op}:${val}`;
+      }
+      return String(c);
+    }).join(';');
+  }
 
   list<T extends EntityRecord>(collectionName: string, user: AppUser | null, extra: QueryConstraint[] = [], options?: { roles?: string[] }): Observable<T[]> {
+    const rolesKey = options?.roles ? options.roles.slice().sort().join(',') : '';
+    const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${user?.role || ''}_${rolesKey}_${this.stringifyConstraints(extra)}`;
+
+    if (this.streamCache.has(cacheKey)) {
+      return this.streamCache.get(cacheKey)! as Observable<T[]>;
+    }
+
+    const trigger$ = new BehaviorSubject<number>(Date.now());
+    this.streamTriggerMap.set(cacheKey, trigger$);
+
     const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
     const constraintGroups = this.scopeConstraints(collectionName, user, options);
 
@@ -50,49 +120,57 @@ export class RepositoryService {
       return of([]);
     }
 
-    const observables = constraintGroups.map((constraints, index) => {
-      console.log(`[Firestore Query - Group ${index}] collection=${collectionName}`, constraints);
-      const q = query(ref, ...constraints, ...extra, limit(500));
-      return new Observable<T[]>((subscriber) => {
-        return onSnapshot(q, (snapshot) => {
-          subscriber.next(snapshot.docs.map((row) => ({ id: row.id, ...row.data() }) as T));
-        }, (error: any) => {
-          console.error('[Firestore Query Failed]', {
-            collectionName,
-            role: user?.role,
-            requestedRoles: options?.roles,
-            organizationId: user?.organizationId,
-            madrasaIds: user?.madrasaIds,
-            errorCode: error?.code,
-            errorMessage: error?.message,
-            error,
+    const obs$ = trigger$.pipe(
+      switchMap(() => {
+        const observables = constraintGroups.map((constraints, index) => {
+          console.log(`[Firestore Query - Group ${index}] collection=${collectionName}`, constraints);
+          const q = query(ref, ...constraints, ...extra, limit(500));
+          return new Observable<T[]>((subscriber) => {
+            return onSnapshot(q, (snapshot) => {
+              this.usageTracker.recordRead(this.mapCollectionToModule(collectionName), user?.organizationId, Math.max(1, snapshot.docs.length));
+              subscriber.next(snapshot.docs.map((row) => ({ id: row.id, ...row.data() }) as T));
+            }, (error: any) => {
+              console.error('[Firestore Query Failed]', {
+                collectionName,
+                role: user?.role,
+                requestedRoles: options?.roles,
+                organizationId: user?.organizationId,
+                madrasaIds: user?.madrasaIds,
+                errorCode: error?.code,
+                errorMessage: error?.message,
+                error,
+              });
+              console.warn('[Firestore Permission Debug]', {
+                collectionName,
+                ruleExpectation: 'Frontend query must match same organization, allowed role, and assigned madrasa scope',
+                currentUserRole: user?.role,
+                organizationId: user?.organizationId,
+                madrasaIds: user?.madrasaIds,
+              });
+              subscriber.next([]); // Fallback to empty array so other queries succeed
+            });
           });
-          console.warn('[Firestore Permission Debug]', {
-            collectionName,
-            ruleExpectation: 'Frontend query must match same organization, allowed role, and assigned madrasa scope',
-            currentUserRole: user?.role,
-            organizationId: user?.organizationId,
-            madrasaIds: user?.madrasaIds,
-          });
-          subscriber.next([]); // Fallback to empty array so other queries succeed
         });
-      });
-    });
 
-    return combineLatest(observables).pipe(
-      map(results => {
-        const merged = results.reduce((acc, val) => acc.concat(val), [] as T[]);
-        const uniqueMap = new Map<string, T>();
-        merged.forEach((item: T) => {
-          if (item.id && !uniqueMap.has(item.id)) {
-            uniqueMap.set(item.id, item);
-          }
-        });
-        const docs = Array.from(uniqueMap.values());
-        return this.inMemoryFilter(collectionName, docs, user);
+        return combineLatest(observables).pipe(
+          map(results => {
+            const merged = results.reduce((acc, val) => acc.concat(val), [] as T[]);
+            const uniqueMap = new Map<string, T>();
+            merged.forEach((item: T) => {
+              if (item.id && !uniqueMap.has(item.id)) {
+                uniqueMap.set(item.id, item);
+              }
+            });
+            const docs = Array.from(uniqueMap.values());
+            return this.inMemoryFilter(collectionName, docs, user);
+          })
+        );
       }),
-      shareReplay({ bufferSize: 1, refCount: true })
+      shareReplay({ bufferSize: 1, refCount: false })
     );
+
+    this.streamCache.set(cacheKey, obs$);
+    return obs$;
   }
 
   private normalizeUserPayload(collectionName: string, data: any, isUpdate = false): any {
@@ -226,6 +304,7 @@ export class RepositoryService {
 
     if (id) {
       await setDoc(doc(this.firestore, `${collectionName}/${id}`), payload);
+      this.usageTracker.recordWrite(this.mapCollectionToModule(collectionName), currentUser?.organizationId, 1);
       if (collectionName === 'classes') {
         await this.createDefaultClassGroup(id, payload, currentUser);
       }
@@ -243,6 +322,7 @@ export class RepositoryService {
     }
 
     const created = await addDoc(collection(this.firestore, collectionName), payload);
+    this.usageTracker.recordWrite(this.mapCollectionToModule(collectionName), currentUser?.organizationId, 1);
     if (collectionName === 'classes') {
       await this.createDefaultClassGroup(created.id, payload, currentUser);
     }
@@ -339,6 +419,7 @@ export class RepositoryService {
       updatedAt: serverTimestamp(),
       updatedBy: currentUser?.uid ?? 'system',
     }, { merge: true });
+    this.usageTracker.recordWrite(this.mapCollectionToModule(collectionName), currentUser?.organizationId, 1);
 
     if (!skipAudit) {
       let message = '';
@@ -436,6 +517,7 @@ export class RepositoryService {
     }
     
     await deleteDoc(doc(this.firestore, `${collectionName}/${id}`));
+    this.usageTracker.recordDelete(this.mapCollectionToModule(collectionName), undefined, 1);
     this.clearCache(collectionName);
 
     this.auditLogService.logAction({
@@ -487,6 +569,7 @@ export class RepositoryService {
       }
     });
     await batch.commit();
+    this.clearCache(collectionName);
 
     this.auditLogService.logAction({
       module: collectionName,
@@ -499,6 +582,8 @@ export class RepositoryService {
   }
 
   private memoryCache = new Map<string, { timestamp: number; data: any[] }>();
+  private streamCache = new Map<string, Observable<any>>();
+  private streamTriggerMap = new Map<string, BehaviorSubject<number>>();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minute TTL
 
   clearCache(collectionName?: string) {
@@ -508,8 +593,25 @@ export class RepositoryService {
           this.memoryCache.delete(key);
         }
       }
+      for (const key of Array.from(this.streamCache.keys())) {
+        if (key.startsWith(collectionName)) {
+          this.streamCache.delete(key);
+          const trigger = this.streamTriggerMap.get(key);
+          if (trigger) {
+            trigger.next(Date.now());
+            this.streamTriggerMap.delete(key);
+          }
+        }
+      }
     } else {
       this.memoryCache.clear();
+      for (const key of Array.from(this.streamCache.keys())) {
+        this.streamCache.delete(key);
+      }
+      for (const [key, trigger] of Array.from(this.streamTriggerMap.entries())) {
+        trigger.next(Date.now());
+      }
+      this.streamTriggerMap.clear();
     }
   }
 
@@ -559,7 +661,7 @@ export class RepositoryService {
       return docs;
     }
 
-    if (['coordinator', 'madrasaincharge', 'teacher', 'staff'].includes(role)) {
+    if (['coordinator', 'madrasaincharge', 'stagehead', 'teacher', 'staff'].includes(role)) {
       const allowedMadrasas = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
         ? user.madrasaIds 
         : (user.madrasaId ? [user.madrasaId] : []);
@@ -575,6 +677,49 @@ export class RepositoryService {
 
         if (collectionName === 'madrasas') {
           return allowedMadrasas.includes(doc.id || '');
+        }
+
+        const hasCourseStageAssignments = Array.isArray(user.assignedCourseStages) && user.assignedCourseStages.length > 0;
+        if (role === 'stagehead' || hasCourseStageAssignments) {
+          // 1. Check madrasa match
+          let madrasaMatch = true;
+          if (doc['madrasaId']) {
+            madrasaMatch = allowedMadrasas.includes(String(doc['madrasaId']));
+          } else if (Array.isArray(doc['madrasaIds'])) {
+            madrasaMatch = (doc['madrasaIds'] as string[]).some(id => allowedMadrasas.includes(id));
+          }
+          if (!madrasaMatch) return false;
+
+          // 2. Check Course & Stage match if item has courseId
+          const allowedCourses = user.assignedCourseIds || [];
+          const allowedCourseStages = user.assignedCourseStages || [];
+          if (doc['courseId']) {
+            const docCourseId = String(doc['courseId']);
+            let courseMatch = false;
+
+            if (allowedCourseStages.length > 0) {
+              courseMatch = allowedCourseStages.some(cs => {
+                if (cs.courseId !== docCourseId) return false;
+                if (!cs.stage) return true;
+                const docStage = doc['stage'] || doc['stageOrLevel'];
+                return !docStage || String(docStage) === cs.stage;
+              });
+            } else if (allowedCourses.length > 0) {
+              courseMatch = allowedCourses.includes(docCourseId);
+            } else {
+              courseMatch = true;
+            }
+            if (!courseMatch) return false;
+          }
+
+          // 3. Check Gender Scope
+          if (user.genderScope && user.genderScope !== 'all' && doc['gender']) {
+            if (String(doc['gender']).toLowerCase() !== user.genderScope.toLowerCase()) {
+              return false;
+            }
+          }
+
+          return true;
         }
 
         if (role === 'teacher' || role === 'staff') {
@@ -731,7 +876,7 @@ export class RepositoryService {
       return [];
     }
 
-    if (role === 'coordinator' || role === 'madrasaincharge') {
+    if (['coordinator', 'madrasaincharge', 'stagehead'].includes(role)) {
       const orgId = user.organizationId;
       const madrasaScope = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
         ? user.madrasaIds 

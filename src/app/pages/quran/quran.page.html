@@ -1,0 +1,464 @@
+<ion-content>
+  <div class="quran-page-container">
+  <!-- Top Header Navigation & Title -->
+  <div class="quran-header-bar">
+    <div class="header-left">
+      <div class="quran-badge-logo">
+        <ion-icon name="book-outline"></ion-icon>
+      </div>
+      <div>
+        <h1 class="page-title">Al-Qur'an Al-Kareem</h1>
+        <p class="page-subtitle">The Holy Quran with Word-by-Word Translation & Audio Recitations</p>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="nav-tabs">
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'index'"
+        (click)="activeTab = 'index'"
+      >
+        <ion-icon name="grid-outline"></ion-icon>
+        <span>Surah Index</span>
+      </button>
+
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'reader'"
+        [disabled]="!selectedSurah"
+        (click)="activeTab = 'reader'"
+      >
+        <ion-icon name="book-outline"></ion-icon>
+        <span>Reader {{ selectedSurah ? '(' + capitalize(selectedSurah.chapter) + ')' : '' }}</span>
+      </button>
+
+      <button 
+        class="tab-btn" 
+        [class.active]="activeTab === 'bookmarks'"
+        (click)="activeTab = 'bookmarks'"
+      >
+        <ion-icon name="bookmark-outline"></ion-icon>
+        <span>Bookmarks ({{ bookmarks.length }})</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB 1: SURAH INDEX VIEW -->
+  <div *ngIf="activeTab === 'index'" class="tab-content index-tab">
+    
+    <!-- Top Stats & Last Read Bar -->
+    <div class="index-summary-grid">
+      <!-- Last Read Card -->
+      <div class="summary-card last-read-card" *ngIf="lastRead" (click)="openSurah(lastRead.surahNumber, lastRead.ayahNumber)">
+        <div class="card-icon">
+          <ion-icon name="bookmark"></ion-icon>
+        </div>
+        <div class="card-info">
+          <span class="card-label">Continue Reading</span>
+          <h3 class="card-val">Surah {{ capitalize(lastRead.surahName) }}</h3>
+          <span class="card-sub">Ayah {{ lastRead.ayahNumber }}</span>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="card-arrow"></ion-icon>
+      </div>
+
+      <!-- Quick Stats -->
+      <div class="summary-card stats-card">
+        <div class="card-icon gold">
+          <ion-icon name="journal-outline"></ion-icon>
+        </div>
+        <div class="card-info">
+          <span class="card-label">Total Chapters</span>
+          <h3 class="card-val">114 Surahs</h3>
+          <span class="card-sub">6,236 Verses</span>
+        </div>
+      </div>
+
+      <div class="summary-card reciter-card" (click)="openReciterSelector()">
+        <img [src]="audioState.reciter.image" [alt]="audioState.reciter.name" class="reciter-thumb" />
+        <div class="card-info">
+          <span class="card-label">Active Reciter</span>
+          <h3 class="card-val">{{ audioState.reciter.name }}</h3>
+          <span class="card-sub">Tap to change voice</span>
+        </div>
+        <ion-icon name="options-outline" class="card-arrow"></ion-icon>
+      </div>
+    </div>
+
+    <!-- Search & Filter Controls -->
+    <div class="search-filter-row">
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input 
+          type="text" 
+          placeholder="Search Surah by name or number (e.g. Al-Fatihah, 36)..." 
+          [ngModel]="searchQuery"
+          (ngModelChange)="onSearchChange($event)"
+        />
+        <button *ngIf="searchQuery" class="clear-btn" (click)="onSearchChange('')">
+          <ion-icon name="close-circle-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="filter-pills">
+        <button 
+          class="pill-btn" 
+          [class.active]="filterType === 'all'"
+          (click)="setFilterType('all')"
+        >
+          All (114)
+        </button>
+        <button 
+          class="pill-btn" 
+          [class.active]="filterType === 'makki'"
+          (click)="setFilterType('makki')"
+        >
+          Makki
+        </button>
+        <button 
+          class="pill-btn" 
+          [class.active]="filterType === 'madani'"
+          (click)="setFilterType('madani')"
+        >
+          Madani
+        </button>
+      </div>
+    </div>
+
+    <!-- Surah Grid -->
+    <div class="surah-grid">
+      <div 
+        *ngFor="let s of filteredSurahs" 
+        class="surah-card"
+        (click)="openSurah(s.surahNumber)"
+      >
+        <div class="surah-num-badge">
+          <span>{{ s.surahNumber }}</span>
+        </div>
+        <div class="surah-details">
+          <h3 class="surah-name">{{ capitalize(s.chapter) }}</h3>
+          <div class="surah-meta">
+            <span class="badge" [class.makki]="s.revelationPlace === 'makki'" [class.madani]="s.revelationPlace === 'madani'">
+              {{ s.revelationPlace | uppercase }}
+            </span>
+            <span class="verses-count">{{ s.verses }} Verses</span>
+          </div>
+        </div>
+        <div class="surah-card-actions">
+          <button class="icon-action-btn" title="Read Surah">
+            <ion-icon name="play-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <div *ngIf="filteredSurahs.length === 0" class="no-results">
+        <ion-icon name="search-outline"></ion-icon>
+        <p>No Surah found matching "{{ searchQuery }}"</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: SURAH READER VIEW -->
+  <div *ngIf="activeTab === 'reader' && selectedSurah" class="tab-content reader-tab">
+
+    <!-- Reader Toolbar / Controls Header -->
+    <div class="reader-toolbar">
+      <div class="toolbar-top">
+        <button class="back-btn" (click)="activeTab = 'index'">
+          <ion-icon name="arrow-back-outline"></ion-icon>
+          <span>All Surahs</span>
+        </button>
+
+        <div class="surah-select-wrapper">
+          <label>Surah:</label>
+          <select [ngModel]="selectedSurah.surahNumber" (ngModelChange)="selectSurahFromDropdown($event)">
+            <option *ngFor="let s of surahList" [value]="s.surahNumber">
+              {{ s.surahNumber }}. {{ capitalize(s.chapter) }} ({{ s.verses }} v)
+            </option>
+          </select>
+        </div>
+
+        <div class="jump-ayah-wrapper">
+          <label>Jump to Ayah:</label>
+          <select (change)="jumpToAyah(+$any($event.target).value)">
+            <option *ngFor="let a of getSurahAyahArray(selectedSurah.verses)" [value]="a">
+              Ayah {{ a }}
+            </option>
+          </select>
+        </div>
+      </div>
+
+      <!-- View Options & Font Adjuster Bar -->
+      <div class="toolbar-options">
+        <!-- View Mode Segment -->
+        <div class="view-segment">
+          <button 
+            [class.active]="viewMode === 'full'" 
+            (click)="setViewMode('full')"
+            title="Arabic + Tamil + Word-by-Word"
+          >
+            Full Breakdown
+          </button>
+          <button 
+            [class.active]="viewMode === 'standard'" 
+            (click)="setViewMode('standard')"
+            title="Arabic + Tamil Translation"
+          >
+            Verse Mode
+          </button>
+
+          <button 
+            [class.active]="viewMode === 'wbw'" 
+            (click)="setViewMode('wbw')"
+            title="Word by Word Grid"
+          >
+            WBW Focus
+          </button>
+        </div>
+
+        <!-- Font Size Controls -->
+        <div class="font-controls">
+
+          <div class="font-group">
+            <span class="font-label">Arabic Size:</span>
+            <button class="font-btn" (click)="adjustFontSize('arabic', -2)" title="Decrease Arabic Font Size">
+              <ion-icon name="remove-outline"></ion-icon>
+            </button>
+            <span class="size-val">{{ arabicFontSize }}px</span>
+            <button class="font-btn" (click)="adjustFontSize('arabic', 2)" title="Increase Arabic Font Size">
+              <ion-icon name="add-outline"></ion-icon>
+            </button>
+          </div>
+
+          <div class="font-group">
+            <span class="font-label">Translation Size:</span>
+            <button class="font-btn" (click)="adjustFontSize('trans', -1)" title="Decrease Translation Font Size">
+              <ion-icon name="remove-outline"></ion-icon>
+            </button>
+            <span class="size-val">{{ transFontSize }}px</span>
+            <button class="font-btn" (click)="adjustFontSize('trans', 1)" title="Increase Translation Font Size">
+              <ion-icon name="add-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Surah Title Banner -->
+    <div class="surah-title-card">
+      <div class="banner-pattern"></div>
+      <div class="title-content">
+        <span class="revelation-tag">{{ selectedSurah.revelationPlace | uppercase }} • {{ selectedSurah.verses }} VERSES</span>
+        <h2 class="chapter-title">Surah {{ capitalize(selectedSurah.chapter) }}</h2>
+      </div>
+    </div>
+
+    <!-- Bismillah Frame (Skip for Surah 9 At-Tawbah) -->
+    <div class="bismillah-container" *ngIf="selectedSurah.surahNumber !== 9">
+      <div class="bismillah-text arabic-text">
+        بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+      </div>
+      <div class="bismillah-translation">
+        In the name of Allah, the Most Gracious, the Most Merciful
+      </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div *ngIf="isLoadingAyahs" class="loading-state">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading Surah verses & word breakdown...</p>
+    </div>
+
+    <!-- Ayah List Container -->
+    <div *ngIf="!isLoadingAyahs" class="ayahs-container" #ayahContainer>
+      <div 
+        *ngFor="let ayah of ayahs" 
+        [id]="'ayah-' + ayah.ayahNumber" 
+        class="ayah-card"
+        [class.active-playing-ayah]="isCurrentAyahPlaying(ayah.ayahNumber)"
+      >
+        <!-- Ayah Card Header / Actions -->
+        <div class="ayah-card-header">
+          <div class="ayah-key-badge">
+            <span class="key-text">{{ ayah.verseKey }}</span>
+          </div>
+
+          <div class="ayah-actions-bar">
+            <!-- Audio Play Single Ayah -->
+            <button 
+              class="action-btn play-btn"
+              [class.playing]="isCurrentAyahPlaying(ayah.ayahNumber)"
+              (click)="playAyah(ayah)"
+              title="Play Ayah"
+            >
+              <ion-icon [name]="isCurrentAyahPlaying(ayah.ayahNumber) ? 'pause-circle' : 'play-circle'"></ion-icon>
+              <span>{{ isCurrentAyahPlaying(ayah.ayahNumber) ? 'Playing' : 'Play' }}</span>
+            </button>
+
+            <!-- Play From Here -->
+            <button 
+              class="action-btn play-here-btn"
+              (click)="playFromHere(ayah)"
+              title="Play continuously from this Ayah"
+            >
+              <ion-icon name="play-skip-forward-outline"></ion-icon>
+              <span>Play From Here</span>
+            </button>
+
+            <!-- Bookmark -->
+            <button 
+              class="action-btn bookmark-btn"
+              [class.bookmarked]="ayah.isBookmarked"
+              (click)="toggleBookmark(ayah)"
+              title="Bookmark Ayah"
+            >
+              <ion-icon [name]="ayah.isBookmarked ? 'bookmark' : 'bookmark-outline'"></ion-icon>
+            </button>
+
+            <!-- Copy -->
+            <button 
+              class="action-btn"
+              (click)="copyAyah(ayah)"
+              title="Copy Ayah text & translation"
+            >
+              <ion-icon name="copy-outline"></ion-icon>
+            </button>
+
+            <!-- Share -->
+            <button 
+              class="action-btn"
+              (click)="shareAyah(ayah)"
+              title="Share Ayah"
+            >
+              <ion-icon name="share-social-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Full Arabic Script Text -->
+        <div class="arabic-script-container">
+          <p class="arabic-text" [style.fontSize.px]="arabicFontSize">
+            {{ ayah.arabicText }}
+          </p>
+        </div>
+
+        <!-- Tamil Ayah Translation -->
+        <div class="translation-container" *ngIf="showTranslation && ayah.translationText">
+          <p class="translation-text" [style.fontSize.px]="transFontSize">
+            {{ ayah.translationText }}
+          </p>
+        </div>
+
+        <!-- Word-by-Word Breakdown Grid -->
+        <div class="wbw-container" *ngIf="showWbw && ayah.words && ayah.words.length > 0">
+          <div class="wbw-grid">
+            <div *ngFor="let w of ayah.words" class="wbw-card">
+              <span class="wbw-arabic arabic-text">{{ w.arabic }}</span>
+              <span class="wbw-translation">{{ w.translation }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TAB 3: BOOKMARKS VIEW -->
+  <div *ngIf="activeTab === 'bookmarks'" class="tab-content bookmarks-tab">
+    <h2 class="section-title">Saved Bookmarks ({{ bookmarks.length }})</h2>
+
+    <div class="bookmarks-grid" *ngIf="bookmarks.length > 0">
+      <div *ngFor="let b of bookmarks" class="bookmark-card">
+        <div class="bm-header">
+          <div class="bm-badge">
+            <span>{{ b.verseKey }}</span>
+          </div>
+          <h3 class="bm-title">Surah {{ capitalize(b.surahName) }}</h3>
+          <button class="remove-bm-btn" (click)="removeBookmark(b)" title="Remove bookmark">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+        </div>
+
+        <p class="bm-arabic arabic-text">{{ b.textPreview }}</p>
+        <p class="bm-trans">{{ b.translationPreview }}</p>
+
+        <div class="bm-footer">
+          <button class="jump-btn" (click)="openSurah(b.surahNumber, b.ayahNumber)">
+            <ion-icon name="open-outline"></ion-icon>
+            <span>Open in Reader</span>
+          </button>
+          <span class="bm-date">{{ b.savedAt | date:'shortDate' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="bookmarks.length === 0" class="no-results">
+      <ion-icon name="bookmark-outline"></ion-icon>
+      <p>No saved bookmarks yet. Click the bookmark icon next to any Ayah in Reader mode to save it here!</p>
+    </div>
+  </div>
+
+  <!-- STICKY AUDIO PLAYER BAR -->
+  <div class="sticky-audio-bar" *ngIf="!audioState.isStopped">
+    <div class="audio-bar-content">
+      
+      <!-- Reciter & Track Info -->
+      <div class="track-info" (click)="openReciterSelector()">
+        <img [src]="audioState.reciter.image" [alt]="audioState.reciter.name" class="audio-reciter-avatar" />
+        <div class="track-details">
+          <span class="track-title">
+            Surah {{ audioState.surahNumber }} • Ayah {{ audioState.ayahNumber }}
+          </span>
+          <span class="reciter-name">{{ audioState.reciter.name }}</span>
+        </div>
+      </div>
+
+      <!-- Playback Controls -->
+      <div class="playback-controls">
+        <button class="control-btn" (click)="prevAyah()" title="Previous Ayah">
+          <ion-icon name="play-skip-back-outline"></ion-icon>
+        </button>
+
+        <button class="control-btn main-play-btn" *ngIf="audioState.isPlaying" (click)="pauseAudio()" title="Pause">
+          <ion-icon name="pause"></ion-icon>
+        </button>
+
+        <button class="control-btn main-play-btn" *ngIf="!audioState.isPlaying" (click)="resumeAudio()" title="Play">
+          <ion-icon name="play"></ion-icon>
+        </button>
+
+        <button class="control-btn" (click)="nextAyah()" title="Next Ayah">
+          <ion-icon name="play-skip-forward-outline"></ion-icon>
+        </button>
+
+        <button class="control-btn stop-btn" (click)="stopAudio()" title="Stop Playback">
+          <ion-icon name="square"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Right Audio Actions (Speed & Reciter) -->
+      <div class="audio-actions-right">
+        <!-- Speed Selector -->
+        <div class="speed-selector">
+          <button 
+            *ngFor="let sp of [0.75, 1, 1.25, 1.5]" 
+            class="speed-btn"
+            [class.active]="audioState.playbackSpeed === sp"
+            (click)="setSpeed(sp)"
+          >
+            {{ sp }}x
+          </button>
+        </div>
+
+        <button class="change-voice-btn" (click)="openReciterSelector()">
+          <ion-icon name="mic-outline"></ion-icon>
+          <span>Voice</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</ion-content>

@@ -5,6 +5,7 @@ export interface ConfirmDialogData {
   title: string;
   message: string;
   confirmLabel?: string;
+  confirmColor?: 'primary' | 'accent' | 'warn';
   hideCancel?: boolean;
 }
 

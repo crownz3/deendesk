@@ -176,9 +176,21 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
               // Silently replace since they haven't customized them
               permissionsControl.setValue(defaultPerms);
             } else {
-              if (window.confirm(`The role has changed to ${this.getRoleLabel(newRole)}. Do you want to load the default permissions for this role? This will overwrite your current selections.`)) {
-                permissionsControl.setValue(defaultPerms);
-              }
+              const confirmRef = this.dialog.open(ConfirmDialogComponent, {
+                width: '420px',
+                data: {
+                  title: 'Role Permissions Changed',
+                  message: `The role has changed to ${this.getRoleLabel(newRole)}. Do you want to load the default permissions for this role? This will overwrite your current selections.`,
+                  confirmLabel: 'Load Defaults',
+                  confirmColor: 'primary',
+                },
+              });
+
+              confirmRef.afterClosed().subscribe((confirmed: boolean) => {
+                if (confirmed) {
+                  permissionsControl.setValue(defaultPerms);
+                }
+              });
             }
           }
           previousRole = newRole;
@@ -523,7 +535,7 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       options = courseStages.split(',').map((item: string) => item.trim()).filter(Boolean);
     } else {
       const courseType = this.getSelectedCourseType();
-      options = [...(DEFAULT_STAGES_BY_COURSE_TYPE[courseType] || DEFAULT_STAGES_BY_COURSE_TYPE['custom'])];
+      options = [...(DEFAULT_STAGES_BY_COURSE_TYPE[courseType] || [])];
     }
 
     if (fieldKey === 'newStage') {

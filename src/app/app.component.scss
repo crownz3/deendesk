@@ -102,6 +102,105 @@ ion-menu ion-content {
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.02);
 }
 
+.quran-nav-banner {
+  margin: 6px 0 10px;
+
+  .quran-sidebar-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--app-border, #e2e8f0);
+    background: var(--app-surface-card, rgba(0, 0, 0, 0.02));
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: left;
+    position: relative;
+
+    .quran-btn-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      background: rgba(13, 148, 136, 0.1);
+      color: var(--app-primary, #0d9488);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .quran-btn-text {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+
+      .quran-btn-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--app-text-main, #0f172a);
+        letter-spacing: -0.01em;
+      }
+
+      .quran-btn-subtitle {
+        font-size: 0.72rem;
+        color: var(--app-text-muted, #64748b);
+        font-weight: 500;
+        margin-top: 1px;
+      }
+    }
+
+    .quran-btn-arrow {
+      font-size: 15px;
+      color: var(--app-text-muted, #94a3b8);
+      transition: transform 0.2s ease;
+    }
+
+    &:hover {
+      background: rgba(13, 148, 136, 0.06);
+      border-color: rgba(13, 148, 136, 0.3);
+
+      .quran-btn-icon {
+        background: var(--app-primary, #0d9488);
+        color: #ffffff;
+      }
+
+      .quran-btn-arrow {
+        color: var(--app-primary, #0d9488);
+        transform: translateX(2px);
+      }
+    }
+
+    &.active {
+      background: rgba(13, 148, 136, 0.08);
+      border-color: rgba(13, 148, 136, 0.35);
+      box-shadow: none;
+
+      .quran-btn-icon {
+        background: var(--app-primary, #0d9488);
+        color: #ffffff;
+      }
+
+      .quran-btn-title {
+        color: var(--app-primary, #0d9488);
+        font-weight: 700;
+      }
+
+      .quran-btn-subtitle {
+        color: var(--app-primary, #0d9488);
+        opacity: 0.85;
+      }
+
+      .quran-btn-arrow {
+        color: var(--app-primary, #0d9488);
+      }
+    }
+  }
+}
+
 .menu-item {
   --background: transparent;
   --color: var(--app-text-muted);

@@ -78,10 +78,6 @@
           <mat-label>Description</mat-label>
           <textarea matInput formControlName="description" rows="3" placeholder="Additional details or context..."></textarea>
         </mat-form-field>
-
-        <div class="step-actions col-span-2">
-          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
-        </div>
       </form>
     </mat-step>
 
@@ -145,11 +141,6 @@
           <mat-label>Product Specifications</mat-label>
           <textarea matInput formControlName="specifications" rows="3" placeholder="RAM, Storage, Capacity details..."></textarea>
         </mat-form-field>
-
-        <div class="step-actions col-span-2">
-          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
-          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
-        </div>
       </form>
     </mat-step>
 
@@ -210,11 +201,6 @@
           <mat-label>Donor Details (Name, Note)</mat-label>
           <input matInput formControlName="donorDetails" placeholder="e.g. Al-Fatah Trust, Haji Ismail">
         </mat-form-field>
-
-        <div class="step-actions col-span-2">
-          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
-          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
-        </div>
       </form>
     </mat-step>
 
@@ -264,11 +250,6 @@
             <input matInput type="date" formControlName="nextMaintenanceAt">
           </mat-form-field>
         </ng-container>
-
-        <div class="step-actions col-span-2">
-          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
-          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
-        </div>
       </form>
     </mat-step>
 
@@ -294,11 +275,6 @@
           <mat-label>Handover Notes / Instructions</mat-label>
           <textarea matInput formControlName="notes" rows="4" placeholder="Instruction details for handling or security..."></textarea>
         </mat-form-field>
-
-        <div class="step-actions col-span-2">
-          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
-          <button mat-raised-button color="primary" matStepperNext>Next <mat-icon>arrow_forward</mat-icon></button>
-        </div>
       </form>
     </mat-step>
 
@@ -336,19 +312,22 @@
           <div class="sum-row"><strong>Total Cost:</strong> <span>₹{{ step3Form.get('purchaseAmount')?.value }}</span></div>
           <div class="sum-row"><strong>Location:</strong> <span>{{ step2Form.get('location')?.value }}</span></div>
         </div>
-
-        <div class="step-actions">
-          <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Back</button>
-          <button mat-raised-button color="primary" [disabled]="isSaving" (click)="save()">
-            <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
-            <mat-icon *ngIf="!isSaving">save</mat-icon> Register Asset
-          </button>
-        </div>
       </div>
     </mat-step>
   </mat-stepper>
 </mat-dialog-content>
 
-<mat-dialog-actions align="end" class="dialog-actions-padding">
-  <button mat-button (click)="cancel()" [disabled]="isSaving">Close</button>
+<mat-dialog-actions class="dialog-actions-footer">
+  <button mat-button (click)="cancel()" [disabled]="isSaving">Cancel</button>
+  <div class="footer-spacer"></div>
+  <button mat-button (click)="stepper.previous()" *ngIf="stepper.selectedIndex > 0" [disabled]="isSaving">
+    <mat-icon>arrow_back</mat-icon> Back
+  </button>
+  <button mat-raised-button color="primary" (click)="stepper.next()" *ngIf="stepper.selectedIndex < 5" [disabled]="isSaving">
+    Next <mat-icon>arrow_forward</mat-icon>
+  </button>
+  <button mat-raised-button color="primary" *ngIf="stepper.selectedIndex === 5" [disabled]="isSaving" (click)="save()">
+    <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+    <mat-icon *ngIf="!isSaving">save</mat-icon> {{ isEditMode ? 'Update Asset' : 'Register Asset' }}
+  </button>
 </mat-dialog-actions>

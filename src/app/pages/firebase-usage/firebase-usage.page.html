@@ -1,0 +1,355 @@
+<ion-content [fullscreen]="true" class="page-content">
+  <div class="firebase-usage-container">
+    <!-- Top Navigation Header & Title -->
+    <div class="header-section">
+      <div class="header-title">
+        <h1><mat-icon class="header-icon">cloud_queue</mat-icon> Firebase Telemetry & Cost Control</h1>
+        <p class="subtitle">Super Admin dashboard for monitoring document operations, storage volume, cloud function invocations, and estimated Blaze pricing across organizations and modules.</p>
+      </div>
+      
+      <div class="header-actions" style="display: flex; gap: 10px; align-items: center;">
+        <button mat-flat-button color="accent" (click)="syncRealGcpConsoleMetrics()" [disabled]="syncingGcp" style="background: #059669; color: #ffffff;">
+          <mat-icon [class.spinning]="syncingGcp">sync</mat-icon> {{ syncingGcp ? 'Syncing GCP Data...' : 'Sync Real GCP Console Metrics' }}
+        </button>
+
+        <button mat-flat-button color="primary" (click)="loadUsageData()" [disabled]="loading">
+          <mat-icon [class.spinning]="loading">refresh</mat-icon> {{ loading ? 'Syncing Telemetry...' : 'Refresh Metrics' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Global Filters & Date Range Bar -->
+    <mat-card class="filter-card">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Time Period</mat-label>
+            <mat-select [(ngModel)]="dateRange" (selectionChange)="loadUsageData()">
+              <mat-option value="7d">Last 7 Days</mat-option>
+              <mat-option value="30d">Last 30 Days</mat-option>
+              <mat-option value="90d">Last 90 Days</mat-option>
+              <mat-option value="all">All Time</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Organization Scope</mat-label>
+            <mat-select [(ngModel)]="selectedOrgId" (selectionChange)="loadUsageData()">
+              <mat-option value="ALL">All Organizations (Cross-Tenant)</mat-option>
+              <mat-option *ngFor="let org of organizations" [value]="org.id">{{ org.name }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Module Scope</mat-label>
+            <mat-select [(ngModel)]="selectedModuleId" (selectionChange)="loadUsageData()">
+              <mat-option value="ALL">All Application Modules</mat-option>
+              <mat-option value="users">Users & Auth</mat-option>
+              <mat-option value="attendance">Attendance & Class Plans</mat-option>
+              <mat-option value="fees">Fees & Payments</mat-option>
+              <mat-option value="events">Events & RSVPs</mat-option>
+              <mat-option value="issues">Issues & Support</mat-option>
+              <mat-option value="properties">Properties & Assets</mat-option>
+              <mat-option value="lifecycle">User Lifecycle Logs</mat-option>
+              <mat-option value="management">Management & Structure</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="total-cost-badge">
+          <span class="badge-label">Projected Total Cost</span>
+          <span class="badge-value">${{ totalEstimatedCost | number:'1.2-4' }} USD</span>
+        </div>
+      </div>
+    </mat-card>
+
+    <!-- Metric Summary Cards Grid -->
+    <div class="stats-grid">
+      <mat-card class="stat-card stat-reads">
+        <div class="stat-header">
+          <mat-icon class="stat-icon">find_in_page</mat-icon>
+          <span class="stat-title">Firestore Reads</span>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ totalReads | number }}</span>
+          <span class="stat-sub">Document Read Ops</span>
+        </div>
+        <div class="stat-footer">
+          Estimated: ${{ ((totalReads / 100000) * pricingRules.firestoreReadCostPer100k) | number:'1.2-4' }} USD
+        </div>
+      </mat-card>
+
+      <mat-card class="stat-card stat-writes">
+        <div class="stat-header">
+          <mat-icon class="stat-icon">edit_note</mat-icon>
+          <span class="stat-title">Firestore Writes</span>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ totalWrites | number }}</span>
+          <span class="stat-sub">Document Write Ops</span>
+        </div>
+        <div class="stat-footer">
+          Estimated: ${{ ((totalWrites / 100000) * pricingRules.firestoreWriteCostPer100k) | number:'1.2-4' }} USD
+        </div>
+      </mat-card>
+
+      <mat-card class="stat-card stat-storage">
+        <div class="stat-header">
+          <mat-icon class="stat-icon">cloud_upload</mat-icon>
+          <span class="stat-title">Storage Transfer & Hosting</span>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ formatBytes(totalStorageBytes) }}</span>
+          <span class="stat-sub">Uploaded & Downloaded</span>
+        </div>
+        <div class="stat-footer">
+          Estimated: ${{ ((totalStorageBytes / (1024*1024*1024)) * pricingRules.storageDownloadCostPerGb) | number:'1.2-4' }} USD
+        </div>
+      </mat-card>
+
+      <mat-card class="stat-card stat-functions">
+        <div class="stat-header">
+          <mat-icon class="stat-icon">code</mat-icon>
+          <span class="stat-title">Cloud Functions</span>
+        </div>
+        <div class="stat-body">
+          <span class="stat-value">{{ totalFunctionCalls | number }}</span>
+          <span class="stat-sub">Invocations</span>
+        </div>
+        <div class="stat-footer">
+          Estimated: ${{ ((totalFunctionCalls / 1000000) * pricingRules.functionInvocationCostPerMillion) | number:'1.2-4' }} USD
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <mat-tab-group [(selectedIndex)]="activeTab" class="usage-tabs" color="primary">
+      
+      <!-- Tab 1: Organization-Wise Breakdown -->
+      <mat-tab label="Organization-Wise Usage">
+        <ng-template matTabContent>
+          <div class="tab-content">
+            <div class="table-header">
+              <h3>Usage & Price Breakdown by Organization</h3>
+              <p>Monitors consumption per tenant organization to detect high usage or billing anomalies.</p>
+            </div>
+
+            <div class="table-responsive-wrapper" *ngIf="orgSummaries.length > 0; else emptyOrgState">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Organization ID / Name</th>
+                    <th>Reads</th>
+                    <th>Writes</th>
+                    <th>Deletes</th>
+                    <th>Storage Transfer</th>
+                    <th>Function Calls</th>
+                    <th>Estimated Cost ($)</th>
+                    <th>Cost Share</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let org of orgSummaries">
+                    <td>
+                      <strong class="org-name">{{ org.organizationName }}</strong>
+                      <div class="org-id">{{ org.organizationId }}</div>
+                    </td>
+                    <td>{{ org.readsCount | number }}</td>
+                    <td>{{ org.writesCount | number }}</td>
+                    <td>{{ org.deletesCount | number }}</td>
+                    <td>{{ formatBytes(org.storageBytesUploaded + org.storageBytesDownloaded) }}</td>
+                    <td>{{ org.functionCallsCount | number }}</td>
+                    <td><strong class="cost-value">${{ org.estimatedCost | number:'1.2-4' }}</strong></td>
+                    <td>
+                      <mat-progress-bar mode="determinate" [value]="totalEstimatedCost > 0 ? (org.estimatedCost / totalEstimatedCost) * 100 : 0" color="primary"></mat-progress-bar>
+                      <span class="percent-label">{{ totalEstimatedCost > 0 ? ((org.estimatedCost / totalEstimatedCost) * 100 | number:'1.1-1') : 0 }}%</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <ng-template #emptyOrgState>
+              <div class="empty-state">
+                <mat-icon class="empty-icon">layers_clear</mat-icon>
+                <p>No organization telemetry logs recorded for the selected filter period.</p>
+              </div>
+            </ng-template>
+          </div>
+        </ng-template>
+      </mat-tab>
+
+      <!-- Tab 2: Module-Wise Breakdown -->
+      <mat-tab label="Module-Wise Breakdown">
+        <ng-template matTabContent>
+          <div class="tab-content">
+            <div class="table-header">
+              <h3>Usage & Price Breakdown by Application Module</h3>
+              <p>Analyzes which features drive database reads, writes, and infrastructure costs.</p>
+            </div>
+
+            <div class="module-cards-grid">
+              <mat-card class="module-card" *ngFor="let mod of moduleSummaries">
+                <div class="module-card-header">
+                  <div class="module-title">
+                    <mat-icon class="mod-icon">dashboard</mat-icon>
+                    <span>{{ mod.moduleName }}</span>
+                  </div>
+                  <span class="module-badge">${{ mod.estimatedCost | number:'1.2-4' }}</span>
+                </div>
+
+                <div class="module-card-body">
+                  <div class="metric-row">
+                    <span>Reads:</span>
+                    <strong>{{ mod.readsCount | number }}</strong>
+                  </div>
+                  <div class="metric-row">
+                    <span>Writes:</span>
+                    <strong>{{ mod.writesCount | number }}</strong>
+                  </div>
+                  <div class="metric-row">
+                    <span>Storage:</span>
+                    <strong>{{ formatBytes(mod.storageBytesUploaded + mod.storageBytesDownloaded) }}</strong>
+                  </div>
+                  <div class="metric-row">
+                    <span>Function Calls:</span>
+                    <strong>{{ mod.functionCallsCount | number }}</strong>
+                  </div>
+                </div>
+
+                <div class="module-card-footer">
+                  <span>Cost Share: {{ mod.costPercentage | number:'1.1-1' }}%</span>
+                  <mat-progress-bar mode="determinate" [value]="mod.costPercentage" color="accent"></mat-progress-bar>
+                </div>
+              </mat-card>
+            </div>
+          </div>
+        </ng-template>
+      </mat-tab>
+
+      <!-- Tab 3: GCP Console Metrics Sync & Pricing Rules -->
+      <mat-tab label="GCP Console Sync & Calculator">
+        <ng-template matTabContent>
+          <div class="tab-content">
+            <div class="table-header">
+              <h3>Official Google Cloud / Firebase Console Project Totals</h3>
+              <p>Directly input or adjust your Google Cloud Console usage figures to align the dashboard with official project telemetry.</p>
+            </div>
+
+            <mat-card class="calculator-card" style="margin-bottom: 24px;">
+              <h4>Google Cloud / Firebase Console Totals</h4>
+              <div class="calc-form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Total Firestore Reads</mat-label>
+                  <input matInput type="number" [(ngModel)]="gcpMetrics.totalReads" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Total Firestore Writes</mat-label>
+                  <input matInput type="number" [(ngModel)]="gcpMetrics.totalWrites" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Cloud Functions Invocations</mat-label>
+                  <input matInput type="number" [(ngModel)]="gcpMetrics.totalFunctionsInvocations" />
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Hosting / Storage Bytes</mat-label>
+                  <input matInput type="number" [(ngModel)]="gcpMetrics.storageBytes" />
+                </mat-form-field>
+              </div>
+
+              <div class="calc-actions">
+                <button mat-flat-button color="primary" (click)="syncRealGcpConsoleMetrics()" [disabled]="syncingGcp">
+                  Sync & Distribute Across Orgs & Modules
+                </button>
+              </div>
+            </mat-card>
+
+            <div class="table-header">
+              <h3>Firebase Blaze Pricing Rule Configurator</h3>
+              <p>Adjust unit costs per operation to simulate billing under different Firebase pricing tiers or custom rates.</p>
+            </div>
+
+            <mat-card class="calculator-card">
+              <div class="calc-form-grid">
+                <mat-form-field appearance="outline">
+                  <mat-label>Firestore Reads (per 100k)</mat-label>
+                  <input matInput type="number" step="0.01" [(ngModel)]="pricingRules.firestoreReadCostPer100k" (change)="onPricingRuleChange()" />
+                  <span matPrefix>$&nbsp;</span>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Firestore Writes (per 100k)</mat-label>
+                  <input matInput type="number" step="0.01" [(ngModel)]="pricingRules.firestoreWriteCostPer100k" (change)="onPricingRuleChange()" />
+                  <span matPrefix>$&nbsp;</span>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Firestore Deletes (per 100k)</mat-label>
+                  <input matInput type="number" step="0.01" [(ngModel)]="pricingRules.firestoreDeleteCostPer100k" (change)="onPricingRuleChange()" />
+                  <span matPrefix>$&nbsp;</span>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Storage Download (per GB)</mat-label>
+                  <input matInput type="number" step="0.01" [(ngModel)]="pricingRules.storageDownloadCostPerGb" (change)="onPricingRuleChange()" />
+                  <span matPrefix>$&nbsp;</span>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Cloud Functions (per 1M Calls)</mat-label>
+                  <input matInput type="number" step="0.01" [(ngModel)]="pricingRules.functionInvocationCostPerMillion" (change)="onPricingRuleChange()" />
+                  <span matPrefix>$&nbsp;</span>
+                </mat-form-field>
+              </div>
+
+              <div class="calc-actions">
+                <button mat-stroked-button color="warn" (click)="resetPricingDefaults()">Reset to Firebase Blaze Defaults</button>
+              </div>
+            </mat-card>
+          </div>
+        </ng-template>
+      </mat-tab>
+
+      <!-- Tab 4: Organization Quotas & Alerts -->
+      <mat-tab label="Quotas & Alerts">
+        <ng-template matTabContent>
+          <div class="tab-content">
+            <div class="table-header">
+              <h3>Organization Quota Limits & Alert Thresholds</h3>
+              <p>Set soft budget limits to receive notifications when an organization exceeds expected usage thresholds.</p>
+            </div>
+
+            <div class="table-responsive-wrapper">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Organization ID</th>
+                    <th>Monthly Read Limit</th>
+                    <th>Monthly Write Limit</th>
+                    <th>Storage GB Limit</th>
+                    <th>Monthly Cost Cap (USD)</th>
+                    <th>Alert Email</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let q of quotaAlerts">
+                    <td><strong>{{ q.organizationId }}</strong></td>
+                    <td>{{ q.monthlyReadLimit | number }} ops</td>
+                    <td>{{ q.monthlyWriteLimit | number }} ops</td>
+                    <td>{{ q.monthlyStorageGbLimit }} GB</td>
+                    <td><strong>${{ q.monthlyCostLimitUsd | number:'1.2-2' }}</strong></td>
+                    <td>{{ q.alertEmail || 'N/A' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </ng-template>
+      </mat-tab>
+
+    </mat-tab-group>
+  </div>
+</ion-content>

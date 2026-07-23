@@ -458,6 +458,12 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
           { label: 'Custom', value: 'custom' },
         ]
       },
+      {
+        key: 'hasSubjects', label: 'Subject Scoping (Does this course have multiple subjects?)', type: 'select', options: [
+          { label: 'Yes - Has Multiple Subjects (Requires Subject selection in Class Plans)', value: true as any },
+          { label: 'No - Single Subject / General Course', value: false as any }
+        ]
+      },
       { key: 'levels', label: 'Levels (comma separated)', type: 'text' },
       { key: 'description', label: 'Description', type: 'textarea' },
       baseStatusField,
@@ -686,7 +692,10 @@ export class ManagementPage {
   readonly pageIndex$ = new BehaviorSubject<number>(0);
   readonly pageSize$ = new BehaviorSubject<number>(10);
 
+  readonly refresh$ = new BehaviorSubject<void>(undefined);
+
   readonly vm$ = combineLatest([
+    this.refresh$,
     this.config$,
     this.auth.profile$,
     this.madrasaFilter$,
@@ -698,7 +707,7 @@ export class ManagementPage {
     this.pageSize$,
     combineLatest([this.courseFilter$, this.classFilter$, this.stageFilter$, this.statusFilter$])
   ]).pipe(
-    switchMap(([config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, stageFilter, statusFilter]]) => {
+    switchMap(([_, config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, stageFilter, statusFilter]]) => {
       return combineLatest([
         this.rowsForConfig(config, profile, madrasaFilter, roleFilter),
         this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([]))),
@@ -829,8 +838,7 @@ export class ManagementPage {
 
   refreshData() {
     this.repo.clearCache();
-    // Force re-emission by re-publishing the current search query
-    this.searchQuery$.next(this.searchQuery$.value);
+    this.refresh$.next();
   }
 
   private rowsForConfig(config: ManagementConfig, profile: AppUser | null, madrasaFilter: string = 'all', roleFilter: string = 'all'): Observable<EntityRecord[]> {
@@ -858,9 +866,22 @@ export class ManagementPage {
         return this.parentRows(collectionObs$, profile);
       case 'staff':
         return this.staffRows(collectionObs$, profile);
+      case 'courses':
+        return this.courseRows(collectionObs$, profile);
       default:
         return collectionObs$;
     }
+  }
+
+  private courseRows(coursesObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
+    return coursesObs$.pipe(
+      map((courses) => courses.map((c) => ({
+        ...c,
+        typeDisplay: String(c['type'] || 'custom').toUpperCase(),
+        hasSubjectsDisplay: c['hasSubjects'] ? 'Yes' : 'No',
+        stagesDisplay: Array.isArray(c['stages']) ? c['stages'].join(', ') : (c['stages'] || '-'),
+      })))
+    );
   }
 
   private credentialRowsForCollection(config: ManagementConfig, profile: AppUser | null): Observable<EntityRecord[]> {
@@ -963,7 +984,7 @@ export class ManagementPage {
     switch (resource) {
       case 'coordinators': return ['coordinator'];
       case 'incharges': return ['madrasaIncharge'];
-      case 'staff': return ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin'];
+      case 'staff': return ['teacher', 'staff', 'stageHead', 'madrasaIncharge', 'coordinator', 'organizationAdmin'];
       case 'students': return ['student'];
       case 'parents': return ['parent'];
       default: return undefined;
@@ -2099,6 +2120,59 @@ export class ManagementPage {
     }
   }
 
+  async bulkPromote(rows: EntityRecord[], dataTable: any): Promise<void> {
+    if (!rows || rows.length === 0) return;
+    const result = await firstValueFrom(this.dialog.open(PromoteDemoteDialogComponent, {
+      data: { students: rows },
+      width: '640px',
+      maxWidth: '92vw'
+    }).afterClosed());
+
+    if (result?.success) {
+      dataTable.selection.clear();
+      this.pageIndex$.next(this.pageIndex$.value);
+    }
+  }
+
+  async bulkTransfer(rows: EntityRecord[], dataTable: any): Promise<void> {
+    if (!rows || rows.length === 0) return;
+    const result = await firstValueFrom(this.dialog.open(StudentTransferDialogComponent, {
+      data: { students: rows },
+      width: '640px',
+      maxWidth: '92vw'
+    }).afterClosed());
+
+    if (result?.success) {
+      dataTable.selection.clear();
+      this.pageIndex$.next(this.pageIndex$.value);
+    }
+  }
+
+  getAvailableStages(rows: EntityRecord[] = [], courses: EntityRecord[] = []): string[] {
+    const stageSet = new Set<string>();
+    
+    if (Array.isArray(rows)) {
+      rows.forEach(r => {
+        const s = String(r['stage'] || '').trim();
+        if (s) stageSet.add(s);
+      });
+    }
+
+    if (Array.isArray(courses)) {
+      courses.forEach(c => {
+        const rawStages = c['stages'];
+        if (Array.isArray(rawStages)) {
+          rawStages.forEach(s => {
+            const st = String(s || '').trim();
+            if (st) stageSet.add(st);
+          });
+        }
+      });
+    }
+
+    return Array.from(stageSet).sort();
+  }
+
   downloadCredentials(): void {
     const rows = this.credentials.map((credential) => ({
       label: credential.label,
@@ -2774,7 +2848,7 @@ export class ManagementPage {
       let stages = this.normalizeStages(payload['stages']);
       const courseType = String(payload['type'] || 'custom').toLowerCase();
       if (!stages || stages.length === 0) {
-        stages = DEFAULT_STAGES_BY_COURSE_TYPE[courseType] || DEFAULT_STAGES_BY_COURSE_TYPE['custom'];
+        stages = DEFAULT_STAGES_BY_COURSE_TYPE[courseType] || [];
       }
       payload['stages'] = stages;
       payload['levels'] = this.splitList(String(payload['levels'] || ''));

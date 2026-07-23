@@ -50,11 +50,16 @@
   }
 }
 
-.step-actions {
+.dialog-actions-footer {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 12px;
-  margin-top: 24px;
+  padding: 12px 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+
+  .footer-spacer {
+    flex: 1;
+  }
 }
 
 // Review page

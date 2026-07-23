@@ -21,8 +21,10 @@
 
       <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
         <mat-label>Course</mat-label>
-        <mat-select formControlName="courseId">
-          <mat-option *ngFor="let c of filteredCourses" [value]="c.id">{{ c['name'] }}</mat-option>
+        <mat-select formControlName="courseId" (selectionChange)="onCourseSelectionChange($event.value)">
+          <mat-option *ngFor="let c of filteredCourses" [value]="c.id">
+            {{ c['name'] }} <span *ngIf="c['hasSubjects']" style="font-size: 11px; opacity: 0.7;">(Has Subjects)</span>
+          </mat-option>
         </mat-select>
       </mat-form-field>
 
@@ -36,13 +38,40 @@
 
     <div style="display: flex; gap: 16px; flex-wrap: wrap;">
       <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
+        <mat-label>Class Group / Section (Optional)</mat-label>
+        <mat-select formControlName="groupId">
+          <mat-option value="">All Groups / All Sections</mat-option>
+          <mat-option *ngFor="let g of filteredGroups" [value]="g.id">{{ g['name'] }}</mat-option>
+        </mat-select>
+        <mat-hint>Select to restrict plan to a specific section (e.g. Section A)</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;" *ngIf="isSubjectRequired || filteredSubjects.length > 0">
+        <mat-label>Subject {{ isSubjectRequired ? '*' : '(Optional)' }}</mat-label>
+        <mat-select formControlName="subjectId">
+          <mat-option value="">All Subjects / General</mat-option>
+          <mat-option *ngFor="let s of filteredSubjects" [value]="s.id">{{ s['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;" *ngIf="academicPlans.length > 0">
+        <mat-label>Yearly Academic Plan (Optional)</mat-label>
+        <mat-select formControlName="academicPlanId" (selectionChange)="onAcademicPlanChange($event.value)">
+          <mat-option value="">None / Custom Dates</mat-option>
+          <mat-option *ngFor="let p of academicPlans" [value]="p.id">{{ p['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
         <mat-label>Schedule Type</mat-label>
         <mat-select formControlName="scheduleType">
           <mat-option *ngFor="let t of scheduleTypes" [value]="t.value">{{ t.label }}</mat-option>
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" style="flex: 2; min-width: 200px;" *ngIf="form.get('scheduleType')?.value === 'weekly'">
+      <mat-form-field appearance="outline" style="flex: 2; min-width: 200px;" *ngIf="form.get('scheduleType')?.value === 'weekly' || form.get('scheduleType')?.value === 'dateRange'">
         <mat-label>Days of Week</mat-label>
         <mat-select formControlName="weekDays" multiple>
           <mat-option *ngFor="let d of days" [value]="d">{{ d | titlecase }}</mat-option>
@@ -58,7 +87,7 @@
         <mat-datepicker #startPicker></mat-datepicker>
       </mat-form-field>
       <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
-        <mat-label>End Date (Optional)</mat-label>
+        <mat-label>End Date {{ form.get('scheduleType')?.value === 'dateRange' ? '*' : '(Optional)' }}</mat-label>
         <input matInput [matDatepicker]="endPicker" formControlName="endDate" (click)="endPicker.open()">
         <mat-datepicker-toggle matSuffix [for]="endPicker"></mat-datepicker-toggle>
         <mat-datepicker #endPicker></mat-datepicker>

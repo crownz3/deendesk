@@ -6,7 +6,8 @@ import { firstValueFrom } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 export interface StudentTransferData {
-  student: EntityRecord;
+  student?: EntityRecord;
+  students?: EntityRecord[];
 }
 
 @Component({
@@ -18,6 +19,9 @@ export interface StudentTransferData {
 export class StudentTransferDialogComponent implements OnInit {
   loading = true;
   saving = false;
+
+  targetStudents: EntityRecord[] = [];
+  firstStudent: EntityRecord | null = null;
 
   madrasas: EntityRecord[] = [];
   courses: EntityRecord[] = [];
@@ -38,10 +42,15 @@ export class StudentTransferDialogComponent implements OnInit {
     private auth: AuthService,
     private snackBar: MatSnackBar
   ) {
-    this.newMadrasaId = String(data.student['madrasaId'] || '');
-    this.newCourseId = String(data.student['courseId'] || '');
-    this.newClassId = String(data.student['classId'] || '');
-    this.newGroupId = String(data.student['groupId'] || '');
+    this.targetStudents = data.students?.length ? data.students : (data.student ? [data.student] : []);
+    this.firstStudent = this.targetStudents[0] || null;
+
+    if (this.firstStudent) {
+      this.newMadrasaId = String(this.firstStudent['madrasaId'] || '');
+      this.newCourseId = String(this.firstStudent['courseId'] || '');
+      this.newClassId = String(this.firstStudent['classId'] || '');
+      this.newGroupId = String(this.firstStudent['groupId'] || '');
+    }
   }
 
   ngOnInit(): void {
@@ -116,46 +125,49 @@ export class StudentTransferDialogComponent implements OnInit {
     this.saving = true;
     try {
       const profile = await firstValueFrom(this.auth.profile$);
-      const studentId = String(this.data.student.id || this.data.student['uid']);
-
-      const transferHistory = {
-        studentId: studentId,
-        previousMadrasaId: this.data.student['madrasaId'] || undefined,
-        previousCourseId: this.data.student['courseId'] || undefined,
-        previousClassId: this.data.student['classId'] || undefined,
-        previousGroupId: this.data.student['groupId'] || undefined,
-        newMadrasaId: this.newMadrasaId,
-        newCourseId: this.newCourseId,
-        newClassId: this.newClassId,
-        newGroupId: this.newGroupId,
-        reason: this.reason,
-        actionDate: this.actionDate,
-        organizationId: this.data.student['organizationId'] || undefined,
-        madrasaId: this.data.student['madrasaId'] || undefined, // scope to the old madrasa so incharge can write it
-      };
-
-      await this.repo.create('studentTransfers', transferHistory, profile);
-
       const studentUpdates = {
         madrasaId: this.newMadrasaId,
         courseId: this.newCourseId,
         classId: this.newClassId,
         groupId: this.newGroupId,
       };
-      await this.repo.update('students', studentId, studentUpdates, profile);
-      
-      const userUid = String(this.data.student['userId'] || this.data.student['uid'] || '');
-      if (userUid) {
-        await this.repo.update('users', userUid, {
-          ...studentUpdates,
-          madrasaIds: [this.newMadrasaId]
-        }, profile).catch(e => console.warn('Failed to update users collection', e));
+
+      for (const std of this.targetStudents) {
+        const studentId = String(std.id || std['uid']);
+
+        const transferHistory = {
+          studentId: studentId,
+          previousMadrasaId: std['madrasaId'] || undefined,
+          previousCourseId: std['courseId'] || undefined,
+          previousClassId: std['classId'] || undefined,
+          previousGroupId: std['groupId'] || undefined,
+          newMadrasaId: this.newMadrasaId,
+          newCourseId: this.newCourseId,
+          newClassId: this.newClassId,
+          newGroupId: this.newGroupId,
+          reason: this.reason,
+          actionDate: this.actionDate,
+          organizationId: std['organizationId'] || undefined,
+          madrasaId: std['madrasaId'] || undefined,
+        };
+
+        await this.repo.create('studentTransfers', transferHistory, profile);
+        await this.repo.update('students', studentId, studentUpdates, profile);
+
+        const userUid = String(std['userId'] || std['uid'] || '');
+        if (userUid) {
+          await this.repo.update('users', userUid, {
+            ...studentUpdates,
+            madrasaIds: [this.newMadrasaId]
+          }, profile).catch(e => console.warn('Failed to update users collection', e));
+        }
       }
 
+      this.snackBar.open(`${this.targetStudents.length} student(s) transferred successfully.`, 'Close', { duration: 4000 });
       this.dialogRef.close({ success: true });
     } catch (e: any) {
       console.error(e);
-      this.snackBar.open(e.message || 'Failed to transfer student', 'Close', { duration: 3000 });
+      this.snackBar.open(e.message || 'Failed to transfer student(s)', 'Close', { duration: 3000 });
     } finally {
       this.saving = false;
     }

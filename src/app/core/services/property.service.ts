@@ -18,19 +18,35 @@ import {
   AssetMaintenance,
   AssetAttachment
 } from '../models/domain.model';
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { EntityRecord, RepositoryService } from './repository.service';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
+import { FirebaseUsageTrackerService } from './firebase-usage-tracker.service';
 
 @Injectable({ providedIn: 'root' })
 export class PropertyService {
   private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
   private readonly functions = getFunctions(getDeenDeskFirebaseApp());
+  private readonly storage = getStorage(getDeenDeskFirebaseApp());
 
   constructor(
     private readonly repo: RepositoryService,
-    private readonly auditLogService: AuditLogService
+    private readonly auditLog: AuditLogService,
+    private readonly usageTracker: FirebaseUsageTrackerService
   ) {}
+
+  async uploadAssetFile(file: File, assetId?: string, orgId?: string): Promise<string> {
+    const folder = assetId ? `assets/${assetId}` : `assets/general`;
+    const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '-');
+    const path = `${folder}/${Date.now()}-${cleanName}`;
+    const storageRef = ref(this.storage, path);
+    await uploadBytes(storageRef, file);
+    if (file && file.size) {
+      this.usageTracker.recordStorage('properties', orgId, 'upload', file.size);
+    }
+    return getDownloadURL(storageRef);
+  }
 
   // --- Real-time Listeners via Repository Service ---
 

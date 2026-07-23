@@ -33,6 +33,22 @@
               ></ion-input>
             </ion-item>
 
+            <!-- Subtle Dedicated Quran Quick Access Card -->
+            <div class="quran-nav-banner">
+              <ion-menu-toggle auto-hide="false">
+                <div class="quran-sidebar-btn" (click)="navigateToQuran()" [class.active]="isQuranActive()" role="button" tabindex="0">
+                  <div class="quran-btn-icon">
+                    <ion-icon name="book-outline"></ion-icon>
+                  </div>
+                  <div class="quran-btn-text">
+                    <span class="quran-btn-title">Al-Qur'an</span>
+                    <span class="quran-btn-subtitle">Read & Listen</span>
+                  </div>
+                  <ion-icon name="chevron-forward-outline" class="quran-btn-arrow"></ion-icon>
+                </div>
+              </ion-menu-toggle>
+            </div>
+
             <ion-item-group *ngFor="let group of filteredNavGroups$ | async">
               <ion-item-divider class="menu-divider">
                 <ion-label>{{ group.label }}</ion-label>
@@ -40,7 +56,7 @@
 
               <ng-container *ngFor="let item of group.items">
                 <ion-menu-toggle auto-hide="false">
-                  <ion-item class="menu-item" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
+                  <ion-item class="menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
                     <ion-icon slot="start" [name]="item.icon"></ion-icon>
                     <ion-label>{{ item.label }}</ion-label>
                   </ion-item>

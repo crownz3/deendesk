@@ -194,24 +194,47 @@ export class AssetFormDialogComponent implements OnInit {
     });
   }
 
-  // File Attachment simulation/handling
-  onFileSelected(event: any, type: 'photo' | 'invoice' | 'warranty' | 'manual' | 'receipt' | 'other'): void {
+  async onFileSelected(event: any, type: 'photo' | 'invoice' | 'warranty' | 'manual' | 'receipt' | 'other'): Promise<void> {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Simulate file upload to Storage
-    const randomId = Math.random().toString(36).substring(7);
-    const mockUrl = `https://firebasestorage.googleapis.com/v0/b/deendesk.appspot.com/o/assets%2Fmock-${randomId}-${file.name}`;
-    
-    this.attachmentsList.push({
-      fileName: file.name,
-      fileType: file.type,
-      fileSize: file.size,
-      fileUrl: mockUrl,
-      attachmentType: type
-    });
+    try {
+      this.snackBar.open(`Uploading '${file.name}' to Firebase Storage...`, '', { duration: 3000 });
+      const fileUrl = await this.propertyService.uploadAssetFile(file, this.data.asset?.id, this.profile?.organizationId);
 
-    this.snackBar.open(`File '${file.name}' attached successfully.`, 'OK', { duration: 3000 });
+      this.attachmentsList.push({
+        fileName: file.name,
+        fileType: file.type,
+        fileSize: file.size,
+        fileUrl: fileUrl,
+        attachmentType: type
+      });
+
+      if (type === 'photo') {
+        this.step1Form.patchValue({ photoUrl: fileUrl });
+      }
+
+      this.snackBar.open(`File '${file.name}' uploaded to Firebase Storage successfully.`, 'OK', { duration: 3000 });
+    } catch (err: any) {
+      console.error('Failed to upload file to Firebase Storage:', err);
+      // Fallback to local DataURL if Storage is offline or unavailable
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        const dataUrl = e.target.result;
+        this.attachmentsList.push({
+          fileName: file.name,
+          fileType: file.type,
+          fileSize: file.size,
+          fileUrl: dataUrl,
+          attachmentType: type
+        });
+        if (type === 'photo') {
+          this.step1Form.patchValue({ photoUrl: dataUrl });
+        }
+      };
+      reader.readAsDataURL(file);
+      this.snackBar.open('Attached locally (Firebase Storage fallback)', 'OK', { duration: 4000 });
+    }
   }
 
   removeAttachment(index: number): void {

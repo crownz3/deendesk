@@ -41,7 +41,7 @@ export class CourseStagesDialogComponent implements OnInit {
     { id: 'aalim', name: 'Aalim', code: 'AALIM', defaultStages: ['Aalim 1', 'Aalim 2', 'Aalim 3', 'Aalim 4', 'Aalim 5', 'Aalim 6', 'Aalim 7'] },
     { id: 'hifz', name: 'Hifz', code: 'HIFZ', defaultStages: ['Sabaq', 'Sabaqi', 'Manzil'] },
     { id: 'muballigh', name: 'Muballigh', code: 'MUBALLIGH', defaultStages: ['Muballigh 1', 'Muballigh 2', 'Muballigh 3'] },
-    { id: 'custom', name: 'Custom', code: 'CUSTOM', defaultStages: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5'] },
+    { id: 'custom', name: 'Custom', code: 'CUSTOM', defaultStages: [] },
   ];
 
   readonly presets: Record<string, string[]> = {
@@ -133,7 +133,7 @@ export class CourseStagesDialogComponent implements OnInit {
         this.stagesList = rawStages.split(',').map(s => s.trim()).filter(Boolean);
       } else {
         const type = String(course['type'] || course['courseType'] || '').toLowerCase();
-        const fallback = DEFAULT_STAGES_BY_COURSE_TYPE[type] || DEFAULT_STAGES_BY_COURSE_TYPE['custom'];
+        const fallback = DEFAULT_STAGES_BY_COURSE_TYPE[type] || [];
         this.stagesList = [...fallback];
       }
     } else {
@@ -159,7 +159,7 @@ export class CourseStagesDialogComponent implements OnInit {
         this.stagesList = rawStages.split(',').map(s => s.trim()).filter(Boolean);
       } else {
         const key = String(courseType['code'] || courseType['name'] || '').toLowerCase();
-        const fallback = DEFAULT_STAGES_BY_COURSE_TYPE[key] || DEFAULT_STAGES_BY_COURSE_TYPE['custom'];
+        const fallback = DEFAULT_STAGES_BY_COURSE_TYPE[key] || [];
         this.stagesList = [...fallback];
       }
     } else {

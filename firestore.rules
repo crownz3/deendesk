@@ -75,22 +75,22 @@ service cloud.firestore {
     // ==========================================
     function isLowerThanOrgAdmin(role) {
       return role in [
-        'coordinator', 'madrasaIncharge', 'teacher', 'staff', 'student', 'parent',
-        'COORDINATOR', 'MADRASA_INCHARGE', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
+        'coordinator', 'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'student', 'parent',
+        'COORDINATOR', 'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
       ];
     }
 
     function isCoordinatorManagedRole(role) {
       return role in [
-        'madrasaIncharge', 'teacher', 'staff', 'student', 'parent',
-        'MADRASA_INCHARGE', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
+        'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'student', 'parent',
+        'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
       ];
     }
 
     function isMadrasaInchargeManagedRole(role) {
       return role in [
-        'teacher', 'staff', 'student', 'parent',
-        'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
+        'stageHead', 'teacher', 'staff', 'student', 'parent',
+        'STAGE_HEAD', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
       ];
     }
 
@@ -99,7 +99,7 @@ service cloud.firestore {
     }
 
     function isStaffOrTeacherRole(role) {
-      return role in ['teacher', 'staff', 'TEACHER', 'STAFF'];
+      return role in ['teacher', 'staff', 'stageHead', 'TEACHER', 'STAFF', 'STAGE_HEAD'];
     }
 
     function isParentRole(role) {
@@ -406,6 +406,12 @@ service cloud.firestore {
         'assignedClassIds',
         'assignedSubjectId',
         'assignedSubjectIds',
+        'assignedStages',
+        'assignedCourseStages',
+        'genderScope',
+        'madrasaId',
+        'madrasaIds',
+        'role',
         'updatedAt',
         'updatedBy'
       ]);
@@ -413,7 +419,6 @@ service cloud.firestore {
 
     function roleAdminUpdateFieldsSafe(oldData, newData) {
       return oldData.get('organizationId', null) == newData.get('organizationId', null)
-        && oldData.get('role', null) == newData.get('role', null)
         && oldData.get('uid', null) == newData.get('uid', null)
         && oldData.get('userId', null) == newData.get('userId', null);
     }
@@ -437,7 +442,7 @@ service cloud.firestore {
       let role = oldData.get('role', null);
 
       return isStaffOrTeacherRole(role)
-        && unchangedIdentityFields(oldData, newData)
+        && (unchangedIdentityFields(oldData, newData) || (oldRoleInStaffScope(oldData) && newRoleInStaffScope(newData)))
         && staffAssignmentFieldsOnly(oldData, newData)
         && (
           (isSuper())
@@ -447,16 +452,26 @@ service cloud.firestore {
         );
     }
 
+    function oldRoleInStaffScope(data) {
+      let r = data.get('role', null);
+      return r in ['teacher', 'staff', 'stageHead', 'TEACHER', 'STAFF', 'STAGE_HEAD'];
+    }
+
+    function newRoleInStaffScope(data) {
+      let r = data.get('role', null);
+      return r in ['teacher', 'staff', 'stageHead', 'TEACHER', 'STAFF', 'STAGE_HEAD'];
+    }
+
     function canAdminUpdateUser(oldData, newData) {
       let oldRole = oldData.get('role', null);
       let newRole = newData.get('role', null);
 
-      return oldRole == newRole
+      return (oldRole == newRole || (oldRoleInStaffScope(oldData) && newRoleInStaffScope(newData)))
         && oldData.get('organizationId', null) == newData.get('organizationId', null)
         && (
-          (isOrgAdmin() && sameOrg(oldData) && isLowerThanOrgAdmin(oldRole))
-          || (isCoordinator() && inAssignedMadrasaScope(oldData) && isCoordinatorManagedRole(oldRole))
-          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData) && isMadrasaInchargeManagedRole(oldRole))
+          (isOrgAdmin() && sameOrg(oldData) && isLowerThanOrgAdmin(oldRole) && isLowerThanOrgAdmin(newRole))
+          || (isCoordinator() && inAssignedMadrasaScope(oldData) && isCoordinatorManagedRole(oldRole) && isCoordinatorManagedRole(newRole))
+          || (isMadrasaIncharge() && inAssignedMadrasaScope(oldData) && isMadrasaInchargeManagedRole(oldRole) && isMadrasaInchargeManagedRole(newRole))
           || (isTeacherOrStaff() && sameOrg(oldData) && isStudentRole(oldRole))
         );
     }
@@ -918,10 +933,39 @@ service cloud.firestore {
       allow delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageCourses'));
     }
 
-    match /userLifecycleHistory/{id} {
+    match /assets/{id} {
+      allow read: if signedIn() && sameOrg(resource.data);
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageProperties'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageProperties'));
+    }
+
+    match /assetCategories/{id} {
+      allow read: if signedIn();
+      allow create, update, delete: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageProperties'));
+    }
+
+    match /assetTransactions/{id} {
+      allow read: if signedIn() && sameOrg(resource.data);
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageProperties'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageProperties'));
+    }
+
+    match /assetAttachments/{id} {
       allow read: if signedIn() && sameOrg(resource.data);
       allow create: if signedIn() && sameOrg(request.resource.data);
-      allow update, delete: if isSuper() || (isOrgAdmin() && sameOrg(resource.data));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageProperties'));
+    }
+
+    match /assetMaintenance/{id} {
+      allow read: if signedIn() && sameOrg(resource.data);
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageProperties'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageProperties'));
+    }
+
+    match /firebaseUsageTelemetry/{id} {
+      allow read: if isSuper() || hasPermission('viewFirebaseUsage');
+      allow create, update: if signedIn() && isActive();
+      allow delete: if isSuper();
     }
 
     match /{document=**} {

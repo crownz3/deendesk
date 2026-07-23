@@ -1,0 +1,200 @@
+<div class="page-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">
+        <mat-icon color="primary">assignment_ind</mat-icon>
+        Stage Heads & Course Leads
+      </h1>
+      <p class="page-subtitle">
+        Assign and manage Course Leads and Stage Incharges by Madrasa and Gender Scope
+      </p>
+    </div>
+    <div class="header-right">
+      <button mat-raised-button color="primary" (click)="openAssignDialog()">
+        <mat-icon>add</mat-icon>
+        <span>Assign New Lead</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Metric Summary Cards -->
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-icon total">
+        <mat-icon>groups</mat-icon>
+      </div>
+      <div class="metric-info">
+        <span class="metric-value">{{ totalLeads }}</span>
+        <span class="metric-label">Total Assigned Leads</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon male">
+        <mat-icon>male</mat-icon>
+      </div>
+      <div class="metric-info">
+        <span class="metric-value">{{ maleLeads }}</span>
+        <span class="metric-label">Boys Section Leads</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon female">
+        <mat-icon>female</mat-icon>
+      </div>
+      <div class="metric-info">
+        <span class="metric-value">{{ femaleLeads }}</span>
+        <span class="metric-label">Girls Section Leads</span>
+      </div>
+    </div>
+
+    <div class="metric-card">
+      <div class="metric-icon course">
+        <mat-icon>menu_book</mat-icon>
+      </div>
+      <div class="metric-info">
+        <span class="metric-value">{{ totalCoursesManaged }}</span>
+        <span class="metric-label">Courses Covered</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-card">
+    <div class="filter-row">
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Filter by Madrasa</mat-label>
+        <mat-select [(value)]="selectedMadrasaFilter" (selectionChange)="applyFilters()">
+          <div class="select-search-box" (keydown)="$event.stopPropagation()">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input
+              type="text"
+              placeholder="Search madrasa..."
+              [(ngModel)]="madrasaFilterSearch"
+              [ngModelOptions]="{standalone: true}"
+              (input)="filterMadrasaDropdown()"
+              class="select-search-input"
+            />
+            <button *ngIf="madrasaFilterSearch" mat-icon-button type="button" class="clear-search-btn" (click)="madrasaFilterSearch = ''; filterMadrasaDropdown()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <mat-option value="">All Madrasas</mat-option>
+          <mat-option *ngFor="let m of filteredMadrasasForFilter" [value]="m.id">{{ m.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Filter by Course</mat-label>
+        <mat-select [(value)]="selectedCourseFilter" (selectionChange)="applyFilters()">
+          <div class="select-search-box" (keydown)="$event.stopPropagation()">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input
+              type="text"
+              placeholder="Search course..."
+              [(ngModel)]="courseFilterSearch"
+              [ngModelOptions]="{standalone: true}"
+              (input)="filterCourseDropdown()"
+              class="select-search-input"
+            />
+            <button *ngIf="courseFilterSearch" mat-icon-button type="button" class="clear-search-btn" (click)="courseFilterSearch = ''; filterCourseDropdown()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <mat-option value="">All Courses</mat-option>
+          <mat-option *ngFor="let c of filteredCoursesForFilter" [value]="c.id">{{ c.name }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field">
+        <mat-label>Gender Scope</mat-label>
+        <mat-select [(value)]="selectedGenderFilter" (selectionChange)="applyFilters()">
+          <mat-option value="">All Scopes</mat-option>
+          <mat-option value="male">Boys Section</mat-option>
+          <mat-option value="female">Girls Section</mat-option>
+          <mat-option value="all">Both / Co-Ed</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="filter-field search-field">
+        <mat-label>Search Name / Email</mat-label>
+        <input matInput [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" placeholder="Search lead..." />
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-container" *ngIf="loading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <span>Loading Stage Heads...</span>
+  </div>
+
+  <!-- Content View -->
+  <div *ngIf="!loading">
+    <!-- Empty State -->
+    <div class="empty-card" *ngIf="filteredHeads.length === 0">
+      <mat-icon class="empty-icon">assignment_ind</mat-icon>
+      <h3>No Stage Heads Found</h3>
+      <p>No persons assigned for the selected criteria. Click "Assign New Lead" to assign a course/stage head.</p>
+      <button mat-raised-button color="primary" (click)="openAssignDialog()">
+        <mat-icon>add</mat-icon> Assign Lead
+      </button>
+    </div>
+
+    <!-- Responsive Cards View (Mobile & Tablet) -->
+    <div class="cards-view responsive-grid" *ngIf="filteredHeads.length > 0">
+      <div class="head-card" *ngFor="let head of filteredHeads">
+        <div class="card-top">
+          <div class="avatar-box">
+            <mat-icon>account_circle</mat-icon>
+          </div>
+          <div class="user-meta">
+            <h3 class="user-name">{{ head.displayName }}</h3>
+            <span class="user-email">{{ head.email }}</span>
+          </div>
+          <div class="scope-badge" [ngClass]="head.genderScope || 'all'">
+            <mat-icon *ngIf="head.genderScope === 'male'">male</mat-icon>
+            <mat-icon *ngIf="head.genderScope === 'female'">female</mat-icon>
+            <mat-icon *ngIf="!head.genderScope || head.genderScope === 'all'">people</mat-icon>
+            <span>{{ head.genderScope === 'male' ? 'Boys Section' : head.genderScope === 'female' ? 'Girls Section' : 'Both Sections' }}</span>
+          </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <div class="card-body">
+          <div class="info-section">
+            <span class="info-label"><mat-icon>location_on</mat-icon> Madrasas:</span>
+            <span class="info-value">{{ getMadrasaNames(head.madrasaIds) }}</span>
+          </div>
+
+          <div class="info-section">
+            <span class="info-label"><mat-icon>menu_book</mat-icon> Course & Stage Assignments:</span>
+            <div class="chips-wrap">
+              <span class="cs-chip" *ngFor="let cs of head.assignedCourseStages">
+                <strong>{{ getCourseName(cs.courseId) }}</strong>
+                <span class="stage-tag" *ngIf="cs.stage">: {{ cs.stage }}</span>
+                <span class="stage-tag" *ngIf="!cs.stage">: All Stages</span>
+              </span>
+              <span class="cs-chip" *ngIf="!head.assignedCourseStages || head.assignedCourseStages.length === 0">
+                <span *ngFor="let cId of head.assignedCourseIds">{{ getCourseName(cId) }}</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button mat-button color="primary" (click)="openAssignDialog(head)">
+            <mat-icon>edit</mat-icon> Edit Assignment
+          </button>
+          <button mat-button color="warn" (click)="removeLeadRole(head)">
+            <mat-icon>delete_outline</mat-icon> Unassign
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

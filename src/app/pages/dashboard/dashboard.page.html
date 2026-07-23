@@ -6,6 +6,10 @@
         <h1>Operational overview</h1>
       </div>
       <div class="header-right-actions">
+        <button *ngIf="vm.isSuperAdmin" mat-flat-button color="primary" routerLink="/firebase-usage" class="help-guide-btn" style="background: #2563eb; color: #ffffff;">
+          <ion-icon name="cloud-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
+          <span class="btn-text">Firebase Usage & Billing</span>
+        </button>
         <button mat-stroked-button color="primary" type="button" (click)="refreshData()" class="help-guide-btn">
           <ion-icon name="refresh-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
           <span class="btn-text">Refresh</span>

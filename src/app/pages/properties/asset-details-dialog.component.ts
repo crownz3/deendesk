@@ -2,6 +2,7 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { AppUser } from '../../core/models/domain.model';
 import { PropertyService } from '../../core/services/property.service';
 import { EntityRecord } from '../../core/services/repository.service';
@@ -50,7 +51,20 @@ export class AssetDetailsDialogComponent implements OnInit {
     this.units$ = this.propertyService.listUnits(this.asset.id, this.profile);
     this.transactions$ = this.propertyService.listTransactions(this.asset.id, this.profile);
     this.maintenance$ = this.propertyService.listMaintenance(this.asset.id, this.profile);
-    this.attachments$ = this.propertyService.listAttachments(this.asset.id, this.profile);
+    this.attachments$ = this.propertyService.listAttachments(this.asset.id, this.profile).pipe(
+      map((dbList) => {
+        const inlineList = Array.isArray(this.asset?.attachments) ? this.asset.attachments : [];
+        const combined = [...dbList, ...inlineList];
+        const unique = new Map<string, EntityRecord>();
+        combined.forEach(att => {
+          const key = att['id'] || att['fileUrl'] || att['fileName'];
+          if (key && !unique.has(key)) {
+            unique.set(key, att as EntityRecord);
+          }
+        });
+        return Array.from(unique.values());
+      })
+    );
   }
 
   formatDate(timestamp: any): string {

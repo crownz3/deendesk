@@ -5,9 +5,17 @@ export type UserRole =
   | 'organizationAdmin'
   | 'coordinator'
   | 'madrasaIncharge'
+  | 'stageHead'
   | 'teacher'
   | 'student'
   | 'parent';
+
+export interface CourseStageAssignment {
+  courseId: string;
+  stage?: string;
+  madrasaId?: string;
+  genderScope?: 'male' | 'female' | 'all';
+}
 
 export type EntityStatus = 'active' | 'pending' | 'disabled' | 'archived';
 
@@ -19,6 +27,7 @@ export type PermissionKey =
   | 'manageCoordinators'
   | 'manageIncharges'
   | 'manageStaff'
+  | 'manageStageHeads'
   | 'manageStudents'
   | 'manageParents'
   | 'manageCourses'
@@ -67,7 +76,9 @@ export type PermissionKey =
   | 'generateEventReports'
   | 'generateIssueReports'
   | 'generatePropertyReports'
-  | 'generateLifecycleReports';
+  | 'generateLifecycleReports'
+  | 'viewFirebaseUsage'
+  | 'manageFirebaseUsage';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'leave';
 
@@ -102,6 +113,10 @@ export interface AppUser extends AuditFields {
   
   // These fields are merged in from the business entity after login
   madrasaIds?: string[];
+  assignedCourseIds?: string[];
+  assignedStages?: string[];
+  assignedCourseStages?: CourseStageAssignment[];
+  genderScope?: 'male' | 'female' | 'all';
   classIds?: string[];
   subjectIds?: string[];
   studentIds?: string[];
@@ -146,6 +161,7 @@ export interface Course extends ScopedEntity {
   name: string;
   code: string;
   type: 'maktab' | 'hifz' | 'aalim' | 'muballigh' | 'custom';
+  hasSubjects?: boolean;
   stages: string[];
   levels: string[];
   description?: string;
@@ -210,6 +226,10 @@ export interface Staff extends ScopedEntity {
   role: UserRole; // Primary role
   roles?: UserRole[]; // Multiple roles array for scalable support
   madrasaIds: string[];
+  assignedCourseIds?: string[];
+  assignedStages?: string[];
+  assignedCourseStages?: CourseStageAssignment[];
+  genderScope?: 'male' | 'female' | 'all';
   mobileNumber?: string;
 }
 
@@ -241,12 +261,32 @@ export interface NotificationItem extends ScopedEntity {
   | 'report'
   | 'csvImport'
   | 'profile'
+  | 'staffAssignment'
   | 'event';
   recipientUserIds: string[];
   recipientRole?: UserRole;
   relatedRequestId?: string;
   readBy: string[];
   severity: 'info' | 'success' | 'warning' | 'danger';
+}
+
+export interface AcademicMovementLog extends ScopedEntity {
+  studentId: string;
+  studentName: string;
+  movementType: 'TRANSFER' | 'DEMOTION' | 'PROMOTION' | 'RE_MEMORIZE_RESET';
+  fromCourseId: string;
+  fromCourseName: string;
+  toCourseId: string;
+  toCourseName: string;
+  fromClassId?: string;
+  toClassId?: string;
+  fromGroupId?: string;
+  toGroupId?: string;
+  reason?: string;
+  reMemorizePortion?: string;
+  effectiveDate: string;
+  approvedBy: string;
+  approvedByName?: string;
 }
 
 export interface PromotionHistory extends ScopedEntity {
@@ -318,16 +358,35 @@ export interface PasswordResetRequest extends ScopedEntity {
 export interface ClassPlan extends ScopedEntity {
   courseId: string;
   courseName: string;
+  courseType?: 'hifz' | 'aalim' | 'maktab' | 'muallim' | 'muballigh' | 'custom';
+  subjectId?: string;
+  subjectName?: string;
+  academicPlanId?: string;
+  academicPlanName?: string;
   classId: string;
   className: string;
   groupId?: string;
   groupName?: string;
   title: string;
-  scheduleType: 'oneTime' | 'weekly' | 'monthly' | 'customDates';
+  scheduleType: 'oneTime' | 'weekly' | 'monthly' | 'customDates' | 'dateRange';
   startDate: string;
   endDate: string | null;
   selectedDates: string[];
   weekDays: string[];
+  dailySyllabusSchedule?: {
+    date: string;
+    dayOfWeek: string;
+    subjectName?: string;
+    bookName?: string;
+    lessonName?: string;
+    startPage?: number;
+    endPage?: number;
+    sabaqTarget?: string;
+    sabqiTarget?: string;
+    manzilTarget?: string;
+    isHoliday?: boolean;
+    isExam?: boolean;
+  }[];
   status: 'active' | 'paused' | 'completed' | 'cancelled';
   autoGenerateAttendance: boolean;
   autoMarkStudentsPresent: boolean;
@@ -367,9 +426,18 @@ export interface TimetableEntry extends ScopedEntity {
   teacherId?: string;
   teacherIds?: string[];
   subjectId?: string;
+  subjectName?: string;
   roomId?: string;
   description?: string;
   status: 'active' | 'cancelled' | 'completed';
+
+  courseType?: 'hifz' | 'aalim' | 'maktab' | 'muallim' | 'muballigh' | 'custom';
+  bookName?: string;
+  lessonName?: string;
+  startPage?: number | null;
+  endPage?: number | null;
+  dailyTargetPages?: number | null;
+  unitType?: 'pages' | 'hadith' | 'lessons' | 'paras' | 'chapters';
 }
 
 export interface ClassPlanAttendance extends ScopedEntity {
@@ -388,12 +456,26 @@ export interface ClassPlanAttendance extends ScopedEntity {
   activityName?: string;
   type: 'class';
   status: 'draft' | 'confirmed' | 'cancelled';
+  substituteTeacherId?: string;
+  substituteTeacherName?: string;
+  isSubstituteConducted?: boolean;
   studentIds: string[];
   staffIds: string[];
   students: {
     studentId: string;
     studentName: string;
     status: AttendanceStatus;
+    performanceRating?: 'EXCELLENT' | 'GOOD' | 'NEEDS_IMPROVEMENT' | 'NOT_PERFORMED';
+    portionCovered?: string;
+    mistakeCount?: number;
+    hesitationCount?: number;
+    lineNumbers?: string;
+    wordDetails?: string;
+    struggledAreas?: ('SABAQ' | 'SABQI' | 'MANZIL' | 'TAJWEED' | 'MEMORIZATION' | 'UNDERSTANDING')[];
+    hasPersonalizedPlan?: boolean;
+    personalizedTargetDate?: string;
+    personalizedTargetPortion?: string;
+    remedialStatus?: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
     markedBy?: string;
     markedAt?: string | null;
   }[];
@@ -1248,3 +1330,57 @@ export interface StaffRelievingChecklist {
   hasActiveIssues: boolean;
   checkedAt: string;
 }
+
+export type FirebaseOperationType = 'read' | 'write' | 'delete' | 'storage_upload' | 'storage_download' | 'function_call';
+
+export type AppModuleId =
+  | 'users'
+  | 'attendance'
+  | 'fees'
+  | 'events'
+  | 'issues'
+  | 'properties'
+  | 'lifecycle'
+  | 'class-plans'
+  | 'management'
+  | 'system';
+
+export interface FirebaseUsageRecord {
+  id?: string;
+  date: string; // YYYY-MM-DD
+  organizationId: string;
+  organizationName?: string;
+  moduleId: AppModuleId;
+  readsCount: number;
+  writesCount: number;
+  deletesCount: number;
+  storageBytesUploaded: number;
+  storageBytesDownloaded: number;
+  storageActiveBytes?: number;
+  functionCallsCount: number;
+  functionDurationMs: number;
+  estimatedCost: number;
+  updatedAt?: unknown;
+}
+
+export interface FirebasePricingRules {
+  firestoreReadCostPer100k: number; // e.g. 0.06
+  firestoreWriteCostPer100k: number; // e.g. 0.18
+  firestoreDeleteCostPer100k: number; // e.g. 0.02
+  firestoreStorageCostPerGbMonth: number; // e.g. 0.18
+  storageDownloadCostPerGb: number; // e.g. 0.12
+  storageUploadOpCostPer10k: number; // e.g. 0.05
+  storageDownloadOpCostPer10k: number; // e.g. 0.004
+  functionInvocationCostPerMillion: number; // e.g. 0.40
+  functionComputeCostPerGbSecond: number; // e.g. 0.0000025
+}
+
+export interface OrganizationQuotaAlert {
+  organizationId: string;
+  monthlyReadLimit: number;
+  monthlyWriteLimit: number;
+  monthlyStorageGbLimit: number;
+  monthlyCostLimitUsd: number;
+  alertEmail?: string;
+}
+

@@ -3,6 +3,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { RouteReuseStrategy } from '@angular/router';
+import { HttpClientModule } from '@angular/common/http';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 
 import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
@@ -107,6 +108,7 @@ import { EventsPage } from './pages/events/events.page';
 import { IssuesPage } from './pages/issues/issues.page';
 import { PropertiesPage } from './pages/properties/properties.page';
 import { LifecyclePage } from './pages/lifecycle/lifecycle.page';
+import { FirebaseUsagePage } from './pages/firebase-usage/firebase-usage.page';
 import { EventFormDialogComponent } from './pages/events/event-form-dialog.component';
 import { EventDetailsDialogComponent } from './pages/events/event-details-dialog.component';
 import { EventAttendanceDialogComponent } from './pages/events/event-attendance-dialog.component';
@@ -131,9 +133,17 @@ import { UserReactivationDialogComponent } from './pages/lifecycle/user-reactiva
 import { UserArchiveDialogComponent } from './pages/lifecycle/user-archive-dialog.component';
 import { SubmitRejoinDialogComponent } from './pages/lifecycle/submit-rejoin-dialog.component';
 import { RejoinReviewDialogComponent } from './pages/lifecycle/rejoin-review-dialog.component';
+
+import { StageHeadsPage } from './pages/stage-heads/stage-heads.page';
+import { StageHeadDialogComponent } from './pages/stage-heads/stage-head-dialog.component';
+import { QuranPage } from './pages/quran/quran.page';
+import { ReciterSelectDialogComponent } from './pages/quran/reciter-select-dialog.component';
+
 @NgModule({
   declarations: [
     AppComponent,
+    QuranPage,
+    ReciterSelectDialogComponent,
     ActivityLogsPage,
     AttendancePage,
     ContinueAccountPage,
@@ -142,7 +152,10 @@ import { RejoinReviewDialogComponent } from './pages/lifecycle/rejoin-review-dia
     LoginPage,
     ChangePasswordPage,
     ManagementPage,
+    StageHeadsPage,
+    StageHeadDialogComponent,
     NotificationsPage,
+    FirebaseUsagePage,
     PermissionsPage,
     ProfilePage,
     ReportsPage,
@@ -230,6 +243,7 @@ import { RejoinReviewDialogComponent } from './pages/lifecycle/rejoin-review-dia
   imports: [
     BrowserModule,
     CommonModule,
+    HttpClientModule,
     BrowserAnimationsModule,
     FormsModule,
     ReactiveFormsModule,

@@ -24,12 +24,17 @@ import { EventsPage } from './pages/events/events.page';
 import { IssuesPage } from './pages/issues/issues.page';
 import { PropertiesPage } from './pages/properties/properties.page';
 import { LifecyclePage } from './pages/lifecycle/lifecycle.page';
+import { FirebaseUsagePage } from './pages/firebase-usage/firebase-usage.page';
+
+import { StageHeadsPage } from './pages/stage-heads/stage-heads.page';
+import { QuranPage } from './pages/quran/quran.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
   { path: 'change-password', component: ChangePasswordPage, canActivate: [authGuard] },
   { path: 'continue', component: ContinueAccountPage },
   { path: 'dashboard', component: DashboardPage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewDashboard' } },
+  { path: 'quran', component: QuranPage, canActivate: [authGuard] },
   { path: 'my-assignments', component: MyAssignmentsPage, canActivate: [authGuard] },
   { path: 'organizations', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'organizations', permission: 'manageOrganizations', roleRequired: 'superAdmin' } },
   { path: 'madrasas', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'madrasas', permission: 'manageMadrasas' } },
@@ -37,6 +42,7 @@ const routes: Routes = [
   { path: 'roles-permissions', component: PermissionsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePermissions' } },
   { path: 'coordinators', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'coordinators', permission: 'manageCoordinators' } },
   { path: 'madrasa-incharges', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'incharges', permission: 'manageIncharges' } },
+  { path: 'stage-heads', component: StageHeadsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageStageHeads', 'manageStaff', 'manageCourses', 'viewDashboard'] } },
   { path: 'staff', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'staff', permissionsAny: ['manageStaff', 'viewDashboard'] } },
   { path: 'students', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'students', permissionsAny: ['manageStudents', 'viewDashboard'] } },
   { path: 'parents', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'parents', permission: 'manageParents' } },
@@ -63,6 +69,7 @@ const routes: Routes = [
   { path: 'properties', component: PropertiesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewProperties', 'manageProperties'] } },
   { path: 'property-categories', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'propertyCategories', permission: 'manageProperties' } },
   { path: 'lifecycle', component: LifecyclePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] } },
+  { path: 'firebase-usage', component: FirebaseUsagePage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewFirebaseUsage', roleRequired: 'superAdmin' } },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: 'dashboard' },
 ];

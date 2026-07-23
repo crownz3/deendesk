@@ -179,7 +179,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     ]
   },
 
-  // --- TIMETABLE REPORTS ---
+  // --- TIMETABLE & SYLLABUS REPORTS ---
   {
     id: 'timetable-master',
     name: 'Master Timetable Report',
@@ -193,6 +193,86 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
       { key: 'classNameDisplay', label: 'Class', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'assignedStaffNamesDisplay', label: 'Assigned Staff', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'student-weekly-monthly-pages',
+    name: 'Pages Taught / Memorized per Student (Weekly & Monthly)',
+    category: 'academic',
+    collection: 'classPlanAttendance',
+    requiredFilters: ['madrasa', 'course', 'class', 'dateRange'],
+    emptyText: 'No student page completion records found for the selected period.',
+    columns: [
+      { key: 'date', label: 'Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'studentName', label: 'Student Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'courseName', label: 'Course', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'className', label: 'Class/Group', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'portionCovered', label: 'Pages / Portion Covered', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'performanceRating', label: 'Performance', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'student-performance-summary',
+    name: 'Student Performance & Struggling Area Matrix',
+    category: 'academic',
+    collection: 'classPlanAttendance',
+    requiredFilters: ['madrasa', 'course', 'class', 'dateRange'],
+    emptyText: 'No performance evaluation data found.',
+    columns: [
+      { key: 'studentName', label: 'Student Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'performanceRating', label: 'Rating', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'struggledAreasDisplay', label: 'Struggling Areas', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'hasPersonalizedPlanDisplay', label: 'Remedial Sub-Plan', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'personalizedTargetPortion', label: 'Remedial Target', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'hifz-recitation-accuracy',
+    name: 'Hifz Recitation Accuracy & Mistake Details Report',
+    category: 'academic',
+    collection: 'classPlanAttendance',
+    requiredFilters: ['madrasa', 'course', 'class', 'dateRange'],
+    emptyText: 'No Hifz recitation detail logs found.',
+    columns: [
+      { key: 'date', label: 'Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'studentName', label: 'Student Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'portionCovered', label: 'Portion (Sabaq/Sabqi/Manzil)', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'mistakeCount', label: 'Mistakes (Ghalati)', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'hesitationCount', label: 'Hesitations (Luqmah)', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'lineNumbers', label: 'Line Numbers', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'wordDetails', label: 'Word/Ayah Notes', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'substitute-teacher-audit',
+    name: 'Substitute Teacher Usage & Audit Report',
+    category: 'academic',
+    collection: 'classPlanAttendance',
+    requiredFilters: ['madrasa', 'dateRange'],
+    emptyText: 'No substitute teacher session records found.',
+    columns: [
+      { key: 'date', label: 'Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'activityName', label: 'Session Activity', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'primaryTeacherName', label: 'Assigned Primary Staff', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'substituteTeacherName', label: 'Substitute Staff', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Session Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'academic-movement-audit',
+    name: 'Student Transfer, Demotion & Re-memorization Audit',
+    category: 'academic',
+    collection: 'academicMovementLogs',
+    requiredFilters: ['madrasa', 'dateRange'],
+    emptyText: 'No academic movement logs found.',
+    columns: [
+      { key: 'effectiveDate', label: 'Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'studentName', label: 'Student Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'movementType', label: 'Action Type', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'fromCourseName', label: 'Original Course', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'toCourseName', label: 'Target Course / Stage', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'reason', label: 'Reason', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'approvedByName', label: 'Approved By', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
     ]
   },
 

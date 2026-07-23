@@ -327,7 +327,8 @@ export class PropertiesPage implements OnInit {
 
   openAssetDetails(vm: PropertiesVm, asset: any): void {
     const ref = this.dialog.open(AssetDetailsDialogComponent, {
-      width: '950px',
+      width: '1150px',
+      maxWidth: '96vw',
       data: {
         asset,
         profile: vm.profile,

@@ -8,6 +8,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   organizationAdmin: 'Organization Admin',
   coordinator: 'Coordinator',
   madrasaIncharge: 'Madrasa Incharge',
+  stageHead: 'Stage Head / Course Lead',
   teacher: 'Teacher / Staff',
   student: 'Student',
   parent: 'Parent',
@@ -18,6 +19,7 @@ export const ROLE_ORDER: UserRole[] = [
   'organizationAdmin',
   'coordinator',
   'madrasaIncharge',
+  'stageHead',
   'teacher',
   'student',
   'parent',
@@ -80,6 +82,8 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'generateIssueReports',
   'generatePropertyReports',
   'generateLifecycleReports',
+  'viewFirebaseUsage',
+  'manageFirebaseUsage',
 ];
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -90,6 +94,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   manageCoordinators: 'Manage coordinators',
   manageIncharges: 'Manage madrasa incharges',
   manageStaff: 'Manage staff and teachers',
+  manageStageHeads: 'Manage stage heads and course leads',
   manageStudents: 'Manage students',
   manageParents: 'Manage parents',
   manageCourses: 'Manage courses',
@@ -139,6 +144,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   generateIssueReports: 'Generate issue reports',
   generatePropertyReports: 'Generate property reports',
   generateLifecycleReports: 'Generate lifecycle reports',
+  viewFirebaseUsage: 'View Firebase telemetry & cost breakdown',
+  manageFirebaseUsage: 'Manage Firebase usage thresholds & pricing rules',
 };
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
@@ -150,6 +157,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'manageCoordinators',
     'manageIncharges',
     'manageStaff',
+    'manageStageHeads',
     'manageStudents',
     'manageParents',
     'manageCourses',
@@ -203,6 +211,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'viewDashboard',
     'manageIncharges',
     'manageStaff',
+    'manageStageHeads',
     'manageStudents',
     'manageParents',
     'manageCourses',
@@ -286,6 +295,30 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'generateIssueReports',
     'generatePropertyReports',
     'generateLifecycleReports',
+  ],
+  stageHead: [
+    'viewDashboard',
+    'manageStudents',
+    'manageStaff',
+    'manageCourses',
+    'manageClasses',
+    'manageSubjects',
+    'takeAttendance',
+    'viewAttendance',
+    'generateReports',
+    'manageNotifications',
+    'editProfile',
+    'viewAnalytics',
+    'manageAcademicPlans',
+    'managePromotions',
+    'transferStudents',
+    'dismissStudents',
+    'manageUserLifecycle',
+    'manageClassPlans',
+    'viewFees',
+    'viewEvents',
+    'viewIssues',
+    'reportIssues',
   ],
   teacher: [
     'viewDashboard',
@@ -484,7 +517,7 @@ export const DEFAULT_STAGES_BY_COURSE_TYPE: Record<string, string[]> = {
   hifz: ['Sabaq', 'Sabaqi', 'Manzil'],
   aalim: ['Aalim 1', 'Aalim 2', 'Aalim 3', 'Aalim 4', 'Aalim 5', 'Aalim 6', 'Aalim 7'],
   muballigh: ['Muballigh 1', 'Muballigh 2', 'Muballigh 3'],
-  custom: ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5']
+  custom: []
 };
 
 

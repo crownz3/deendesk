@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { combineLatest, map, of, switchMap, catchError, Observable } from 'rxjs';
+import { combineLatest, map, of, switchMap, catchError, Observable, BehaviorSubject } from 'rxjs';
 import { where, documentId } from 'firebase/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -84,8 +84,10 @@ interface DashboardVm {
   standalone: false,
 })
 export class DashboardPage {
-  readonly vm$ = this.auth.profile$.pipe(
-    switchMap((profile) => {
+  private readonly refresh$ = new BehaviorSubject<void>(undefined);
+
+  readonly vm$ = combineLatest([this.refresh$, this.auth.profile$]).pipe(
+    switchMap(([_, profile]) => {
       if (!profile) {
         return of(null);
       }
@@ -770,7 +772,6 @@ export class DashboardPage {
 
   refreshData(): void {
     this.repo.clearCache();
-    // vm$ is driven by auth.profile$ which is a live stream; clearing cache
-    // ensures next emission fetches fresh data from Firestore.
+    this.refresh$.next();
   }
 }

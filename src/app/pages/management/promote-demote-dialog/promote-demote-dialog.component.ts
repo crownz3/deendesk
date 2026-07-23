@@ -7,7 +7,8 @@ import { firstValueFrom } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
 export interface PromoteDemoteData {
-  student: EntityRecord;
+  student?: EntityRecord;
+  students?: EntityRecord[];
 }
 
 @Component({
@@ -19,6 +20,9 @@ export interface PromoteDemoteData {
 export class PromoteDemoteDialogComponent implements OnInit {
   loading = true;
   saving = false;
+
+  targetStudents: EntityRecord[] = [];
+  firstStudent: EntityRecord | null = null;
 
   action = 'promotion';
   newStage = '';
@@ -41,7 +45,10 @@ export class PromoteDemoteDialogComponent implements OnInit {
     private repo: RepositoryService,
     private auth: AuthService,
     private snackBar: MatSnackBar
-  ) {}
+  ) {
+    this.targetStudents = data.students?.length ? data.students : (data.student ? [data.student] : []);
+    this.firstStudent = this.targetStudents[0] || null;
+  }
 
   ngOnInit(): void {
     this.loadData();
@@ -50,6 +57,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
   async loadData() {
     this.loading = true;
     try {
+      if (!this.firstStudent) return;
       const profile = await firstValueFrom(this.auth.profile$);
       
       const [courses, classes, groups] = await Promise.all([
@@ -58,7 +66,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
         this.repo.getAllOnce<EntityRecord>('classGroups', profile),
       ]);
 
-      const courseId = this.data.student['courseId'];
+      const courseId = this.firstStudent['courseId'];
       if (courseId) {
         const course = courses.find(c => c.id === courseId);
         if (course) {
@@ -67,18 +75,15 @@ export class PromoteDemoteDialogComponent implements OnInit {
           this.extractStages(course);
         }
       }
-      if (this.availableStages.length === 0) {
-        this.availableStages = ['Stage 1', 'Stage 2', 'Stage 3', 'Stage 4', 'Stage 5'];
-      }
       this.autoSelectStage();
 
-      const classId = this.data.student['classId'];
+      const classId = this.firstStudent['classId'];
       if (classId) {
         const cls = classes.find(c => c.id === classId);
         if (cls) this.className = String(cls['name'] || classId);
       }
 
-      const groupId = this.data.student['groupId'];
+      const groupId = this.firstStudent['groupId'];
       if (groupId) {
         const group = groups.find(g => g.id === groupId);
         if (group) {
@@ -109,9 +114,9 @@ export class PromoteDemoteDialogComponent implements OnInit {
       stages = rawStages.split(',').map(s => s.trim()).filter(Boolean);
     } else {
       const type = String(course['type'] || course['courseType'] || '').toLowerCase();
-      stages = [...(DEFAULT_STAGES_BY_COURSE_TYPE[type] || DEFAULT_STAGES_BY_COURSE_TYPE['custom'])];
+      stages = [...(DEFAULT_STAGES_BY_COURSE_TYPE[type] || [])];
     }
-    this.availableStages = stages;
+    this.availableStages = Array.from(new Set(stages));
   }
 
   onActionChange() {
@@ -119,7 +124,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
   }
 
   autoSelectStage() {
-    const current = String(this.data.student['stage'] || '').trim().toLowerCase();
+    const current = String(this.firstStudent?.['stage'] || '').trim().toLowerCase();
     const idx = this.availableStages.findIndex(s => s.toLowerCase() === current);
 
     if (this.action === 'promotion') {
@@ -159,7 +164,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
   }
 
   isCurrentStage(stage: string): boolean {
-    const current = String(this.data?.student?.['stage'] || '').trim().toLowerCase();
+    const current = String(this.firstStudent?.['stage'] || '').trim().toLowerCase();
     return String(stage || '').trim().toLowerCase() === current;
   }
 
@@ -176,10 +181,6 @@ export class PromoteDemoteDialogComponent implements OnInit {
       this.snackBar.open('New stage is required', 'Close', { duration: 3000 });
       return;
     }
-    if (this.newStage === this.data.student['stage']) {
-      this.snackBar.open('Cannot promote or demote to the current stage', 'Close', { duration: 3000 });
-      return;
-    }
     if (!this.reason) {
       this.snackBar.open('Reason is required', 'Close', { duration: 3000 });
       return;
@@ -188,47 +189,58 @@ export class PromoteDemoteDialogComponent implements OnInit {
     this.saving = true;
     try {
       const profile = await firstValueFrom(this.auth.profile$);
-      const studentId = this.data.student.id!;
+      const actionDate = new Date().toISOString().slice(0, 10);
+      const createdBy = profile?.displayName || profile?.email || 'System';
 
-      const studentName = String(this.data.student['name'] || this.data.student['displayName'] || 'Student');
+      for (const std of this.targetStudents) {
+        const studentId = std.id || String(std['uid']);
+        const studentName = String(std['name'] || std['displayName'] || 'Student');
 
-      await this.repo.create('promotionHistory', {
-        studentId: studentId,
-        studentName: studentName,
-        organizationId: this.data.student['organizationId'],
-        madrasaId: this.data.student['madrasaId'],
-        previousCourseId: String(this.data.student['courseId'] ?? ''),
-        previousStage: String(this.data.student['stage'] ?? ''),
-        newCourseId: String(this.data.student['courseId'] ?? ''),
-        newStage: this.newStage,
-        reason: this.reason,
-        action: this.action,
-        actionDate: new Date().toISOString().slice(0, 10),
-        status: 'active',
-        createdBy: profile?.displayName || profile?.email || 'System',
-      }, profile);
+        await this.repo.create('promotionHistory', {
+          studentId: studentId,
+          studentName: studentName,
+          organizationId: std['organizationId'],
+          madrasaId: std['madrasaId'],
+          previousCourseId: String(std['courseId'] ?? ''),
+          previousStage: String(std['stage'] ?? ''),
+          newCourseId: String(std['courseId'] ?? ''),
+          newStage: this.newStage,
+          reason: this.reason,
+          action: this.action,
+          actionDate: actionDate,
+          status: 'active',
+          createdBy: createdBy,
+        }, profile);
 
-      await this.repo.create('userLifecycleHistory', {
-        userId: studentId,
-        userName: studentName,
-        personType: 'student',
-        lifecycleAction: this.action === 'promote' ? 'Promoted' : 'Demoted',
-        actionType: this.action === 'promote' ? 'Promotion' : 'Demotion',
-        reason: `${this.action === 'promote' ? 'Promoted' : 'Demoted'} from ${this.data.student['stage'] || 'Initial'} to ${this.newStage}. Reason: ${this.reason}`,
-        fromStage: String(this.data.student['stage'] ?? ''),
-        toStage: this.newStage,
-        effectiveDate: new Date().toISOString(),
-        effectiveDateMs: Date.now(),
-        performedBy: profile?.displayName || profile?.email || 'System',
-        organizationId: this.data.student['organizationId'],
-        madrasaId: this.data.student['madrasaId'],
-        status: 'active',
-      }, profile);
+        await this.repo.create('userLifecycleHistory', {
+          userId: studentId,
+          userName: studentName,
+          personType: 'student',
+          lifecycleAction: this.action === 'promotion' ? 'Promoted' : 'Demoted',
+          actionType: this.action === 'promotion' ? 'Promotion' : 'Demotion',
+          reason: `${this.action === 'promotion' ? 'Promoted' : 'Demoted'} from ${std['stage'] || 'Initial'} to ${this.newStage}. Reason: ${this.reason}`,
+          fromStage: String(std['stage'] ?? ''),
+          toStage: this.newStage,
+          effectiveDate: new Date().toISOString(),
+          effectiveDateMs: Date.now(),
+          performedBy: createdBy,
+          organizationId: std['organizationId'],
+          madrasaId: std['madrasaId'],
+          status: 'active',
+        }, profile);
 
-      await this.repo.update('students', studentId, {
-        stage: this.newStage,
-      }, profile);
-      
+        await this.repo.update('students', studentId, {
+          stage: this.newStage,
+        }, profile);
+
+        const userUid = String(std['userId'] || std['uid'] || '');
+        if (userUid) {
+          await this.repo.update('users', userUid, {
+            stage: this.newStage,
+          }, profile).catch(e => console.warn('Failed to update users collection', e));
+        }
+      }
+
       // If custom new stage, append to course stages
       if (this.isCustomStage && this.currentCourseRecord && this.newStage) {
         const existingStages = Array.isArray(this.currentCourseRecord['stages'])
@@ -242,17 +254,11 @@ export class PromoteDemoteDialogComponent implements OnInit {
         }
       }
 
-      const userUid = String(this.data.student['userId'] || this.data.student['uid'] || '');
-      if (userUid) {
-        await this.repo.update('users', userUid, {
-          stage: this.newStage,
-        }, profile).catch(e => console.warn('Failed to update users collection', e));
-      }
-
+      this.snackBar.open(`${this.targetStudents.length} student(s) updated successfully.`, 'Close', { duration: 3000 });
       this.dialogRef.close({ success: true });
     } catch (e: any) {
       console.error(e);
-      this.snackBar.open(e.message || 'Failed to update student', 'Close', { duration: 3000 });
+      this.snackBar.open(e.message || 'Failed to update student(s)', 'Close', { duration: 3000 });
     } finally {
       this.saving = false;
     }

@@ -25,6 +25,12 @@ export class TimetableEntryFormDialogComponent implements OnInit {
     subjectId: [''],
     roomId: [''],
     description: [''],
+    bookName: [''],
+    lessonName: [''],
+    startPage: [null as number | null],
+    endPage: [null as number | null],
+    dailyTargetPages: [null as number | null],
+    unitType: ['pages' as 'pages' | 'hadith' | 'lessons' | 'paras' | 'chapters'],
     status: ['active']
   });
 
