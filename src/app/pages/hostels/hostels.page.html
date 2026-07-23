@@ -1,0 +1,244 @@
+<ion-content class="page-container">
+  <div class="content-wrapper" *ngIf="profile$ | async as profile">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Hostel & Asset Management</h1>
+        <p class="page-subtitle">Manage student & staff hostels, room allocations, capacity, and room/hostel assets.</p>
+      </div>
+      <button mat-raised-button color="primary" class="add-btn" (click)="openAddHostel(profile)">
+        <ion-icon name="add-outline" slot="start"></ion-icon>
+        Add Hostel Building
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" *ngIf="stats$ | async as stats">
+      <div class="stat-card">
+        <div class="stat-icon bg-sky">
+          <ion-icon name="home-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.totalHostels }}</span>
+          <span class="stat-label">Hostel Blocks</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-indigo">
+          <ion-icon name="bed-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.totalRooms }}</span>
+          <span class="stat-label">Total Rooms</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-purple">
+          <ion-icon name="people-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.totalCapacity }}</span>
+          <span class="stat-label">Total Bed Capacity</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-emerald">
+          <ion-icon name="person-circle-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.occupiedCount }}</span>
+          <span class="stat-label">Occupied Beds</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hostel Building Selector Pills -->
+    <div class="hostel-selector-bar" *ngIf="hostels$ | async as hostels">
+      <span class="selector-label">Active Hostel Block:</span>
+      <div class="pills-row">
+        <button class="hostel-pill" 
+                *ngFor="let h of hostels" 
+                [class.active]="(selectedHostelId$ | async) === h.id"
+                (click)="selectHostel(h.id!)">
+          <ion-icon name="business-outline"></ion-icon>
+          <span>{{ h.hostelName }}</span>
+          <small>({{ h.genderScope | titlecase }})</small>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tabs Header -->
+    <div class="tabs-header">
+      <button class="tab-btn" [class.active]="activeTab === 'buildings'" (click)="activeTab = 'buildings'">
+        <ion-icon name="business-outline"></ion-icon>
+        Building Overview
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'rooms'" (click)="activeTab = 'rooms'">
+        <ion-icon name="bed-outline"></ion-icon>
+        Rooms & Occupant Roster
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'assets'" (click)="activeTab = 'assets'">
+        <ion-icon name="cube-outline"></ion-icon>
+        Room & Hostel Assets
+      </button>
+    </div>
+
+    <!-- Tab 1: Building Overview -->
+    <div *ngIf="activeTab === 'buildings'">
+      <div class="hostels-grid" *ngIf="hostels$ | async as hostels">
+        <mat-card class="building-card" *ngFor="let h of hostels">
+          <div class="card-top">
+            <span class="gender-pill">{{ h.genderScope | titlecase }} Hostel</span>
+            <span class="status-badge" [ngClass]="'status-' + h.status">{{ h.status | titlecase }}</span>
+          </div>
+
+          <h3 class="building-name">{{ h.hostelName }}</h3>
+
+          <div class="building-details">
+            <div class="detail-item">
+              <ion-icon name="person-outline"></ion-icon>
+              <span>Warden / Incharge: <strong>{{ h.wardenName || 'Not Assigned' }}</strong></span>
+            </div>
+
+            <div class="detail-item">
+              <ion-icon name="bed-outline"></ion-icon>
+              <span>Capacity: <strong>{{ h.totalRooms }} Rooms / {{ h.totalCapacity }} Beds</strong></span>
+            </div>
+
+            <div class="detail-item" *ngIf="h.address">
+              <ion-icon name="location-outline"></ion-icon>
+              <span>{{ h.address }}</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button mat-stroked-button color="primary" (click)="openAddRoom(h, profile)">
+              <ion-icon name="add-outline"></ion-icon> Add Room
+            </button>
+            <div class="right-actions">
+              <button mat-icon-button color="primary" (click)="openEditHostel(h, profile)">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteHostel(h, profile)">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- Tab 2: Rooms & Occupant Roster -->
+    <div *ngIf="activeTab === 'rooms'">
+      <div class="rooms-header" *ngIf="hostels$ | async as hostels">
+        <h2 class="section-title">Rooms in Selected Hostel Block</h2>
+        <button mat-raised-button color="accent" *ngIf="hostels.length > 0" (click)="openAddRoom(hostels[0], profile)">
+          <ion-icon name="add-outline" slot="start"></ion-icon> Add New Room
+        </button>
+      </div>
+
+      <div class="rooms-grid" *ngIf="rooms$ | async as rooms">
+        <mat-card class="room-card" *ngFor="let r of rooms">
+          <div class="room-top">
+            <div class="room-badge">
+              <span class="room-number">Room {{ r.roomNumber }}</span>
+              <small>Floor {{ r.floor }}</small>
+            </div>
+            <span class="room-type-tag">{{ r.roomType | titlecase }}</span>
+          </div>
+
+          <div class="occupancy-bar">
+            <div class="occupancy-info">
+              <span>Occupancy: <strong>{{ r.currentOccupancy }} / {{ r.maxCapacity }} Beds</strong></span>
+              <span class="room-status" [ngClass]="'status-' + r.status">{{ r.status | titlecase }}</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" [style.width.%]="(r.currentOccupancy / r.maxCapacity) * 100"></div>
+            </div>
+          </div>
+
+          <!-- Occupants List -->
+          <div class="occupants-list">
+            <div class="occupants-header">Current Occupants:</div>
+            <div class="occupant-chip" *ngFor="let occ of r.occupants">
+              <ion-icon [name]="occ.personType === 'staff' ? 'briefcase-outline' : 'person-outline'"></ion-icon>
+              <span>{{ occ.personName }} <small>({{ occ.bedNumber || 'Bed' }})</small></span>
+              <button class="remove-occ-btn" (click)="removeOccupant(r, occ.personId, profile)" title="Check out">×</button>
+            </div>
+            <div class="no-occupants" *ngIf="!r.occupants || r.occupants.length === 0">
+              <span>No occupants assigned yet</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button mat-raised-button color="primary" class="full-btn" [disabled]="r.currentOccupancy >= r.maxCapacity" (click)="openAssignOccupant(r, profile)">
+              <ion-icon name="person-add-outline"></ion-icon> Assign Occupant
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteRoom(r, profile)">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
+          </div>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- Tab 3: Room & Common Assets Catalog -->
+    <div *ngIf="activeTab === 'assets'">
+      <div class="assets-header" *ngIf="hostels$ | async as hostels">
+        <h2 class="section-title">Hostel & Room Asset Inventory</h2>
+        <button mat-raised-button color="primary" *ngIf="hostels.length > 0" (click)="openAddAsset(hostels[0], profile)">
+          <ion-icon name="add-outline" slot="start"></ion-icon> Register Asset
+        </button>
+      </div>
+
+      <mat-card class="table-card">
+        <div class="table-container" *ngIf="assets$ | async as assets">
+          <table class="data-table" *ngIf="assets.length > 0; else noAssets">
+            <thead>
+              <tr>
+                <th>Asset Name</th>
+                <th>Category</th>
+                <th>Scope / Room</th>
+                <th>Quantity</th>
+                <th>Condition</th>
+                <th>Serial / Tag</th>
+                <th>Assigned Person</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let a of assets">
+                <td><strong>{{ a.assetName }}</strong></td>
+                <td><span class="badge badge-cat">{{ a.assetCategory | titlecase }}</span></td>
+                <td>{{ a.assetScope === 'room' ? 'Room ' + (a.roomNumber || '-') : 'Hostel Common' }}</td>
+                <td>{{ a.quantity }}</td>
+                <td>
+                  <span class="condition-badge" [ngClass]="'condition-' + a.condition">{{ a.condition | titlecase }}</span>
+                </td>
+                <td>{{ a.serialNumberTag || '-' }}</td>
+                <td>{{ a.assignedToPersonName || '-' }}</td>
+                <td class="text-end">
+                  <button mat-icon-button color="warn" (click)="deleteAsset(a, profile)">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #noAssets>
+            <div class="empty-state">
+              <ion-icon name="cube-outline" class="empty-icon"></ion-icon>
+              <h3>No Assets Registered</h3>
+              <p>Register room assets (beds, study tables, fans) or hostel common assets (water dispensers, generators).</p>
+            </div>
+          </ng-template>
+        </div>
+      </mat-card>
+    </div>
+
+  </div>
+</ion-content>

@@ -1,0 +1,196 @@
+<ion-content class="page-container">
+  <div class="content-wrapper" *ngIf="profile$ | async as profile">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Study Time (Mutala'a) Management</h1>
+        <p class="page-subtitle">Schedule sessions, venues, assign responsible staff, & manage turn duty rosters.</p>
+      </div>
+      <button mat-raised-button color="primary" class="add-btn" (click)="openAddSchedule(profile)">
+        <ion-icon name="add-outline" slot="start"></ion-icon>
+        Create Study Schedule
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" *ngIf="stats$ | async as stats">
+      <div class="stat-card">
+        <div class="stat-icon bg-indigo">
+          <ion-icon name="time-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.totalSchedules }}</span>
+          <span class="stat-label">Active Schedules</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-amber">
+          <ion-icon name="sync-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.turnDutyCount }}</span>
+          <span class="stat-label">Turn Duty Roster</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-teal">
+          <ion-icon name="person-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.fixedDutyCount }}</span>
+          <span class="stat-label">Single Staff Duty</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-emerald">
+          <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.logsCount }}</span>
+          <span class="stat-label">Supervision Logs</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <div class="tabs-header">
+      <button class="tab-btn" [class.active]="activeTab === 'schedules'" (click)="activeTab = 'schedules'">
+        <ion-icon name="calendar-outline"></ion-icon>
+        Schedules & Venues
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'roster'" (click)="activeTab = 'roster'">
+        <ion-icon name="swap-horizontal-outline"></ion-icon>
+        Turn Duty Roster
+      </button>
+      <button class="tab-btn" [class.active]="activeTab === 'logs'" (click)="activeTab = 'logs'">
+        <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+        Supervision Logs
+      </button>
+    </div>
+
+    <!-- Tab 1: Schedules View -->
+    <div *ngIf="activeTab === 'schedules'">
+      <div class="schedules-grid" *ngIf="schedules$ | async as schedules">
+        <mat-card class="schedule-card" *ngFor="let s of schedules">
+          <div class="card-top">
+            <span class="type-pill" [ngClass]="'type-' + s.sessionType">{{ s.sessionType | titlecase }}</span>
+            <span class="duty-pill" [class.turn-duty]="s.dutyType === 'turn_duty_roster'">
+              {{ s.dutyType === 'turn_duty_roster' ? 'Turn Duty Rotation' : 'Fixed Single Staff' }}
+            </span>
+          </div>
+
+          <h3 class="schedule-title">{{ s.title }}</h3>
+
+          <div class="schedule-details">
+            <div class="detail-item">
+              <ion-icon name="time-outline"></ion-icon>
+              <span>{{ s.startTime }} - {{ s.endTime }}</span>
+            </div>
+
+            <div class="detail-item">
+              <ion-icon name="location-outline"></ion-icon>
+              <span>Venue: <strong>{{ s.venue }}</strong></span>
+            </div>
+
+            <div class="detail-item">
+              <ion-icon name="person-circle-outline"></ion-icon>
+              <span>Today On-Duty: <strong>{{ getTodayOnDutyStaff(s) }}</strong></span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button mat-stroked-button color="accent" (click)="openRecordLog(s, profile)">
+              <ion-icon name="clipboard-outline"></ion-icon> Log Duty
+            </button>
+            <div class="right-actions">
+              <button mat-icon-button color="primary" (click)="openEditSchedule(s, profile)">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+              <button mat-icon-button color="warn" (click)="deleteSchedule(s, profile)">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </mat-card>
+      </div>
+    </div>
+
+    <!-- Tab 2: Turn Duty Roster View -->
+    <div *ngIf="activeTab === 'roster'">
+      <mat-card class="table-card">
+        <div class="table-container" *ngIf="schedules$ | async as schedules">
+          <div *ngFor="let s of schedules">
+            <div class="roster-section" *ngIf="s.dutyType === 'turn_duty_roster' && s.dutyRoster && s.dutyRoster.length > 0">
+              <h3 class="roster-title">{{ s.title }} - Turn Duty Rotation Schedule</h3>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Assigned Staff Member</th>
+                    <th>Session Time & Venue</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let slot of s.dutyRoster.slice(0, 14)">
+                    <td><strong>{{ slot.date }}</strong></td>
+                    <td>
+                      <div class="staff-badge">
+                        <ion-icon name="person-outline"></ion-icon>
+                        <span>{{ slot.staffName }}</span>
+                      </div>
+                    </td>
+                    <td>{{ s.startTime }} - {{ s.endTime }} ({{ s.venue }})</td>
+                    <td><span class="badge badge-success">Scheduled</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </mat-card>
+    </div>
+
+    <!-- Tab 3: Supervision Logs View -->
+    <div *ngIf="activeTab === 'logs'">
+      <mat-card class="table-card">
+        <div class="table-container" *ngIf="logs$ | async as logs">
+          <table class="data-table" *ngIf="logs.length > 0; else noLogs">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Schedule</th>
+                <th>On-Duty Staff</th>
+                <th>Status</th>
+                <th>Notes / Observations</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let log of logs">
+                <td>{{ log.date }}</td>
+                <td><strong>{{ log.scheduleTitle || log.studyTimeScheduleId }}</strong></td>
+                <td>{{ log.onDutyStaffName }} {{ log.substituteStaffName ? '(Sub: ' + log.substituteStaffName + ')' : '' }}</td>
+                <td>
+                  <span class="status-badge" [ngClass]="'status-' + log.status">{{ log.status | titlecase }}</span>
+                </td>
+                <td>{{ log.supervisionNotes || '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #noLogs>
+            <div class="empty-state">
+              <ion-icon name="clipboard-outline" class="empty-icon"></ion-icon>
+              <h3>No Supervision Logs Yet</h3>
+              <p>On-duty staff can record daily study supervision logs using the "Log Duty" button on any study schedule card.</p>
+            </div>
+          </ng-template>
+        </div>
+      </mat-card>
+    </div>
+
+  </div>
+</ion-content>

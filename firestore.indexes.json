@@ -414,6 +414,54 @@
         { "fieldPath": "moduleId", "order": "ASCENDING" },
         { "fieldPath": "date", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "externalActivities",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "activityStatus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studyTimeSchedules",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "studyTimeLogs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "hostelRooms",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hostelId", "order": "ASCENDING" },
+        { "fieldPath": "roomNumber", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "hostelAssets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hostelId", "order": "ASCENDING" },
+        { "fieldPath": "assetCategory", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "alumniRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "organizationId", "order": "ASCENDING" },
+        { "fieldPath": "personType", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

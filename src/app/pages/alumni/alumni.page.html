@@ -1,0 +1,149 @@
+<ion-content class="page-container">
+  <div class="content-wrapper" *ngIf="profile$ | async as profile">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Alumni & Former Staff Directory</h1>
+        <p class="page-subtitle">Historical records of passed out students, graduated huffaz, & relieved staff members.</p>
+      </div>
+      <button mat-raised-button color="primary" class="add-btn" (click)="openAddDialog(profile)">
+        <ion-icon name="add-outline" slot="start"></ion-icon>
+        Add Former Record
+      </button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" *ngIf="stats$ | async as stats">
+      <div class="stat-card">
+        <div class="stat-icon bg-emerald">
+          <ion-icon name="ribbon-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.totalAlumni }}</span>
+          <span class="stat-label">Total Records</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-amber">
+          <ion-icon name="book-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.huffazGraduates }}</span>
+          <span class="stat-label">Graduated Huffaz</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-blue">
+          <ion-icon name="school-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.aalimGraduates }}</span>
+          <span class="stat-label">Aalim Graduates</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-purple">
+          <ion-icon name="briefcase-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.formerStaff }}</span>
+          <span class="stat-label">Former Staff / Teachers</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <mat-card class="filter-card">
+      <div class="filter-row">
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Search by name, occupation, city, or year...</mat-label>
+          <input matInput [(ngModel)]="searchQuery" placeholder="Search alumni directory..." />
+          <ion-icon matPrefix name="search-outline" class="search-icon"></ion-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Category</mat-label>
+          <mat-select [(ngModel)]="personTypeFilter">
+            <mat-option value="all">All Records</mat-option>
+            <mat-option value="student">Past Students / Graduates</mat-option>
+            <mat-option value="staff">Former Staff / Teachers</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <!-- Directory Table -->
+    <mat-card class="table-card">
+      <div class="table-container" *ngIf="filteredRecords$ | async as items">
+        <table class="data-table" *ngIf="items.length > 0; else emptyState">
+          <thead>
+            <tr>
+              <th>Name & Gender</th>
+              <th>Category & Year</th>
+              <th>Status / Role Taught</th>
+              <th>Current Occupation</th>
+              <th>Current City & Contact</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of items">
+              <td>
+                <div class="person-cell">
+                  <span class="person-name">{{ item.name }}</span>
+                  <span class="sub-text">{{ item.gender | titlecase }} {{ item.rollNumberOrEmpId ? '(' + item.rollNumberOrEmpId + ')' : '' }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="cat-cell">
+                  <span class="badge" [class.badge-student]="item.personType === 'student'" [class.badge-staff]="item.personType === 'staff'">
+                    {{ item.personType === 'student' ? 'Student' : 'Former Staff' }}
+                  </span>
+                  <span class="year-text" *ngIf="item.passedOutYear">Passed Out: {{ item.passedOutYear }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="status-cell">
+                  <span class="status-text" *ngIf="item.personType === 'student'">{{ item.graduationStatus | titlecase }}</span>
+                  <span class="status-text" *ngIf="item.personType === 'staff'">{{ item.designation || 'Relieved Staff' }}</span>
+                  <small *ngIf="item.lastCourse">{{ item.lastCourse }}</small>
+                </div>
+              </td>
+              <td>
+                <span class="occupation-text">{{ item.currentOccupation || 'Not specified' }}</span>
+              </td>
+              <td>
+                <div class="contact-cell">
+                  <span>{{ item.currentCity || item.currentAddress || '-' }}</span>
+                  <small *ngIf="item.contactNumber">{{ item.contactNumber }}</small>
+                </div>
+              </td>
+              <td class="text-end">
+                <button mat-icon-button color="primary" (click)="openEditDialog(item, profile)" title="Edit">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="deleteRecord(item, profile)" title="Delete">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ng-template #emptyState>
+          <div class="empty-state">
+            <ion-icon name="ribbon-outline" class="empty-icon"></ion-icon>
+            <h3>No Alumni Records Found</h3>
+            <p>Click "Add Former Record" to record graduated students, passed out huffaz, or former staff members.</p>
+          </div>
+        </ng-template>
+
+      </div>
+    </mat-card>
+
+  </div>
+</ion-content>

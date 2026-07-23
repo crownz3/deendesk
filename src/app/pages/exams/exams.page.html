@@ -1,0 +1,140 @@
+<div class="exams-container" *ngIf="profile$ | async as user">
+  <!-- Header Banner -->
+  <div class="header-banner">
+    <div class="header-info">
+      <h1><mat-icon>assignment</mat-icon> Exam & Re-Exam Management</h1>
+      <p>Manage start-to-end exam lifecycles, timetable schedules, supervisor allocations, mark entries, re-exams, and progress reports.</p>
+    </div>
+    <div class="header-actions">
+      <button mat-raised-button color="primary" (click)="openExamDialog()">
+        <mat-icon>add</mat-icon> Create New Exam
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters & Search Bar -->
+  <div class="filters-card">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search Exams</mat-label>
+      <input matInput [(ngModel)]="searchQuery" placeholder="Search by title, year, course..." />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Status</mat-label>
+      <mat-select [(ngModel)]="statusFilter">
+        <mat-option value="all">All Statuses</mat-option>
+        <mat-option value="draft">Draft</mat-option>
+        <mat-option value="scheduled">Scheduled</mat-option>
+        <mat-option value="in_progress">In Progress</mat-option>
+        <mat-option value="evaluating">Evaluating / Mark Entry</mat-option>
+        <mat-option value="published">Published / Completed</mat-option>
+        <mat-option value="cancelled">Cancelled</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Exam Type</mat-label>
+      <mat-select [(ngModel)]="typeFilter">
+        <mat-option value="all">All Types</mat-option>
+        <mat-option value="annual">Annual Exam</mat-option>
+        <mat-option value="mid_term">Mid-Term Exam</mat-option>
+        <mat-option value="monthly">Monthly Test</mat-option>
+        <mat-option value="weekly_test">Weekly Test</mat-option>
+        <mat-option value="re_exam">Re-Exam / Supplementary</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Exams List Grid -->
+  <div class="exams-grid" *ngIf="filteredExams$ | async as exams">
+    <div class="empty-state" *ngIf="exams.length === 0">
+      <mat-icon>assignment_late</mat-icon>
+      <h3>No Exams Found</h3>
+      <p>No exams match your search criteria. Click "Create New Exam" to schedule your first examination.</p>
+    </div>
+
+    <mat-card class="exam-card" *ngFor="let exam of exams">
+      <mat-card-header>
+        <div mat-card-avatar class="exam-avatar">
+          <mat-icon>school</mat-icon>
+        </div>
+        <mat-card-title>{{ exam.title }}</mat-card-title>
+        <mat-card-subtitle>
+          Academic Year: <strong>{{ exam.academicYear }}</strong> | Type: <strong>{{ exam.examType | uppercase }}</strong>
+        </mat-card-subtitle>
+        <span class="status-badge" [ngClass]="getStatusBadgeClass(exam.status)">
+          {{ exam.status | uppercase }}
+        </span>
+      </mat-card-header>
+
+      <mat-card-content class="card-body">
+        <div class="info-row">
+          <mat-icon>calendar_today</mat-icon>
+          <span>Dates: <strong>{{ exam.startDate }}</strong> to <strong>{{ exam.endDate }}</strong></span>
+        </div>
+
+        <div class="info-row" *ngIf="exam.targetStage">
+          <mat-icon>layers</mat-icon>
+          <span>Stage: <strong>{{ exam.targetStage }}</strong></span>
+        </div>
+
+        <div class="info-row" *ngIf="exam.targetClassNames?.length">
+          <mat-icon>groups</mat-icon>
+          <span>Classes: <strong>{{ exam.targetClassNames?.join(', ') }}</strong></span>
+        </div>
+
+        <div class="info-row" *ngIf="exam.schedules?.length">
+          <mat-icon>menu_book</mat-icon>
+          <span>Scheduled Papers: <strong>{{ exam.schedules?.length }} Subject(s)</strong></span>
+        </div>
+      </mat-card-content>
+
+      <mat-divider></mat-divider>
+
+      <mat-card-actions class="card-actions">
+        <button mat-button color="primary" (click)="openExamDialog(exam)" title="Edit Exam & Timetable">
+          <mat-icon>edit</mat-icon> Edit Schedule
+        </button>
+
+        <button mat-button color="accent" (click)="openMarksDialog(exam)" title="Attendance & Marks Entry">
+          <mat-icon>fact_check</mat-icon> Attendance & Marks
+        </button>
+
+        <button mat-button color="warn" (click)="openReExamDialog(exam)" title="Re-Exam & Candidates">
+          <mat-icon>published_with_changes</mat-icon> Re-Exam
+        </button>
+
+        <button mat-button (click)="openReportsDialog(exam)" title="Progress Cards & Tabulation Sheet">
+          <mat-icon>analytics</mat-icon> Reports
+        </button>
+
+        <button mat-icon-button [matMenuTriggerFor]="menu" title="More Actions">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+
+        <mat-menu #menu="matMenu">
+          <button mat-menu-item (click)="updateStatus(exam, 'scheduled')">
+            <mat-icon>schedule</mat-icon> Mark Scheduled
+          </button>
+          <button mat-menu-item (click)="updateStatus(exam, 'in_progress')">
+            <mat-icon>play_circle</mat-icon> Mark In Progress
+          </button>
+          <button mat-menu-item (click)="updateStatus(exam, 'evaluating')">
+            <mat-icon>rate_review</mat-icon> Mark Evaluating
+          </button>
+          <button mat-menu-item (click)="updateStatus(exam, 'published')">
+            <mat-icon>check_circle</mat-icon> Publish Results
+          </button>
+          <button mat-menu-item (click)="updateStatus(exam, 'cancelled')">
+            <mat-icon>cancel</mat-icon> Mark Cancelled
+          </button>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="deleteExam(exam)" class="text-danger">
+            <mat-icon color="warn">delete</mat-icon> Delete Exam
+          </button>
+        </mat-menu>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>

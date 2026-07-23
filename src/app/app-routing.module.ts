@@ -28,6 +28,13 @@ import { FirebaseUsagePage } from './pages/firebase-usage/firebase-usage.page';
 
 import { StageHeadsPage } from './pages/stage-heads/stage-heads.page';
 import { QuranPage } from './pages/quran/quran.page';
+import { ExternalActivitiesPage } from './pages/external-activities/external-activities.page';
+import { StudyTimePage } from './pages/study-time/study-time.page';
+import { HostelsPage } from './pages/hostels/hostels.page';
+import { AlumniPage } from './pages/alumni/alumni.page';
+import { ExamsPage } from './pages/exams/exams.page';
+import { CompetitionsPage } from './pages/competitions/competitions.page';
+import { AnnouncementsPage } from './pages/announcements/announcements.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -36,6 +43,7 @@ const routes: Routes = [
   { path: 'dashboard', component: DashboardPage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewDashboard' } },
   { path: 'quran', component: QuranPage, canActivate: [authGuard] },
   { path: 'my-assignments', component: MyAssignmentsPage, canActivate: [authGuard] },
+  { path: 'announcements', component: AnnouncementsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewAnnouncements', 'manageAnnouncements'] } },
   { path: 'organizations', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'organizations', permission: 'manageOrganizations', roleRequired: 'superAdmin' } },
   { path: 'madrasas', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'madrasas', permission: 'manageMadrasas' } },
   { path: 'users', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'users', permission: 'manageUsers' } },
@@ -46,6 +54,9 @@ const routes: Routes = [
   { path: 'staff', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'staff', permissionsAny: ['manageStaff', 'viewDashboard'] } },
   { path: 'students', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'students', permissionsAny: ['manageStudents', 'viewDashboard'] } },
   { path: 'parents', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'parents', permission: 'manageParents' } },
+  { path: 'alumni', component: AlumniPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewAlumni', 'manageAlumni'] } },
+  { path: 'exams', component: ExamsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewExams', 'manageExams'] } },
+  { path: 'competitions', component: CompetitionsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewCompetitions', 'manageCompetitions'] } },
   { path: 'courses', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courses', permission: 'manageCourses' } },
   { path: 'course-types', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courseTypes', permission: 'manageCourses' } },
   { path: 'stages', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'stages', permission: 'manageCourses' } },
@@ -53,7 +64,15 @@ const routes: Routes = [
   { path: 'classGroups', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classGroups', permission: 'manageClasses' } },
   { path: 'subjects', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'subjects', permission: 'manageSubjects' } },
   { path: 'class-plans', component: ClassPlansPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] } },
+  { path: 'study-time', component: StudyTimePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewStudyTime', 'manageStudyTime', 'recordStudyTimeAttendance'] } },
   { path: 'attendance', component: AttendancePage, canActivate: [authGuard, permissionGuard], data: { permission: ['takeAttendance', 'viewAttendance'] } },
+  { path: 'external-activities', component: ExternalActivitiesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewExternalActivities', 'manageExternalActivities'] } },
+  { path: 'hostels', component: HostelsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewHostels', 'manageHostels'] } },
+  { path: 'fees', component: FeesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageFees', 'viewFees'] } },
+  { path: 'events', component: EventsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewEvents', 'manageEvents'] } },
+  { path: 'issues', component: IssuesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewIssues', 'reportIssues', 'manageIssues'] } },
+  { path: 'properties', component: PropertiesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewProperties', 'manageProperties'] } },
+  { path: 'property-categories', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'propertyCategories', permission: 'manageProperties' } },
   { path: 'reports', component: ReportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'generateReports' } },
   { path: 'activity-logs', component: ActivityLogsPage, canActivate: [authGuard] },
   { path: 'csv-imports', component: CsvImportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'importCsv' } },
@@ -63,11 +82,6 @@ const routes: Routes = [
   { path: 'profile', component: ProfilePage, canActivate: [authGuard, permissionGuard], data: { permission: 'editProfile' } },
   { path: 'settings', component: SettingsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageSettings' } },
   { path: 'password-requests', component: PasswordRequestsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePasswordRequests' } },
-  { path: 'fees', component: FeesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageFees', 'viewFees'] } },
-  { path: 'events', component: EventsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewEvents', 'manageEvents'] } },
-  { path: 'issues', component: IssuesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewIssues', 'reportIssues', 'manageIssues'] } },
-  { path: 'properties', component: PropertiesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewProperties', 'manageProperties'] } },
-  { path: 'property-categories', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'propertyCategories', permission: 'manageProperties' } },
   { path: 'lifecycle', component: LifecyclePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] } },
   { path: 'firebase-usage', component: FirebaseUsagePage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewFirebaseUsage', roleRequired: 'superAdmin' } },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },

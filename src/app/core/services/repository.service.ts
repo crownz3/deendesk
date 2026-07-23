@@ -28,7 +28,7 @@ import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 import { FirebaseUsageTrackerService } from './firebase-usage-tracker.service';
 
-export type EntityRecord = Record<string, unknown> & ScopedEntity;
+export type EntityRecord = ScopedEntity & Record<string, any>;
 
 @Injectable({ providedIn: 'root' })
 export class RepositoryService {
@@ -95,7 +95,7 @@ export class RepositoryService {
     }).join(';');
   }
 
-  list<T extends EntityRecord>(collectionName: string, user: AppUser | null, extra: QueryConstraint[] = [], options?: { roles?: string[] }): Observable<T[]> {
+  list<T extends EntityRecord = EntityRecord>(collectionName: string, user: AppUser | null, extra: QueryConstraint[] = [], options?: { roles?: string[] }): Observable<T[]> {
     const rolesKey = options?.roles ? options.roles.slice().sort().join(',') : '';
     const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${user?.role || ''}_${rolesKey}_${this.stringifyConstraints(extra)}`;
 
@@ -264,7 +264,7 @@ export class RepositoryService {
     return undefined;
   }
 
-  async create<T extends EntityRecord>(collectionName: string, data: T, currentUser: AppUser | null, id?: string, skipAudit?: boolean): Promise<string> {
+  async create<T extends EntityRecord = EntityRecord>(collectionName: string, data: Partial<T> | Record<string, any>, currentUser: AppUser | null, id?: string, skipAudit?: boolean): Promise<string> {
     console.log(`[Firestore Write - CREATE] userUid=${currentUser?.uid}, role=${currentUser?.role}, orgId=${currentUser?.organizationId}, permissions=${currentUser?.permissions?.join(',')}, collection=${collectionName}, targetId=${id || 'auto'}, payload=`, data);
 
     const normalizedData = this.stripDirectStaffAssignmentFields(
@@ -361,7 +361,7 @@ export class RepositoryService {
     }
   }
 
-  get<T extends EntityRecord>(collectionName: string, id: string): Observable<T> {
+  get<T extends EntityRecord = EntityRecord>(collectionName: string, id: string): Observable<T> {
     const docRef = doc(this.firestore, `${collectionName}/${id}`);
     return new Observable<T>((subscriber) => {
       return onSnapshot(docRef, (snapshot) => {
@@ -376,7 +376,7 @@ export class RepositoryService {
     });
   }
 
-  async update<T extends EntityRecord>(collectionName: string, id: string, data: Partial<T>, currentUser: AppUser | null, skipAudit?: boolean): Promise<void> {
+  async update<T extends EntityRecord = EntityRecord>(collectionName: string, id: string, data: Partial<T> | Record<string, any>, currentUser: AppUser | null, skipAudit?: boolean): Promise<void> {
     console.log(`[Firestore Write - UPDATE] userUid=${currentUser?.uid}, role=${currentUser?.role}, collection=${collectionName}, targetId=${id}, payload=`, data);
     
     const normalizedData = this.stripDirectStaffAssignmentFields(

@@ -78,7 +78,30 @@ export type PermissionKey =
   | 'generatePropertyReports'
   | 'generateLifecycleReports'
   | 'viewFirebaseUsage'
-  | 'manageFirebaseUsage';
+  | 'manageFirebaseUsage'
+  | 'manageExternalActivities'
+  | 'viewExternalActivities'
+  | 'manageStudyTime'
+  | 'viewStudyTime'
+  | 'recordStudyTimeAttendance'
+  | 'manageHostels'
+  | 'viewHostels'
+  | 'assignHostelRooms'
+  | 'manageAlumni'
+  | 'viewAlumni'
+  | 'manageExams'
+  | 'viewExams'
+  | 'recordExamAttendance'
+  | 'enterExamMarks'
+  | 'manageReExams'
+  | 'generateExamReports'
+  | 'manageCompetitions'
+  | 'viewCompetitions'
+  | 'manageCompetitionPrizes'
+  | 'manageCompetitionExpenses'
+  | 'generateCompetitionReports'
+  | 'manageAnnouncements'
+  | 'viewAnnouncements';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'leave';
 
@@ -96,8 +119,7 @@ export interface ScopedEntity extends AuditFields {
   status?: EntityStatus | AttendanceStatus | string;
 }
 
-export interface AppUser extends AuditFields {
-  id?: string;
+export interface AppUser extends ScopedEntity {
   uid: string;
   email: string;
   displayName: string;
@@ -262,7 +284,8 @@ export interface NotificationItem extends ScopedEntity {
   | 'csvImport'
   | 'profile'
   | 'staffAssignment'
-  | 'event';
+  | 'event'
+  | 'announcement';
   recipientUserIds: string[];
   recipientRole?: UserRole;
   relatedRequestId?: string;
@@ -1342,6 +1365,10 @@ export type AppModuleId =
   | 'properties'
   | 'lifecycle'
   | 'class-plans'
+  | 'external-activities'
+  | 'study-time'
+  | 'hostels'
+  | 'alumni'
   | 'management'
   | 'system';
 
@@ -1383,4 +1410,371 @@ export interface OrganizationQuotaAlert {
   monthlyCostLimitUsd: number;
   alertEmail?: string;
 }
+
+// ==========================================
+// External Activities
+// ==========================================
+export type ExternalActivityType =
+  | 'imam'
+  | 'outside_ustadh'
+  | 'inside_madrasa_service'
+  | 'part_time_work'
+  | 'community_service'
+  | 'other';
+
+export type ExternalActivityStatus = 'active' | 'completed' | 'on_hold' | 'cancelled';
+
+export interface ExternalActivity extends ScopedEntity {
+  personId: string;
+  personType: 'student' | 'staff';
+  personName: string;
+  personRollOrEmpId?: string;
+  activityType: ExternalActivityType;
+  title: string; // e.g. "Juma Khateeb & Lead Imam", "Maktab Evening Teacher"
+  organizationName: string; // e.g. "Masjid Al-Noor"
+  location?: string;
+  timingDetails?: string; // e.g. "Fridays 12:00-2:30 PM"
+  startDate: string; // YYYY-MM-DD
+  endDate?: string;
+  activityStatus: ExternalActivityStatus;
+  supervisorName?: string;
+  supervisorPhone?: string;
+  isApproved: boolean; // default true (auto-approval)
+  stipendOrAllowance?: string;
+  notes?: string;
+}
+
+// ==========================================
+// Study Time (Mutala'a) Management
+// ==========================================
+export type StudySessionType = 'morning' | 'evening' | 'night' | 'weekend' | 'exam_prep';
+export type StudyDutyType = 'single_staff' | 'turn_duty_roster';
+
+export interface DutyRosterSlot {
+  date: string; // YYYY-MM-DD
+  staffId: string;
+  staffName: string;
+}
+
+export interface StudyTimeSchedule extends ScopedEntity {
+  title: string; // e.g. "Night Mutala'a - Hifz Section"
+  sessionType: StudySessionType;
+  startTime: string; // e.g. "20:00"
+  endTime: string; // e.g. "21:30"
+  daysOfWeek: string[]; // ['Mon', 'Tue', ...]
+  venue: string; // e.g. "Main Prayer Hall"
+  targetClassIds?: string[];
+  dutyType: StudyDutyType;
+  assignedStaffIds: string[]; // Primary staff or pool of staff members for turn duty
+  dutyRoster?: DutyRosterSlot[];
+  status: 'active' | 'inactive';
+  notes?: string;
+}
+
+export interface StudyTimeLog extends ScopedEntity {
+  studyTimeScheduleId: string;
+  scheduleTitle?: string;
+  date: string; // YYYY-MM-DD
+  onDutyStaffId: string;
+  onDutyStaffName: string;
+  substituteStaffId?: string;
+  substituteStaffName?: string;
+  status: 'conducted' | 'cancelled' | 'substituted';
+  presentStudentIds: string[];
+  absentStudentIds: string[];
+  totalPresent?: number;
+  totalAbsent?: number;
+  supervisionNotes?: string;
+}
+
+// ==========================================
+// Hostel & Asset Management
+// ==========================================
+export type RoomType = 'single' | 'double' | 'group' | 'dormitory';
+export type HostelAssetCategory = 'furniture' | 'appliance' | 'utility' | 'fixture' | 'key' | 'other';
+export type AssetCondition = 'excellent' | 'good' | 'fair' | 'needs_repair' | 'damaged' | 'missing';
+
+export interface HostelOccupant {
+  personId: string;
+  personType: 'student' | 'staff';
+  personName: string;
+  bedNumber?: string;
+  checkInDate: string; // YYYY-MM-DD
+}
+
+export interface Hostel extends ScopedEntity {
+  hostelName: string; // e.g. "Block A - Hifz Hostel"
+  genderScope: 'male' | 'female' | 'staff';
+  wardenStaffId?: string;
+  wardenName?: string;
+  totalRooms: number;
+  totalCapacity: number;
+  address?: string;
+  description?: string;
+  status: 'active' | 'under_maintenance';
+}
+
+export interface HostelRoom extends ScopedEntity {
+  hostelId: string;
+  hostelName?: string;
+  roomNumber: string; // e.g. "101"
+  floor: number;
+  roomType: RoomType;
+  maxCapacity: number;
+  currentOccupancy: number;
+  occupants: HostelOccupant[];
+  roomFeeOptional?: number; // Optional reference monthly fee (can be 0 or free)
+  status: 'available' | 'full' | 'under_maintenance';
+}
+
+export interface HostelAsset extends ScopedEntity {
+  hostelId: string;
+  hostelName?: string;
+  roomId?: string; // Optional if room specific, empty if hostel common asset
+  roomNumber?: string;
+  assetScope: 'room' | 'hostel_common';
+  assetName: string; // e.g. "Single Wooden Bed", "Split AC"
+  assetCategory: HostelAssetCategory;
+  serialNumberTag?: string;
+  quantity: number;
+  condition: AssetCondition;
+  assignedToPersonId?: string;
+  assignedToPersonName?: string;
+  notes?: string;
+}
+
+// ==========================================
+// Alumni & Former Staff Records
+// ==========================================
+export type GraduationStatus = 'hifz_completed' | 'aalim_graduated' | 'passed_out' | 'discontinued' | 'transferred';
+export type StaffLeavingReason = 'tenure_completed' | 'resigned' | 'retired' | 'transferred' | 'other';
+
+export interface AlumniRecord extends ScopedEntity {
+  personType: 'student' | 'staff';
+  originalUserId?: string;
+  name: string;
+  gender: 'male' | 'female';
+  contactNumber?: string;
+  email?: string;
+  rollNumberOrEmpId?: string;
+  // Student Specific
+  passedOutYear?: string; // e.g. "2024"
+  graduationStatus?: GraduationStatus;
+  lastCourse?: string;
+  lastClass?: string;
+  // Staff Specific
+  designation?: string;
+  workStartDate?: string;
+  workEndDate?: string;
+  leavingReason?: StaffLeavingReason;
+  // Current details
+  currentOccupation?: string; // e.g. "Imam at UK Mosque", "Higher Education"
+  currentAddress?: string;
+  currentCity?: string;
+  currentCountry?: string;
+  whatsappNumber?: string;
+  notes?: string;
+}
+
+// ==========================================
+// Exam & Re-Exam Lifecycle Module
+// ==========================================
+export type ExamStatus = 'draft' | 'scheduled' | 'in_progress' | 'evaluating' | 'published' | 'completed' | 'cancelled';
+export type ScheduleStatus = 'scheduled' | 'preponed' | 'postponed' | 'rescheduled' | 'cancelled';
+export type ExamType = 'annual' | 'mid_term' | 'monthly' | 'weekly_test' | 'admission' | 're_exam';
+
+export interface ExamScheduleItem {
+  id: string;
+  subjectId?: string;
+  subjectName: string;
+  examDate: string; // YYYY-MM-DD
+  startTime: string; // HH:mm
+  endTime: string; // HH:mm
+  maxMarks: number;
+  passMarks: number;
+  hallOrRoom?: string;
+  supervisorId?: string;
+  supervisorName?: string;
+  scheduleStatus: ScheduleStatus;
+  rescheduleReason?: string;
+  originalDate?: string;
+}
+
+export interface Exam extends ScopedEntity {
+  title: string;
+  academicYear: string;
+  examType: ExamType;
+  startDate: string;
+  endDate: string;
+  targetCourseId?: string;
+  targetCourseName?: string;
+  targetClassNames?: string[];
+  targetStage?: string;
+  genderScope?: 'all' | 'male' | 'female';
+  status: ExamStatus;
+  schedules?: ExamScheduleItem[];
+  instructions?: string;
+  isReExam?: boolean;
+  originalExamId?: string;
+}
+
+export interface ExamPaperAttendance extends ScopedEntity {
+  examId: string;
+  scheduleItemId: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className?: string;
+  status: AttendanceStatus;
+  remarks?: string;
+}
+
+export interface ExamStudentMark extends ScopedEntity {
+  examId: string;
+  scheduleItemId: string;
+  subjectId?: string;
+  subjectName: string;
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className?: string;
+  writtenMarksObtained?: number;
+  oralMarksObtained?: number;
+  totalMarksObtained: number;
+  maxMarks: number;
+  passMarks: number;
+  isPassed: boolean;
+  isAbsent?: boolean;
+  graceMarks?: number;
+  remarks?: string;
+}
+
+export interface ExamStudentResultSummary {
+  studentId: string;
+  studentName: string;
+  rollNumber?: string;
+  className?: string;
+  totalObtainedMarks: number;
+  totalMaxMarks: number;
+  percentage: number;
+  grade: string;
+  overallPassed: boolean;
+  rank?: number;
+  subjectMarks: ExamStudentMark[];
+  eligibleForReExam?: boolean;
+  failedSubjects?: string[];
+}
+
+export interface ReExamCandidate extends ScopedEntity {
+  originalExamId: string;
+  originalExamTitle: string;
+  studentId: string;
+  studentName: string;
+  className?: string;
+  failedSubjectIds?: string[];
+  failedSubjectNames: string[];
+  reExamStatus: 'pending' | 'scheduled' | 'completed' | 'waived';
+  notes?: string;
+}
+
+// ==========================================
+// Competition & Prize Management Module
+// ==========================================
+export type CompetitionStatus = 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
+export type PrizeCategory = '1st_prize' | '2nd_prize' | '3rd_prize' | 'runner_up' | 'consolation' | 'participation';
+
+export interface CompetitionPrize {
+  id: string;
+  category: PrizeCategory;
+  title: string;
+  giftItemName: string;
+  giftQuantity?: number;
+  cashAmount?: number;
+  trophyName?: string;
+  winnerStudentId?: string;
+  winnerStudentName?: string;
+  winnerClassName?: string;
+  winnerTeamName?: string;
+  remarks?: string;
+}
+
+export interface CompetitionParticipant extends ScopedEntity {
+  competitionId: string;
+  studentId: string;
+  studentName: string;
+  className?: string;
+  gender?: 'male' | 'female';
+  teamOrHouseName?: string;
+  registrationDate?: string;
+  checkInStatus: 'registered' | 'present' | 'performed' | 'absent';
+  scoreOrPoints?: number;
+  judgeRemarks?: string;
+  receivedParticipationGift?: boolean;
+}
+
+export interface CompetitionExpense extends ScopedEntity {
+  competitionId: string;
+  expenseCategory: 'sound_stage' | 'trophies_prizes' | 'gifts_certificates' | 'refreshments_food' | 'guest_honorarium' | 'printing' | 'miscellaneous';
+  description: string;
+  amount: number;
+  vendorName?: string;
+  paymentMode?: string;
+  receiptNumber?: string;
+  expenseDate: string;
+}
+
+export interface Competition extends ScopedEntity {
+  title: string;
+  category: string;
+  eventDate: string;
+  startTime: string;
+  endTime: string;
+  venue: string;
+  targetAudience: string;
+  genderScope?: 'all' | 'male' | 'female';
+  status: CompetitionStatus;
+  allocatedBudget: number;
+  totalActualExpense?: number;
+  judges?: string[];
+  coordinators?: string[];
+  instructions?: string;
+  prizes?: CompetitionPrize[];
+}
+
+// ==========================================
+// Announcement Management Module
+// ==========================================
+export type AnnouncementTargetScope =
+  | 'all_org'
+  | 'specific_madrasa'
+  | 'staff_only'
+  | 'coordinators_only'
+  | 'incharges_only'
+  | 'stage_heads_only'
+  | 'students_only'
+  | 'parents_only'
+  | 'custom_roles';
+
+export type AnnouncementPriority = 'normal' | 'important' | 'urgent';
+
+export interface Announcement extends ScopedEntity {
+  title: string;
+  content: string;
+  targetScope: AnnouncementTargetScope;
+  targetMadrasaIds?: string[];
+  targetMadrasaNames?: string[];
+  targetRoles?: UserRole[];
+  priority: AnnouncementPriority;
+  publishDate?: string;
+  expiryDate?: string;
+  isPublished: boolean;
+  publishedAt?: unknown;
+  publishedBy?: string;
+  publishedByName?: string;
+  attachmentUrl?: string;
+  pinned?: boolean;
+}
+
+
+
 

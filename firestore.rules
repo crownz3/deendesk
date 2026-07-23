@@ -968,6 +968,105 @@ service cloud.firestore {
       allow delete: if isSuper();
     }
 
+    match /externalActivities/{id} {
+      allow read: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('viewExternalActivities') || hasPermission('manageExternalActivities'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageExternalActivities'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageExternalActivities'));
+    }
+
+    match /studyTimeSchedules/{id} {
+      allow read: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('viewStudyTime') || hasPermission('manageStudyTime'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageStudyTime'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageStudyTime'));
+    }
+
+    match /studyTimeLogs/{id} {
+      allow read: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('viewStudyTime') || hasPermission('recordStudyTimeAttendance'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageStudyTime') || hasPermission('recordStudyTimeAttendance'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageStudyTime') || hasPermission('recordStudyTimeAttendance'));
+    }
+
+    match /hostels/{id} {
+      allow read: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('viewHostels') || hasPermission('manageHostels'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageHostels'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageHostels'));
+    }
+
+    match /hostelRooms/{id} {
+      allow read: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('viewHostels') || hasPermission('manageHostels'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageHostels'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageHostels') || hasPermission('assignHostelRooms'));
+    }
+
+    match /hostelAssets/{id} {
+      allow read: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('viewHostels') || hasPermission('manageHostels'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageHostels'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageHostels'));
+    }
+
+    match /alumniRecords/{id} {
+      allow read: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('viewAlumni') || hasPermission('manageAlumni'));
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageAlumni'));
+      allow update, delete: if signedIn() && sameOrg(resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageAlumni'));
+    }
+
+    // ==========================================
+    // Exams & Re-Exams Module
+    // ==========================================
+    match /exams/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewExams') || hasPermission('manageExams'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageExams'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || hasPermission('manageExams'))));
+    }
+
+    match /examAttendance/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewExams') || hasPermission('recordExamAttendance'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageExams') || hasPermission('recordExamAttendance'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || hasPermission('manageExams') || hasPermission('recordExamAttendance'))));
+    }
+
+    match /examMarks/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewExams') || hasPermission('enterExamMarks'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageExams') || hasPermission('enterExamMarks'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || hasPermission('manageExams') || hasPermission('enterExamMarks'))));
+    }
+
+    match /reExams/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewExams') || hasPermission('manageReExams'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageExams') || hasPermission('manageReExams'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || hasPermission('manageExams') || hasPermission('manageReExams'))));
+    }
+
+    // ==========================================
+    // Competitions Module
+    // ==========================================
+    match /competitions/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewCompetitions') || hasPermission('manageCompetitions'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageCompetitions'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || hasPermission('manageCompetitions'))));
+    }
+
+    match /competitionParticipants/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewCompetitions') || hasPermission('manageCompetitions'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageCompetitions') || hasPermission('manageCompetitionPrizes'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || hasPermission('manageCompetitions') || hasPermission('manageCompetitionPrizes'))));
+    }
+
+    match /competitionExpenses/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewCompetitions') || hasPermission('manageCompetitionExpenses'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || hasPermission('manageCompetitions') || hasPermission('manageCompetitionExpenses'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || hasPermission('manageCompetitions') || hasPermission('manageCompetitionExpenses'))));
+    }
+
+    // ==========================================
+    // Announcements Module
+    // ==========================================
+    match /announcements/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewAnnouncements') || hasPermission('manageAnnouncements'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageAnnouncements'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageAnnouncements'))));
+    }
+
     match /{document=**} {
       allow read, write: if isSuper();
     }

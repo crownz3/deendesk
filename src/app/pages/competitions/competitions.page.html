@@ -1,0 +1,133 @@
+<div class="competitions-container" *ngIf="profile$ | async as user">
+  <!-- Header Banner -->
+  <div class="header-banner">
+    <div class="header-info">
+      <h1><mat-icon>emoji_events</mat-icon> Competition & Prize Management</h1>
+      <p>Organize contests, track participants (who/when/where), assign 1st, 2nd, 3rd prizes, gifts, participation awards, and log event expenses.</p>
+    </div>
+    <div class="header-actions">
+      <button mat-raised-button color="accent" (click)="openCompetitionDialog()">
+        <mat-icon>add</mat-icon> Create New Competition
+      </button>
+    </div>
+  </div>
+
+  <!-- Filters & Search Bar -->
+  <div class="filters-card">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search Competitions</mat-label>
+      <input matInput [(ngModel)]="searchQuery" placeholder="Search by title, venue, category..." />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Status</mat-label>
+      <mat-select [(ngModel)]="statusFilter">
+        <mat-option value="all">All Statuses</mat-option>
+        <mat-option value="upcoming">Upcoming</mat-option>
+        <mat-option value="ongoing">Ongoing</mat-option>
+        <mat-option value="completed">Completed</mat-option>
+        <mat-option value="cancelled">Cancelled</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Category</mat-label>
+      <mat-select [(ngModel)]="categoryFilter">
+        <mat-option value="all">All Categories</mat-option>
+        <mat-option value="Quran Recitation & Qirat">Quran Recitation & Qirat</mat-option>
+        <mat-option value="Naat & Islamic Nasheed">Naat & Nasheed</mat-option>
+        <mat-option value="Islamic Speech & Debate">Islamic Speech</mat-option>
+        <mat-option value="Calligraphy & Art">Calligraphy & Art</mat-option>
+        <mat-option value="Sports & Athletics">Sports</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Competition List Grid -->
+  <div class="competitions-grid" *ngIf="filteredCompetitions$ | async as comps">
+    <div class="empty-state" *ngIf="comps.length === 0">
+      <mat-icon>stars</mat-icon>
+      <h3>No Competitions Found</h3>
+      <p>No competition events match your criteria. Click "Create New Competition" to setup your first contest.</p>
+    </div>
+
+    <mat-card class="comp-card" *ngFor="let comp of comps">
+      <mat-card-header>
+        <div mat-card-avatar class="comp-avatar">
+          <mat-icon>emoji_events</mat-icon>
+        </div>
+        <mat-card-title>{{ comp.title }}</mat-card-title>
+        <mat-card-subtitle>Category: <strong>{{ comp.category }}</strong></mat-card-subtitle>
+        <span class="status-badge" [ngClass]="getStatusBadgeClass(comp.status)">
+          {{ comp.status | uppercase }}
+        </span>
+      </mat-card-header>
+
+      <mat-card-content class="card-body">
+        <div class="info-row">
+          <mat-icon>event</mat-icon>
+          <span>When: <strong>{{ comp.eventDate }}</strong> ({{ comp.startTime }} - {{ comp.endTime }})</span>
+        </div>
+
+        <div class="info-row">
+          <mat-icon>place</mat-icon>
+          <span>Where: <strong>{{ comp.venue }}</strong></span>
+        </div>
+
+        <div class="info-row">
+          <mat-icon>people</mat-icon>
+          <span>Who: <strong>{{ comp.targetAudience }}</strong></span>
+        </div>
+
+        <div class="info-row">
+          <mat-icon>payments</mat-icon>
+          <span>Budget: <strong>₹{{ comp.allocatedBudget }}</strong> | Actual Spent: <strong>₹{{ comp.totalActualExpense || 0 }}</strong></span>
+        </div>
+      </mat-card-content>
+
+      <mat-divider></mat-divider>
+
+      <mat-card-actions class="card-actions">
+        <button mat-button color="primary" (click)="openCompetitionDialog(comp)" title="Edit Event Details & Prizes">
+          <mat-icon>edit</mat-icon> Details & Prizes
+        </button>
+
+        <button mat-button color="accent" (click)="openParticipantsDialog(comp)" title="Register Participants & Scores">
+          <mat-icon>group_add</mat-icon> Participants
+        </button>
+
+        <button mat-button color="warn" (click)="openExpensesDialog(comp)" title="Log Stage, Gifts & Event Expenses">
+          <mat-icon>receipt_long</mat-icon> Expenses
+        </button>
+
+        <button mat-button (click)="openReportsDialog(comp)" title="Winner Sheets & Financial Reports">
+          <mat-icon>summarize</mat-icon> Reports
+        </button>
+
+        <button mat-icon-button [matMenuTriggerFor]="menu" title="Status Actions">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+
+        <mat-menu #menu="matMenu">
+          <button mat-menu-item (click)="updateStatus(comp, 'upcoming')">
+            <mat-icon>schedule</mat-icon> Mark Upcoming
+          </button>
+          <button mat-menu-item (click)="updateStatus(comp, 'ongoing')">
+            <mat-icon>play_circle</mat-icon> Mark Ongoing
+          </button>
+          <button mat-menu-item (click)="updateStatus(comp, 'completed')">
+            <mat-icon>check_circle</mat-icon> Mark Completed
+          </button>
+          <button mat-menu-item (click)="updateStatus(comp, 'cancelled')">
+            <mat-icon>cancel</mat-icon> Mark Cancelled
+          </button>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="deleteCompetition(comp)" class="text-danger">
+            <mat-icon color="warn">delete</mat-icon> Delete Competition
+          </button>
+        </mat-menu>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>

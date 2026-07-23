@@ -139,6 +139,35 @@ import { StageHeadDialogComponent } from './pages/stage-heads/stage-head-dialog.
 import { QuranPage } from './pages/quran/quran.page';
 import { ReciterSelectDialogComponent } from './pages/quran/reciter-select-dialog.component';
 
+import { ExternalActivitiesPage } from './pages/external-activities/external-activities.page';
+import { ExternalActivityFormDialogComponent } from './pages/external-activities/external-activity-form-dialog.component';
+import { StudyTimePage } from './pages/study-time/study-time.page';
+import { StudyTimeScheduleDialogComponent } from './pages/study-time/study-time-schedule-dialog.component';
+import { StudyTimeLogDialogComponent } from './pages/study-time/study-time-log-dialog.component';
+import { HostelsPage } from './pages/hostels/hostels.page';
+import { HostelFormDialogComponent } from './pages/hostels/hostel-form-dialog.component';
+import { HostelRoomDialogComponent } from './pages/hostels/hostel-room-dialog.component';
+import { RoomAssignDialogComponent } from './pages/hostels/room-assign-dialog.component';
+import { HostelAssetDialogComponent } from './pages/hostels/hostel-asset-dialog.component';
+import { AlumniPage } from './pages/alumni/alumni.page';
+import { AlumniFormDialogComponent } from './pages/alumni/alumni-form-dialog.component';
+
+import { ExamsPage } from './pages/exams/exams.page';
+import { ExamDialogComponent } from './pages/exams/exam-dialog.component';
+import { ExamMarksDialogComponent } from './pages/exams/exam-marks-dialog.component';
+import { ReExamDialogComponent } from './pages/exams/re-exam-dialog.component';
+import { ExamReportsDialogComponent } from './pages/exams/exam-reports-dialog.component';
+
+import { CompetitionsPage } from './pages/competitions/competitions.page';
+import { CompetitionDialogComponent } from './pages/competitions/competition-dialog.component';
+import { CompetitionParticipantsDialogComponent } from './pages/competitions/competition-participants-dialog.component';
+import { CompetitionExpensesDialogComponent } from './pages/competitions/competition-expenses-dialog.component';
+import { CompetitionReportsDialogComponent } from './pages/competitions/competition-reports-dialog.component';
+
+import { AnnouncementsPage } from './pages/announcements/announcements.page';
+import { AnnouncementDialogComponent } from './pages/announcements/announcement-dialog.component';
+import { AnnouncementDetailsDialogComponent } from './pages/announcements/announcement-details-dialog.component';
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -239,6 +268,31 @@ import { ReciterSelectDialogComponent } from './pages/quran/reciter-select-dialo
     UserArchiveDialogComponent,
     SubmitRejoinDialogComponent,
     RejoinReviewDialogComponent,
+    ExternalActivitiesPage,
+    ExternalActivityFormDialogComponent,
+    StudyTimePage,
+    StudyTimeScheduleDialogComponent,
+    StudyTimeLogDialogComponent,
+    HostelsPage,
+    HostelFormDialogComponent,
+    HostelRoomDialogComponent,
+    RoomAssignDialogComponent,
+    HostelAssetDialogComponent,
+    AlumniPage,
+    AlumniFormDialogComponent,
+    ExamsPage,
+    ExamDialogComponent,
+    ExamMarksDialogComponent,
+    ReExamDialogComponent,
+    ExamReportsDialogComponent,
+    CompetitionsPage,
+    CompetitionDialogComponent,
+    CompetitionParticipantsDialogComponent,
+    CompetitionExpensesDialogComponent,
+    CompetitionReportsDialogComponent,
+    AnnouncementsPage,
+    AnnouncementDialogComponent,
+    AnnouncementDetailsDialogComponent,
   ],
   imports: [
     BrowserModule,

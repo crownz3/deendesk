@@ -1,0 +1,179 @@
+<ion-content class="page-container">
+  <div class="content-wrapper" *ngIf="profile$ | async as profile">
+    
+    <!-- Top Action Header -->
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">External Activity Tracking</h1>
+        <p class="page-subtitle">Manage mosque Imam roles, outside teaching, inside madrasa services & extra duties.</p>
+      </div>
+      <button mat-raised-button color="primary" class="add-btn" (click)="openAddDialog(profile)">
+        <ion-icon name="add-outline" slot="start"></ion-icon>
+        Add External Activity
+      </button>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="stats-grid" *ngIf="stats$ | async as stats">
+      <div class="stat-card">
+        <div class="stat-icon bg-blue">
+          <ion-icon name="briefcase-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.total }}</span>
+          <span class="stat-label">Total Activities</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-emerald">
+          <ion-icon name="body-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.imamCount }}</span>
+          <span class="stat-label">Mosque Imams</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-purple">
+          <ion-icon name="school-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.ustadhCount }}</span>
+          <span class="stat-label">Outside Ustadhs</span>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon bg-amber">
+          <ion-icon name="fitness-outline"></ion-icon>
+        </div>
+        <div class="stat-info">
+          <span class="stat-value">{{ stats.serviceCount }}</span>
+          <span class="stat-label">Inside Services</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filters Section -->
+    <mat-card class="filter-card">
+      <div class="filter-row">
+        <mat-form-field appearance="outline" class="search-field">
+          <mat-label>Search activities or names...</mat-label>
+          <input matInput [(ngModel)]="searchQuery" placeholder="Filter by person, title, or mosque..." />
+          <ion-icon matPrefix name="search-outline" class="search-icon"></ion-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Person Type</mat-label>
+          <mat-select [(ngModel)]="personTypeFilter">
+            <mat-option value="all">All People</mat-option>
+            <mat-option value="student">Students</mat-option>
+            <mat-option value="staff">Staff / Teachers</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Activity Category</mat-label>
+          <mat-select [(ngModel)]="typeFilter">
+            <mat-option value="all">All Categories</mat-option>
+            <mat-option value="imam">Imam at Mosque</mat-option>
+            <mat-option value="outside_ustadh">Outside Ustadh</mat-option>
+            <mat-option value="inside_madrasa_service">Inside Madrasa Service</mat-option>
+            <mat-option value="part_time_work">Part-time Work</mat-option>
+            <mat-option value="community_service">Community / Dawah</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="filter-field">
+          <mat-label>Status</mat-label>
+          <mat-select [(ngModel)]="statusFilter">
+            <mat-option value="all">All Statuses</mat-option>
+            <mat-option value="active">Active</mat-option>
+            <mat-option value="completed">Completed</mat-option>
+            <mat-option value="on_hold">On Hold</mat-option>
+            <mat-option value="cancelled">Cancelled</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </mat-card>
+
+    <!-- Data Table / List -->
+    <mat-card class="table-card">
+      <div class="table-container" *ngIf="filteredActivities$ | async as items">
+        
+        <table class="data-table" *ngIf="items.length > 0; else emptyState">
+          <thead>
+            <tr>
+              <th>Person</th>
+              <th>Role & Category</th>
+              <th>Mosque / Workplace</th>
+              <th>Timing & Days</th>
+              <th>Start Date</th>
+              <th>Status</th>
+              <th>Supervisor</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of items">
+              <td>
+                <div class="person-cell">
+                  <span class="person-name">{{ item.personName }}</span>
+                  <span class="badge badge-subtle">{{ item.personType | titlecase }} {{ item.personRollOrEmpId ? '(' + item.personRollOrEmpId + ')' : '' }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="title-cell">
+                  <span class="activity-title">{{ item.title }}</span>
+                  <span class="badge badge-type">{{ getActivityTypeLabel(item.activityType) }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="org-cell">
+                  <span class="org-name">{{ item.organizationName }}</span>
+                  <span class="location-text" *ngIf="item.location">{{ item.location }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="timing-text">{{ item.timingDetails || 'N/A' }}</span>
+              </td>
+              <td>{{ item.startDate }}</td>
+              <td>
+                <span class="status-badge" [ngClass]="'status-' + item.activityStatus">
+                  {{ item.activityStatus | titlecase }}
+                </span>
+              </td>
+              <td>
+                <div class="supervisor-info" *ngIf="item.supervisorName; else noSupervisor">
+                  <span>{{ item.supervisorName }}</span>
+                  <small *ngIf="item.supervisorPhone">{{ item.supervisorPhone }}</small>
+                </div>
+                <ng-template #noSupervisor><span class="text-muted">-</span></ng-template>
+              </td>
+              <td class="text-end">
+                <button mat-icon-button color="primary" (click)="openEditDialog(item, profile)" title="Edit">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="deleteActivity(item, profile)" title="Delete">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <ng-template #emptyState>
+          <div class="empty-state">
+            <ion-icon name="clipboard-outline" class="empty-icon"></ion-icon>
+            <h3>No External Activities Found</h3>
+            <p>Click "Add External Activity" to record student or staff external work and duties.</p>
+          </div>
+        </ng-template>
+
+      </div>
+    </mat-card>
+
+  </div>
+</ion-content>

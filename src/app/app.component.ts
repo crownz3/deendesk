@@ -43,6 +43,7 @@ export class AppComponent {
       label: 'Overview',
       items: [
         { label: 'Dashboard', route: '/dashboard', icon: 'grid-outline', permission: 'viewDashboard' },
+        { label: 'Announcements', route: '/announcements', icon: 'megaphone-outline', permissionsAny: ['viewAnnouncements', 'manageAnnouncements'] },
         { label: 'My Assignments', route: '/my-assignments', icon: 'calendar-number-outline' },
         { label: 'Notifications', route: '/notifications', icon: 'notifications-outline' },
         { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', permissionsAny: ['manageOrganizations'] },
@@ -67,6 +68,7 @@ export class AppComponent {
         { label: 'Staff', route: '/staff', icon: 'briefcase-outline', permission: 'manageStaff' },
         { label: 'Students', route: '/students', icon: 'person-outline', permission: 'manageStudents' },
         { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permission: 'manageParents' },
+        { label: 'Alumni Directory', route: '/alumni', icon: 'ribbon-outline', permissionsAny: ['viewAlumni', 'manageAlumni'] },
       ]
     },
     {
@@ -76,7 +78,9 @@ export class AppComponent {
         { label: 'Classes', route: '/classes', icon: 'easel-outline', permission: 'manageClasses' },
         { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permission: 'manageClasses' },
         { label: 'Subjects', route: '/subjects', icon: 'book-outline', permission: 'manageSubjects' },
+        { label: 'Exams & Re-Exams', route: '/exams', icon: 'document-text-outline', permissionsAny: ['viewExams', 'manageExams'] },
         { label: 'Class Plans', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] },
+        { label: 'Study Time (Mutala\'a)', route: '/study-time', icon: 'time-outline', permissionsAny: ['viewStudyTime', 'manageStudyTime', 'recordStudyTimeAttendance'] },
         { label: 'Academic Tree', route: '/academic-tree', icon: 'git-branch-outline', permissionsAny: ['viewDashboard', 'manageAcademicPlans'] },
       ]
     },
@@ -84,8 +88,11 @@ export class AppComponent {
       label: 'Operations',
       items: [
         { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
+        { label: 'External Activities', route: '/external-activities', icon: 'briefcase-outline', permissionsAny: ['viewExternalActivities', 'manageExternalActivities'] },
+        { label: 'Hostel Management', route: '/hostels', icon: 'bed-outline', permissionsAny: ['viewHostels', 'manageHostels'] },
         { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees', 'viewFees'] },
         { label: 'Events', route: '/events', icon: 'calendar-outline', permissionsAny: ['viewEvents', 'manageEvents'] },
+        { label: 'Competitions & Prizes', route: '/competitions', icon: 'trophy-outline', permissionsAny: ['viewCompetitions', 'manageCompetitions'] },
         { label: 'Issues', route: '/issues', icon: 'warning-outline', permissionsAny: ['viewIssues', 'reportIssues', 'manageIssues'] },
         { label: 'Properties & Assets', route: '/properties', icon: 'cube-outline', permissionsAny: ['viewProperties', 'manageProperties'] },
         { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },

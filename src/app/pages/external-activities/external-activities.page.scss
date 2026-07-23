@@ -1,0 +1,248 @@
+.page-container {
+  --background: #f8fafc;
+}
+
+.content-wrapper {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+
+  .page-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .add-btn {
+    border-radius: 8px;
+    font-weight: 600;
+  }
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e2e8f0;
+
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #fff;
+
+    &.bg-blue { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+    &.bg-emerald { background: linear-gradient(135deg, #10b981, #047857); }
+    &.bg-purple { background: linear-gradient(135deg, #8b5cf6, #6d28d9); }
+    &.bg-amber { background: linear-gradient(135deg, #f59e0b, #b45309); }
+  }
+
+  .stat-info {
+    display: flex;
+    flex-direction: column;
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .stat-label {
+      font-size: 13px;
+      color: #64748b;
+    }
+  }
+}
+
+.filter-card {
+  border-radius: 12px;
+  margin-bottom: 24px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  .filter-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    .search-field {
+      flex: 2;
+      min-width: 260px;
+    }
+
+    .filter-field {
+      flex: 1;
+      min-width: 180px;
+    }
+
+    .search-icon {
+      font-size: 20px;
+      color: #64748b;
+      margin-right: 8px;
+    }
+  }
+}
+
+.table-card {
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+
+  th {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  td {
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: 14px;
+    color: #1e293b;
+    vertical-align: middle;
+  }
+
+  tr:hover td {
+    background: #f8fafc;
+  }
+}
+
+.person-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .person-name {
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .badge-subtle {
+    font-size: 11px;
+    color: #64748b;
+  }
+}
+
+.title-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .activity-title {
+    font-weight: 600;
+  }
+
+  .badge-type {
+    background: #eff6ff;
+    color: #2563eb;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    width: fit-content;
+  }
+}
+
+.org-cell {
+  display: flex;
+  flex-direction: column;
+
+  .org-name {
+    font-weight: 500;
+  }
+
+  .location-text {
+    font-size: 12px;
+    color: #64748b;
+  }
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-block;
+
+  &.status-active { background: #dcfce7; color: #15803d; }
+  &.status-completed { background: #e0e7ff; color: #4338ca; }
+  &.status-on_hold { background: #fef3c7; color: #b45309; }
+  &.status-cancelled { background: #fee2e2; color: #b91c1c; }
+}
+
+.supervisor-info {
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+
+  small {
+    color: #64748b;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #64748b;
+
+  .empty-icon {
+    font-size: 48px;
+    color: #cbd5e1;
+    margin-bottom: 12px;
+  }
+
+  h3 {
+    font-size: 18px;
+    font-weight: 600;
+    color: #334155;
+    margin: 0 0 4px 0;
+  }
+
+  p {
+    font-size: 14px;
+    margin: 0;
+  }
+}
+
+.text-end {
+  text-align: right;
+}

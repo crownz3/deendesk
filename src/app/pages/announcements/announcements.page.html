@@ -1,0 +1,114 @@
+<div class="announcements-container" *ngIf="profile$ | async as user">
+  <!-- Header Banner -->
+  <div class="header-banner">
+    <div class="header-info">
+      <h1><mat-icon>campaign</mat-icon> Announcements & Broadcasts</h1>
+      <p>Manage organization announcements with multi-type audience targeting (Madrasas, Staff, Coordinators, Students, Parents) and immediate in-app notifications.</p>
+    </div>
+    <div class="header-actions" *ngIf="hasManagePermission(user)">
+      <button mat-raised-button color="primary" (click)="openAnnouncementDialog()">
+        <mat-icon>add</mat-icon> Create New Announcement
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="filters-card">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search Announcements</mat-label>
+      <input matInput [(ngModel)]="searchQuery" placeholder="Search by title, keyword, author..." />
+      <mat-icon matSuffix>search</mat-icon>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Target Audience</mat-label>
+      <mat-select [(ngModel)]="scopeFilter">
+        <mat-option value="all">All Audiences</mat-option>
+        <mat-option value="all_org">All Organization</mat-option>
+        <mat-option value="specific_madrasa">Particular Madrasa(s)</mat-option>
+        <mat-option value="staff_only">Staff & Teachers Only</mat-option>
+        <mat-option value="coordinators_only">Coordinators Only</mat-option>
+        <mat-option value="incharges_only">Madrasa Incharges Only</mat-option>
+        <mat-option value="stage_heads_only">Stage Heads / Leads</mat-option>
+        <mat-option value="students_only">Students Only</mat-option>
+        <mat-option value="parents_only">Parents Only</mat-option>
+        <mat-option value="custom_roles">Custom Selected Roles</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Priority Level</mat-label>
+      <mat-select [(ngModel)]="priorityFilter">
+        <mat-option value="all">All Priorities</mat-option>
+        <mat-option value="urgent">🔴 Urgent</mat-option>
+        <mat-option value="important">🟡 Important</mat-option>
+        <mat-option value="normal">🔵 Normal</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Announcement List Grid -->
+  <div class="announcements-grid" *ngIf="filteredAnnouncements$ | async as announcements">
+    <div class="empty-state" *ngIf="announcements.length === 0">
+      <mat-icon>campaign</mat-icon>
+      <h3>No Announcements Found</h3>
+      <p>No announcements match your current filters. Create an announcement to broadcast alerts to your team.</p>
+    </div>
+
+    <mat-card class="announcement-card" *ngFor="let item of announcements" [class.pinned]="item.pinned">
+      <mat-card-header>
+        <div mat-card-avatar class="announcement-avatar" [ngClass]="getPriorityBadgeClass(item.priority)">
+          <mat-icon>{{ item.priority === 'urgent' ? 'warning' : 'campaign' }}</mat-icon>
+        </div>
+        <mat-card-title>{{ item.title }}</mat-card-title>
+        <mat-card-subtitle>
+          Target: <strong>{{ announcementService.getScopeLabel(item.targetScope) }}</strong>
+          <span *ngIf="item.publishedByName"> | By: <strong>{{ item.publishedByName }}</strong></span>
+        </mat-card-subtitle>
+
+        <div class="header-badges">
+          <span class="priority-badge" [ngClass]="getPriorityBadgeClass(item.priority)">
+            {{ item.priority | uppercase }}
+          </span>
+          <span class="status-badge" [ngClass]="item.isPublished ? 'published' : 'draft'">
+            {{ item.isPublished ? 'PUBLISHED' : 'DRAFT' }}
+          </span>
+        </div>
+      </mat-card-header>
+
+      <mat-card-content class="card-body">
+        <p class="content-preview">
+          {{ item.content.length > 200 ? (item.content | slice:0:200) + '...' : item.content }}
+        </p>
+
+        <div class="meta-pills" *ngIf="item.targetMadrasaNames?.length">
+          <mat-icon>school</mat-icon>
+          <span>Madrasas: <strong>{{ item.targetMadrasaNames?.join(', ') }}</strong></span>
+        </div>
+      </mat-card-content>
+
+      <mat-divider></mat-divider>
+
+      <mat-card-actions class="card-actions">
+        <button mat-button color="primary" (click)="openDetailsDialog(item)">
+          <mat-icon>visibility</mat-icon> Read Full Announcement
+        </button>
+
+        <ng-container *ngIf="hasManagePermission(user)">
+          <button mat-button color="accent" (click)="openAnnouncementDialog(item)">
+            <mat-icon>edit</mat-icon> Edit
+          </button>
+
+          <button mat-button [color]="item.isPublished ? 'warn' : 'primary'" (click)="togglePublishStatus(item)">
+            <mat-icon>{{ item.isPublished ? 'unpublished' : 'send' }}</mat-icon>
+            {{ item.isPublished ? 'Un-Publish' : 'Publish & Broadcast' }}
+          </button>
+
+          <button mat-icon-button color="warn" (click)="deleteAnnouncement(item)" title="Delete Announcement">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </ng-container>
+      </mat-card-actions>
+    </mat-card>
+  </div>
+</div>
