@@ -53,6 +53,29 @@ export class EventDetailsDialogComponent implements OnInit {
     this.staffList = (data as any).staff || [];
   }
 
+  getEventStatus(e: any): string {
+    if (!e) return 'expired';
+    const status = (e.status || 'upcoming').toLowerCase();
+
+    if (['completed', 'cancelled', 'postponed', 'preponed'].includes(status)) {
+      return status;
+    }
+
+    const now = new Date();
+    const endDate = e.endDate?.toDate ? e.endDate.toDate() : (e.endDate ? new Date(e.endDate) : null);
+    const startDate = e.startDate?.toDate ? e.startDate.toDate() : (e.startDate ? new Date(e.startDate) : null);
+
+    const checkDate = endDate || startDate;
+
+    if (checkDate && !isNaN(checkDate.getTime())) {
+      if (checkDate < now) {
+        return 'expired';
+      }
+    }
+
+    return status;
+  }
+
   ngOnInit(): void {
     this.loadAllDetails();
   }

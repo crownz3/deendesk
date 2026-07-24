@@ -34,12 +34,73 @@
         <p class="welcome-eyebrow">Welcome back</p>
         <h2>Hi {{ vm.displayName }}, you are {{ vm.formattedRole }}!</h2>
         
-        <p *ngIf="vm.madrasaIds && vm.madrasaIds.length > 0" style="font-weight: 500; color: var(--ion-color-medium); margin-top: 4px; display: flex; align-items: center; gap: 6px; font-size: 0.95rem;">
-          <ion-icon name="school-outline" style="font-size: 1.1rem; color: var(--ion-color-primary);"></ion-icon>
-          <span *ngFor="let mId of vm.madrasaIds; let last = last">
-            {{ (resolver.resolveName(mId, 'madrasa') | async) || 'Loading Madrasa...' }}<span *ngIf="!last">, </span>
-          </span>
-        </p>
+        <!-- Assigned Class Groups & Madrasas Information -->
+        <div *ngIf="vm.assignedAssignments && vm.assignedAssignments.length > 0" class="welcome-madrasa-wrapper">
+          <div class="madrasa-summary-badge">
+            <ion-icon name="easel-outline" class="school-badge-icon"></ion-icon>
+
+            <!-- Single Assignment -->
+            <span *ngIf="vm.assignedAssignments.length === 1" class="madrasa-single-text">
+              {{ vm.assignedAssignments[0].groupName }} &bull; {{ vm.assignedAssignments[0].className }} ({{ vm.assignedAssignments[0].madrasaName }})
+            </span>
+
+            <!-- Multiple Assignments -->
+            <ng-container *ngIf="vm.assignedAssignments.length > 1">
+              <span class="madrasa-count-text">
+                {{ vm.assignedAssignments.length }} Assigned Class Groups
+              </span>
+
+              <button
+                type="button"
+                class="madrasa-info-btn"
+                [class.active]="showMadrasaDetails"
+                (click)="toggleMadrasaDetails()"
+                [title]="showMadrasaDetails ? 'Hide details' : 'Click to view assigned Course, Class, Class Group & Madrasas'"
+              >
+                <ion-icon name="information-circle-outline"></ion-icon>
+              </button>
+            </ng-container>
+          </div>
+
+          <!-- Highlighted Assignments Breakdown Box (Shown on i icon click) -->
+          <div class="highlighted-madrasas-card" *ngIf="vm.assignedAssignments.length > 1 && showMadrasaDetails">
+            <div class="highlight-card-header">
+              <ion-icon name="shield-checkmark-outline"></ion-icon>
+              <span>Your Assigned Class Groups & Madrasas ({{ vm.assignedAssignments.length }})</span>
+            </div>
+            
+            <div class="assignment-cards-grid">
+              <div class="assignment-card" *ngFor="let item of vm.assignedAssignments; let i = index">
+                <div class="assignment-card-header">
+                  <span class="badge-num">#{{ i + 1 }}</span>
+                  <span class="group-title">{{ item.groupName }}</span>
+                </div>
+                <div class="assignment-details-list">
+                  <div class="detail-row">
+                    <ion-icon name="library-outline" class="detail-icon course-icon"></ion-icon>
+                    <span class="detail-label">Course:</span>
+                    <strong class="detail-value">{{ item.courseName }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <ion-icon name="easel-outline" class="detail-icon class-icon"></ion-icon>
+                    <span class="detail-label">Class:</span>
+                    <strong class="detail-value">{{ item.className }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <ion-icon name="people-circle-outline" class="detail-icon group-icon"></ion-icon>
+                    <span class="detail-label">Class Group:</span>
+                    <strong class="detail-value">{{ item.groupName }}</strong>
+                  </div>
+                  <div class="detail-row">
+                    <ion-icon name="school-outline" class="detail-icon madrasa-icon"></ion-icon>
+                    <span class="detail-label">Assigned Madrasa:</span>
+                    <strong class="detail-value madrasa-highlight-name">{{ item.madrasaName }}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         
         <p style="margin-top: 12px;">Here is your role-based overview for today.</p>
       </div>
@@ -51,51 +112,7 @@
     </section>
 
 
-    <section class="dashboard-grid" *ngIf="vm.todaySchedule && vm.todaySchedule.length > 0" style="margin-bottom: 24px; display: block;">
-      <article class="panel">
-        <div class="panel-heading">
-          <h2>Today's Schedule</h2>
-          <span>{{ vm.todaySchedule.length }} activities</span>
-        </div>
-        <div style="display: flex; gap: 16px; overflow-x: auto; padding: 16px 0; padding-bottom: 24px;">
-          <mat-card *ngFor="let entry of vm.todaySchedule" style="min-width: 280px; padding: 0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column;">
-            <div style="background: var(--ion-color-primary, #3880ff); padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
-              <div style="font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 6px;">
-                <ion-icon name="time-outline" style="font-size: 1.2rem;"></ion-icon>
-                <span *ngIf="entry.startTime">{{ entry.startTime }} - {{ entry.endTime }}</span>
-                <span *ngIf="!entry.startTime">All Day</span>
-              </div>
-              <span *ngIf="entry.scheduleType === 'fullDay'" style="font-size: 0.75rem; background: var(--ion-color-tertiary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600;">FULL DAY</span>
-            </div>
-            
-            <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
-              <div style="font-size: 1.15rem; font-weight: 600; color: var(--ion-color-dark);">
-                {{ entry.activityName }}
-              </div>
-              
-              <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--ion-color-medium);">
-                <div *ngIf="entry.classId" style="display: flex; align-items: flex-start; gap: 8px;">
-                  <ion-icon name="people-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-secondary);"></ion-icon> 
-                  <span style="flex: 1; line-height: 1.4;">Class: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.classId, 'class') | async) || 'Loading...' }}</strong></span>
-                </div>
-                <div *ngIf="entry.subjectId" style="display: flex; align-items: flex-start; gap: 8px;">
-                  <ion-icon name="book-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-tertiary);"></ion-icon> 
-                  <span style="flex: 1; line-height: 1.4;">Subject: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.subjectId, 'subject') | async) || 'Loading...' }}</strong></span>
-                </div>
-                <div *ngIf="entry.teacherId" style="display: flex; align-items: flex-start; gap: 8px;">
-                  <ion-icon name="person-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-warning);"></ion-icon> 
-                  <span style="flex: 1; line-height: 1.4;">Teacher: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.teacherId, 'user') | async) || 'Loading...' }}</strong></span>
-                </div>
-                <div *ngIf="entry.roomId" style="display: flex; align-items: flex-start; gap: 8px;">
-                  <ion-icon name="location-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-danger);"></ion-icon> 
-                  <span style="flex: 1; line-height: 1.4;">Room: <strong style="color: var(--ion-color-dark);">{{ entry.roomId }}</strong></span>
-                </div>
-              </div>
-            </div>
-          </mat-card>
-        </div>
-      </article>
-    </section>
+
 
     <section class="access-overview" *ngIf="vm.accessOverview">
       <header class="section-header">

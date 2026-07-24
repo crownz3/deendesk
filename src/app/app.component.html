@@ -13,11 +13,16 @@
                 (ionDidClose)="onMenuDidClose()">
         <div class="menu-header">
           <div class="app-logo">
-            <img src="assets/images/deendesk-logo.png" alt="Deen Desk Logo" class="sidebar-logo-img" />
+            <img
+              [src]="logoUrl$ | async"
+              alt="App Logo"
+              class="sidebar-logo-img"
+              (error)="$any($event.target).src = 'assets/images/deendesk-logo.png'"
+            />
           </div>
           <div>
-            <h2 class="app-name">Deen Desk</h2>
-            <p class="app-subtitle">Madrasa Management</p>
+            <h2 class="app-name">{{ appName$ | async }}</h2>
+            <p class="app-subtitle">{{ subTitle$ | async }}</p>
           </div>
         </div>
         <ion-content>
@@ -58,7 +63,7 @@
                 <ion-menu-toggle auto-hide="false">
                   <ion-item class="menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
                     <ion-icon slot="start" [name]="item.icon"></ion-icon>
-                    <ion-label>{{ item.label }}</ion-label>
+                    <ion-label>{{ item.displayLabel || item.label }}</ion-label>
                   </ion-item>
                 </ion-menu-toggle>
               </ng-container>
@@ -75,9 +80,19 @@
           <ion-toolbar>
             <div class="toolbar-left" slot="start">
               <ion-menu-button class="menu-toggle" [class.ion-hide-lg-up]="(sidebarSettings.sidebarMode$ | async) === 'split'"></ion-menu-button>
-              <ion-title class="header-title">DeenDesk</ion-title>
+              <ion-title class="header-title">{{ appName$ | async }}</ion-title>
             </div>
             <div class="toolbar-actions" slot="end" *ngIf="profile$ | async as profile">
+              <button
+                *ngIf="canManageBranding(profile)"
+                class="settings-button notification-button"
+                type="button"
+                aria-label="Customize Branding & Menus"
+                title="Customize App Name, Logo & Sidenav Menus"
+                (click)="openBrandingDialog()"
+              >
+                <ion-icon name="color-palette-outline"></ion-icon>
+              </button>
               <button class="settings-button notification-button" type="button" aria-label="Settings" (click)="openSettings()">
                 <ion-icon name="settings-outline"></ion-icon>
               </button>

@@ -24,6 +24,38 @@ import { EntityRecord, RepositoryService } from './repository.service';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 
+export function computeEventStatus(e: any): string {
+  if (!e) return 'expired';
+  const status = (e.status || 'upcoming').toLowerCase();
+
+  if (['completed', 'cancelled', 'postponed', 'preponed'].includes(status)) {
+    return status;
+  }
+
+  const now = new Date();
+
+  const parseDate = (d: any): Date | null => {
+    if (!d) return null;
+    if (typeof d.toDate === 'function') return d.toDate();
+    if (d instanceof Date) return d;
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  const endDate = parseDate(e.endDate);
+  const startDate = parseDate(e.startDate);
+
+  const checkDate = endDate || startDate;
+
+  if (checkDate) {
+    if (checkDate.getTime() < now.getTime()) {
+      return 'expired';
+    }
+  }
+
+  return status;
+}
+
 @Injectable({ providedIn: 'root' })
 export class EventService {
   private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
@@ -48,7 +80,14 @@ export class EventService {
   }
 
   listEvents(user: AppUser | null, extra: QueryConstraint[] = []): Observable<EntityRecord[]> {
-    return this.repo.list<EntityRecord>('events', user, extra);
+    return this.repo.list<EntityRecord>('events', user, extra).pipe(
+      map((events) => {
+        return events.map((e) => ({
+          ...e,
+          status: computeEventStatus(e),
+        }));
+      })
+    );
   }
 
   async createEvent(payload: Partial<EventEntity>): Promise<{ eventId: string }> {

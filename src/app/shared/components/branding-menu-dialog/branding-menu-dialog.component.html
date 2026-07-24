@@ -1,0 +1,177 @@
+<div class="dialog-header">
+  <div class="header-title">
+    <mat-icon class="header-icon">color_palette</mat-icon>
+    <div>
+      <h2>Organization App Branding & Sidenav Menus</h2>
+      <p>Customize your organization's app name, logo image, and sidenav menu ordering & labels.</p>
+    </div>
+  </div>
+  <button mat-icon-button (click)="cancel()" [disabled]="saving">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content">
+  <mat-tab-group [(selectedIndex)]="selectedTab" animationDuration="200ms" color="primary">
+    <!-- TAB 1: BRANDING -->
+    <mat-tab label="App Name & Logo">
+      <div class="tab-body">
+        <form [formGroup]="brandingForm" class="branding-form">
+          <div class="preview-card">
+            <div class="preview-header">
+              <div class="preview-logo-wrapper">
+                <img
+                  [src]="brandingForm.get('logoUrl')?.value || 'assets/images/deendesk-logo.png'"
+                  alt="App Logo Preview"
+                  class="preview-logo-img"
+                  (error)="brandingForm.patchValue({ logoUrl: 'assets/images/deendesk-logo.png' })"
+                />
+              </div>
+              <div class="preview-text">
+                <h3 class="preview-name">{{ brandingForm.get('appName')?.value || 'Deen Desk' }}</h3>
+                <p class="preview-subtitle">{{ brandingForm.get('subTitle')?.value || 'Madrasa Management' }}</p>
+              </div>
+            </div>
+            <span class="preview-badge">Live Sidebar Preview</span>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Organization App Name</mat-label>
+            <input matInput formControlName="appName" placeholder="e.g. Al-Huda Academy Portal" />
+            <mat-icon matSuffix>badge</mat-icon>
+            <mat-hint>Overrides "Deen Desk" title in your organization sidebar & header inside app.</mat-hint>
+            <mat-error *ngIf="brandingForm.controls.appName.hasError('required')">App name is required</mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Organization Subtitle</mat-label>
+            <input matInput formControlName="subTitle" placeholder="e.g. Campus Management System" />
+            <mat-icon matSuffix>subtitles</mat-icon>
+            <mat-hint>Displayed right under your organization app name in sidebar.</mat-hint>
+          </mat-form-field>
+
+          <!-- Direct Image Upload Control -->
+          <div class="logo-upload-section">
+            <label class="upload-label">Organization Logo Image</label>
+            <div class="upload-controls">
+              <input
+                #fileInput
+                type="file"
+                accept="image/*"
+                class="hidden-file-input"
+                (change)="onFileSelected($event)"
+              />
+              <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                class="upload-button"
+                (click)="fileInput.click()"
+                [disabled]="uploadingImage || saving"
+              >
+                <mat-icon>cloud_upload</mat-icon>
+                {{ uploadingImage ? 'Uploading Image...' : 'Upload Custom Logo Image' }}
+              </button>
+
+              <button
+                *ngIf="brandingForm.get('logoUrl')?.value && brandingForm.get('logoUrl')?.value !== 'assets/images/deendesk-logo.png'"
+                mat-stroked-button
+                color="warn"
+                type="button"
+                (click)="clearCustomLogo()"
+                [disabled]="saving"
+              >
+                <mat-icon>delete</mat-icon>
+                Reset Logo
+              </button>
+            </div>
+            <p class="upload-hint">Select a PNG, JPG, SVG or WEBP image file from your device. No URL entry required!</p>
+          </div>
+        </form>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 2: SIDENAV MENUS -->
+    <mat-tab label="Sidenav Menu Customizer">
+      <div class="tab-body">
+        <p class="section-intro">
+          Reorder menus, customize labels (e.g. change "Dashboard" to "Counts"), and hide/show specific pages for your organization.
+        </p>
+
+        <div class="menu-list-container">
+          <div
+            *ngFor="let item of menuItems; let i = index"
+            class="menu-config-card"
+            [class.is-hidden]="item.hidden"
+          >
+            <div class="drag-handle">
+              <ion-icon [name]="item.icon"></ion-icon>
+            </div>
+
+            <div class="menu-info">
+              <span class="menu-group-tag">{{ item.groupLabel }}</span>
+              <mat-form-field appearance="outline" class="compact-field">
+                <mat-label>Menu Label</mat-label>
+                <input matInput [(ngModel)]="item.customLabel" [disabled]="item.hidden" />
+                <button
+                  *ngIf="item.customLabel !== item.defaultLabel"
+                  mat-icon-button
+                  matSuffix
+                  type="button"
+                  (click)="resetItemLabel(item)"
+                  title="Reset to default label"
+                >
+                  <mat-icon>undo</mat-icon>
+                </button>
+              </mat-form-field>
+            </div>
+
+            <div class="menu-actions">
+              <button
+                mat-icon-button
+                type="button"
+                [color]="item.hidden ? 'warn' : 'primary'"
+                (click)="toggleHide(item)"
+                [title]="item.hidden ? 'Show Menu' : 'Hide Menu'"
+              >
+                <mat-icon>{{ item.hidden ? 'visibility_off' : 'visibility' }}</mat-icon>
+              </button>
+
+              <button
+                mat-icon-button
+                type="button"
+                (click)="moveItem(i, 'up')"
+                [disabled]="i === 0"
+                title="Move Up"
+              >
+                <mat-icon>arrow_upward</mat-icon>
+              </button>
+
+              <button
+                mat-icon-button
+                type="button"
+                (click)="moveItem(i, 'down')"
+                [disabled]="i === menuItems.length - 1"
+                title="Move Down"
+              >
+                <mat-icon>arrow_downward</mat-icon>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="dialog-actions">
+  <button mat-stroked-button color="warn" type="button" (click)="resetToDefault()" [disabled]="saving">
+    <mat-icon>restart_alt</mat-icon>
+    Reset to Default
+  </button>
+  <button mat-button type="button" (click)="cancel()" [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+    <mat-icon>save</mat-icon>
+    Save Changes
+  </button>
+</mat-dialog-actions>

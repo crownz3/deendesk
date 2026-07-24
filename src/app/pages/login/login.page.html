@@ -1,19 +1,55 @@
 <ion-content fullscreen>
-  <main class="login-shell">
+  <main
+    class="login-shell"
+    (mousedown)="onMouseDown($event)"
+    (mousemove)="onMouseMove($event)"
+    (mouseup)="onMouseUp()"
+    (mouseleave)="onMouseUp()"
+    (touchstart)="onTouchStart($event)"
+    (touchmove)="onTouchMove($event)"
+    (touchend)="onMouseUp()"
+  >
+    <!-- Glowing Particle Splash & Drag Overlay -->
+    <div class="particle-overlay">
+      <div
+        *ngFor="let p of particles"
+        class="glow-particle"
+        [ngStyle]="{
+          'left.px': p.x,
+          'top.px': p.y,
+          'width.px': p.size,
+          'height.px': p.size,
+          'background-color': p.color,
+          'box-shadow': '0 0 8px #ffffff, 0 0 16px rgba(255, 255, 255, 0.95), 0 0 24px rgba(224, 242, 254, 0.8)',
+          '--vx': p.vx + 'px',
+          '--vy': p.vy + 'px'
+        }"
+      ></div>
+    </div>
     <section class="brand-panel">
-      <img src="assets/images/deendesk-logo.png" alt="Deen Desk Logo" class="login-logo-img" />
-      <div>
-        <p class="eyebrow">Deen Desk SaaS</p>
-        <h1>Madrasa Management</h1>
+      <div class="logo-glow-wrapper">
+        <div class="logo-badge-frame">
+          <img src="assets/images/deendesk-logo.png" alt="Deen Desk Logo" class="login-logo-img" />
+          <div class="shimmer-sweep"></div>
+        </div>
+      </div>
+      <div class="brand-header">
+        <h1 class="app-brand-name">Deen Desk</h1>
       </div>
       <p class="brand-copy">
-        Role-based operations for organizations, madrasas, students, staff, attendance, academic plans, and reports.
+        Next-generation operating system for Islamic Institutions & Organizations. Unify Multi-Madrasa administration, Exams & Results, Competitions & Prizes, Announcements, Quran & Hifz Progress, Hostels, Alumni, Staff & Student Lifecycles.
       </p>
       <div class="login-metrics" aria-label="Platform modules">
-        <span>Organizations</span>
-        <span>Attendance</span>
-        <span>Reports</span>
-        <span>Hierarchy</span>
+        <span>🕌 Multi-Branch Madrasas</span>
+        <span>📝 Exams & Re-Exams</span>
+        <span>🏆 Competitions & Prizes</span>
+        <span>📢 Broadcast Announcements</span>
+        <span>📖 Quran & Hifz Tracker</span>
+        <span>🏢 Hostel & Asset Management</span>
+        <span>🎓 Student & Alumni Portals</span>
+        <span>⏱️ Study Time Supervision</span>
+        <span>📊 Analytics & Reports</span>
+        <span>🔒 Enterprise Role RBAC</span>
       </div>
     </section>
 

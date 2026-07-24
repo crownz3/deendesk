@@ -113,6 +113,187 @@ h2 {
   margin: 0;
 }
 
+.welcome-madrasa-wrapper {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .madrasa-summary-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.2);
+    border-radius: 20px;
+    padding: 6px 14px;
+    width: fit-content;
+
+    .school-badge-icon {
+      font-size: 1.15rem;
+      color: var(--app-primary, #2563eb);
+    }
+
+    .madrasa-single-text {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--app-text-main, #0f172a);
+    }
+
+    .madrasa-count-text {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--app-primary, #2563eb);
+    }
+
+    .madrasa-info-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: var(--app-primary, #2563eb);
+      transition: transform 0.2s ease, color 0.2s ease;
+
+      ion-icon {
+        font-size: 1.35rem;
+      }
+
+      &:hover, &.active {
+        transform: scale(1.18);
+        color: #1d4ed8;
+      }
+    }
+  }
+
+  .highlighted-madrasas-card {
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.05) 0%, rgba(99, 102, 241, 0.03) 100%);
+    border: 1.5px solid rgba(37, 99, 235, 0.25);
+    border-radius: 14px;
+    padding: 16px;
+    animation: fadeInSlideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.06);
+
+    .highlight-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+
+      ion-icon {
+        font-size: 1.1rem;
+        color: var(--app-primary, #2563eb);
+      }
+
+      span {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--app-primary, #2563eb);
+      }
+    }
+
+    .assignment-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+
+      .assignment-card {
+        background: #ffffff;
+        border: 1px solid rgba(37, 99, 235, 0.18);
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 14px rgba(37, 99, 235, 0.12);
+        }
+
+        .assignment-card-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding-bottom: 10px;
+          margin-bottom: 10px;
+          border-bottom: 1px dashed rgba(226, 232, 240, 0.8);
+
+          .badge-num {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--app-primary, #2563eb);
+            color: #ffffff;
+            font-size: 0.75rem;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 12px;
+          }
+
+          .group-title {
+            font-size: 0.9375rem;
+            font-weight: 800;
+            color: var(--app-text-main, #0f172a);
+          }
+        }
+
+        .assignment-details-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+
+          .detail-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8125rem;
+
+            .detail-icon {
+              font-size: 1.05rem;
+              color: var(--app-primary, #2563eb);
+
+              &.course-icon { color: #8b5cf6; }
+              &.class-icon { color: #0284c7; }
+              &.group-icon { color: #059669; }
+              &.madrasa-icon { color: #d97706; }
+            }
+
+            .detail-label {
+              color: #64748b;
+              font-weight: 500;
+            }
+
+            .detail-value {
+              color: #0f172a;
+              font-weight: 700;
+              margin-left: auto;
+
+              &.madrasa-highlight-name {
+                color: #2563eb;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes fadeInSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .dashboard-welcome-card.org-admin-header {
   text-align: center;
   padding: 32px 24px;

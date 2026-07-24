@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { NameResolverService } from '../../core/services/name-resolver.service';
 import { ClassPlan, TimetableEntry, AppUser, EventEntity } from '../../core/models/domain.model';
+import { computeEventStatus } from '../../core/services/event.service';
 import { EventDetailsDialogComponent } from '../events/event-details-dialog.component';
 import { EventAttendanceDialogComponent } from '../events/event-attendance-dialog.component';
 import { EventFormDialogComponent } from '../events/event-form-dialog.component';
@@ -97,11 +98,16 @@ export class MyAssignmentsPage {
     });
 
     // Filter assigned events
-    const assignedEvents = data.events.filter(e => {
-      if (e.isDeleted) return false;
-      const staffId = profile.entityType === 'staff' ? profile.entityId : null;
-      return staffId && (e.staffInChargeId === staffId || e.additionalResponsibleStaffIds?.includes(staffId));
-    });
+    const assignedEvents = data.events
+      .filter(e => {
+        if (e.isDeleted) return false;
+        const staffId = profile.entityType === 'staff' ? profile.entityId : null;
+        return staffId && (e.staffInChargeId === staffId || e.additionalResponsibleStaffIds?.includes(staffId));
+      })
+      .map(e => ({
+        ...e,
+        status: computeEventStatus(e)
+      }));
     
     console.log('[MyAssignmentsPage] Filtered assigned events count:', assignedEvents.length, assignedEvents);
 

@@ -150,12 +150,12 @@
               </div>
               <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 16px 0;">
                 <mat-card *ngFor="let e of vm.assignedEvents" style="padding: 0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column;">
-                  <div style="background: var(--ion-color-secondary, #3dc2ff); padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
+                  <div [style.background]="e.status === 'expired' ? '#64748b' : (e.status === 'completed' ? '#10b981' : 'var(--ion-color-secondary, #3dc2ff)')" style="padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
                     <div style="font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 6px;">
                       <ion-icon name="calendar-outline" style="font-size: 1.2rem;"></ion-icon>
                       <span>{{ $any(e).startDate?.toDate ? ($any(e).startDate.toDate() | date:'short') : e.startDate }}</span>
                     </div>
-                    <span style="font-size: 0.75rem; background: rgba(0,0,0,0.2); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600;">{{ e.status | uppercase }}</span>
+                    <span style="font-size: 0.75rem; background: rgba(0,0,0,0.25); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 700; text-transform: uppercase;">{{ e.status }}</span>
                   </div>
                   
                   <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">

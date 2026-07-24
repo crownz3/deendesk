@@ -186,7 +186,7 @@
                   </td>
                   <td>{{ e.eventType | uppercase }}</td>
                   <td>
-                    <span class="status-chip" [class]="e.status">{{ e.status }}</span>
+                    <span class="status-chip" [class]="getEventStatus(e)">{{ getEventStatus(e) | uppercase }}</span>
                   </td>
                   <td>
                     {{ e.startDate?.toDate ? (e.startDate.toDate() | date:'short') : e.startDate }}
@@ -233,7 +233,7 @@
             <mat-card class="event-mobile-card" *ngFor="let e of getFilteredEvents(vm.events, vm.profile)">
               <mat-card-header>
                 <mat-card-title>{{ e.name }}</mat-card-title>
-                <mat-card-subtitle>{{ e.eventType | uppercase }} • <span class="status-chip" [class]="e.status">{{ e.status }}</span></mat-card-subtitle>
+                <mat-card-subtitle>{{ e.eventType | uppercase }} • <span class="status-chip" [class]="getEventStatus(e)">{{ getEventStatus(e) | uppercase }}</span></mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
                 <p><strong>Starts:</strong> {{ e.startDate?.toDate ? (e.startDate.toDate() | date:'short') : e.startDate }}</p>

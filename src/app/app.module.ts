@@ -138,6 +138,7 @@ import { StageHeadsPage } from './pages/stage-heads/stage-heads.page';
 import { StageHeadDialogComponent } from './pages/stage-heads/stage-head-dialog.component';
 import { QuranPage } from './pages/quran/quran.page';
 import { ReciterSelectDialogComponent } from './pages/quran/reciter-select-dialog.component';
+import { BrandingMenuDialogComponent } from './shared/components/branding-menu-dialog/branding-menu-dialog.component';
 
 import { ExternalActivitiesPage } from './pages/external-activities/external-activities.page';
 import { ExternalActivityFormDialogComponent } from './pages/external-activities/external-activity-form-dialog.component';
@@ -268,6 +269,7 @@ import { AnnouncementDetailsDialogComponent } from './pages/announcements/announ
     UserArchiveDialogComponent,
     SubmitRejoinDialogComponent,
     RejoinReviewDialogComponent,
+    BrandingMenuDialogComponent,
     ExternalActivitiesPage,
     ExternalActivityFormDialogComponent,
     StudyTimePage,

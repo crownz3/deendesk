@@ -130,16 +130,41 @@ export class EventsPage implements OnInit {
     this.refresh$.next();
   }
 
+  getEventStatus(e: any): string {
+    if (!e) return 'expired';
+    const status = (e.status || 'upcoming').toLowerCase();
+
+    if (['completed', 'cancelled', 'postponed', 'preponed'].includes(status)) {
+      return status;
+    }
+
+    const now = new Date();
+    const endDate = e.endDate?.toDate ? e.endDate.toDate() : (e.endDate ? new Date(e.endDate) : null);
+    const startDate = e.startDate?.toDate ? e.startDate.toDate() : (e.startDate ? new Date(e.startDate) : null);
+
+    const checkDate = endDate || startDate;
+
+    if (checkDate && !isNaN(checkDate.getTime())) {
+      if (checkDate < now) {
+        return 'expired';
+      }
+    }
+
+    return status;
+  }
+
   private computeStats(events: any[]) {
     const now = new Date();
     const todayStr = now.toDateString();
 
-    let total = 0, today = 0, upcoming = 0, inProgress = 0, completed = 0, postponed = 0, preponed = 0, cancelled = 0;
+    let total = 0, today = 0, upcoming = 0, inProgress = 0, completed = 0, postponed = 0, preponed = 0, cancelled = 0, expired = 0;
 
     for (const e of events) {
       if (e.isDeleted) continue;
       total++;
       
+      const computedStatus = this.getEventStatus(e);
+
       const start = e.startDate?.toDate ? e.startDate.toDate() : new Date(e.startDate);
       const end = e.endDate?.toDate ? e.endDate.toDate() : new Date(e.endDate);
 
@@ -148,15 +173,16 @@ export class EventsPage implements OnInit {
         today++;
       }
 
-      if (e.status === 'scheduled' || e.status === 'upcoming') upcoming++;
-      else if (e.status === 'inProgress') inProgress++;
-      else if (e.status === 'completed') completed++;
-      else if (e.status === 'postponed') postponed++;
-      else if (e.status === 'preponed') preponed++;
-      else if (e.status === 'cancelled') cancelled++;
+      if (computedStatus === 'expired') expired++;
+      else if (computedStatus === 'scheduled' || computedStatus === 'upcoming') upcoming++;
+      else if (computedStatus === 'inProgress') inProgress++;
+      else if (computedStatus === 'completed') completed++;
+      else if (computedStatus === 'postponed') postponed++;
+      else if (computedStatus === 'preponed') preponed++;
+      else if (computedStatus === 'cancelled') cancelled++;
     }
 
-    return { total, today, upcoming, inProgress, completed, postponed, preponed, cancelled };
+    return { total, today, upcoming, inProgress, completed, postponed, preponed, cancelled, expired };
   }
 
   getStaffName(staffId: string, staffList: EntityRecord[]): string {
@@ -240,7 +266,7 @@ export class EventsPage implements OnInit {
       if (this.eventTypeFilter !== 'all' && e.eventType !== this.eventTypeFilter) {
         return false;
       }
-      if (this.statusFilter !== 'all' && e.status !== this.statusFilter) {
+      if (this.statusFilter !== 'all' && this.getEventStatus(e) !== this.statusFilter) {
         return false;
       }
       if (this.staffFilter !== 'all' && e.staffInChargeId !== this.staffFilter) {

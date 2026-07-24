@@ -74,18 +74,33 @@
           <span>Dates: <strong>{{ exam.startDate }}</strong> to <strong>{{ exam.endDate }}</strong></span>
         </div>
 
+        <div class="info-row" *ngIf="exam.madrasaName">
+          <mat-icon>school</mat-icon>
+          <span>Madrasa: <strong>{{ exam.madrasaName }}</strong></span>
+        </div>
+
+        <div class="info-row" *ngIf="exam.targetCourseName">
+          <mat-icon>menu_book</mat-icon>
+          <span>Course: <strong>{{ exam.targetCourseName }}</strong></span>
+        </div>
+
+        <div class="info-row" *ngIf="exam.targetClassName || exam.targetClassNames?.length">
+          <mat-icon>easel</mat-icon>
+          <span>Class: <strong>{{ exam.targetClassName || exam.targetClassNames?.join(', ') }}</strong></span>
+        </div>
+
+        <div class="info-row" *ngIf="exam.targetClassGroupName">
+          <mat-icon>groups</mat-icon>
+          <span>Group: <strong>{{ exam.targetClassGroupName }}</strong></span>
+        </div>
+
         <div class="info-row" *ngIf="exam.targetStage">
           <mat-icon>layers</mat-icon>
           <span>Stage: <strong>{{ exam.targetStage }}</strong></span>
         </div>
 
-        <div class="info-row" *ngIf="exam.targetClassNames?.length">
-          <mat-icon>groups</mat-icon>
-          <span>Classes: <strong>{{ exam.targetClassNames?.join(', ') }}</strong></span>
-        </div>
-
         <div class="info-row" *ngIf="exam.schedules?.length">
-          <mat-icon>menu_book</mat-icon>
+          <mat-icon>assignment</mat-icon>
           <span>Scheduled Papers: <strong>{{ exam.schedules?.length }} Subject(s)</strong></span>
         </div>
       </mat-card-content>

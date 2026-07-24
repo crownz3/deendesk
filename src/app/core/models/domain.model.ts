@@ -101,7 +101,8 @@ export type PermissionKey =
   | 'manageCompetitionExpenses'
   | 'generateCompetitionReports'
   | 'manageAnnouncements'
-  | 'viewAnnouncements';
+  | 'viewAnnouncements'
+  | 'manageBrandingAndMenu';
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'leave';
 
@@ -157,6 +158,19 @@ export interface AppUser extends ScopedEntity {
   temporaryPasswordForAdminView?: string;
 }
 
+export interface OrganizationBranding {
+  appName?: string;
+  logoUrl?: string;
+  subTitle?: string;
+}
+
+export interface CustomMenuItemConfig {
+  route: string;
+  customLabel?: string;
+  hidden?: boolean;
+  orderIndex?: number;
+}
+
 export interface Organization extends ScopedEntity {
   name: string;
   code: string;
@@ -169,6 +183,8 @@ export interface Organization extends ScopedEntity {
   primaryOrganizerName?: string;
   /** @deprecated Legacy field. Temporary passwords are now stored in AppUser.temporaryPasswordForAdminView */
   organizerPassword?: string;
+  branding?: OrganizationBranding;
+  customMenu?: CustomMenuItemConfig[];
 }
 
 export interface Madrasa extends ScopedEntity {
@@ -1606,8 +1622,14 @@ export interface Exam extends ScopedEntity {
   examType: ExamType;
   startDate: string;
   endDate: string;
+  madrasaId?: string;
+  madrasaName?: string;
   targetCourseId?: string;
   targetCourseName?: string;
+  targetClassId?: string;
+  targetClassName?: string;
+  targetClassGroupId?: string;
+  targetClassGroupName?: string;
   targetClassNames?: string[];
   targetStage?: string;
   genderScope?: 'all' | 'male' | 'female';

@@ -107,6 +107,7 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'generateCompetitionReports',
   'manageAnnouncements',
   'viewAnnouncements',
+  'manageBrandingAndMenu',
 ];
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -192,6 +193,7 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   generateCompetitionReports: 'Generate winner sheets and competition reports',
   manageAnnouncements: 'Manage institution announcements & multi-target broadcasts',
   viewAnnouncements: 'View announcements and in-app notifications',
+  manageBrandingAndMenu: 'Manage organization app name, logo, and sidenav menu customization',
 };
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {

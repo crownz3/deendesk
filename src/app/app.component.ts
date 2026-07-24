@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { BehaviorSubject, Observable, combineLatest, filter, map, startWith } from 'rxjs';
-import { PermissionKey, UserRole } from './core/models/domain.model';
+import { CustomMenuItemConfig, PermissionKey, UserRole } from './core/models/domain.model';
 import { AppUser } from './core/models/domain.model';
 import { AuthService } from './core/services/auth.service';
 import { LoaderService } from './core/services/loader.service';
@@ -9,14 +9,19 @@ import { MatDialog } from '@angular/material/dialog';
 import { SidebarSettingsService } from './core/services/sidebar-settings.service';
 import { AppSettingsDialogComponent } from './shared/components/app-settings-dialog/app-settings-dialog.component';
 import { AuditLogService } from './core/services/audit-log.service';
+import { OrgBrandingService } from './core/services/org-branding.service';
+import { BrandingMenuDialogComponent } from './shared/components/branding-menu-dialog/branding-menu-dialog.component';
 
 interface NavItem {
   label: string;
+  displayLabel?: string;
   route: string;
   icon: string;
   permission?: PermissionKey | PermissionKey[];
   permissionsAny?: PermissionKey[];
   roleRequired?: UserRole;
+  hidden?: boolean;
+  orderIndex?: number;
 }
 
 interface NavGroup {
@@ -37,6 +42,10 @@ export class AppComponent {
     startWith(null),
     map(() => this.router.url.startsWith('/login') || this.router.url.startsWith('/continue') || this.router.url.startsWith('/change-password')),
   );
+
+  readonly appName$ = this.orgBranding.appName$;
+  readonly logoUrl$ = this.orgBranding.logoUrl$;
+  readonly subTitle$ = this.orgBranding.subTitle$;
 
   readonly navGroups: NavGroup[] = [
     {
@@ -113,18 +122,40 @@ export class AppComponent {
 
   readonly filteredNavGroups$: Observable<NavGroup[]> = combineLatest([
     this.profile$,
-    this.searchQuery$
+    this.searchQuery$,
+    this.orgBranding.customMenu$.pipe(startWith(null))
   ]).pipe(
-    map(([profile, query]) => {
+    map(([profile, query, customMenu]) => {
       const lowerQuery = query.toLowerCase();
-      return this.navGroups.map(group => {
-        return {
-          ...group,
-          items: group.items.filter(item => 
-            this.visible(item, profile) && item.label.toLowerCase().includes(lowerQuery)
-          )
-        };
-      }).filter(group => group.items.length > 0);
+      const customMap = new Map<string, CustomMenuItemConfig>();
+      (customMenu || []).forEach((c) => customMap.set(c.route, c));
+
+      return this.navGroups
+        .map((group) => {
+          const items = group.items
+            .map((item) => {
+              const custom = customMap.get(item.route);
+              const isHidden = custom?.hidden === true;
+              const customLabel = custom?.customLabel !== undefined && custom.customLabel.trim() ? custom.customLabel.trim() : item.label;
+              const orderIndex = custom?.orderIndex !== undefined ? custom.orderIndex : 999;
+
+              return {
+                ...item,
+                displayLabel: customLabel,
+                hidden: isHidden,
+                orderIndex,
+              };
+            })
+            .filter((item) => !item.hidden && this.visible(item, profile) && (item.displayLabel || item.label).toLowerCase().includes(lowerQuery));
+
+          items.sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
+
+          return {
+            ...group,
+            items,
+          };
+        })
+        .filter((group) => group.items.length > 0);
     })
   );
 
@@ -134,7 +165,8 @@ export class AppComponent {
     private readonly loader: LoaderService,
     public readonly sidebarSettings: SidebarSettingsService,
     private readonly dialog: MatDialog,
-    private readonly auditLogService: AuditLogService
+    private readonly auditLogService: AuditLogService,
+    public readonly orgBranding: OrgBrandingService
   ) { }
 
   isMenuOpen = false;
@@ -175,6 +207,21 @@ export class AppComponent {
       maxHeight: '90vh',
       panelClass: 'app-settings-dialog-panel'
     });
+  }
+
+  openBrandingDialog(): void {
+    this.dialog.open(BrandingMenuDialogComponent, {
+      width: '720px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      panelClass: 'branding-menu-dialog-panel',
+    });
+  }
+
+  canManageBranding(profile: AppUser | null): boolean {
+    if (!profile) return false;
+    if (profile.role === 'superAdmin' || profile.role === 'organizationAdmin') return true;
+    return this.auth.hasPermission(profile, 'manageBrandingAndMenu');
   }
 
   visible(item: NavItem, profile: AppUser | null): boolean {
@@ -231,7 +278,7 @@ export class AppComponent {
   }
 
   async logout(): Promise<void> {
-    await this.loader.withLoader('Signing you out...', async () => {
+    await this.loader.withLoader('Signing you in securely...', async () => {
       await this.auditLogService.logAction({
         module: 'Auth',
         action: 'Logout',

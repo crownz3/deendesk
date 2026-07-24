@@ -11,7 +11,7 @@
       <div class="tab-pane">
         <div class="meta-section">
           <div class="status-badge-container">
-            <span class="status-chip" [class]="event.status">{{ event.status | uppercase }}</span>
+            <span class="status-chip" [class]="getEventStatus(event)">{{ getEventStatus(event) | uppercase }}</span>
           </div>
           
           <div class="action-buttons-row" *ngIf="canManage">

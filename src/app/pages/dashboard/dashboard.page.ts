@@ -52,6 +52,17 @@ interface AccessOverview {
   cards: AccessCard[];
 }
 
+export interface AssignedAssignmentDetail {
+  groupId?: string;
+  groupName: string;
+  classId?: string;
+  className: string;
+  courseId?: string;
+  courseName: string;
+  madrasaId?: string;
+  madrasaName: string;
+}
+
 interface DashboardVm {
   displayName: string;
   formattedRole: string;
@@ -60,6 +71,7 @@ interface DashboardVm {
   isOrgAdmin: boolean;
   organizationId?: string;
   madrasaIds?: string[];
+  assignedAssignments?: AssignedAssignmentDetail[];
   stats: DashboardStat[];
   courseDistribution: ChartSlice[];
   attendance: {
@@ -85,6 +97,11 @@ interface DashboardVm {
 })
 export class DashboardPage {
   private readonly refresh$ = new BehaviorSubject<void>(undefined);
+  showMadrasaDetails = false;
+
+  toggleMadrasaDetails(): void {
+    this.showMadrasaDetails = !this.showMadrasaDetails;
+  }
 
   readonly vm$ = combineLatest([this.refresh$, this.auth.profile$]).pipe(
     switchMap(([_, profile]) => {
@@ -104,6 +121,7 @@ export class DashboardPage {
         users: this.repo.list<EntityRecord>('users', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         courses: this.repo.list<EntityRecord>('courses', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         classes: this.repo.list<EntityRecord>('classes', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        classGroups: this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         subjects: this.repo.list<EntityRecord>('subjects', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         attendance: this.repo.list<AttendanceRecord & EntityRecord>('attendance', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         notifications: this.repo.list<NotificationItem & EntityRecord>('notifications', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
@@ -271,6 +289,56 @@ export class DashboardPage {
       });
     finalSchedule.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
+    const profileIds = [profile.uid, profile.id, profile.entityId, profile.email].map(id => String(id || '')).filter(Boolean);
+    const classGroupsList = (data['classGroups'] || []) as EntityRecord[];
+    const classesList = (data['classes'] || []) as EntityRecord[];
+    const coursesList = (data['courses'] || []) as EntityRecord[];
+    const madrasasList = (data['madrasas'] || []) as EntityRecord[];
+
+    const assignedGroupEntities = classGroupsList.filter((group: any) => {
+      const staffIds = Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'].map(String) : [];
+      const teacherUids = Array.isArray(group['teacherUids']) ? group['teacherUids'].map(String) : [];
+      return profileIds.some(id => staffIds.includes(id) || teacherUids.includes(id));
+    });
+
+    let assignedAssignments: AssignedAssignmentDetail[] = [];
+
+    if (assignedGroupEntities.length > 0) {
+      assignedAssignments = assignedGroupEntities.map((group: any) => {
+        const classObj = classesList.find((c) => c.id === group.classId);
+        const courseId = group.courseId || classObj?.['courseId'];
+        const courseObj = coursesList.find((c) => c.id === courseId);
+        const madrasaId = classObj?.['madrasaId'] || courseObj?.['madrasaId'] || group['madrasaId'] || profile.madrasaId;
+        const madrasaObj = madrasasList.find((m) => m.id === madrasaId);
+
+        return {
+          groupId: group.id,
+          groupName: group['name'] || group['title'] || 'Class Group',
+          classId: group.classId,
+          className: classObj?.['name'] || 'Class',
+          courseId,
+          courseName: courseObj?.['name'] || 'Course',
+          madrasaId,
+          madrasaName: madrasaObj?.['name'] || 'Madrasa',
+        };
+      });
+    } else {
+      const madrasaIds = Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0
+        ? profile.madrasaIds
+        : (profile.madrasaId ? [profile.madrasaId] : []);
+
+      assignedAssignments = madrasaIds.map((mId) => {
+        const madrasaObj = madrasasList.find((m) => m.id === mId);
+        return {
+          groupName: 'General Assignment',
+          className: 'All Classes',
+          courseName: 'All Courses',
+          madrasaId: mId,
+          madrasaName: madrasaObj?.['name'] || 'Madrasa',
+        };
+      });
+    }
+
     return {
       displayName: this.getDisplayName(profile),
       formattedRole: this.formatRole(profile.role),
@@ -279,6 +347,7 @@ export class DashboardPage {
       isOrgAdmin: profile.role === 'organizationAdmin',
       organizationId: profile.organizationId,
       madrasaIds: Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0 ? profile.madrasaIds : (profile.madrasaId ? [profile.madrasaId] : []),
+      assignedAssignments,
       stats,
       attendance,
       courseDistribution,
@@ -438,21 +507,15 @@ export class DashboardPage {
     }
 
     if (role === 'coordinator') {
-      return allStats.filter(s => ['Madrasas', 'Madrasa Incharges', 'Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
+      return allStats.filter(s => ['Madrasa Incharges', 'Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
     }
 
     if (role === 'madrasaIncharge') {
-      return allStats.filter(s => ['Madrasas', 'Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
+      return allStats.filter(s => ['Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
     }
 
     if (role === 'teacher' || role === 'staff') {
-      const stats = allStats.filter(s => ['Madrasas', 'Students', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
-      const madrasaStat = stats.find(s => s.label === 'Madrasas');
-      if (madrasaStat) {
-        madrasaStat.label = 'Madrasa';
-        madrasaStat.value = data['madrasas']?.map(m => m['name'] || 'Unknown').join(', ') || 'Unassigned';
-      }
-      return stats;
+      return allStats.filter(s => ['Students', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
     }
 
     if (role === 'student' || role === 'parent') {
@@ -659,40 +722,7 @@ export class DashboardPage {
     }
 
     if (profile.role === 'teacher') {
-      const assignedClasses = data['classes'] || [];
-
-      if (assignedClasses.length === 0) {
-        return {
-          title: 'My Teaching Assignments',
-          emptyState: { icon: 'easel-outline', title: 'No classes assigned', message: 'You have not been assigned to any classes yet.' },
-          cards: []
-        };
-      }
-
-      const cards = assignedClasses.map(c => {
-        const cId = c.id!;
-        const madrasaName = data['madrasas']?.find(m => m.id === c['madrasaId'])?.['name'] as string || 'Unknown Madrasa';
-        const studentCount = data['students']?.filter(s => s['classId'] === cId).length || 0;
-        const subjectCount = data['subjects']?.filter(s => s['classId'] === cId).length || 0;
-
-        return {
-          title: (c['name'] as string) || 'Unknown Class',
-          subtitleId: c['madrasaId'],
-          subtitleType: 'madrasa',
-          icon: 'easel-outline',
-          tone: 'warning',
-          items: [
-            { label: 'Students', value: studentCount },
-            { label: 'Subjects', value: subjectCount },
-          ],
-          actions: [
-            { label: 'View Students', link: '/students', icon: 'person-outline' },
-            { label: 'Take Attendance', link: '/attendance', icon: 'checkmark-circle-outline' },
-          ]
-        } as AccessCard;
-      });
-
-      return { title: 'My Teaching Assignments', cards };
+      return undefined;
     }
 
     if (profile.role === 'student') {
