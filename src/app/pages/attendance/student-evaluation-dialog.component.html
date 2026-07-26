@@ -1,0 +1,190 @@
+<div class="evaluation-dialog-header">
+  <div class="header-title-wrapper">
+    <mat-icon class="header-icon">quiz</mat-icon>
+    <div>
+      <h2 mat-dialog-title>Student Progress & Evaluation</h2>
+      <p class="dialog-subtitle">
+        {{ data.studentName }} • {{ data.date }} • Course: <strong class="course-badge">{{ courseType | uppercase }}</strong>
+      </p>
+    </div>
+  </div>
+  <button mat-icon-button (click)="cancel()" class="close-btn" aria-label="Close">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="evaluation-dialog-content">
+  <form [formGroup]="form" class="evaluation-form">
+    
+    <!-- HIFZ COURSE FORM -->
+    <ng-container *ngIf="courseType === 'hifz'">
+      <div class="section-card sabaq-card">
+        <h3 class="section-title">
+          <mat-icon>menu_book</mat-icon> Sabaq (New Lesson)
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Surah</mat-label>
+            <mat-select formControlName="sabaqSurah">
+              <mat-option *ngFor="let s of surahList" [value]="s">{{ s }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Ayah From</mat-label>
+            <input matInput type="number" formControlName="sabaqAyahFrom" min="1" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Ayah To</mat-label>
+            <input matInput type="number" formControlName="sabaqAyahTo" min="1" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Sabaq Ayah/Tajweed Mistakes</mat-label>
+            <input matInput type="number" formControlName="sabaqMistakes" min="0" />
+            <span matSuffix class="field-unit">mistakes</span>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="section-card sabqi-card">
+        <h3 class="section-title">
+          <mat-icon>replay</mat-icon> Sabqi (Recent Revision)
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Juz / Quarter</mat-label>
+            <input matInput formControlName="sabqiJuz" placeholder="e.g. Juz 1, Quarter 2" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Sabqi Mistakes</mat-label>
+            <input matInput type="number" formControlName="sabqiMistakes" min="0" />
+            <span matSuffix class="field-unit">mistakes</span>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <div class="section-card manzil-card">
+        <h3 class="section-title">
+          <mat-icon>auto_stories</mat-icon> Manzil (Old Revision)
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Para / Juz Number</mat-label>
+            <input matInput formControlName="manzilJuz" placeholder="e.g. Para 15" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Manzil Mistakes</mat-label>
+            <input matInput type="number" formControlName="manzilMistakes" min="0" />
+            <span matSuffix class="field-unit">mistakes</span>
+          </mat-form-field>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- MAKTAB COURSE FORM -->
+    <ng-container *ngIf="courseType === 'maktab'">
+      <div class="section-card maktab-card">
+        <h3 class="section-title">
+          <mat-icon>book</mat-icon> Maktab Lesson Progress
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Book / Subject</mat-label>
+            <mat-select formControlName="maktabSubject">
+              <mat-option *ngFor="let subj of maktabSubjects" [value]="subj">{{ subj }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Page Number</mat-label>
+            <input matInput type="number" formControlName="maktabPageNo" min="1" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Lesson Number</mat-label>
+            <input matInput type="number" formControlName="maktabLessonNo" min="1" />
+          </mat-form-field>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- AALIM / ACADEMIC / CUSTOM FORM -->
+    <ng-container *ngIf="courseType !== 'hifz' && courseType !== 'maktab'">
+      <div class="section-card academic-card">
+        <h3 class="section-title">
+          <mat-icon>school</mat-icon> Daily Lesson & Evaluation
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Subject / Kitaab</mat-label>
+            <input matInput formControlName="subjectName" placeholder="e.g. Tafseer, Hadith, Fiqh" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Chapter / Topic</mat-label>
+            <input matInput formControlName="chapterTopic" placeholder="e.g. Chapter 4, Hadith #12" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Test Score</mat-label>
+            <input matInput type="number" formControlName="score" placeholder="e.g. 18" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Total Marks</mat-label>
+            <input matInput type="number" formControlName="totalScore" placeholder="e.g. 20" />
+          </mat-form-field>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- COMMON QUALITY RATING & REMARKS -->
+    <div class="section-card overall-card">
+      <h3 class="section-title">
+        <mat-icon>stars</mat-icon> Overall Rating & Teacher Remarks
+      </h3>
+
+      <div class="rating-row">
+        <label class="rating-label">Performance Grade:</label>
+        <mat-form-field appearance="outline" class="grade-field">
+          <mat-select formControlName="grade">
+            <mat-option *ngFor="let g of grades" [value]="g">{{ g }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="star-rating-row">
+        <label class="rating-label">Star Rating:</label>
+        <div class="star-group">
+          <button
+            type="button"
+            *ngFor="let star of [1, 2, 3, 4, 5]"
+            class="star-btn"
+            [class.filled]="form.get('starRating')?.value >= star"
+            (click)="setRating(star)"
+          >
+            <mat-icon>{{ form.get('starRating')?.value >= star ? 'star' : 'star_border' }}</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <mat-form-field appearance="outline" class="full-width remarks-field">
+        <mat-label>Teacher Remarks / Ayah Line Notes</mat-label>
+        <textarea matInput formControlName="remarks" rows="3" placeholder="e.g. Practice Idgham rules on Ayah 15..."></textarea>
+      </mat-form-field>
+    </div>
+
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="evaluation-dialog-actions">
+  <button mat-button (click)="cancel()" [disabled]="saving">Cancel</button>
+  <button mat-raised-button color="primary" (click)="save()" [disabled]="saving || form.invalid" class="save-btn">
+    <mat-spinner diameter="18" *ngIf="saving"></mat-spinner>
+    <span *ngIf="!saving">Save Evaluation</span>
+  </button>
+</mat-dialog-actions>

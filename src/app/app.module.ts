@@ -80,6 +80,7 @@ import { ClassPlansPage } from './pages/class-plans/class-plans.page';
 import { ClassPlanFormComponent } from './pages/class-plans/class-plan-form.component';
 import { ClassPlanExceptionDialogComponent } from './pages/class-plans/class-plan-exception-dialog.component';
 import { AttendanceHistoryDialogComponent } from './shared/components/attendance-history-dialog/attendance-history-dialog.component';
+import { StudentEvaluationDialogComponent } from './pages/attendance/student-evaluation-dialog.component';
 import { ClassPlanTimetableComponent } from './pages/class-plans/class-plan-timetable.component';
 import { ClassPlanTimetableCopyDialogComponent } from './pages/class-plans/class-plan-timetable-copy-dialog.component';
 import { TimetableEntryFormDialogComponent } from './pages/class-plans/timetable-entry-form-dialog.component';
@@ -224,6 +225,7 @@ import { TicketDetailDialogComponent } from './pages/help-support/ticket-detail-
     ClassPlanFormComponent,
     ClassPlanExceptionDialogComponent,
     AttendanceHistoryDialogComponent,
+    StudentEvaluationDialogComponent,
     ClassPlanTimetableComponent,
     ClassPlanTimetableCopyDialogComponent,
     TimetableEntryFormDialogComponent,

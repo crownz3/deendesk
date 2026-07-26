@@ -286,6 +286,45 @@ export interface AttendanceRecord extends Omit<ScopedEntity, 'status'> {
   activityName?: string;
 }
 
+export interface StudentDailyProgress extends ScopedEntity {
+  date: string;
+  studentId: string;
+  studentName?: string;
+  courseId?: string;
+  courseName?: string;
+  courseType?: 'hifz' | 'maktab' | 'aalim' | 'muallim' | 'muballigh' | 'custom' | string;
+  classId?: string;
+  groupId?: string;
+
+  // Hifz Fields
+  sabaqSurah?: string;
+  sabaqAyahFrom?: number | string;
+  sabaqAyahTo?: number | string;
+  sabaqMistakes?: number;
+  sabqiJuz?: string;
+  sabqiMistakes?: number;
+  manzilJuz?: string;
+  manzilMistakes?: number;
+
+  // Maktab Fields
+  maktabSubject?: string;
+  maktabPageNo?: number | string;
+  maktabLessonNo?: number | string;
+
+  // Academic / Custom Fields
+  subjectName?: string;
+  chapterTopic?: string;
+  score?: number;
+  totalScore?: number;
+
+  // General Evaluation
+  grade?: string;
+  starRating?: number;
+  remarks?: string;
+  evaluatedByUid?: string;
+  evaluatedByName?: string;
+}
+
 export interface NotificationItem extends ScopedEntity {
   title: string;
   message: string;

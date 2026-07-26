@@ -287,6 +287,20 @@
                       <div class="details">
                         <strong>{{ student['displayName'] || student['name'] }}</strong>
                         <span class="meta-text">{{ nameOf(vm.courses, student['courseId'] + '') }} &middot; {{ nameOf(vm.classes, student['classId'] + '') }}</span>
+                        <div class="student-evaluation-badge" *ngIf="student.id && studentProgressMap[student.id] as prog">
+                          <span class="badge-tag" [ngClass]="'grade-' + (prog.grade || '').toLowerCase()">
+                            <mat-icon class="mini-icon">stars</mat-icon> {{ prog.grade }}
+                          </span>
+                          <span class="badge-detail" *ngIf="prog.sabaqSurah">
+                            Sabaq: {{ prog.sabaqSurah }} (Ayah {{ prog.sabaqAyahFrom }}-{{ prog.sabaqAyahTo }})
+                          </span>
+                          <span class="badge-detail" *ngIf="prog.maktabPageNo">
+                            {{ prog.maktabSubject }}: Pg {{ prog.maktabPageNo }}
+                          </span>
+                          <span class="badge-detail" *ngIf="prog.score !== undefined">
+                            Score: {{ prog.score }}/{{ prog.totalScore }}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     
@@ -297,6 +311,9 @@
                           <span class="status-label">{{ status | titlecase }}</span>
                         </mat-button-toggle>
                       </mat-button-toggle-group>
+                      <button mat-icon-button class="evaluate-btn" matTooltip="Log Progress & Evaluation" (click)="openEvaluationDialog(student, vm)" type="button">
+                        <mat-icon>assignment_turned_in</mat-icon>
+                      </button>
                       <button mat-icon-button class="history-btn" matTooltip="History" (click)="viewHistory(student)" type="button">
                         <mat-icon>history</mat-icon>
                       </button>

@@ -1076,6 +1076,15 @@ service cloud.firestore {
     }
 
     // ==========================================
+    // Student Daily Progress & Evaluation Module
+    // ==========================================
+    match /studentDailyProgress/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data));
+      allow create, update: if signedIn() && (isSuper() || sameOrg(request.resource.data));
+      allow delete: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+    }
+
+    // ==========================================
     // Help & Support Desk Module
     // ==========================================
     match /supportTickets/{id} {

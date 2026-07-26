@@ -4,13 +4,14 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { BehaviorSubject, combineLatest, firstValueFrom, of, Subject } from 'rxjs';
 import { catchError, map, startWith, switchMap, takeUntil, filter, take } from 'rxjs/operators';
 import { where } from 'firebase/firestore';
-import { AppUser, AttendanceStatus, ClassPlan, ClassPlanException, TimetableEntry } from '../../core/models/domain.model';
+import { AppUser, AttendanceStatus, ClassPlan, ClassPlanException, TimetableEntry, StudentDailyProgress } from '../../core/models/domain.model';
 import { ActivatedRoute } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { LoaderService } from '../../core/services/loader.service';
 import { MatDialog } from '@angular/material/dialog';
 import { AttendanceHistoryDialogComponent } from '../../shared/components/attendance-history-dialog/attendance-history-dialog.component';
+import { StudentEvaluationDialogComponent } from './student-evaluation-dialog.component';
 import { QuickAddDialogComponent } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
@@ -972,12 +973,66 @@ export class AttendancePage implements OnInit, OnDestroy {
     }
   }
 
+  studentProgressMap: { [studentId: string]: StudentDailyProgress } = {};
+
   viewHistory(student: EntityRecord): void {
     this.dialog.open(AttendanceHistoryDialogComponent, {
       width: '500px',
       data: {
         title: `Attendance History for ${student['displayName'] || student['name'] || 'Student'}`,
         studentId: String(student.id)
+      }
+    });
+  }
+
+  async openEvaluationDialog(student: EntityRecord, vm: AttendanceVm): Promise<void> {
+    const profile = await firstValueFrom(this.auth.profile$);
+    if (!profile || !student.id) return;
+
+    const dateStr = this.getFormattedDate();
+
+    // Determine course type for this student / selected course
+    const courseId = String(student['courseId'] || student['course'] || '');
+    const courseObj = vm.courses.find(c => String(c.id) === courseId || c['code'] === courseId);
+    const courseType = String(courseObj?.['type'] || courseObj?.['courseType'] || 'hifz').toLowerCase();
+    const courseName = String(courseObj?.['name'] || 'Course');
+
+    // Fetch any existing progress record for today
+    let existingRecord: any = undefined;
+    try {
+      const records = await firstValueFrom(
+        this.repo.list<StudentDailyProgress>('studentDailyProgress', profile, [
+          where('date', '==', dateStr),
+          where('studentId', '==', String(student.id))
+        ])
+      );
+      if (records && records.length > 0) {
+        existingRecord = records[0];
+      }
+    } catch (err) {
+      console.warn('[AttendancePage] Could not fetch existing progress record:', err);
+    }
+
+    const dialogRef = this.dialog.open(StudentEvaluationDialogComponent, {
+      width: '600px',
+      maxWidth: '95vw',
+      data: {
+        studentId: String(student.id),
+        studentName: String(student['displayName'] || student['name'] || 'Student'),
+        date: dateStr,
+        courseId,
+        courseName,
+        courseType,
+        classId: String(student['classId'] || ''),
+        groupId: String(student['groupId'] || ''),
+        profile,
+        existingRecord
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res?.success && res.record && student.id) {
+        this.studentProgressMap[String(student.id)] = res.record;
       }
     });
   }
