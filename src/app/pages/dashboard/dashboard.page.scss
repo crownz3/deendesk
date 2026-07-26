@@ -1,7 +1,26 @@
+:host {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+ion-content {
+  --padding-start: 0px;
+  --padding-end: 0px;
+  --padding-top: 0px;
+  --padding-bottom: 0px;
+}
+
 .page {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 22px;
   padding: 24px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .page-header {
@@ -1161,5 +1180,252 @@ h2 {
   .delete-selected-btn {
     margin-left: 0;
     justify-content: center;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 10px;
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .header-right-actions {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+
+    .header-action-btn {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      justify-content: center;
+      margin: 0 !important;
+
+      .btn-text {
+        font-size: 0.82rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+    }
+  }
+
+  .dashboard-welcome-card {
+    padding: 14px 10px;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    &.org-admin-header {
+      padding: 16px 10px;
+    }
+
+    h2 {
+      font-size: 1.05rem;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    p {
+      font-size: 0.85rem;
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .org-name-display {
+    font-size: clamp(1.3rem, 5.5vw, 2.2rem) !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .welcome-subtext {
+    font-size: 0.85rem;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  .welcome-madrasa-wrapper {
+    .madrasa-summary-badge {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      flex-wrap: wrap;
+      padding: 8px 10px;
+      font-size: 0.82rem;
+
+      .madrasa-single-text {
+        font-size: 0.82rem;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+    }
+
+    .highlighted-madrasas-card {
+      padding: 10px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+
+      .assignment-cards-grid {
+        grid-template-columns: 1fr !important;
+      }
+
+      .detail-row {
+        flex-wrap: wrap;
+        
+        .detail-value {
+          margin-left: 0;
+          width: 100%;
+        }
+      }
+    }
+  }
+
+  .overview-filter-bar {
+    padding: 10px 8px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+    flex-direction: column;
+    align-items: stretch;
+
+    .filter-label {
+      font-size: 0.85rem;
+    }
+
+    .filter-toggle-wrapper {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: auto;
+    }
+
+    .custom-toggle-group {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      display: flex;
+
+      mat-button-toggle {
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+        padding: 4px 2px;
+        font-size: 0.72rem;
+
+        .count-badge {
+          font-size: 0.7rem;
+        }
+      }
+    }
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)) !important;
+    gap: 10px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .access-grid {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .access-card {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    .card-header {
+      padding: 12px;
+    }
+
+    .card-stats {
+      padding: 12px;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .card-actions {
+      padding: 10px;
+      flex-direction: column;
+      align-items: stretch;
+
+      ion-button {
+        width: 100%;
+      }
+    }
+  }
+
+  .carousel-container {
+    gap: 6px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+
+    .carousel-nav-btn {
+      height: 36px;
+      width: 36px;
+      min-width: 36px;
+    }
+  }
+
+  .panel {
+    padding: 12px;
+    min-height: auto;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 380px) {
+  .page {
+    padding: 6px;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .custom-toggle-group {
+    mat-button-toggle {
+      font-size: 0.68rem !important;
+      padding: 2px 2px !important;
+    }
   }
 }
