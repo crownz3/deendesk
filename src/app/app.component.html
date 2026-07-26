@@ -80,7 +80,7 @@
           <ion-toolbar>
             <div class="toolbar-left" slot="start">
               <ion-menu-button class="menu-toggle" [class.ion-hide-lg-up]="(sidebarSettings.sidebarMode$ | async) === 'split'"></ion-menu-button>
-              <ion-title class="header-title">{{ appName$ | async }}</ion-title>
+              <span class="header-title-text">{{ appName$ | async }}</span>
             </div>
             <div class="toolbar-actions" slot="end" *ngIf="profile$ | async as profile">
               <button

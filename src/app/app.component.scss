@@ -537,21 +537,27 @@ ion-toolbar {
   transform: translateY(-1px);
 }
 
-.header-title {
+.header-title-text {
   color: var(--app-text-main);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   letter-spacing: -0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .notification-button,
-.logout-button {
+.logout-button,
+.settings-button {
   width: 42px;
   height: 42px;
   border-radius: 14px;
@@ -565,12 +571,14 @@ ion-toolbar {
 }
 
 .notification-button ion-icon,
-.logout-button ion-icon {
-  font-size: 24px;
+.logout-button ion-icon,
+.settings-button ion-icon {
+  font-size: 22px;
 }
 
 .notification-button:hover,
-.logout-button:hover {
+.logout-button:hover,
+.settings-button:hover {
   background: var(--app-primary-soft);
   transform: translateY(-1px);
 }
@@ -616,41 +624,44 @@ img.user-avatar-small {
 /* Responsive Behavior */
 @media (max-width: 768px) {
   ion-toolbar {
-    --min-height: 56px;
-    --padding-start: 8px;
-    --padding-end: 8px;
+    --min-height: 54px;
+    --padding-start: 6px;
+    --padding-end: 6px;
   }
 
   .toolbar-left {
-    gap: 8px;
+    gap: 6px;
+    max-width: 140px;
   }
 
-  .header-title {
-    font-size: 18px;
+  .header-title-text {
+    font-size: 16px;
+    max-width: 100px;
   }
 
   .toolbar-actions {
-    gap: 4px;
+    gap: 2px;
   }
 
   .notification-button,
-  .logout-button {
-    width: 38px;
-    height: 38px;
+  .logout-button,
+  .settings-button {
+    width: 34px;
+    height: 34px;
     
     ion-icon {
-      font-size: 20px;
+      font-size: 18px;
     }
   }
 
   .header-user.user-chip {
     padding: 0;
-    min-height: 38px;
-    width: 38px;
+    min-height: 34px;
+    width: 34px;
     border-radius: 50%;
     justify-content: center;
     background: transparent;
-    border: 2px solid rgba(26, 115, 232, 0.2);
+    border: 1.5px solid rgba(26, 115, 232, 0.2);
 
     span {
       display: none;
@@ -661,5 +672,20 @@ img.user-avatar-small {
       height: 100%;
       border-radius: 50%;
     }
+  }
+}
+
+@media (max-width: 480px) {
+  .toolbar-left {
+    max-width: 120px;
+  }
+
+  .header-title-text {
+    font-size: 15px;
+    max-width: 80px;
+  }
+
+  .settings-button {
+    display: none !important;
   }
 }
