@@ -142,6 +142,29 @@
       </div>
     </ng-container>
 
+    <!-- OPTIONAL DETAILED MISTAKE BREAKDOWN -->
+    <div class="section-card mistake-details-card">
+      <h3 class="section-title">
+        <mat-icon class="mistake-icon">error_outline</mat-icon> Detailed Mistake Log (Optional)
+      </h3>
+      <div class="form-grid three-cols">
+        <mat-form-field appearance="outline">
+          <mat-label>Page Number (Optional)</mat-label>
+          <input matInput formControlName="mistakePageNo" placeholder="e.g. Pg 244" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Line Number (Optional)</mat-label>
+          <input matInput formControlName="mistakeLineNo" placeholder="e.g. Line 8" />
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Mistake Word / Ayah (Optional)</mat-label>
+          <input matInput formControlName="mistakeWord" placeholder="e.g. Word: Yatamanna / Tajweed" />
+        </mat-form-field>
+      </div>
+    </div>
+
     <!-- COMMON QUALITY RATING & REMARKS -->
     <div class="section-card overall-card">
       <h3 class="section-title">

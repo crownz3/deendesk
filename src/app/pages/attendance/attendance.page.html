@@ -300,6 +300,12 @@
                           <span class="badge-detail" *ngIf="prog.score !== undefined">
                             Score: {{ prog.score }}/{{ prog.totalScore }}
                           </span>
+                          <span class="badge-detail mistake-tag" *ngIf="prog.mistakePageNo || prog.mistakeLineNo || prog.mistakeWord">
+                            <mat-icon class="mini-icon">error_outline</mat-icon>
+                            <ng-container *ngIf="prog.mistakePageNo">Pg {{ prog.mistakePageNo }} </ng-container>
+                            <ng-container *ngIf="prog.mistakeLineNo">Ln {{ prog.mistakeLineNo }} </ng-container>
+                            <ng-container *ngIf="prog.mistakeWord">({{ prog.mistakeWord }})</ng-container>
+                          </span>
                         </div>
                       </div>
                     </div>

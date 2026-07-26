@@ -317,6 +317,11 @@ export interface StudentDailyProgress extends ScopedEntity {
   score?: number;
   totalScore?: number;
 
+  // Detailed Mistake Breakdown (Optional)
+  mistakePageNo?: number | string;
+  mistakeLineNo?: number | string;
+  mistakeWord?: string;
+
   // General Evaluation
   grade?: string;
   starRating?: number;

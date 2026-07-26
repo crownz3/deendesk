@@ -83,6 +83,11 @@ export class StudentEvaluationDialogComponent implements OnInit {
       score: [exist?.score || null],
       totalScore: [exist?.totalScore || 20],
 
+      // Detailed Mistake Breakdown (Optional)
+      mistakePageNo: [exist?.mistakePageNo || ''],
+      mistakeLineNo: [exist?.mistakeLineNo || ''],
+      mistakeWord: [exist?.mistakeWord || ''],
+
       // Common Evaluation
       grade: [exist?.grade || 'Good'],
       starRating: [exist?.starRating || 5],
@@ -132,6 +137,10 @@ export class StudentEvaluationDialogComponent implements OnInit {
         chapterTopic: val.chapterTopic,
         score: val.score !== null ? Number(val.score) : undefined,
         totalScore: val.totalScore !== null ? Number(val.totalScore) : undefined,
+
+        mistakePageNo: val.mistakePageNo,
+        mistakeLineNo: val.mistakeLineNo,
+        mistakeWord: val.mistakeWord,
 
         grade: val.grade,
         starRating: val.starRating,

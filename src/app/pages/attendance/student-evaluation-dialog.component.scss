@@ -2,32 +2,37 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  padding: 20px 24px 12px;
+  padding: 16px 20px 12px;
   border-bottom: 1px solid #e2e8f0;
+  width: 100%;
+  box-sizing: border-box;
 
   .header-title-wrapper {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 
     .header-icon {
-      font-size: 28px;
-      width: 28px;
-      height: 28px;
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
       color: #2563eb;
+      flex-shrink: 0;
     }
 
     h2 {
       margin: 0;
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       font-weight: 700;
       color: #0f172a;
+      word-break: break-word;
     }
 
     .dialog-subtitle {
-      margin: 4px 0 0;
-      font-size: 0.85rem;
+      margin: 3px 0 0;
+      font-size: 0.82rem;
       color: #64748b;
+      word-break: break-word;
 
       .course-badge {
         color: #2563eb;
@@ -40,30 +45,36 @@
 
   .close-btn {
     color: #64748b;
+    flex-shrink: 0;
   }
 }
 
 .evaluation-dialog-content {
-  padding: 20px 24px;
+  padding: 16px 20px;
   max-height: 75vh;
   overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .evaluation-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .section-card {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 16px;
+  padding: 14px;
+  width: 100%;
+  box-sizing: border-box;
 
   .section-title {
-    margin: 0 0 14px;
-    font-size: 0.95rem;
+    margin: 0 0 12px;
+    font-size: 0.92rem;
     font-weight: 700;
     color: #1e293b;
     display: flex;
@@ -75,6 +86,10 @@
       width: 20px;
       height: 20px;
       color: #3b82f6;
+
+      &.mistake-icon {
+        color: #e11d48;
+      }
     }
   }
 }
@@ -82,35 +97,42 @@
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+
+  &.three-cols {
+    grid-template-columns: repeat(3, 1fr);
+  }
 
   .full-width {
-    grid-column: span 2;
+    grid-column: 1 / -1;
   }
 }
 
 .field-unit {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: #64748b;
-  margin-right: 8px;
+  margin-right: 6px;
 }
 
 .rating-row,
 .star-rating-row {
   display: flex;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
 
   .rating-label {
-    font-size: 0.9rem;
+    font-size: 0.88rem;
     font-weight: 600;
     color: #334155;
-    min-width: 140px;
+    min-width: 130px;
   }
 
   .grade-field {
-    width: 180px;
+    width: 160px;
     margin-bottom: -1.25em;
   }
 }
@@ -141,13 +163,16 @@
 }
 
 .remarks-field {
-  margin-top: 8px;
+  margin-top: 6px;
+  width: 100%;
 }
 
 .evaluation-dialog-actions {
-  padding: 14px 24px;
+  padding: 12px 20px;
   border-top: 1px solid #e2e8f0;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 
   .save-btn {
     display: inline-flex;
@@ -157,7 +182,30 @@
 }
 
 @media (max-width: 640px) {
-  .form-grid {
+  .evaluation-dialog-header {
+    padding: 12px 14px 10px;
+
+    .header-title-wrapper {
+      gap: 8px;
+      h2 {
+        font-size: 1.05rem;
+      }
+      .dialog-subtitle {
+        font-size: 0.78rem;
+      }
+    }
+  }
+
+  .evaluation-dialog-content {
+    padding: 12px 14px;
+  }
+
+  .section-card {
+    padding: 12px 10px;
+  }
+
+  .form-grid,
+  .form-grid.three-cols {
     grid-template-columns: 1fr;
 
     .full-width {
@@ -170,5 +218,32 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
+
+    .rating-label {
+      min-width: auto;
+    }
+
+    .grade-field {
+      width: 100%;
+    }
+  }
+
+  .evaluation-dialog-actions {
+    padding: 10px 14px;
+    flex-direction: column;
+    align-items: stretch;
+
+    button {
+      width: 100%;
+      justify-content: center;
+    }
+  }
+}
+
+@media (max-width: 380px) {
+  .star-group .star-btn mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
   }
 }
