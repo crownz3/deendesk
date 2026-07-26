@@ -1067,6 +1067,29 @@ service cloud.firestore {
       allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || hasPermission('manageAnnouncements'))));
     }
 
+    // ==========================================
+    // Password Reset Requests Module
+    // ==========================================
+    match /passwordResetRequests/{id} {
+      allow create, read: if true;
+      allow update, delete: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+    }
+
+    // ==========================================
+    // Help & Support Desk Module
+    // ==========================================
+    match /supportTickets/{id} {
+      allow read: if signedIn() && (isSuper() || request.auth.uid == resource.data.createdByUid || sameOrg(resource.data));
+      allow create: if signedIn() && request.resource.data.createdByUid == request.auth.uid;
+      allow update: if signedIn() && (isSuper() || request.auth.uid == resource.data.createdByUid || sameOrg(resource.data));
+      allow delete: if isSuper();
+    }
+
+    match /supportTicketMessages/{id} {
+      allow read, create, update: if signedIn();
+      allow delete: if isSuper();
+    }
+
     match /{document=**} {
       allow read, write: if isSuper();
     }

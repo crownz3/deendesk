@@ -362,3 +362,65 @@
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+@media (max-width: 768px) {
+  .firebase-usage-container {
+    padding: 14px;
+    gap: 14px;
+
+    .header-section {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+
+      .header-title h1 {
+        font-size: 1.35rem;
+      }
+    }
+
+    .filter-card .filter-bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+
+      .filter-group {
+        width: 100%;
+        flex-direction: column;
+
+        .filter-field {
+          width: 100% !important;
+        }
+      }
+
+      .total-cost-badge {
+        align-items: flex-start;
+        width: 100%;
+      }
+    }
+
+    .stats-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+
+      .stat-card {
+        padding: 12px;
+
+        .stat-body .stat-value {
+          font-size: 1.35rem;
+        }
+      }
+    }
+
+    .module-cards-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .calculator-card {
+      padding: 16px;
+
+      .calc-form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+}

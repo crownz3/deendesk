@@ -36,6 +36,8 @@ import { ExamsPage } from './pages/exams/exams.page';
 import { CompetitionsPage } from './pages/competitions/competitions.page';
 import { AnnouncementsPage } from './pages/announcements/announcements.page';
 
+import { HelpSupportPage } from './pages/help-support/help-support.page';
+
 const routes: Routes = [
   { path: 'login', component: LoginPage },
   { path: 'change-password', component: ChangePasswordPage, canActivate: [authGuard] },
@@ -50,9 +52,9 @@ const routes: Routes = [
   { path: 'roles-permissions', component: PermissionsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePermissions' } },
   { path: 'coordinators', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'coordinators', permission: 'manageCoordinators' } },
   { path: 'madrasa-incharges', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'incharges', permission: 'manageIncharges' } },
-  { path: 'stage-heads', component: StageHeadsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageStageHeads', 'manageStaff', 'manageCourses', 'viewDashboard'] } },
-  { path: 'staff', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'staff', permissionsAny: ['manageStaff', 'viewDashboard'] } },
-  { path: 'students', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'students', permissionsAny: ['manageStudents', 'viewDashboard'] } },
+  { path: 'stage-heads', component: StageHeadsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageStageHeads', 'manageStaff', 'manageCourses'] } },
+  { path: 'staff', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'staff', permissionsAny: ['manageStaff'] } },
+  { path: 'students', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'students', permissionsAny: ['manageStudents'] } },
   { path: 'parents', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'parents', permission: 'manageParents' } },
   { path: 'alumni', component: AlumniPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewAlumni', 'manageAlumni'] } },
   { path: 'exams', component: ExamsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewExams', 'manageExams'] } },
@@ -76,9 +78,10 @@ const routes: Routes = [
   { path: 'reports', component: ReportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'generateReports' } },
   { path: 'activity-logs', component: ActivityLogsPage, canActivate: [authGuard] },
   { path: 'csv-imports', component: CsvImportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'importCsv' } },
-  { path: 'academic-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'academic', permissionsAny: ['manageAcademicPlans', 'viewDashboard'] } },
-  { path: 'people-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'people', permissionsAny: ['manageStaff', 'manageStudents', 'manageParents', 'viewDashboard'] } },
+  { path: 'academic-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'academic', permissionsAny: ['manageAcademicPlans', 'manageClasses', 'manageCourses'] } },
+  { path: 'people-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'people', permissionsAny: ['manageStaff', 'manageStudents', 'manageParents'] } },
   { path: 'notifications', component: NotificationsPage, canActivate: [authGuard] },
+  { path: 'help-support', component: HelpSupportPage, canActivate: [authGuard] },
   { path: 'profile', component: ProfilePage, canActivate: [authGuard, permissionGuard], data: { permission: 'editProfile' } },
   { path: 'settings', component: SettingsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageSettings' } },
   { path: 'password-requests', component: PasswordRequestsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePasswordRequests' } },

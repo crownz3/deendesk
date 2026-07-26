@@ -17,7 +17,10 @@
             <p class="eyebrow">Academic</p>
             <h2>Class Plans</h2>
           </div>
-          <div style="display: flex; align-items: center;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button mat-icon-button (click)="openScheduleTypesGuide()" matTooltip="Schedule Types Guide & Examples" color="primary">
+              <mat-icon>help_outline</mat-icon>
+            </button>
             <button mat-icon-button (click)="isSidebarCollapsed = !isSidebarCollapsed" [matTooltip]="isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'">
               <mat-icon>{{ isSidebarCollapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
             </button>
@@ -45,7 +48,7 @@
             >
               <div class="item-main">
                 <span class="plan-title">{{ plan.title || 'Untitled Plan' }}</span>
-                <span class="plan-subtitle">{{ plan.className }} &bull; {{ plan.courseName }}</span>
+                <span class="plan-subtitle">{{ plan.courseName }} &bull; {{ plan.className }} &bull; {{ getGroupName(plan, vm.data) }}</span>
               </div>
               <app-status-badge [status]="plan.status"></app-status-badge>
             </div>
@@ -59,6 +62,9 @@
         <div class="empty-detail" *ngIf="!selectedPlan && !isCreating">
           <mat-icon class="empty-icon">subject</mat-icon>
           <p>Select a class plan to view details, or create a new one.</p>
+          <button mat-stroked-button color="primary" (click)="openScheduleTypesGuide()" style="margin-top: 12px; border-radius: 8px;">
+            <mat-icon>help_outline</mat-icon> Learn About Schedule Types
+          </button>
         </div>
 
         <div class="detail-content" *ngIf="isCreating || selectedPlan">
@@ -85,6 +91,10 @@
                     <span class="plan-badge" style="background: #f3e5f5; color: #7b1fa2; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
                       <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">school</mat-icon>
                       {{ selectedPlan.courseName }} &bull; {{ selectedPlan.className }}
+                    </span>
+                    <span class="plan-badge" style="background: #fff3e0; color: #e65100; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
+                      <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">groups</mat-icon>
+                      Group: {{ getGroupName(selectedPlan, vm.data) }}
                     </span>
                     <span class="plan-badge" style="background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 500;">
                       <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">person</mat-icon>
@@ -151,7 +161,7 @@
                 <div>
                   <div style="font-weight: 500; color: #e65100; margin-bottom: 4px;">
                     {{ exception.date | date:'longDate' }} 
-                    <span style="font-size: 12px; font-weight: normal; margin-left: 8px; padding: 2px 8px; background: #ffe0b2; border-radius: 12px; color: #ef6c00;">{{ exception.type | titlecase }}</span>
+                    <span style="font-size: 12px; font-weight: normal; margin-left: 8px; padding: 2px 8px; background: #ffe0b2; border-radius: 12px; color: #ef6c00;">{{ exception.customTypeName || (exception.type | titlecase) }}</span>
                   </div>
                   <div style="font-size: 13px; color: #666;" *ngIf="exception.reason">{{ exception.reason }}</div>
                   <div style="font-size: 13px; color: #666;" *ngIf="exception.type === 'rescheduled' && exception.rescheduledDate">
@@ -160,9 +170,14 @@
                     <ng-container *ngIf="exception.rescheduledStartTime"> ({{ exception.rescheduledStartTime }} - {{ exception.rescheduledEndTime }})</ng-container>
                   </div>
                 </div>
-                <button mat-icon-button color="warn" matTooltip="Delete Exception" (click)="deleteException(exception, vm.data?.profile)">
-                  <mat-icon>delete_outline</mat-icon>
-                </button>
+                <div style="display: flex; gap: 4px;">
+                  <button mat-icon-button color="primary" matTooltip="Edit Exception" (click)="openExceptionForm(selectedPlan, exception)" *ngIf="canManage(vm.data?.profile)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button mat-icon-button color="warn" matTooltip="Delete Exception" (click)="deleteException(exception, vm.data?.profile)" *ngIf="canManage(vm.data?.profile)">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

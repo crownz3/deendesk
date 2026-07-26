@@ -1,0 +1,237 @@
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--ion-color-light-shade, #e5e7eb);
+  background: var(--ion-color-light, #f9fafb);
+
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .title-icon {
+      font-size: 24px;
+      color: var(--ion-color-primary, #0284c7);
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #1e293b;
+      font-family: 'Poppins', sans-serif;
+    }
+  }
+}
+
+.dialog-content {
+  padding: 20px 24px !important;
+  max-height: 75vh;
+
+  .subtitle {
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-top: 0;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+}
+
+.ticket-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .form-row {
+    width: 100%;
+
+    &.split-row {
+      display: flex;
+      gap: 16px;
+      @media (max-width: 600px) {
+        flex-direction: column;
+        gap: 8px;
+      }
+    }
+
+    .full-width {
+      width: 100%;
+    }
+
+    .half-width {
+      flex: 1;
+      width: 100%;
+    }
+  }
+}
+
+.select-option-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .opt-icon {
+    font-size: 18px;
+    color: var(--ion-color-primary, #0284c7);
+  }
+}
+
+.attachments-section {
+  margin-top: 8px;
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 8px;
+
+    ion-icon {
+      font-size: 18px;
+      color: var(--ion-color-primary, #0284c7);
+    }
+  }
+
+  .upload-area {
+    border: 2px dashed #cbd5e1;
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: var(--ion-color-primary, #0284c7);
+      background: #f0f9ff;
+    }
+
+    .upload-icon {
+      font-size: 32px;
+      color: var(--ion-color-primary, #0284c7);
+      margin-bottom: 6px;
+    }
+
+    .upload-text {
+      margin: 0;
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: #334155;
+    }
+
+    .upload-subtext {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+  }
+
+  .file-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin-top: 14px;
+
+    .file-preview-card {
+      position: relative;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      .thumb-container {
+        width: 100%;
+        height: 90px;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        .doc-icon {
+          font-size: 40px;
+          color: #64748b;
+        }
+      }
+
+      .file-info {
+        width: 100%;
+        margin-top: 6px;
+        display: flex;
+        flex-direction: column;
+
+        .file-name {
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #1e293b;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .file-size {
+          font-size: 0.7rem;
+          color: #64748b;
+        }
+      }
+
+      .remove-btn {
+        position: absolute;
+        top: 4px;
+        right: 4px;
+        background: rgba(220, 38, 38, 0.9);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+
+        &:hover {
+          transform: scale(1.1);
+        }
+
+        ion-icon {
+          font-size: 14px;
+        }
+      }
+    }
+  }
+}
+
+.dialog-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 14px 24px;
+  border-top: 1px solid #e5e7eb;
+
+  .submit-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 20px;
+
+    .btn-spinner {
+      margin-right: 4px;
+    }
+  }
+}

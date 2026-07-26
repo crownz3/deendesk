@@ -539,7 +539,6 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'name', label: 'Class' },
       { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
-      { key: 'stage', label: 'Stage' },
       { key: 'groupStaff', label: 'Staff', type: 'staffChips' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
@@ -548,7 +547,6 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
       { key: 'courseId', label: 'Course', type: 'select', required: true, quickAddResource: 'courses' },
       { key: 'name', label: 'Class name', type: 'text', required: true },
-      { key: 'stage', label: 'Stage', type: 'text' },
       baseStatusField,
     ],
   },
@@ -680,6 +678,9 @@ export class ManagementPage {
 
   readonly madrasaFilter$ = new BehaviorSubject<string>('all');
   readonly roleFilter$ = new BehaviorSubject<string>('all');
+  readonly roleOptions$: Observable<SelectOption[]> = this.auth.profile$.pipe(
+    switchMap(profile => this.rolePermissionsService.getAllRoleOptions(profile?.role))
+  );
   readonly organizationFilter$ = new BehaviorSubject<string>('all');
   
   readonly courseFilter$ = new BehaviorSubject<string>('all');
@@ -716,11 +717,13 @@ export class ManagementPage {
         this.repo.list<EntityRecord>('students', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('staff', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('users', profile).pipe(catchError(() => of([]))),
         profile?.role === 'superAdmin'
           ? this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(() => of([])))
           : of([] as EntityRecord[])
       ]).pipe(
-        map(([rows, madrasas, courses, classes, students, classGroups, staffRows, organizations]) => {
+        map(([rows, madrasas, courses, classes, students, classGroups, staffRows, usersRows, organizations]) => {
+           const allStaffRows = [...staffRows, ...usersRows];
            let filteredRows = this.decorateRows(config, this.filterRows(config, rows));
            let displayMadrasas = madrasas;
            let displayCourses = courses;
@@ -741,7 +744,7 @@ export class ManagementPage {
             }
 
             if (config.resource === 'classes') {
-              filteredRows = this.withClassGroupStaff(filteredRows, classGroups, staffRows);
+              filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
             }
            
             if (config.resource === 'students') {
@@ -916,68 +919,56 @@ export class ManagementPage {
 
   private userRowsForResource(config: ManagementConfig, profile: AppUser | null, madrasaFilter: string = 'all', roleFilter: string = 'all'): Observable<EntityRecord[]> {
     const roles = this.rolesForResource(config.resource);
-    
-    // Apply filters at query level when viewing users page
     let queryRoles = roles ? roles : undefined;
     if (config.resource === 'users' && roleFilter !== 'all') {
       queryRoles = [roleFilter];
     }
-    
-    // For madrasa filtering in repository service, we can't easily pass it without changing repo.list signature.
-    // Instead we will fetch with standard repo logic and apply madrasa filter in memory, 
-    // unless the RepositoryService gets an update to accept custom constraints.
-    // Given the constraints of repo.list, we fetch scoped users and filter in-memory if needed.
-    // We already fetch scoped by role.
 
-    const usersObs$ = this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(
-      map(rows => {
+    const users$ = this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(catchError(() => of([])));
+    const staff$ = this.repo.list<EntityRecord>('staff', profile, [], undefined).pipe(catchError(() => of([])));
+
+    return combineLatest([users$, staff$]).pipe(
+      map(([userRows, staffRows]) => {
+        const staffMap = new Map<string, EntityRecord>();
+        staffRows.forEach(s => {
+          const uid = String(s['userId'] || s['uid'] || s.id || '');
+          if (uid) staffMap.set(uid, s);
+        });
+
+        // Merge staff entity data over user data so updates in staff collection reflect in the table!
+        let merged = userRows.map(userRow => {
+          const staffDoc = userRow.id ? staffMap.get(userRow.id) : undefined;
+          if (staffDoc) {
+            return {
+              ...userRow,
+              name: staffDoc['name'] || staffDoc['displayName'] || userRow['name'] || userRow['displayName'],
+              displayName: staffDoc['displayName'] || staffDoc['name'] || userRow['displayName'] || userRow['name'],
+              mobileNumber: staffDoc['mobileNumber'] || staffDoc['phone'] || userRow['mobileNumber'] || userRow['phone'],
+              phone: staffDoc['phone'] || staffDoc['mobileNumber'] || userRow['phone'] || userRow['mobileNumber'],
+              gender: staffDoc['gender'] || userRow['gender'],
+              madrasaId: staffDoc['madrasaId'] || userRow['madrasaId'],
+              madrasaIds: staffDoc['madrasaIds'] || userRow['madrasaIds'],
+              status: staffDoc['status'] || userRow['status'],
+              permissions: staffDoc['permissions'] || userRow['permissions'],
+              role: staffDoc['role'] || userRow['role'],
+              entityId: staffDoc.id,
+              entityType: 'staff',
+            };
+          }
+          return userRow;
+        });
+
         if (queryRoles && queryRoles.length > 0) {
-           rows = rows.filter(r => queryRoles!.includes(String(r['role'])));
+          merged = merged.filter(r => queryRoles!.includes(String(r['role'])));
         }
+
         if (config.resource === 'users' && madrasaFilter !== 'all') {
-           rows = rows.filter(r => r['madrasaId'] === madrasaFilter || (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter)));
+          merged = merged.filter(r => r['madrasaId'] === madrasaFilter || (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter)));
         }
-        if (config.resource === 'students') {
-           console.log('[Student Page Access Debug]', {
-             currentUserRole: profile?.role,
-             organizationId: profile?.organizationId,
-             madrasaId: profile?.madrasaId,
-             madrasaIds: profile?.madrasaIds,
-             requestedRoles: roles,
-           });
-           if (rows.length === 0) {
-             console.warn('[Student Page Empty State Debug]', {
-               reason: 'No scoped student users returned',
-               organizationId: profile?.organizationId,
-               madrasaIds: profile?.madrasaIds,
-               requestedRoles: roles,
-             });
-           }
-        } else if (config.resource === 'staff') {
-           console.log('[Staff Page Access Debug]', {
-             currentUserRole: profile?.role,
-             organizationId: profile?.organizationId,
-             madrasaId: profile?.madrasaId,
-             madrasaIds: profile?.madrasaIds,
-             requestedRoles: roles,
-           });
-           if (rows.length === 0) {
-             console.warn('[Staff Page Empty State Debug]', {
-               reason: 'No scoped staff/teacher users returned',
-               organizationId: profile?.organizationId,
-               madrasaIds: profile?.madrasaIds,
-               requestedRoles: roles,
-             });
-           }
-        }
-        return rows;
+
+        return this.credentialRows(merged);
       })
     );
-
-    switch (config.resource) {
-      default:
-        return usersObs$.pipe(map((rows) => this.credentialRows(rows)));
-    }
   }
 
   private rolesForResource(resource: string): string[] | undefined {
@@ -1423,24 +1414,53 @@ export class ManagementPage {
   private withClassGroupStaff(classes: EntityRecord[], classGroups: EntityRecord[], staffRows: EntityRecord[]): EntityRecord[] {
     const staffById = new Map<string, EntityRecord>();
     staffRows.forEach((staff) => {
+      // Exclude student & parent roles
+      const role = String(staff['role'] || '');
+      const roles: string[] = Array.isArray(staff['roles']) ? staff['roles'].map(String) : (role ? [role] : []);
+      if (roles.includes('student') || roles.includes('parent') || role === 'student' || role === 'parent') {
+        return;
+      }
       this.recordIdentityValues(staff).forEach((id) => staffById.set(id, staff));
     });
 
     return classes.map((classRow) => {
       const groups = classGroups.filter((group) => String(group['classId'] || '') === String(classRow.id || ''));
-      const staffIds = this.uniqueStrings(
-        groups.flatMap((group) => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'] : [])
-      );
+      
+      const directStaffIds = this.uniqueStrings([
+        ...(Array.isArray(classRow['assignedStaffIds']) ? classRow['assignedStaffIds'] : []),
+        ...groups.flatMap((group) => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'] : [])
+      ]);
+
+      const staffIds = [...directStaffIds];
+
+      // Also match staff whose profile has classId matching this class
+      staffRows.forEach((staff) => {
+        const role = String(staff['role'] || '');
+        const roles: string[] = Array.isArray(staff['roles']) ? staff['roles'].map(String) : (role ? [role] : []);
+        if (roles.includes('student') || roles.includes('parent') || role === 'student' || role === 'parent') {
+          return;
+        }
+
+        const sClassId = String(staff['classId'] || staff['assignedClassId'] || '');
+        const sClassIds = Array.isArray(staff['classIds']) ? staff['classIds'].map(String) : (Array.isArray(staff['assignedClassIds']) ? staff['assignedClassIds'].map(String) : []);
+        
+        if (classRow.id && (sClassId === classRow.id || sClassIds.includes(classRow.id))) {
+          this.recordIdentityValues(staff).forEach((id) => {
+            if (!staffIds.includes(id)) staffIds.push(id);
+          });
+        }
+      });
 
       const groupStaff = staffIds.map((id) => {
         const staff = staffById.get(id);
+        if (!staff) return null;
         return {
           id,
-          name: String(staff?.['name'] || staff?.['displayName'] || staff?.['email'] || id),
-          email: staff?.['email'] || '',
-          photoURL: staff?.['photoURL'] || '',
+          name: String(staff['displayName'] || staff['name'] || staff['email'] || id),
+          email: staff['email'] || '',
+          photoURL: staff['photoURL'] || '',
         };
-      });
+      }).filter(s => !!s && !!s.name);
 
       return {
         ...classRow,
@@ -1900,8 +1920,9 @@ export class ManagementPage {
     if (config.resource !== 'classGroups' && config.resource !== 'classes') return;
     
     await this.loader.withLoader('Loading staff...', async () => {
-      const users = await this.repo.getAllOnce<EntityRecord>('users', null);
-      const allStaff = users.filter((u: any) => ['staff', 'coordinator', 'incharge', 'teacher'].includes(String(u['role'])));
+      const profile = await firstValueFrom(this.auth.profile$);
+      const users = await this.repo.getAllOnce<EntityRecord>('users', profile);
+      const allStaff = users.filter((u: any) => ['staff', 'coordinator', 'madrasaIncharge', 'teacher', 'organizationAdmin'].includes(String(u['role'])));
       
       let assignedStaff: any[] = [];
       let nodeType = '';
@@ -1977,7 +1998,7 @@ export class ManagementPage {
                  name: user['displayName'] || user['name'] || 'Legacy Student',
                  status: user['status'] || 'active',
               }, profile);
-              await this.repo.update('users', user.id, { entityId: studentId, entityType: 'student' }, profile);
+              await this.repo.update('users', user.id, { entityId: studentId, entityType: 'student' }, profile, true).catch(e => console.warn('[LinkedAccount] users update skipped:', e));
               migratedCount++;
            }
         }
@@ -1991,7 +2012,7 @@ export class ManagementPage {
                  name: user['displayName'] || user['name'] || 'Legacy Parent',
                  status: user['status'] || 'active',
               }, profile);
-              await this.repo.update('users', user.id, { entityId: parentId, entityType: 'parent' }, profile);
+              await this.repo.update('users', user.id, { entityId: parentId, entityType: 'parent' }, profile, true).catch(e => console.warn('[LinkedAccount] users update skipped:', e));
               migratedCount++;
            }
         }
@@ -2005,7 +2026,7 @@ export class ManagementPage {
                  name: user['displayName'] || user['name'] || 'Legacy Staff',
                  status: user['status'] || 'active',
               }, profile);
-              await this.repo.update('users', user.id, { entityId: staffId, entityType: 'staff' }, profile);
+              await this.repo.update('users', user.id, { entityId: staffId, entityType: 'staff' }, profile, true).catch(e => console.warn('[LinkedAccount] users update skipped:', e));
               migratedCount++;
            }
         }
@@ -2174,9 +2195,10 @@ export class ManagementPage {
   }
 
   downloadCredentials(): void {
+    const labels = this.rolePermissionsService.getAllLabels();
     const rows = this.credentials.map((credential) => ({
       label: credential.label,
-      role: ROLE_LABELS[credential.role],
+      role: labels[credential.role] || ROLE_LABELS[credential.role as UserRole] || credential.role,
       email: credential.email,
       initialPassword: credential.password,
     }));
@@ -2215,55 +2237,81 @@ export class ManagementPage {
             if ('madrasaIds' in payload) processedPayload['madrasaIds'] = this.asStringArray(payload['madrasaIds']);
             if ('linkedStudentIds' in payload) processedPayload['linkedStudentIds'] = this.asStringArray(payload['linkedStudentIds']);
 
-            await this.repo.update(config.collection, initial.id, processedPayload, profile);
+            const isStaffResource = config.resource === 'staff';
+            const isUserCollection = config.collection === 'users';
+
+            // Case 1: Editing on the Staff page directly (initial.id is staff entity doc ID)
+            if (isStaffResource) {
+              const staffPayload = { ...processedPayload };
+              const newName = processedPayload['name'] || processedPayload['displayName'];
+              if (newName) {
+                staffPayload['name'] = newName;
+                staffPayload['displayName'] = newName;
+              }
+              await this.repo.update('staff', initial.id, staffPayload, profile);
+
+              const staffUserUid = String(initial['uid'] || initial['userId'] || '');
+              if (staffUserUid) {
+                await this.repo.update('users', staffUserUid, staffPayload, profile, true).catch(e =>
+                  console.warn('[Staff Update] Failed to sync user doc:', e)
+                );
+              }
+            }
+            // Case 2: Editing on Users / Coordinators / Incharges page (initial.id is user uid)
+            else if (isUserCollection) {
+              const targetUid = initial.id;
+              let entityCollection = initial['entityType'] === 'student' ? 'students' :
+                                     initial['entityType'] === 'parent' ? 'parents' : 'staff';
+              let entityId = initial['entityId'] ? String(initial['entityId']) : null;
+
+              if (!entityId && targetUid) {
+                const staffSnap = await this.repo.getAllOnce<EntityRecord>('staff', profile);
+                const matchedStaff = staffSnap.find(s => String(s['userId'] || s['uid'] || s.id) === targetUid);
+                if (matchedStaff && matchedStaff.id) {
+                  entityCollection = 'staff';
+                  entityId = String(matchedStaff.id);
+                } else if (initial['role'] !== 'student' && initial['role'] !== 'parent') {
+                  const newStaffPayload: Record<string, unknown> = {
+                    ...processedPayload,
+                    userId: targetUid,
+                    uid: targetUid,
+                    name: processedPayload['displayName'] || processedPayload['name'] || initial['displayName'] || initial['name'] || 'User',
+                    role: initial['role'] || processedPayload['role'] || 'staff',
+                    organizationId: profile?.organizationId || initial['organizationId'] || '',
+                    status: processedPayload['status'] || initial['status'] || 'active',
+                  };
+                  entityId = await this.repo.create('staff', newStaffPayload, profile);
+                  entityCollection = 'staff';
+                }
+              }
+
+              const entityPayload = { ...processedPayload };
+              const newName = processedPayload['name'] || processedPayload['displayName'];
+              if (newName) {
+                entityPayload['name'] = newName;
+                entityPayload['displayName'] = newName;
+              }
+
+              if (entityId) {
+                await this.repo.update(entityCollection, entityId, entityPayload, profile);
+              }
+
+              // Shadow sync to users/{uid} document with skipAudit=true & catch
+              await this.repo.update('users', targetUid, entityPayload, profile, true).catch(e => {
+                console.warn(`[openEditor] Shadow update for users/${targetUid} skipped:`, e);
+              });
+            }
+            // Case 3: Other collections (courses, classes, subjects, madrasas, etc.)
+            else {
+              await this.repo.update(config.collection, initial.id, processedPayload, profile);
+            }
 
             // Sync coordinator/incharge into madrasa documents when madrasaIds changes
             const userRole = String(initial['role'] || processedPayload['role'] || '');
             const updatedMadrasaIds = this.asStringArray(processedPayload['madrasaIds'] || initial['madrasaIds'] || []);
-            const userUid = String(initial['uid'] || initial.id || '');
+            const userUid = String(initial['uid'] || initial['userId'] || initial.id || '');
             if (['coordinator', 'madrasaIncharge'].includes(userRole) && updatedMadrasaIds.length > 0 && userUid) {
               await this.syncUserToMadrasas(userUid, userRole, updatedMadrasaIds, profile);
-            }
-
-            // If we are editing a user document and it has an associated business entity, update that entity
-            if (config.collection === 'users' && initial['entityId'] && initial['entityType']) {
-              const entityCollection = initial['entityType'] === 'student' ? 'students' : 
-                                       initial['entityType'] === 'parent' ? 'parents' : 'staff';
-              const entityPayload: Partial<EntityRecord> = {};
-              if ('permissions' in processedPayload) entityPayload['permissions'] = processedPayload['permissions'];
-              if ('madrasaId' in processedPayload) entityPayload['madrasaId'] = processedPayload['madrasaId'];
-              if ('madrasaIds' in processedPayload) entityPayload['madrasaIds'] = processedPayload['madrasaIds'];
-              if ('linkedStudentIds' in processedPayload) entityPayload['linkedStudentIds'] = processedPayload['linkedStudentIds'];
-              if ('organizationId' in processedPayload) entityPayload['organizationId'] = processedPayload['organizationId'];
-              
-              if (Object.keys(entityPayload).length > 0) {
-                 await this.repo.update(entityCollection, String(initial['entityId']), entityPayload, profile);
-              }
-            }
-
-            if (initial['userId']) {
-              const userPayload: Partial<EntityRecord> = {};
-              if ('permissions' in processedPayload) userPayload['permissions'] = processedPayload['permissions'];
-              if ('madrasaId' in processedPayload) userPayload['madrasaId'] = processedPayload['madrasaId'];
-              if ('madrasaIds' in processedPayload) userPayload['madrasaIds'] = processedPayload['madrasaIds'];
-              if ('linkedStudentIds' in processedPayload) userPayload['linkedStudentIds'] = processedPayload['linkedStudentIds'];
-              if ('organizationId' in processedPayload) userPayload['organizationId'] = processedPayload['organizationId'];
-              if ('phone' in processedPayload) userPayload['phone'] = processedPayload['phone'];
-              if ('mobileNumber' in processedPayload) userPayload['mobileNumber'] = processedPayload['mobileNumber'];
-              if ('gender' in processedPayload) userPayload['gender'] = processedPayload['gender'];
-
-              if (Object.keys(userPayload).length > 0) {
-                const finalUserPayload = { ...userPayload };
-                if (!this.auth.hasPermission(profile, 'manageUsers')) {
-                  delete finalUserPayload['organizationId'];
-                  delete finalUserPayload['role'];
-                  delete finalUserPayload['email'];
-                  delete finalUserPayload['uid'];
-                }
-                if (Object.keys(finalUserPayload).length > 0) {
-                  await this.repo.update('users', String(initial['userId']), finalUserPayload, profile);
-                }
-              }
             }
           } else {
             if (config.specialCreate === 'student') {
@@ -2409,7 +2457,7 @@ export class ManagementPage {
         madrasaIds: this.asStringArray(payload['madrasaIds']),
       }, profile);
 
-      await this.repo.update('users', credential.uid, { entityId: staffId, entityType: 'staff' }, profile);
+      await this.repo.update('users', credential.uid, { entityId: staffId, entityType: 'staff' }, profile, true).catch(e => console.warn('[createUserAccess] users update skipped:', e));
 
       // Sync coordinator/incharge into madrasa documents
       await this.syncUserToMadrasas(
@@ -2470,7 +2518,7 @@ export class ManagementPage {
         madrasaIds: this.asStringArray(payload['madrasaIds']),
       }, profile);
 
-      await this.repo.update('users', credential.uid, { entityId: staffId, entityType: 'staff' }, profile);
+      await this.repo.update('users', credential.uid, { entityId: staffId, entityType: 'staff' }, profile, true).catch(e => console.warn('[createStaffAccess] users update skipped:', e));
 
       this.credentials.splice(0, this.credentials.length, credential);
       this.snackBar.open('Staff access created. Save the generated credentials.', 'Close', { duration: 5000 });
@@ -2653,7 +2701,7 @@ export class ManagementPage {
           linkedStudentUserIds: [studentCredential.uid],
           studentIds: [studentId],
           updatedAt: new Date(),
-        }, profile);
+        }, profile, true).catch(e => console.warn('[createStudent] parent users update skipped:', e));
       }
       if (studentCredential.uid) {
         await this.repo.update('users', studentCredential.uid, {
@@ -2675,7 +2723,7 @@ export class ManagementPage {
           parentGeneratedEmail: parentCredential.email,
 
           updatedAt: new Date(),
-        }, profile);
+        }, profile, true).catch(e => console.warn('[createStudent] student users update skipped:', e));
       }
 
       const joinMethod = String(payload['joinType'] || 'new').toLowerCase();
@@ -2707,10 +2755,9 @@ export class ManagementPage {
 
   private async buildFields(config: ManagementConfig, initial?: EntityRecord): Promise<QuickAddField[]> {
     const profile = await firstValueFrom(this.auth.profile$);
+    const roleOptions = await this.rolePermissionsService.getAllRoleOptions(profile?.role);
     const options: Record<string, SelectOption[]> = {
-      role: ROLE_ORDER
-        .filter((role) => profile?.role === 'superAdmin' || role !== 'superAdmin')
-        .map((role) => ({ label: ROLE_LABELS[role], value: role })),
+      role: roleOptions,
       permissions: Object.entries(PERMISSION_LABELS)
         .filter(([value]) => value !== 'manageOrganizations')
         .map(([value, label]) => ({ label, value })),

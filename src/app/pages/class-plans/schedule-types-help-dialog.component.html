@@ -1,0 +1,117 @@
+<div class="schedule-help-dialog font-inter">
+  <div class="dialog-header">
+    <div class="header-title">
+      <ion-icon name="information-circle-outline" class="title-icon"></ion-icon>
+      <div>
+        <h2>Schedule Types Guide</h2>
+        <p class="subtitle">Detailed guide & examples for all Class Plan schedule types</p>
+      </div>
+    </div>
+    <button mat-icon-button mat-dialog-close class="close-btn">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <mat-dialog-content class="dialog-body">
+    <div class="types-grid">
+      
+      <!-- Yearly Plan -->
+      <div class="type-card feature-card">
+        <div class="card-badge yearly">Yearly Academic Plan</div>
+        <div class="card-content">
+          <h3>Yearly Plan (ஆண்டு கல்வித் திட்டம்)</h3>
+          <p class="desc">Spans an entire academic year (e.g. June to April). Used for year-long course structures, annual syllabus milestones, and full-year class scheduling.</p>
+          <div class="example-box">
+            <span class="ex-label">Real Example:</span>
+            <span>"2026–2027 Full Academic Year Syllabus Plan for Aalim 1st Year."</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly Plan -->
+      <div class="type-card">
+        <div class="card-badge monthly">Monthly Plan</div>
+        <div class="card-content">
+          <h3>Monthly Schedule (மாதாந்திரத் திட்டம்)</h3>
+          <p class="desc">Structured for a specific calendar month. Ideal for tracking monthly syllabus targets, monthly unit tests, and monthly attendance summaries.</p>
+          <div class="example-box">
+            <span class="ex-label">Real Example:</span>
+            <span>"July 2026 Monthly Plan: Memorize Surah Al-Mulk & complete Fiqh Unit 2."</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weekly Schedule -->
+      <div class="type-card">
+        <div class="card-badge weekly">Weekly Schedule</div>
+        <div class="card-content">
+          <h3>Weekly Schedule (வாராந்திரத் திட்டம்)</h3>
+          <p class="desc">Recurring weekly timetable on specified days (e.g. Mon, Wed, Fri). Best for standard regular classes and daily Madrasa sessions.</p>
+          <div class="example-box">
+            <span class="ex-label">Real Example:</span>
+            <span>"Maktab Section A — Mon/Wed/Fri 4:30 PM - 6:00 PM (Hifz & Tajweed)."</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Term / Semester Plan -->
+      <div class="type-card">
+        <div class="card-badge term">Term / Semester</div>
+        <div class="card-content">
+          <h3>Term / Semester Plan (பருவத் திட்டம்)</h3>
+          <p class="desc">Structured for 3-month or 6-month academic terms (Quarterly / Half-Yearly curriculum goals).</p>
+          <div class="example-box">
+            <span class="ex-label">Real Example:</span>
+            <span>"1st Term Syllabus (June – October 2026) for Grade 5 Islamic Studies."</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Date Range Plan -->
+      <div class="type-card">
+        <div class="card-badge date-range">Date Range</div>
+        <div class="card-content">
+          <h3>Date Range Plan (தேதி வரம்புத் திட்டம்)</h3>
+          <p class="desc">Runs continuously between a fixed Start Date and End Date. Ideal for short intensive courses or seasonal camps.</p>
+          <div class="example-box">
+            <span class="ex-label">Real Example:</span>
+            <span>"Ramadan Intensive Tajweed Camp (15 April to 15 May)."</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- One-Time Event -->
+      <div class="type-card">
+        <div class="card-badge one-time">One-Time Event</div>
+        <div class="card-content">
+          <h3>One-Time Event (ஒற்றை நிகழ்வு)</h3>
+          <p class="desc">A single-day activity, exam, guest lecture, or special workshop.</p>
+          <div class="example-box">
+            <span class="ex-label">Real Example:</span>
+            <span>"Annual Quran Recitation Competition — 12 August 2026."</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Dates -->
+      <div class="type-card">
+        <div class="card-badge custom">Custom Dates</div>
+        <div class="card-content">
+          <h3>Custom Selected Dates (தனிப்பயன் தேதிகள்)</h3>
+          <p class="desc">Specific non-consecutive dates selected manually.</p>
+          <div class="example-box">
+            <span class="ex-label">Real Example:</span>
+            <span>"Revision Workshops on 5th, 15th, and 25th of every month."</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </mat-dialog-content>
+
+  <div class="dialog-actions">
+    <button mat-flat-button color="primary" mat-dialog-close class="got-it-btn">
+      Got It, Thanks!
+    </button>
+  </div>
+</div>

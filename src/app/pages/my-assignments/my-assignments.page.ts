@@ -22,10 +22,12 @@ interface AssignmentsVm {
   displayName: string;
   roleTitle: string;
   todaySchedule: ScheduleEntry[];
-  upcomingSchedule: ScheduleEntry[]; // We can just show the full week for now
+  upcomingSchedule: ScheduleEntry[]; // Full week excluding today
   weeklySchedule: Record<string, ScheduleEntry[]>;
   allPlans: (EntityRecord & ClassPlan)[];
   assignedEvents: (EntityRecord & EventEntity)[];
+  myClasses: EntityRecord[];
+  myClassGroups: EntityRecord[];
   staff: EntityRecord[];
   profile: AppUser;
 }
@@ -51,6 +53,7 @@ export class MyAssignmentsPage {
         classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile).pipe(catchError(() => of([]))),
         timetableEntries: this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile).pipe(catchError(() => of([]))),
         classes: this.repo.list<EntityRecord>('classes', profile).pipe(catchError(() => of([]))),
+        classGroups: this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([]))),
         events: this.repo.list<EntityRecord & EventEntity>('events', profile).pipe(catchError((err) => { console.error('[MyAssignmentsPage] Firebase rejected events:', err); return of([]); })),
         staff: this.repo.list<EntityRecord>('staff', profile).pipe(catchError(() => of([])))
       }).pipe(
@@ -67,17 +70,47 @@ export class MyAssignmentsPage {
     private readonly loader: LoaderService
   ) {}
 
-  private buildVm(profile: AppUser, data: { classPlans: (EntityRecord & ClassPlan)[], timetableEntries: (EntityRecord & TimetableEntry)[], classes: EntityRecord[], events: (EntityRecord & EventEntity)[], staff: EntityRecord[] }): AssignmentsVm {
+  private buildVm(profile: AppUser, data: { classPlans: (EntityRecord & ClassPlan)[], timetableEntries: (EntityRecord & TimetableEntry)[], classes: EntityRecord[], classGroups: EntityRecord[], events: (EntityRecord & EventEntity)[], staff: EntityRecord[] }): AssignmentsVm {
     console.log('[MyAssignmentsPage] Raw events fetched:', data.events);
-    console.log('[MyAssignmentsPage] Profile Entity ID:', profile.entityType === 'staff' ? profile.entityId : null);
     
+    const userIdentities = [
+      profile.uid,
+      profile.entityId,
+      (profile as any).userId,
+      profile.email
+    ].filter(Boolean).map(s => String(s).trim());
+
+    // Resolve user's assigned class groups
+    const myClassGroups = data.classGroups.filter(g => {
+      const assigned = Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'].map(String) : [];
+      return assigned.some(id => userIdentities.includes(id));
+    });
+
+    const userGroupIds = myClassGroups.map(g => String(g.id));
+    const userClassIds = Array.from(new Set(myClassGroups.map(g => String(g['classId'])).filter(Boolean)));
+
+    const myClasses = data.classes.filter(c => userClassIds.includes(String(c.id)));
+
     const todayIndex = new Date().getDay();
-    // JS getDay(): 0 = Sunday, 1 = Monday. We map to our days array which starts at Monday (index 0).
-    // Sunday in our array is index 6.
     const mappedTodayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
     const todayName = this.days[mappedTodayIndex];
 
-    const enhancedEntries: ScheduleEntry[] = data.timetableEntries.map(entry => {
+    // Filter timetable entries specifically assigned to the user or user's class groups
+    const userEntries = data.timetableEntries.filter(entry => {
+      if (entry.teacherId && userIdentities.includes(String(entry.teacherId))) {
+        return true;
+      }
+      const plan = data.classPlans.find(p => p.id === entry.classPlanId);
+      if (plan) {
+        const planGroupIds = Array.isArray(plan.groupIds) ? plan.groupIds : (plan.groupId ? [plan.groupId] : []);
+        if (planGroupIds.some(gId => userGroupIds.includes(gId))) return true;
+        if (plan.classId && userClassIds.includes(plan.classId)) return true;
+      }
+      // Admins/Incharges see all entries
+      return profile.role === 'organizationAdmin' || profile.role === 'superAdmin' || profile.role === 'madrasaIncharge';
+    });
+
+    const enhancedEntries: ScheduleEntry[] = userEntries.map(entry => {
       const plan = data.classPlans.find(p => p.id === entry.classPlanId);
       return {
         ...entry,
@@ -102,14 +135,13 @@ export class MyAssignmentsPage {
       .filter(e => {
         if (e.isDeleted) return false;
         const staffId = profile.entityType === 'staff' ? profile.entityId : null;
-        return staffId && (e.staffInChargeId === staffId || e.additionalResponsibleStaffIds?.includes(staffId));
+        return (staffId && (e.staffInChargeId === staffId || e.additionalResponsibleStaffIds?.includes(staffId))) ||
+               profile.role === 'organizationAdmin' || profile.role === 'superAdmin' || profile.role === 'madrasaIncharge';
       })
       .map(e => ({
         ...e,
         status: computeEventStatus(e)
       }));
-    
-    console.log('[MyAssignmentsPage] Filtered assigned events count:', assignedEvents.length, assignedEvents);
 
     return {
       displayName: profile.displayName || profile.email,
@@ -119,6 +151,8 @@ export class MyAssignmentsPage {
       weeklySchedule,
       allPlans: data.classPlans,
       assignedEvents,
+      myClasses,
+      myClassGroups,
       staff: data.staff,
       profile
     };

@@ -493,12 +493,29 @@ select:-webkit-autofill {
 .academic-tree-students-dialog-panel,
 .academic-tree-staff-dialog-panel,
 .academic-tree-assign-dialog-panel {
+  max-width: 96vw !important;
+  max-height: 96vh !important;
+
   .mat-mdc-dialog-surface,
   .mdc-dialog__surface,
   .mat-mdc-dialog-container {
-    border-radius: 24px !important;
+    border-radius: 20px !important;
     overflow: hidden !important;
     padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: 96vh !important;
+  }
+
+  @media (max-width: 600px) {
+    max-width: 98vw !important;
+    width: 98vw !important;
+
+    .mat-mdc-dialog-surface,
+    .mdc-dialog__surface,
+    .mat-mdc-dialog-container {
+      border-radius: 12px !important;
+    }
   }
 }
 

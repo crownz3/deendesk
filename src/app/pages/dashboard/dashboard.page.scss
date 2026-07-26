@@ -11,30 +11,41 @@
   justify-content: space-between;
 }
 
-.help-guide-btn {
+.header-action-btn {
   border-radius: 20px !important;
   font-weight: 600 !important;
   height: 38px;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  padding: 0 16px !important;
+
+  ion-icon {
+    font-size: 1.2rem;
+  }
+
+  &.usage-btn {
+    background: #2563eb;
+    color: #ffffff;
+  }
+
+  &.help-btn {
+    border-color: #93c5fd;
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
+
+  &.refresh-btn {
+    border-color: #cbd5e1;
+    color: #1e293b;
+  }
 }
 
 .header-right-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
-}
-
-@media (max-width: 480px) {
-  .help-guide-btn .btn-text {
-    font-size: 0 !important;
-  }
-  .help-guide-btn .btn-text::before {
-    content: "Help / உதவி";
-    font-size: 13px;
-  }
 }
 
 .eyebrow {
@@ -50,40 +61,80 @@ h2 {
   color: var(--app-text-main);
   font-weight: 800;
   margin: 0;
+  word-break: break-word;
 }
 
 h1 {
-  font-size: clamp(28px, 4vw, 44px);
+  font-size: clamp(22px, 4vw, 36px);
 }
 
 h2 {
   font-size: 18px;
 }
 
-.attendance-ring {
-  --rate: 0;
-  align-items: center;
-  background:
-    radial-gradient(var(--app-surface) 58%, transparent 59%),
-    conic-gradient(var(--app-primary) calc(var(--rate) * 1%), var(--app-border) 0);
-  border-radius: 50%;
-  color: var(--app-text-main);
+.overview-filter-bar {
   display: flex;
-  flex-direction: column;
-  flex: 0 0 116px;
-  height: 116px;
-  justify-content: center;
-  width: 116px;
-}
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  padding: 12px 18px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border: 1px solid #e2e8f0;
+  width: 100%;
+  box-sizing: border-box;
 
-.attendance-ring strong {
-  font-size: 24px;
-  font-weight: 800;
-}
+  .filter-label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 
-.attendance-ring span {
-  color: var(--app-text-muted);
-  font-size: 12px;
+    ion-icon {
+      font-size: 1.25rem;
+      color: var(--ion-color-primary, #3880ff);
+    }
+  }
+
+  .filter-toggle-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .custom-toggle-group {
+    border-radius: 24px;
+    border: 1px solid #cbd5e1;
+    background: #f8fafc;
+    overflow: hidden;
+    display: inline-flex;
+    max-width: 100%;
+
+    mat-button-toggle {
+      font-weight: 600;
+      font-size: 0.85rem;
+      padding: 2px 14px;
+      white-space: nowrap;
+    }
+
+    .count-badge {
+      font-weight: 500;
+      color: #64748b;
+      font-size: 0.8rem;
+      margin-left: 4px;
+
+      &.green { color: #15803d; }
+      &.red { color: #b91c1c; }
+    }
+
+    .active-text { color: #15803d; }
+    .inactive-text { color: #b91c1c; }
+  }
 }
 
 .dashboard-welcome-card {
@@ -92,25 +143,64 @@ h2 {
   border-radius: var(--app-radius-lg);
   box-shadow: var(--app-shadow-sm);
   padding: 24px;
-}
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 
-.welcome-eyebrow {
-  color: var(--app-primary);
-  font-size: 12px;
-  font-weight: 800;
-  margin: 0 0 8px;
-  text-transform: uppercase;
-}
+  &.org-admin-header {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+    color: #ffffff;
+    border: none;
+    padding: 24px;
+    border-radius: var(--app-radius-lg);
 
-.dashboard-welcome-card h2 {
-  color: var(--app-text-main);
-  font-weight: 800;
-  margin: 0 0 8px;
-}
+    .org-admin-title-container {
+      width: 100%;
+      max-width: 100%;
 
-.dashboard-welcome-card p {
-  color: var(--app-text-muted);
-  margin: 0;
+      .org-name-display {
+        color: #ffffff !important;
+        font-size: clamp(1.3rem, 3.5vw, 2.2rem) !important;
+        font-weight: 800;
+        margin: 0 0 6px 0;
+        line-height: 1.25;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+
+      .welcome-subtext {
+        color: #c7d2fe;
+        font-size: clamp(0.82rem, 2.2vw, 1rem);
+        margin: 0;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+      }
+    }
+  }
+
+  .welcome-eyebrow {
+    color: var(--app-primary);
+    font-size: 12px;
+    font-weight: 800;
+    margin: 0 0 4px;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    color: var(--app-text-main);
+    font-weight: 800;
+    margin: 0 0 8px;
+    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  p {
+    color: var(--app-text-muted);
+    margin: 0;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
 }
 
 .welcome-madrasa-wrapper {
@@ -639,15 +729,9 @@ h2 {
   .header-right-actions {
     width: 100%;
     max-width: 100%;
-    justify-content: space-between;
-    overflow: hidden;
-    flex-wrap: nowrap;
-  }
-
-  .help-guide-btn {
-    flex-shrink: 1;
-    min-width: 0;
-    max-width: calc(100% - 90px);
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
   }
 
   h1 {
@@ -666,27 +750,39 @@ h2 {
     font-size: 13px;
   }
 
-  .attendance-ring {
-    flex: 0 0 70px;
-    height: 70px;
-    width: 70px;
-    min-width: 70px;
-  }
-
-  .attendance-ring strong {
-    font-size: 16px;
-  }
-
-  .attendance-ring span {
-    font-size: 10px;
-  }
-
   .access-grid {
     grid-template-columns: 1fr;
   }
 
-  .dashboard-welcome-card.org-admin-header {
-    padding: 20px 16px;
+  .dashboard-welcome-card {
+    padding: 16px;
+
+    &.org-admin-header {
+      padding: 16px;
+    }
+  }
+
+  .overview-filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 10px 12px;
+    gap: 10px;
+
+    .filter-toggle-wrapper {
+      width: 100%;
+    }
+
+    .custom-toggle-group {
+      display: flex;
+      width: 100%;
+
+      mat-button-toggle {
+        flex: 1;
+        text-align: center;
+        padding: 4px 6px;
+        font-size: 0.78rem;
+      }
+    }
   }
 }
 

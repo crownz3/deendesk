@@ -122,7 +122,7 @@
                 </mat-form-field>
               </div>
               
-              <button mat-flat-button color="primary" class="save-btn" type="button" (click)="save(vm)" [disabled]="!isCurrentDateValid || !!getExceptionForSelectedDate(vm)">
+              <button mat-flat-button color="primary" class="save-btn" type="button" (click)="save(vm)" [disabled]="!isCurrentDateValid || isExceptionAttendanceDisabled(getExceptionForSelectedDate(vm))">
                 <mat-icon>save</mat-icon> Save Attendance
               </button>
             </div>
@@ -139,25 +139,33 @@
 
               <!-- Exception Banner -->
               <ng-container *ngIf="getExceptionForSelectedDate(vm) as ex">
-                <div class="exception-banner">
+                <div class="exception-banner" [style.background]="isExceptionAttendanceDisabled(ex) ? '#fff3e0' : '#e8f5e9'" [style.border-left-color]="isExceptionAttendanceDisabled(ex) ? '#ff9800' : '#4caf50'">
                   <div class="exception-banner-left">
-                    <mat-icon>event_busy</mat-icon>
+                    <mat-icon [style.color]="isExceptionAttendanceDisabled(ex) ? '#e65100' : '#2e7d32'">
+                      {{ isExceptionAttendanceDisabled(ex) ? 'event_busy' : 'stars' }}
+                    </mat-icon>
                     <div>
-                      <strong>Exception: {{ ex.type | titlecase }}</strong>
-                      <span *ngIf="ex.reason"> — {{ ex.reason }}</span>
+                      <strong [style.color]="isExceptionAttendanceDisabled(ex) ? '#e65100' : '#1b5e20'">
+                        Plan Exception: {{ ex.customTypeName || (ex.type | titlecase) }}
+                      </strong>
+                      <span *ngIf="ex.reason"> &mdash; {{ ex.reason }}</span>
                       <div *ngIf="ex.type === 'rescheduled' && ex.rescheduledDate" class="reschedule-info">
                         <mat-icon style="font-size: 14px; width: 14px; height: 14px;">arrow_forward</mat-icon>
                         Rescheduled to {{ ex.rescheduledDate | date:'longDate' }}
-                        <ng-container *ngIf="ex.rescheduledStartTime"> ({{ ex.rescheduledStartTime }} – {{ ex.rescheduledEndTime }})</ng-container>
+                        <ng-container *ngIf="ex.rescheduledStartTime"> ({{ ex.rescheduledStartTime }} &ndash; {{ ex.rescheduledEndTime }})</ng-container>
                       </div>
-                      <div class="exception-disabled-note">
-                        <mat-icon style="font-size: 14px; width: 14px; height: 14px;">block</mat-icon>
-                        Attendance is disabled for this day
+                      <div class="exception-disabled-note" [style.color]="isExceptionAttendanceDisabled(ex) ? '#d32f2f' : '#2e7d32'">
+                        <mat-icon style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle;">
+                          {{ isExceptionAttendanceDisabled(ex) ? 'block' : 'check_circle' }}
+                        </mat-icon>
+                        {{ isExceptionAttendanceDisabled(ex) ? 'Attendance is locked/disabled for this day' : 'Attendance is ENABLED for this special activity / event' }}
                       </div>
                     </div>
                   </div>
                   <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-                    <span class="exception-affects-badge" *ngIf="ex.affectsAttendance">Affects Attendance</span>
+                    <span class="exception-affects-badge" [style.background]="isExceptionAttendanceDisabled(ex) ? '#ffe0b2' : '#c8e6c9'" [style.color]="isExceptionAttendanceDisabled(ex) ? '#ef6c00' : '#2e7d32'">
+                      {{ isExceptionAttendanceDisabled(ex) ? 'Attendance Disabled' : 'Attendance Enabled' }}
+                    </span>
                     <button mat-stroked-button color="warn" type="button" (click)="removeException(ex)" style="font-size: 12px;">
                       <mat-icon>delete_outline</mat-icon> Remove Exception
                     </button>
@@ -197,7 +205,7 @@
                 </div>
               </div>
 
-              <!-- Staff List -->
+              <!-- Staff Section -->
               <div class="attendance-section" *ngIf="filteredStaff(vm).length > 0">
                 <div class="section-header">
                   <h3>Staff & Teachers</h3>
@@ -219,7 +227,7 @@
                     </div>
                     
                     <div class="attendance-actions">
-                      <mat-button-toggle-group hideSingleSelectionIndicator #staffTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[staff.id || ''] || 'present'" (change)="setStatus(staff.id, $event.value, staffTg)" [disabled]="!!getExceptionForSelectedDate(vm)">
+                      <mat-button-toggle-group hideSingleSelectionIndicator #staffTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[staff.id || ''] || 'present'" (change)="setStatus(staff.id, $event.value, staffTg)" [disabled]="isExceptionAttendanceDisabled(getExceptionForSelectedDate(vm))">
                         <mat-button-toggle *ngFor="let status of statuses" [value]="status" [ngClass]="'status-toggle-' + status">
                           <ion-icon [name]="statusIcon(status)"></ion-icon>
                           {{ status | titlecase }}
@@ -255,13 +263,13 @@
                   <div class="section-header-actions">
                     <button mat-stroked-button type="button"
                             class="bulk-btn present-all-btn"
-                            [disabled]="!!getExceptionForSelectedDate(vm)"
+                            [disabled]="isExceptionAttendanceDisabled(getExceptionForSelectedDate(vm))"
                             (click)="markAllStudents(vm, 'present')">
                       <mat-icon>check_circle</mat-icon> All Present
                     </button>
                     <button mat-stroked-button type="button"
                             class="bulk-btn absent-all-btn"
-                            [disabled]="!!getExceptionForSelectedDate(vm)"
+                            [disabled]="isExceptionAttendanceDisabled(getExceptionForSelectedDate(vm))"
                             (click)="markAllStudents(vm, 'absent')">
                       <mat-icon>cancel</mat-icon> All Absent
                     </button>
@@ -283,7 +291,7 @@
                     </div>
                     
                     <div class="attendance-actions">
-                      <mat-button-toggle-group hideSingleSelectionIndicator #studentTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[student.id || ''] || 'present'" (change)="setStatus(student.id, $event.value, studentTg)" [disabled]="!!getExceptionForSelectedDate(vm)">
+                      <mat-button-toggle-group hideSingleSelectionIndicator #studentTg="matButtonToggleGroup" class="modern-toggle" [value]="selections[student.id || ''] || 'present'" (change)="setStatus(student.id, $event.value, studentTg)" [disabled]="isExceptionAttendanceDisabled(getExceptionForSelectedDate(vm))">
                         <mat-button-toggle *ngFor="let status of statuses" [value]="status" [ngClass]="'status-toggle-' + status">
                           <ion-icon [name]="statusIcon(status)"></ion-icon>
                           <span class="status-label">{{ status | titlecase }}</span>
@@ -351,21 +359,27 @@
                 <div class="schedule-timeline-container" [class.expanded]="showSchedule">
                   <div class="schedule-timeline">
                     <div class="schedule-card" *ngFor="let day of getSchedule(vm)" [class.is-exception]="day.isException">
-                      <div class="day-header">
-                        <span class="day-date">{{ day.date | date:'EEEE, MMM d' }}</span>
-                        <span class="exception-badge" *ngIf="day.isException">
-                          {{ day.exceptionType | titlecase }} <ng-container *ngIf="day.exceptionReason"> - {{ day.exceptionReason }}</ng-container>
-                        </span>
+                      <div class="day-header" style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                        <span class="day-date">{{ day.date | date:'EEEE, MMM d, yyyy' }}</span>
+                        <div *ngIf="day.isException" style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                          <span class="exception-badge" [style.background]="isExceptionAttendanceDisabled(day.exception) ? '#ffe0b2' : '#c8e6c9'" [style.color]="isExceptionAttendanceDisabled(day.exception) ? '#e65100' : '#2e7d32'" style="padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+                            {{ day.exception?.customTypeName || (day.exceptionType | titlecase) }}
+                          </span>
+                          <span *ngIf="day.exceptionReason" style="font-size: 11px; color: #666;">({{ day.exceptionReason }})</span>
+                          <span *ngIf="day.exception?.type === 'rescheduled' && day.exception?.rescheduledDate" style="font-size: 11px; color: #1976d2;">
+                            &rarr; Rescheduled to {{ day.exception?.rescheduledDate | date:'shortDate' }}
+                          </span>
+                        </div>
                       </div>
                       
                       <!-- Render the activities for this day -->
-                      <div class="day-activities" *ngIf="day.activities && day.activities.length > 0">
-                        <div class="activity-item" *ngFor="let act of day.activities">
-                          <span class="act-time" *ngIf="act.scheduleType !== 'fullDay'">{{ act.startTime }} - {{ act.endTime }}</span>
-                          <span class="act-time full-day" *ngIf="act.scheduleType === 'fullDay'">Full Day</span>
-                          <span class="act-name">{{ act.activityName }}</span>
-                          <span class="act-meta" *ngIf="act['teacherName']">
-                            <mat-icon>person</mat-icon> {{ act['teacherName'] }}
+                      <div class="day-activities" *ngIf="day.activities && day.activities.length > 0" style="margin-top: 8px;">
+                        <div class="activity-item" *ngFor="let act of day.activities" style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; padding: 4px 8px; background: #f5f5f5; border-radius: 6px;">
+                          <span class="act-time" *ngIf="act.scheduleType !== 'fullDay'" style="font-weight: 600; font-size: 12px; color: #333;">{{ act.startTime }} - {{ act.endTime }}</span>
+                          <span class="act-time full-day" *ngIf="act.scheduleType === 'fullDay'" style="font-weight: 600; font-size: 12px; color: #6200ea;">Full Day</span>
+                          <span class="act-name" style="font-size: 13px; flex: 1;">{{ act.activityName }} <span *ngIf="act.subjectName" style="color: #777; font-size: 11px;">({{ act.subjectName }})</span></span>
+                          <span class="act-meta" *ngIf="act['teacherName']" style="font-size: 12px; color: #1976d2; display: flex; align-items: center; gap: 4px; background: #e3f2fd; padding: 2px 8px; border-radius: 12px;">
+                            <mat-icon style="font-size: 14px; width: 14px; height: 14px;">person</mat-icon> {{ act['teacherName'] }}
                           </span>
                         </div>
                       </div>
@@ -373,7 +387,7 @@
                       <!-- Participants Summary -->
                       <div class="day-content">
                         <div class="participant-group">
-                          <span class="group-label">Staff:</span>
+                          <span class="group-label">Assigned Staff:</span>
                           <div class="pill-list">
                             <span *ngIf="!day.staffNames.length" class="empty-pill">None</span>
                             <span class="participant-pill staff-pill" *ngFor="let staff of day.staffNames">{{ staff }}</span>

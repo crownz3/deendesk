@@ -8,6 +8,7 @@ import { EntityRecord, RepositoryService } from '../../core/services/repository.
 import { LoaderService } from '../../core/services/loader.service';
 import { ClassPlanAttendanceService } from '../../core/services/class-plan-attendance.service';
 import { ClassPlanExceptionDialogComponent } from './class-plan-exception-dialog.component';
+import { ScheduleTypesHelpDialogComponent } from './schedule-types-help-dialog.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 export interface PageState<T> {
@@ -25,6 +26,7 @@ interface ClassPlansVm {
   classGroups: EntityRecord[];
   exceptions: (EntityRecord & ClassPlanException)[];
   staffDocs: EntityRecord[];
+  usersDocs: EntityRecord[];
 }
 
 @Component({
@@ -51,7 +53,7 @@ export class ClassPlansPage {
   ) {
     this.vm$ = this.auth.profile$.pipe(
       switchMap((profile) => {
-        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], classGroups: [], exceptions: [], staffDocs: [] } });
+        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], classGroups: [], exceptions: [], staffDocs: [], usersDocs: [] } });
         
         return combineLatest({
           classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile),
@@ -61,6 +63,7 @@ export class ClassPlansPage {
           classGroups: this.repo.list<EntityRecord>('classGroups', profile),
           exceptions: this.repo.list<EntityRecord & ClassPlanException>('classPlanExceptions', profile),
           staffDocs: this.repo.list<EntityRecord>('staff', profile),
+          usersDocs: this.repo.list<EntityRecord>('users', profile),
         }).pipe(
           map((data): PageState<ClassPlansVm> => ({
             data: { profile, ...data },
@@ -81,24 +84,185 @@ export class ClassPlansPage {
   }
 
 
+  openScheduleTypesGuide(): void {
+    this.dialog.open(ScheduleTypesHelpDialogComponent, {
+      width: '760px',
+      maxWidth: '95vw',
+      panelClass: 'schedule-types-help-dialog-panel',
+    });
+  }
+
   nameOf(rows: EntityRecord[], id: string): string {
     return String(rows.find((row) => row.id === id)?.['name'] ?? id);
   }
 
-  getClassTeachers(plan: ClassPlan, vm: ClassPlansVm | undefined | null): string {
-    if (!vm || !vm.classGroups) return 'No Class Staff';
-    const groups = vm.classGroups.filter(group => String(group['classId']) === String(plan.classId));
-    const staffIds = Array.from(new Set(
-      groups.flatMap(group => Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'].map(String) : [])
-    ));
-    const names = staffIds.map(id => {
-       const staffDoc = vm.staffDocs.find(staff =>
-         [staff.id, staff['uid'], staff['userId'], staff['entityId']].map(value => String(value || '')).includes(id)
-       );
-       return staffDoc ? (staffDoc['displayName'] || staffDoc['name']) : null;
-    }).filter(n => !!n);
+  private isStaffUser(user: any): boolean {
+    if (!user) return false;
+    const role = String(user['role'] || '');
+    const roles: string[] = Array.isArray(user['roles']) ? user['roles'].map(String) : (role ? [role] : []);
     
-    return names.length > 0 ? names.join(', ') : 'No Class Staff';
+    if (roles.includes('student') || roles.includes('parent') || role === 'student' || role === 'parent') {
+      return false;
+    }
+    
+    const staffRoles = ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin', 'superAdmin', 'incharge'];
+    if (roles.some(r => staffRoles.includes(r))) return true;
+    if (user['jobTitle'] || user['employeeId'] || user['designation'] || user['isStaff']) return true;
+    
+    return false;
+  }
+
+  getGroupName(plan: ClassPlan, vm: ClassPlansVm | undefined | null): string {
+    if (Array.isArray(plan.groupNames) && plan.groupNames.length > 0) {
+      return plan.groupNames.join(', ');
+    }
+    if (Array.isArray(plan.groupIds) && plan.groupIds.length > 0 && vm?.classGroups) {
+      const names = plan.groupIds
+        .map(id => vm.classGroups.find(g => g.id === id)?.['name'])
+        .filter(Boolean)
+        .map(String);
+      if (names.length > 0) return names.join(', ');
+    }
+    if (plan.groupName) return plan.groupName;
+    if (!plan.groupId) return 'All Groups / Sections';
+    if (!vm?.classGroups) return plan.groupId;
+    const group = vm.classGroups.find(g => g.id === plan.groupId);
+    return String(group?.['name'] || plan.groupId);
+  }
+
+  getClassTeachers(plan: ClassPlan, vm: ClassPlansVm | undefined | null): string {
+    if (!vm) return 'No Class Staff';
+
+    const staffCollectionDocs = vm.staffDocs || [];
+    const usersCollectionDocs = vm.usersDocs || [];
+    const rawDocs = [...staffCollectionDocs, ...usersCollectionDocs];
+
+    const targetClassId = String(plan.classId || '').trim();
+    const targetGroupId = String(plan.groupId || '').trim();
+
+    const staffByIdentity = new Map<string, EntityRecord>();
+    rawDocs.forEach(s => {
+      const role = String(s['role'] || '').toLowerCase();
+      const roles: string[] = Array.isArray(s['roles']) ? s['roles'].map(r => String(r).toLowerCase()) : (role ? [role] : []);
+      if (roles.includes('student') || roles.includes('parent') || role === 'student' || role === 'parent') return;
+
+      const keys = [
+        s.id,
+        s['id'],
+        s['uid'],
+        s['userId'],
+        s['entityId'],
+        s['email'],
+        s['docId'],
+        s['staffId']
+      ].filter(Boolean).map(v => String(v).trim());
+
+      keys.forEach(k => staffByIdentity.set(k, s));
+    });
+
+    const getDocName = (doc: EntityRecord): string => {
+      return String(doc['displayName'] || doc['name'] || doc['fullName'] || doc['email'] || '').trim();
+    };
+
+    const extractIds = (val: any): string[] => {
+      if (!val) return [];
+      if (Array.isArray(val)) {
+        return val.flatMap(item => {
+          if (typeof item === 'string') return [item.trim()];
+          if (item && typeof item === 'object') {
+            return [item.id, item.classId, item.groupId, item.courseId, item.uid, item.userId, item.entityId, item.email].filter(Boolean).map(v => String(v).trim());
+          }
+          return [];
+        });
+      }
+      if (typeof val === 'string') return [val.trim()];
+      return [];
+    };
+
+    const matchedStaffNames = new Set<string>();
+
+    // 1. Check all Class Groups belonging to targetGroupId OR targetClassId
+    const classGroupsForPlan = (vm.classGroups || []).filter(g => 
+      (targetGroupId && String(g.id || '').trim() === targetGroupId) || 
+      (targetClassId && String(g['classId'] || '').trim() === targetClassId)
+    );
+
+    classGroupsForPlan.forEach(g => {
+      const assignedIds = [
+        ...extractIds(g['assignedStaffIds']),
+        ...extractIds(g['teacherIds']),
+        ...extractIds(g['staffIds']),
+        ...extractIds(g['teacherId']),
+        ...extractIds(g['inchargeId'])
+      ];
+      assignedIds.forEach(id => {
+        const found = staffByIdentity.get(id);
+        if (found) {
+          const name = getDocName(found);
+          if (name) matchedStaffNames.add(name);
+        }
+      });
+    });
+
+    // 2. Check staff profiles matched by groupId or classId
+    rawDocs.forEach(s => {
+      const role = String(s['role'] || '').toLowerCase();
+      const roles: string[] = Array.isArray(s['roles']) ? s['roles'].map(r => String(r).toLowerCase()) : (role ? [role] : []);
+      if (roles.includes('student') || roles.includes('parent') || role === 'student' || role === 'parent') return;
+
+      const sGroupIds = [
+        String(s['groupId'] || ''),
+        String(s['assignedGroupId'] || ''),
+        ...extractIds(s['groupIds']),
+        ...extractIds(s['assignedGroupIds']),
+        ...extractIds(s['teachingGroupIds']),
+        ...extractIds(s['groups']),
+        ...extractIds(s['classGroups'])
+      ].filter(Boolean);
+
+      const sClassIds = [
+        String(s['classId'] || ''),
+        String(s['assignedClassId'] || ''),
+        ...extractIds(s['classIds']),
+        ...extractIds(s['assignedClassIds']),
+        ...extractIds(s['teachingClassIds']),
+        ...extractIds(s['classes']),
+        ...extractIds(s['assignedClasses'])
+      ].filter(Boolean);
+
+      const matchesGroup = (targetGroupId && sGroupIds.includes(targetGroupId)) || classGroupsForPlan.some(g => sGroupIds.includes(String(g.id)));
+      const matchesClass = targetClassId && sClassIds.includes(targetClassId);
+
+      if (matchesGroup || matchesClass) {
+        const name = getDocName(s);
+        if (name) matchedStaffNames.add(name);
+      }
+    });
+
+    const finalNames = Array.from(matchedStaffNames);
+
+    console.log('[ClassPlan Staff Debug Console]', {
+      planTitle: plan.title,
+      targetGroupId,
+      targetClassId,
+      classGroupsForPlan: classGroupsForPlan.map(g => ({
+        id: g.id,
+        name: g['name'],
+        assignedStaffIds: g['assignedStaffIds']
+      })),
+      matchedStaffNames: finalNames,
+      allStaffDocsSummary: rawDocs.map(d => ({
+        id: d.id,
+        uid: d['uid'],
+        name: d['displayName'] || d['name'] || d['email'],
+        role: d['role'],
+        groupId: d['groupId'],
+        assignedGroupIds: d['assignedGroupIds'],
+        classId: d['classId']
+      }))
+    });
+
+    return finalNames.length > 0 ? finalNames.join(', ') : 'No Class Staff';
   }
 
   getPlanExceptions(planId: string | undefined, exceptions: (EntityRecord & ClassPlanException)[] | undefined): (EntityRecord & ClassPlanException)[] {
@@ -129,10 +293,10 @@ export class ClassPlansPage {
     this.isEditingPlan = false;
   }
 
-  openExceptionForm(plan: ClassPlan): void {
+  openExceptionForm(plan: ClassPlan, exception?: ClassPlanException): void {
     this.dialog.open(ClassPlanExceptionDialogComponent, {
       width: '500px',
-      data: { plan }
+      data: { plan, exception }
     });
   }
 

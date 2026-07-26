@@ -264,6 +264,17 @@ export class RepositoryService {
     return undefined;
   }
 
+  private cleanUndefinedPayload(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    const cleaned: any = {};
+    Object.keys(data).forEach((key) => {
+      if (data[key] !== undefined) {
+        cleaned[key] = data[key];
+      }
+    });
+    return cleaned;
+  }
+
   async create<T extends EntityRecord = EntityRecord>(collectionName: string, data: Partial<T> | Record<string, any>, currentUser: AppUser | null, id?: string, skipAudit?: boolean): Promise<string> {
     console.log(`[Firestore Write - CREATE] userUid=${currentUser?.uid}, role=${currentUser?.role}, orgId=${currentUser?.organizationId}, permissions=${currentUser?.permissions?.join(',')}, collection=${collectionName}, targetId=${id || 'auto'}, payload=`, data);
 
@@ -273,7 +284,7 @@ export class RepositoryService {
     );
     await this.syncTeacherUids(collectionName, normalizedData);
 
-    const payload = {
+    const rawPayload = {
       ...normalizedData,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -281,6 +292,7 @@ export class RepositoryService {
       updatedBy: currentUser?.uid ?? 'system',
       status: normalizedData.status ?? 'active',
     };
+    const payload = this.cleanUndefinedPayload(rawPayload);
 
     if (collectionName === 'classGroups' && payload['name'] && payload['classId']) {
       const q = query(
@@ -407,18 +419,26 @@ export class RepositoryService {
         if (snap.exists()) {
           originalData = snap.data();
         }
-      } catch (e) {
-        console.error('Failed to fetch original doc for audit log', e);
+      } catch (e: any) {
+        // Expected for scoped roles (org admin, coordinator, etc.) that can query
+        // but cannot do direct getDoc reads. The update will proceed without a diff.
+        if (e?.code === 'permission-denied') {
+          console.warn(`[Audit] Skipping pre-fetch diff for ${collectionName}/${id} — direct read not permitted for this role. Update will still proceed.`);
+        } else {
+          console.warn('Failed to fetch original doc for audit log', e);
+        }
       }
     }
 
     await this.syncTeacherUids(collectionName, normalizedData);
     
-    await setDoc(doc(this.firestore, `${collectionName}/${id}`), {
+    const updatePayload = this.cleanUndefinedPayload({
       ...normalizedData,
       updatedAt: serverTimestamp(),
       updatedBy: currentUser?.uid ?? 'system',
-    }, { merge: true });
+    });
+    
+    await setDoc(doc(this.firestore, `${collectionName}/${id}`), updatePayload, { merge: true });
     this.usageTracker.recordWrite(this.mapCollectionToModule(collectionName), currentUser?.organizationId, 1);
 
     if (!skipAudit) {
@@ -655,6 +675,9 @@ export class RepositoryService {
 
   private inMemoryFilter<T extends EntityRecord>(collectionName: string, docs: T[], user: AppUser | null): T[] {
     if (!user) return docs;
+    if (['organizations', 'supportTickets', 'supportTicketMessages', 'passwordResetRequests', 'notifications'].includes(collectionName)) {
+      return docs;
+    }
     const role = user.role?.toLowerCase() || '';
 
     if (role === 'superadmin' || role === 'organizationadmin') {
@@ -848,15 +871,16 @@ export class RepositoryService {
       return [[]]; // No constraints
     }
 
+    if (collectionName === 'supportTickets' || collectionName === 'supportTicketMessages') {
+      return [[]];
+    }
+
     if (collectionName === 'notifications') {
       return [[where('recipientUserIds', 'array-contains', user.uid)]];
     }
 
     if (collectionName === 'passwordResetRequests') {
-      if (role === 'organizationadmin' && user.organizationId) {
-        return [[where('organizationId', '==', user.organizationId)]];
-      }
-      return [[where('assignedToUid', '==', user.uid)]];
+      return [[]];
     }
 
     if (collectionName === 'organizations') {

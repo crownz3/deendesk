@@ -301,12 +301,59 @@ export interface NotificationItem extends ScopedEntity {
   | 'profile'
   | 'staffAssignment'
   | 'event'
-  | 'announcement';
+  | 'announcement'
+  | 'helpTicket';
   recipientUserIds: string[];
   recipientRole?: UserRole;
   relatedRequestId?: string;
   readBy: string[];
   severity: 'info' | 'success' | 'warning' | 'danger';
+}
+
+export type HelpTicketStatus = 'OPEN' | 'IN_PROGRESS' | 'WAITING_FOR_USER' | 'RESOLVED' | 'CLOSED';
+export type HelpTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type HelpTicketCategory = 'bug' | 'feature' | 'ui_issue' | 'login_access' | 'billing_fees' | 'other';
+
+export interface SupportTicket extends ScopedEntity {
+  ticketNumber: string;
+  title: string;
+  description: string;
+  category: HelpTicketCategory;
+  pageUrl: string;
+  pageName: string;
+  deviceInfo?: {
+    browser?: string;
+    os?: string;
+    screenResolution?: string;
+    userAgent?: string;
+  };
+  attachmentUrls?: string[];
+  createdByUid: string;
+  createdByName: string;
+  createdByEmail: string;
+  createdByRole: UserRole;
+  organizationId?: string;
+  organizationName?: string;
+  madrasaId?: string;
+  madrasaName?: string;
+  status: HelpTicketStatus;
+  priority: HelpTicketPriority;
+  lastRepliedAt?: Timestamp | any;
+  lastRepliedByRole?: UserRole;
+  lastRepliedByName?: string;
+}
+
+export interface SupportTicketMessage {
+  id?: string;
+  ticketId: string;
+  senderUid: string;
+  senderName: string;
+  senderEmail: string;
+  senderRole: UserRole;
+  isSuperAdmin: boolean;
+  message: string;
+  attachmentUrls?: string[];
+  createdAt: Timestamp | any;
 }
 
 export interface AcademicMovementLog extends ScopedEntity {
@@ -406,6 +453,8 @@ export interface ClassPlan extends ScopedEntity {
   className: string;
   groupId?: string;
   groupName?: string;
+  groupIds?: string[];
+  groupNames?: string[];
   title: string;
   scheduleType: 'oneTime' | 'weekly' | 'monthly' | 'customDates' | 'dateRange';
   startDate: string;
@@ -439,7 +488,7 @@ export interface ClassPlanException extends ScopedEntity {
   classId: string;
   className: string;
   date: string;
-  type: 'holiday' | 'suddenLeave' | 'cancelled' | 'rescheduled' | 'teacherReplacement' | 'roomChange' | 'timeChange' | 'subjectChange' | 'extraClass';
+  type: 'holiday' | 'suddenLeave' | 'cancelled' | 'rescheduled' | 'specialActivity' | 'exam' | 'teacherReplacement' | 'roomChange' | 'timeChange' | 'subjectChange' | 'extraClass';
   reason?: string;
   originalStartTime: string;
   originalEndTime: string;
@@ -451,6 +500,8 @@ export interface ClassPlanException extends ScopedEntity {
   newRoomId?: string | null; // For room change
   newSubjectId?: string | null; // For subject change
   affectsAttendance: boolean;
+  enableAttendance?: boolean;
+  customTypeName?: string;
   createdByName?: string;
 }
 

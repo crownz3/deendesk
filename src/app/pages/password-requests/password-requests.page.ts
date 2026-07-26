@@ -39,8 +39,12 @@ export class PasswordRequestsPage {
           // Client-side filter to only show assigned or org requests based on role
           const filtered = requests.filter(req => {
             if (profile.role === 'superAdmin') return true;
-            if (profile.role === 'organizationAdmin') return req.organizationId === profile.organizationId;
-            return req.assignedToUid === profile.uid;
+            if (profile.organizationId && req.organizationId === profile.organizationId) return true;
+            if (!req.organizationId) return true; // Show unassigned requests so admin/incharge can process
+            if (req.assignedToUid === profile.uid) return true;
+            if (profile.madrasaId && req.madrasaId === profile.madrasaId) return true;
+            if (Array.isArray(profile.madrasaIds) && req.madrasaId && profile.madrasaIds.includes(req.madrasaId)) return true;
+            return false;
           });
           
           return {
@@ -65,12 +69,76 @@ export class PasswordRequestsPage {
     private readonly dialog: MatDialog,
   ) {}
 
+  searchTerm: string = '';
+
   trackById(_: number, item: EntityRecord): string {
     return String(item.id);
   }
 
+  getRequesterEmail(item: PasswordResetRequest & EntityRecord): string {
+    return item.requesterEmail || (item as any)['email'] || 'Unknown Email';
+  }
+
+  getRequesterName(item: PasswordResetRequest & EntityRecord): string {
+    const rawName = item.requesterName || (item as any).targetUserName;
+    if (rawName && rawName.trim()) return rawName.trim();
+    const email = this.getRequesterEmail(item);
+    return email.includes('@') ? email.split('@')[0] : 'User';
+  }
+
+  getRequesterRole(item: PasswordResetRequest & EntityRecord): string {
+    return item.requesterRole || (item as any).targetUserRole || 'User';
+  }
+
+  isPendingOrAssigned(status: string | null | undefined): boolean {
+    if (!status) return true;
+    const s = String(status).toLowerCase();
+    return s === 'pending' || s === 'assigned';
+  }
+
+  sortBy: 'newest' | 'oldest' | 'pending_first' | 'name_asc' = 'newest';
+
+  filterRequests(requests: (PasswordResetRequest & EntityRecord)[]): (PasswordResetRequest & EntityRecord)[] {
+    let result = requests;
+    if (this.searchTerm && this.searchTerm.trim()) {
+      const term = this.searchTerm.toLowerCase().trim();
+      result = result.filter(r => {
+        const email = this.getRequesterEmail(r).toLowerCase();
+        const name = this.getRequesterName(r).toLowerCase();
+        const role = this.getRequesterRole(r).toLowerCase();
+        const status = (r.status || '').toLowerCase();
+        return email.includes(term) || name.includes(term) || role.includes(term) || status.includes(term);
+      });
+    }
+
+    return result.slice().sort((a, b) => {
+      if (this.sortBy === 'oldest') {
+        return this.getTime(a) - this.getTime(b);
+      } else if (this.sortBy === 'pending_first') {
+        const isPendingA = this.isPendingOrAssigned(a.status) ? 0 : 1;
+        const isPendingB = this.isPendingOrAssigned(b.status) ? 0 : 1;
+        if (isPendingA !== isPendingB) return isPendingA - isPendingB;
+        return this.getTime(b) - this.getTime(a);
+      } else if (this.sortBy === 'name_asc') {
+        return this.getRequesterName(a).localeCompare(this.getRequesterName(b));
+      } else {
+        return this.getTime(b) - this.getTime(a);
+      }
+    });
+  }
+
+  private getTime(item: PasswordResetRequest & EntityRecord): number {
+    const val = item.createdAt || (item as any).requestedAt;
+    if (val && typeof val.toDate === 'function') {
+      return val.toDate().getTime();
+    }
+    if (val instanceof Date) return val.getTime();
+    if (typeof val === 'string' || typeof val === 'number') return new Date(val).getTime();
+    return 0;
+  }
+
   createdAtDate(item: PasswordResetRequest & EntityRecord): Date | string | null {
-    const val = item.createdAt as any;
+    const val = item.createdAt || (item as any).requestedAt;
     if (val && typeof val.toDate === 'function') {
       return val.toDate();
     }

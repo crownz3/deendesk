@@ -32,7 +32,9 @@ export class RoleBadgeComponent implements OnChanges {
     }
 
     return roles.map(r => {
-      const label = r in ROLE_LABELS ? ROLE_LABELS[r as UserRole] : String(r || 'User');
+      const label = r in ROLE_LABELS
+        ? ROLE_LABELS[r as UserRole]
+        : (r ? r.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim() : 'User');
       const cssClass = `role-${r}`;
       return { label, class: cssClass };
     });

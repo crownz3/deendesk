@@ -5,6 +5,7 @@ import { firstValueFrom } from 'rxjs';
 import { AppUser, ClassPlan } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
+import { NotificationDispatcherService } from '../../core/services/notification-dispatcher.service';
 
 @Component({
   selector: 'app-class-plan-form',
@@ -34,6 +35,7 @@ export class ClassPlanFormComponent implements OnInit {
     courseId: ['', Validators.required],
     classId: ['', Validators.required],
     groupId: [''],
+    groupIds: [[] as string[]],
     academicPlanId: [''],
     subjectId: [''],
     courseType: ['aalim'],
@@ -77,10 +79,12 @@ export class ClassPlanFormComponent implements OnInit {
   }
   
   readonly scheduleTypes = [
+    { value: 'yearly', label: 'Yearly Academic Plan' },
+    { value: 'monthly', label: 'Monthly Schedule' },
+    { value: 'weekly', label: 'Weekly Schedule' },
+    { value: 'term', label: 'Term / Semester Plan' },
     { value: 'dateRange', label: 'Date Range' },
-    { value: 'weekly', label: 'Weekly' },
-    { value: 'oneTime', label: 'One Time' },
-    { value: 'monthly', label: 'Monthly' },
+    { value: 'oneTime', label: 'One-Time Event' },
     { value: 'customDates', label: 'Custom Dates' },
   ];
 
@@ -99,7 +103,8 @@ export class ClassPlanFormComponent implements OnInit {
     private readonly fb: FormBuilder,
     private readonly repo: RepositoryService,
     private readonly auth: AuthService,
-    private readonly snackBar: MatSnackBar
+    private readonly snackBar: MatSnackBar,
+    private readonly notifier: NotificationDispatcherService
   ) {}
 
   async ngOnInit() {
@@ -131,8 +136,13 @@ export class ClassPlanFormComponent implements OnInit {
   initForm() {
     if (this._plan) {
       const selectedCourse = this.courses.find(c => c.id === this._plan?.courseId);
+      const initialGroupIds = Array.isArray(this._plan.groupIds) && this._plan.groupIds.length > 0
+        ? this._plan.groupIds
+        : (this._plan.groupId ? [this._plan.groupId] : []);
+
       this.form.patchValue({
         ...this._plan,
+        groupIds: initialGroupIds,
         courseType: (this._plan.courseType || selectedCourse?.['type'] || 'aalim') as any,
         startDate: this.formatDateForInput(this._plan.startDate),
         endDate: this.formatDateForInput(this._plan.endDate),
@@ -146,6 +156,7 @@ export class ClassPlanFormComponent implements OnInit {
         courseType: 'aalim',
         startDate: new Date().toISOString().slice(0, 10),
         weekDays: ['monday'],
+        groupIds: [],
         autoGenerateAttendance: true,
         autoMarkStudentsPresent: true,
         autoMarkStaffPresent: true
@@ -171,7 +182,8 @@ export class ClassPlanFormComponent implements OnInit {
 
   get isSubjectRequired(): boolean {
     const course = this.selectedCourseRecord;
-    return !!course && !!course['hasSubjects'];
+    if (!course) return false;
+    return course['hasSubjects'] === true || course['hasSubjects'] === 'true' || course['hasSubjects'] === 1;
   }
 
   get filteredCourses() {
@@ -211,6 +223,15 @@ export class ClassPlanFormComponent implements OnInit {
     }
   }
 
+  private safeIsoDate(d: any): string | null {
+    if (!d) return null;
+    if (d instanceof Date) {
+      return isNaN(d.getTime()) ? null : d.toISOString();
+    }
+    const parsed = new Date(d);
+    return isNaN(parsed.getTime()) ? null : parsed.toISOString();
+  }
+
   async save() {
     if (this.form.value.scheduleType === 'dateRange' && !this.form.value.endDate) {
       this.snackBar.open('End Date is required for Date Range schedule type.', 'Close', { duration: 3000 });
@@ -231,51 +252,84 @@ export class ClassPlanFormComponent implements OnInit {
     const val = this.form.getRawValue();
     const courseName = this.courses.find(c => c.id === val.courseId)?.['name'] || '';
     const className = this.classes.find(c => c.id === val.classId)?.['name'] || '';
-    const groupName = this.groups.find(g => g.id === val.groupId)?.['name'] || '';
+
+    const selectedGroupIds: string[] = Array.isArray(val.groupIds) ? val.groupIds.map(String).filter(Boolean) : (val.groupId ? [String(val.groupId)] : []);
+    const selectedGroupNames = selectedGroupIds
+      .map(id => this.groups.find(g => g.id === id)?.['name'])
+      .filter(Boolean)
+      .map(String);
+
+    const primaryGroupId = selectedGroupIds.length > 0 ? selectedGroupIds[0] : (val.groupId || '');
+    const primaryGroupName = selectedGroupNames.length > 0 ? selectedGroupNames.join(', ') : '';
+
     const subjectName = this.subjects.find(s => s.id === val.subjectId)?.['name'] || '';
     const academicPlanName = this.academicPlans.find(p => p.id === val.academicPlanId)?.['name'] || '';
 
-    const payload: Partial<ClassPlan> = {
+    const startDateIso = this.safeIsoDate(val.startDate) || new Date().toISOString();
+    const endDateIso = this.safeIsoDate(val.endDate);
+
+    const rawPayload: Record<string, any> = {
       title: val.title,
       madrasaId: val.madrasaId,
       courseId: val.courseId,
       courseName: String(courseName),
-      courseType: val.courseType as any,
+      courseType: val.courseType,
       classId: val.classId,
       className: String(className),
-      groupId: val.groupId || undefined,
-      groupName: val.groupId ? String(groupName) : undefined,
-      subjectId: val.subjectId || undefined,
-      subjectName: val.subjectId ? String(subjectName) : undefined,
-      academicPlanId: val.academicPlanId || undefined,
-      academicPlanName: val.academicPlanId ? String(academicPlanName) : undefined,
-      scheduleType: val.scheduleType as any,
-      startDate: new Date(val.startDate!).toISOString(),
-      endDate: val.endDate ? new Date(val.endDate).toISOString() : null,
-      selectedDates: val.selectedDates,
-      weekDays: val.weekDays,
-      autoGenerateAttendance: val.autoGenerateAttendance,
-      autoMarkStudentsPresent: val.autoMarkStudentsPresent,
-      autoMarkStaffPresent: val.autoMarkStaffPresent,
-      notes: val.notes,
-      organizationId: profile?.organizationId,
-      createdByName: profile?.displayName,
+      groupId: primaryGroupId,
+      groupName: primaryGroupName,
+      groupIds: selectedGroupIds,
+      groupNames: selectedGroupNames,
+      subjectId: val.subjectId || '',
+      subjectName: val.subjectId ? String(subjectName) : '',
+      academicPlanId: val.academicPlanId || '',
+      academicPlanName: val.academicPlanId ? String(academicPlanName) : '',
+      scheduleType: val.scheduleType,
+      startDate: startDateIso,
+      endDate: endDateIso,
+      selectedDates: val.selectedDates || [],
+      weekDays: val.weekDays || [],
+      autoGenerateAttendance: !!val.autoGenerateAttendance,
+      autoMarkStudentsPresent: !!val.autoMarkStudentsPresent,
+      autoMarkStaffPresent: !!val.autoMarkStaffPresent,
+      notes: val.notes || '',
+      organizationId: profile?.organizationId || '',
+      createdByName: profile?.displayName || '',
     };
+
+    // Remove any undefined keys to avoid Firestore rejection
+    Object.keys(rawPayload).forEach(key => {
+      if (rawPayload[key] === undefined) delete rawPayload[key];
+    });
 
     try {
       let savedPlan: ClassPlan;
       if (this._plan?.id) {
-        await this.repo.update('classPlans', this._plan.id, payload, profile);
-        savedPlan = { ...this._plan, ...payload } as ClassPlan;
+        await this.repo.update('classPlans', this._plan.id, rawPayload, profile);
+        savedPlan = { ...this._plan, ...rawPayload } as ClassPlan;
       } else {
-        payload.status = 'active';
-        const docRef = await this.repo.create('classPlans', payload as any, profile);
-        savedPlan = { id: docRef, ...payload } as ClassPlan;
+        rawPayload['status'] = 'active';
+        const docRef = await this.repo.create('classPlans', rawPayload, profile);
+        savedPlan = { id: docRef, ...rawPayload } as ClassPlan;
       }
+
+      // Collect recipient staff/student user IDs from assigned groups and class
+      const recipients = new Set<string>();
+      this.groups
+        .filter(g => selectedGroupIds.includes(String(g.id)))
+        .forEach(g => {
+          (g['assignedStaffIds'] || []).forEach((id: any) => recipients.add(String(id)));
+        });
+
+      if (profile?.uid) recipients.delete(profile.uid);
+
+      await this.notifier.notifyClassPlanSaved(savedPlan, Array.from(recipients), profile);
+
       this.snackBar.open('Class Plan saved successfully.', 'Close', { duration: 3000 });
       this.saveCompleted.emit(savedPlan);
-    } catch (e) {
-      this.snackBar.open('Error saving Class Plan.', 'Close', { duration: 3000 });
+    } catch (e: any) {
+      console.error('[ClassPlan Save Error]', e);
+      this.snackBar.open(`Error saving Class Plan: ${e?.message || e}`, 'Close', { duration: 5000 });
     }
   }
 }

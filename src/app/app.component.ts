@@ -55,6 +55,7 @@ export class AppComponent {
         { label: 'Announcements', route: '/announcements', icon: 'megaphone-outline', permissionsAny: ['viewAnnouncements', 'manageAnnouncements'] },
         { label: 'My Assignments', route: '/my-assignments', icon: 'calendar-number-outline' },
         { label: 'Notifications', route: '/notifications', icon: 'notifications-outline' },
+        { label: 'Help & Support', route: '/help-support', icon: 'help-buoy-outline' },
         { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', permissionsAny: ['manageOrganizations'] },
       ]
     },

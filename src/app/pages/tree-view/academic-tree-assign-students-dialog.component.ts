@@ -31,10 +31,106 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   transferMenuStudentId: string | null = null;
   isTransferring = false;
   transferSearch = '';
-  
+  availableSearch = '';
+  assignedSearch = '';
+
   isSaving = false;
   errorMsg = '';
-  successMsg = '';;
+  successMsg = '';
+
+  get filteredAvailableStudents(): any[] {
+    if (!this.availableSearch.trim()) return this.availableStudents;
+    const q = this.availableSearch.toLowerCase().trim();
+    return this.availableStudents.filter(s =>
+      (s.name || s.displayName || '').toLowerCase().includes(q) ||
+      (s.email || s.parentName || s.admissionNo || '').toLowerCase().includes(q)
+    );
+  }
+
+  get filteredSelectedStudents(): any[] {
+    if (!this.assignedSearch.trim()) return this.selectedStudents;
+    const q = this.assignedSearch.toLowerCase().trim();
+    return this.selectedStudents.filter(s =>
+      (s.name || s.displayName || '').toLowerCase().includes(q) ||
+      (s.email || s.parentName || s.admissionNo || '').toLowerCase().includes(q)
+    );
+  }
+
+  courseName = '';
+  className = '';
+  groupName = '';
+
+  get fullBreadcrumb(): string {
+    const parts: string[] = [];
+    if (this.courseName && !this.isUid(this.courseName)) parts.push(this.courseName);
+    if (this.className && !this.isUid(this.className)) parts.push(this.className);
+    
+    const nodeTitle = this.node?.title || this.node?.name || '';
+    if (this.node?.type === 'classGroup') {
+      const gName = this.groupName || nodeTitle;
+      if (gName && !this.isUid(gName)) parts.push(gName);
+    } else if (this.node?.type === 'class') {
+      if (!this.className && nodeTitle && !this.isUid(nodeTitle)) parts.push(nodeTitle);
+    } else if (this.node?.type === 'course') {
+      if (!this.courseName && nodeTitle && !this.isUid(nodeTitle)) parts.push(nodeTitle);
+    }
+
+    return parts.length > 0 ? parts.join(' \u2014 ') : (nodeTitle || 'Academic Unit');
+  }
+
+  public isUid(str: string): boolean {
+    if (!str) return false;
+    const trimmed = String(str).trim();
+    return /^[A-Za-z0-9_-]{16,}$/.test(trimmed) && !trimmed.includes(' ');
+  }
+
+  async resolveNames(): Promise<void> {
+    try {
+      const profile = await firstValueFrom(this.auth.profile$);
+
+      let rawCourse = this.node?.parentCourseName || this.node?.courseName || '';
+      const courseId = this.node?.parentCourseId || this.node?.courseId || (this.isUid(rawCourse) ? rawCourse : '');
+      
+      if (!rawCourse || this.isUid(rawCourse)) {
+        if (courseId) {
+          const courses = await this.repo.getAllOnce<any>('courses', profile);
+          const matched = courses.find((c: any) => c.id === courseId);
+          if (matched) {
+            rawCourse = matched.name || matched.displayName || matched.title || matched.code || courseId;
+          }
+        }
+      }
+      this.courseName = this.isUid(rawCourse) ? 'Course' : rawCourse;
+
+      let rawClass = this.node?.parentClassName || this.node?.className || '';
+      const classId = this.node?.parentClassId || this.node?.classId || (this.isUid(rawClass) ? rawClass : '');
+      
+      if (!rawClass || this.isUid(rawClass)) {
+        if (classId) {
+          const classes = await this.repo.getAllOnce<any>('classes', profile);
+          const matched = classes.find((c: any) => c.id === classId);
+          if (matched) {
+            rawClass = matched.name || matched.displayName || matched.title || classId;
+          }
+        }
+      }
+      this.className = this.isUid(rawClass) ? '' : rawClass;
+
+      if (this.node?.type === 'classGroup') {
+        let rawGroup = this.node?.title || this.node?.name || '';
+        if (this.isUid(rawGroup) && this.node?.id) {
+          const groups = await this.repo.getAllOnce<any>('classGroups', profile);
+          const matchedG = groups.find((g: any) => g.id === this.node.id);
+          if (matchedG) {
+            rawGroup = matchedG.name || matchedG.title || rawGroup;
+          }
+        }
+        this.groupName = this.isUid(rawGroup) ? 'Group' : rawGroup;
+      }
+    } catch (e) {
+      console.warn('[Assign Student Dialog] Name resolution warning:', e);
+    }
+  }
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: AssignStudentsDialogData,
@@ -45,6 +141,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.node = this.data?.node;
+    this.resolveNames();
     
     const incomingAssigned = Array.isArray(this.data?.assignedStudents) ? this.data.assignedStudents : [];
     const incomingAvailable = Array.isArray(this.data?.availableStudents) ? this.data.availableStudents : [];

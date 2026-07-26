@@ -1,0 +1,133 @@
+<div class="dialog-header">
+  <div class="header-title">
+    <ion-icon name="help-buoy-outline" class="title-icon"></ion-icon>
+    <h2>Report an Issue or Get Help</h2>
+  </div>
+  <button mat-icon-button (click)="close()" [disabled]="submitting">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content">
+  <p class="subtitle">
+    Describe the issue or feature request you are experiencing. Our Super Admin team will review your report, inspect attached screenshots, and respond promptly.
+  </p>
+
+  <form [formGroup]="form" (ngSubmit)="submit()" class="ticket-form">
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Issue Title</mat-label>
+        <input matInput formControlName="title" placeholder="Brief summary of the issue (e.g., Cannot save attendance on mobile)" />
+        <mat-error *ngIf="form.get('title')?.hasError('required')">Title is required</mat-error>
+        <mat-error *ngIf="form.get('title')?.hasError('minlength')">Must be at least 4 characters</mat-error>
+      </mat-form-field>
+    </div>
+
+    <div class="form-row split-row">
+      <mat-form-field appearance="outline" class="half-width">
+        <mat-label>Category</mat-label>
+        <mat-select formControlName="category">
+          <mat-option *ngFor="let cat of categories" [value]="cat.value">
+            <div class="select-option-content">
+              <ion-icon [name]="cat.icon" class="opt-icon"></ion-icon>
+              <span>{{ cat.label }}</span>
+            </div>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="half-width">
+        <mat-label>Priority Level</mat-label>
+        <mat-select formControlName="priority">
+          <mat-option *ngFor="let prio of priorities" [value]="prio.value">
+            <span [style.color]="prio.color" style="font-weight: 600;">● {{ prio.label }}</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+    </div>
+
+    <div class="form-row split-row">
+      <mat-form-field appearance="outline" class="half-width">
+        <mat-label>Where is the Issue? (Page / Screen)</mat-label>
+        <mat-select formControlName="pageUrl" (selectionChange)="onPageSelectChange($event.value)">
+          <mat-option *ngFor="let page of appPages" [value]="page.url">
+            {{ page.label }} ({{ page.url }})
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="half-width">
+        <mat-label>Page / Screen Display Name</mat-label>
+        <input matInput formControlName="pageName" placeholder="e.g. Attendance Marking Screen" />
+      </mat-form-field>
+    </div>
+
+    <div class="form-row">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Issue Description</mat-label>
+        <textarea
+          matInput
+          formControlName="description"
+          rows="4"
+          placeholder="Please describe what happened, steps to reproduce, or what you were trying to accomplish..."
+        ></textarea>
+        <mat-error *ngIf="form.get('description')?.hasError('required')">Description is required</mat-error>
+        <mat-error *ngIf="form.get('description')?.hasError('minlength')">Must be at least 10 characters</mat-error>
+      </mat-form-field>
+    </div>
+
+    <!-- Screenshot Upload Section -->
+    <div class="attachments-section">
+      <div class="section-label">
+        <ion-icon name="image-outline"></ion-icon>
+        <span>Attach Screenshots / File Proofs (Optional)</span>
+      </div>
+
+      <div class="upload-area" (click)="fileInput.click()">
+        <input
+          #fileInput
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx"
+          (change)="onFileSelected($event)"
+          style="display: none;"
+        />
+        <ion-icon name="cloud-upload-outline" class="upload-icon"></ion-icon>
+        <p class="upload-text">Click to upload screenshots or drag & drop files here</p>
+        <span class="upload-subtext">PNG, JPG, WEBP, GIF, PDF up to 10MB each</span>
+      </div>
+
+      <!-- File Previews -->
+      <div *ngIf="selectedFiles.length > 0" class="file-preview-grid">
+        <div *ngFor="let file of selectedFiles; let i = index" class="file-preview-card">
+          <div class="thumb-container">
+            <img *ngIf="filePreviews[i]" [src]="filePreviews[i]" alt="preview" />
+            <ion-icon *ngIf="!filePreviews[i]" name="document-text-outline" class="doc-icon"></ion-icon>
+          </div>
+          <div class="file-info">
+            <span class="file-name" [title]="file.name">{{ file.name }}</span>
+            <span class="file-size">{{ (file.size / 1024 / 1024) | number:'1.1-2' }} MB</span>
+          </div>
+          <button type="button" class="remove-btn" (click)="removeFile(i)" matTooltip="Remove attachment">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</mat-dialog-content>
+
+<div class="dialog-actions">
+  <button mat-button (click)="close()" [disabled]="submitting">Cancel</button>
+  <button
+    mat-raised-button
+    color="primary"
+    (click)="submit()"
+    [disabled]="form.invalid || submitting"
+    class="submit-btn"
+  >
+    <mat-spinner *ngIf="submitting" diameter="20" class="btn-spinner"></mat-spinner>
+    <ion-icon *ngIf="!submitting" name="paper-plane-outline"></ion-icon>
+    <span>Submit Help Ticket</span>
+  </button>
+</div>

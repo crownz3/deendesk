@@ -101,9 +101,15 @@ export class TimetableEntryFormDialogComponent implements OnInit {
     );
   }
 
+  hasSubjects = false;
+
   async ngOnInit() {
     const profile = await firstValueFrom(this.auth.profile$);
     if (profile) {
+      const courses = await this.repo.getAllOnce('courses', profile);
+      const planCourse = courses.find(c => c.id === this.data.plan?.courseId);
+      this.hasSubjects = !!planCourse && (planCourse['hasSubjects'] === true || planCourse['hasSubjects'] === 'true' || planCourse['hasSubjects'] === 1);
+
       this.staff = await this.repo.getAllOnce('staff', profile);
       if (this.data.plan.madrasaId) {
         this.staff = this.staff.filter(s => s.madrasaId === this.data.plan.madrasaId || (s['madrasaIds'] as string[])?.includes(this.data.plan.madrasaId!));

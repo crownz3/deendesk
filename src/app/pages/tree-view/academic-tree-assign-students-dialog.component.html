@@ -1,22 +1,27 @@
 <div class="assign-dialog">
   <div class="assign-dialog-header">
-    <div class="title-section">
-      <h2 mat-dialog-title>{{ selectedStudents.length > 0 ? 'Edit' : 'Add' }} Students - {{ node.title }}</h2>
-      <p class="dialog-subtitle" *ngIf="node.parentCourseName">Course: {{ node.parentCourseName }}</p>
-    </div>
-    
-    <div class="assign-summary-cards">
-      <div class="summary-card">
-        <span class="label">Type</span>
-        <span class="value">{{ node.type | titlecase }}</span>
+    <div class="header-main font-inter">
+      <div class="title-section">
+        <h2 mat-dialog-title>{{ selectedStudents.length > 0 ? 'Edit' : 'Add' }} Students</h2>
+        <p class="dialog-subtitle" *ngIf="fullBreadcrumb">
+          <ion-icon name="git-network-outline" class="crumb-icon"></ion-icon>
+          {{ fullBreadcrumb }}
+        </p>
       </div>
-      <div class="summary-card">
-        <span class="label">Current Assigned</span>
-        <span class="value">{{ selectedStudents.length }}</span>
-      </div>
-      <div class="summary-card">
-        <span class="label">Available Students</span>
-        <span class="value">{{ availableStudents.length }}</span>
+
+      <div class="assign-summary-cards">
+        <div class="summary-card">
+          <span class="label">Type</span>
+          <span class="value badge-pill">{{ node.type | titlecase }}</span>
+        </div>
+        <div class="summary-card primary">
+          <span class="label">Assigned</span>
+          <span class="value">{{ selectedStudents.length }}</span>
+        </div>
+        <div class="summary-card">
+          <span class="label">Available</span>
+          <span class="value">{{ availableStudents.length }}</span>
+        </div>
       </div>
     </div>
   </div>
@@ -34,49 +39,73 @@
       <!-- Unassigned / Available Panel -->
       <div class="transfer-panel">
         <div class="panel-header">
-          <h3>Available Students</h3>
-          <button mat-button color="primary" (click)="addAll()" [disabled]="availableStudents.length === 0">Add All</button>
+          <div class="panel-title">
+            <h3>Available Students</h3>
+            <span class="count-badge">{{ filteredAvailableStudents.length }}</span>
+          </div>
+          <button mat-button class="action-btn add-all-btn" (click)="addAll()" [disabled]="availableStudents.length === 0">Add All</button>
+        </div>
+
+        <div class="panel-search-bar">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input type="text" [(ngModel)]="availableSearch" placeholder="Search available students...">
+          <button *ngIf="availableSearch" class="clear-search" (click)="availableSearch = ''">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
         </div>
         
         <div class="transfer-list" cdkDropList [cdkDropListData]="availableStudents" (cdkDropListDropped)="drop($event)">
-          <div *ngIf="availableStudents.length === 0" class="empty-transfer-state">
-            No students available
+          <div *ngIf="filteredAvailableStudents.length === 0" class="empty-transfer-state">
+            {{ availableSearch ? 'No students matching "' + availableSearch + '"' : 'No students available' }}
           </div>
           
-          <div class="transfer-item" *ngFor="let student of availableStudents" cdkDrag>
+          <div class="transfer-item" *ngFor="let student of filteredAvailableStudents" cdkDrag>
             <div class="item-avatar">{{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}</div>
             <div class="item-info">
               <h4>{{ student.name || student.displayName || 'N/A' }}</h4>
-              <p>{{ student.email || student.parentName || 'No email' }}</p>
+              <p>{{ student.email || student.parentName || 'No details' }}</p>
             </div>
             <ion-icon name="add-circle-outline" class="action-icon add-icon" (click)="addStudent(student)"></ion-icon>
           </div>
         </div>
       </div>
 
-      <!-- Action Buttons (desktop only visual hint) -->
+      <!-- Action Buttons Divider -->
       <div class="transfer-actions">
-        <ion-icon name="swap-horizontal-outline"></ion-icon>
+        <div class="divider-icon">
+          <ion-icon name="swap-horizontal-outline"></ion-icon>
+        </div>
       </div>
 
       <!-- Selected / Assigned Panel -->
       <div class="transfer-panel">
         <div class="panel-header">
-          <h3>Assigned Students</h3>
-          <button mat-button color="warn" (click)="removeAll()" [disabled]="selectedStudents.length === 0">Remove All</button>
+          <div class="panel-title">
+            <h3>Assigned Students</h3>
+            <span class="count-badge primary">{{ filteredSelectedStudents.length }}</span>
+          </div>
+          <button mat-button class="action-btn remove-all-btn" (click)="removeAll()" [disabled]="selectedStudents.length === 0">Remove All</button>
+        </div>
+
+        <div class="panel-search-bar">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input type="text" [(ngModel)]="assignedSearch" placeholder="Search assigned students...">
+          <button *ngIf="assignedSearch" class="clear-search" (click)="assignedSearch = ''">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
         </div>
         
         <div class="transfer-list selected-list" cdkDropList [cdkDropListData]="selectedStudents" (cdkDropListDropped)="drop($event)">
-          <div *ngIf="selectedStudents.length === 0" class="empty-transfer-state">
-            No students selected
+          <div *ngIf="filteredSelectedStudents.length === 0" class="empty-transfer-state">
+            {{ assignedSearch ? 'No students matching "' + assignedSearch + '"' : 'No students selected' }}
           </div>
           
-          <div class="transfer-item-wrapper" *ngFor="let student of selectedStudents">
+          <div class="transfer-item-wrapper" *ngFor="let student of filteredSelectedStudents">
             <div class="transfer-item" cdkDrag>
-              <div class="item-avatar">{{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}</div>
+              <div class="item-avatar assigned">{{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}</div>
               <div class="item-info">
                 <h4>{{ student.name || student.displayName || 'N/A' }}</h4>
-                <p>{{ student.email || student.parentName || 'No email' }}</p>
+                <p>{{ student.email || student.parentName || 'No details' }}</p>
               </div>
               <div class="item-actions">
                 <ion-icon name="remove-circle-outline" class="action-icon remove-icon" title="Unassign" (click)="removeStudent(student)"></ion-icon>
@@ -109,10 +138,9 @@
   </mat-dialog-content>
 
   <mat-dialog-actions class="dialog-footer" align="end">
-    <button mat-button mat-dialog-close [disabled]="isSaving || isTransferring">Cancel</button>
-    <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving || isTransferring">
+    <button mat-button class="cancel-btn" mat-dialog-close [disabled]="isSaving || isTransferring">Cancel</button>
+    <button mat-flat-button color="primary" class="save-btn" (click)="save()" [disabled]="isSaving || isTransferring">
       {{ isSaving ? 'Saving...' : 'Save Assignments' }}
     </button>
   </mat-dialog-actions>
 </div>
-

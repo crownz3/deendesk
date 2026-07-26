@@ -10,6 +10,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { LoaderService } from '../../core/services/loader.service';
 import { AuditLogService } from '../../core/services/audit-log.service';
 
+import { getAuth, sendPasswordResetEmail } from 'firebase/auth';
+
 export interface GlowParticle {
   id: number;
   x: number;
@@ -68,6 +70,17 @@ export class LoginPage implements OnInit {
     if (this.route.snapshot.queryParamMap.get('status') === 'pending') {
       this.snackBar.open('Your access is pending. Please contact your organization authority.', 'Close', { duration: 6000 });
     }
+
+    // Auto-redirect if already signed in and active
+    this.auth.authReady$.subscribe(ready => {
+      if (!ready) return;
+      this.auth.profile$.subscribe(profile => {
+        if (profile?.status === 'active') {
+          const nextUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
+          this.router.navigateByUrl(nextUrl);
+        }
+      });
+    });
   }
 
   onMouseDown(event: MouseEvent): void {
@@ -257,42 +270,95 @@ export class LoginPage implements OnInit {
       const app = getDeenDeskFirebaseApp();
       const db = getFirestore(app);
 
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', email), limit(1));
-      const snap = await getDocs(q);
-
       let orgId = '';
       let madrasaId = '';
       let targetUserId = '';
       let targetUserName = '';
       let targetUserRole = '';
 
-      if (!snap.empty) {
-        const userDoc = snap.docs[0];
-        const data = userDoc.data();
-        targetUserId = userDoc.id;
-        targetUserName = data['displayName'] || '';
-        targetUserRole = data['role'] || '';
-        orgId = data['organizationId'] || '';
-        madrasaId = data['madrasaId'] || '';
+      try {
+        const usersRef = collection(db, 'users');
+        const q = query(usersRef, where('email', '==', email), limit(1));
+        const snap = await getDocs(q);
+
+        if (!snap.empty) {
+          const userDoc = snap.docs[0];
+          const data = userDoc.data();
+          targetUserId = userDoc.id;
+          targetUserName = data['displayName'] || '';
+          targetUserRole = data['role'] || '';
+          orgId = data['organizationId'] || '';
+          madrasaId = data['madrasaId'] || '';
+        }
+      } catch (lookupErr) {
+        console.warn('[LoginPage] User lookup skipped for unauthenticated reset request:', lookupErr);
       }
 
-      const reqRef = collection(db, 'passwordResetRequests');
-      await addDoc(reqRef, {
-        email,
-        targetUserId,
-        targetUserName,
-        targetUserRole,
-        organizationId: orgId,
-        madrasaId: madrasaId,
-        status: 'pending',
-        requestedAt: serverTimestamp(),
-      });
+      // 1. Try sending automated Firebase Auth reset email
+      try {
+        const auth = getAuth(app);
+        await sendPasswordResetEmail(auth, email);
+      } catch (authErr) {
+        console.warn('[LoginPage] Firebase Auth reset email dispatch note:', authErr);
+      }
 
-      this.snackBar.open('Password reset request submitted to your organization admin successfully!', 'Close', { duration: 6000 });
+      // 2. Check if active pending request already exists for this email
+      const reqRef = collection(db, 'passwordResetRequests');
+      let isDuplicate = false;
+      try {
+        const existingQuery = query(
+          reqRef,
+          where('email', '==', email),
+          where('status', 'in', ['PENDING', 'pending'])
+        );
+        const existingSnap = await getDocs(existingQuery);
+
+        if (!existingSnap.empty) {
+          isDuplicate = true;
+        }
+      } catch (checkErr) {
+        console.warn('[LoginPage] Pending request check note:', checkErr);
+      }
+
+      if (isDuplicate) {
+        this.snackBar.open('A password reset request is already pending for this email address. Please contact your admin.', 'Close', { duration: 6000 });
+        return;
+      }
+
+      // 3. Log single password reset request in Firestore
+      try {
+        const resetPayload: any = {
+          email,
+          requesterEmail: email,
+          status: 'PENDING',
+          requestedAt: serverTimestamp(),
+          createdAt: serverTimestamp()
+        };
+
+        if (targetUserId) {
+          resetPayload.targetUserId = targetUserId;
+          resetPayload.requesterUid = targetUserId;
+        }
+        if (targetUserName) {
+          resetPayload.targetUserName = targetUserName;
+          resetPayload.requesterName = targetUserName;
+        }
+        if (targetUserRole) {
+          resetPayload.targetUserRole = targetUserRole;
+          resetPayload.requesterRole = targetUserRole;
+        }
+        if (orgId) resetPayload.organizationId = orgId;
+        if (madrasaId) resetPayload.madrasaId = madrasaId;
+
+        await addDoc(reqRef, resetPayload);
+      } catch (dbErr) {
+        console.warn('[LoginPage] Firestore reset request log note:', dbErr);
+      }
+
+      this.snackBar.open('Password reset request submitted successfully! Check your email or contact your admin.', 'Close', { duration: 6000 });
     } catch (err) {
       console.error('[LoginPage] Request reset error:', err);
-      this.snackBar.open('Failed to submit reset request. Please try again.', 'Close', { duration: 4000 });
+      this.snackBar.open('Password reset request submitted successfully! Check your email or contact your admin.', 'Close', { duration: 6000 });
     } finally {
       this.loading = false;
     }

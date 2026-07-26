@@ -1,0 +1,223 @@
+<div class="dialog-header">
+  <div class="header-left">
+    <span class="ticket-num-tag">{{ ticket.ticketNumber }}</span>
+    <h2 class="ticket-title">{{ ticket.title }}</h2>
+  </div>
+  <button mat-icon-button (click)="close()">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content">
+  <!-- Ticket Overview Info Header Bar -->
+  <div class="ticket-meta-banner">
+    <div class="meta-item">
+      <ion-icon name="person-outline"></ion-icon>
+      <div>
+        <span class="meta-label">Submitted By</span>
+        <span class="meta-value font-bold">{{ ticket.createdByName }} ({{ ticket.createdByRole }})</span>
+      </div>
+    </div>
+
+    <div class="meta-item">
+      <ion-icon name="mail-outline"></ion-icon>
+      <div>
+        <span class="meta-label">Email ID</span>
+        <span class="meta-value">{{ ticket.createdByEmail }}</span>
+      </div>
+    </div>
+
+    <div class="meta-item">
+      <ion-icon name="business-outline"></ion-icon>
+      <div>
+        <span class="meta-label">Organization</span>
+        <span class="meta-value">{{ organizationNameDisplay }}</span>
+      </div>
+    </div>
+
+    <div class="meta-item">
+      <ion-icon name="navigate-outline"></ion-icon>
+      <div>
+        <span class="meta-label">Page / Screen</span>
+        <span class="meta-value page-badge">{{ ticket.pageName }} ({{ ticket.pageUrl }})</span>
+      </div>
+    </div>
+
+    <div class="meta-item">
+      <ion-icon name="calendar-outline"></ion-icon>
+      <div>
+        <span class="meta-label">Date & Time</span>
+        <span class="meta-value">{{ formatTimestamp(ticket.createdAt) }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status & Priority Control Panel for Super Admin / View for Users -->
+  <div class="status-control-card">
+    <div class="current-badges">
+      <span class="status-badge" [ngClass]="getStatusBadgeClass(ticket.status)">
+        {{ getStatusLabel(ticket.status) }}
+      </span>
+      <span class="priority-badge" [style.border-color]="getPriorityColor(ticket.priority)" [style.color]="getPriorityColor(ticket.priority)">
+        ● Priority: {{ ticket.priority }}
+      </span>
+    </div>
+
+    <!-- Super Admin Controls -->
+    <div *ngIf="isSuperAdmin" class="super-controls">
+      <mat-form-field appearance="outline" class="inline-select">
+        <mat-label>Change Status</mat-label>
+        <mat-select [(ngModel)]="selectedStatus">
+          <mat-option *ngFor="let s of statuses" [value]="s.value">
+            <span [ngClass]="s.badgeClass" class="status-badge">{{ s.label }}</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="inline-select">
+        <mat-label>Change Priority</mat-label>
+        <mat-select [(ngModel)]="selectedPriority">
+          <mat-option *ngFor="let p of priorities" [value]="p.value">
+            <span [style.color]="p.color" style="font-weight: 600;">● {{ p.label }}</span>
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <button
+        mat-raised-button
+        color="primary"
+        (click)="updateStatusAndPriority()"
+        [disabled]="(selectedStatus === ticket.status && selectedPriority === ticket.priority) || updatingStatus"
+      >
+        <mat-spinner *ngIf="updatingStatus" diameter="18" class="btn-spinner"></mat-spinner>
+        <span>Update Status</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Original Description & Attachments Box -->
+  <div class="issue-description-box">
+    <div class="box-title">
+      <ion-icon name="document-text-outline"></ion-icon>
+      <span>Issue Details & Screenshots</span>
+    </div>
+    <div class="description-text">{{ ticket.description }}</div>
+
+    <!-- Initial Screenshot / Attachment Gallery -->
+    <div *ngIf="ticket.attachmentUrls && ticket.attachmentUrls.length > 0" class="attachment-gallery">
+      <span class="gallery-label">Attached Files / Proofs:</span>
+      <div class="gallery-grid">
+        <div *ngFor="let url of ticket.attachmentUrls" class="gallery-item" (click)="openImagePreview(url)">
+          <img [src]="url" alt="screenshot" />
+          <div class="gallery-overlay">
+            <ion-icon name="eye-outline"></ion-icon>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Conversation Thread / Q&A Chat -->
+  <div class="conversation-section">
+    <div class="section-title">
+      <ion-icon name="chatbubbles-outline"></ion-icon>
+      <span>Discussion & Responses ({{ messages.length }})</span>
+    </div>
+
+    <div *ngIf="loadingMessages" class="loading-box">
+      <mat-spinner diameter="32"></mat-spinner>
+      <span>Loading conversation thread...</span>
+    </div>
+
+    <div *ngIf="!loadingMessages && messages.length === 0" class="empty-messages">
+      <p>No responses yet. Use the reply composer below to ask or respond.</p>
+    </div>
+
+    <div *ngIf="!loadingMessages && messages.length > 0" class="messages-list">
+      <div
+        *ngFor="let msg of messages"
+        class="message-card"
+        [ngClass]="{ 'super-admin-msg': msg.isSuperAdmin, 'user-msg': !msg.isSuperAdmin }"
+      >
+        <div class="msg-header">
+          <div class="sender-info">
+            <ion-icon [name]="msg.isSuperAdmin ? 'shield-checkmark-outline' : 'person-circle-outline'" class="avatar-icon"></ion-icon>
+            <span class="sender-name">{{ msg.senderName }}</span>
+            <span class="sender-role-badge" [ngClass]="{ 'super-role': msg.isSuperAdmin }">
+              {{ msg.isSuperAdmin ? 'SUPER ADMIN' : msg.senderRole }}
+            </span>
+          </div>
+          <span class="msg-time">{{ formatTimestamp(msg.createdAt) }}</span>
+        </div>
+
+        <div class="msg-body">{{ msg.message }}</div>
+
+        <div *ngIf="msg.attachmentUrls && msg.attachmentUrls.length > 0" class="msg-attachments">
+          <div *ngFor="let imgUrl of msg.attachmentUrls" class="msg-img-thumb" (click)="openImagePreview(imgUrl)">
+            <img [src]="imgUrl" alt="attachment" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</mat-dialog-content>
+
+<!-- Reply Composer Box -->
+<div class="reply-composer-bar">
+  <div class="composer-container">
+    <div class="input-row">
+      <textarea
+        [(ngModel)]="replyText"
+        rows="2"
+        placeholder="Type a response or ask a clarifying question..."
+        class="reply-textarea"
+      ></textarea>
+
+      <div class="composer-actions">
+        <button type="button" mat-icon-button (click)="replyFileInput.click()" matTooltip="Attach image or file">
+          <ion-icon name="attach-outline" class="attach-icon"></ion-icon>
+        </button>
+        <input
+          #replyFileInput
+          type="file"
+          multiple
+          accept="image/*,.pdf,.doc,.docx"
+          (change)="onFileSelected($event)"
+          style="display: none;"
+        />
+
+        <button
+          mat-raised-button
+          color="primary"
+          (click)="sendReply()"
+          [disabled]="(!replyText.trim() && selectedReplyFiles.length === 0) || sendingReply"
+          class="send-btn"
+        >
+          <mat-spinner *ngIf="sendingReply" diameter="18" class="btn-spinner"></mat-spinner>
+          <ion-icon *ngIf="!sendingReply" name="paper-plane-outline"></ion-icon>
+          <span>Send Reply</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Selected Attachment Previews for Reply -->
+    <div *ngIf="selectedReplyFiles.length > 0" class="reply-files-preview">
+      <div *ngFor="let file of selectedReplyFiles; let i = index" class="reply-file-chip">
+        <span class="chip-name">{{ file.name }}</span>
+        <button type="button" (click)="removeReplyFile(i)" class="chip-remove">
+          <ion-icon name="close-circle-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Image Lightbox Modal Preview -->
+<div *ngIf="previewImageUrl" class="image-lightbox-modal" (click)="closeImagePreview()">
+  <div class="lightbox-content" (click)="$event.stopPropagation()">
+    <button class="lightbox-close" (click)="closeImagePreview()">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+    <img [src]="previewImageUrl" alt="Enlarged Screenshot" />
+  </div>
+</div>

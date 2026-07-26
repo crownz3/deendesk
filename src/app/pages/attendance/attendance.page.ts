@@ -39,6 +39,7 @@ export interface ScheduledDay {
   isException: boolean;
   exceptionType?: string;
   exceptionReason?: string;
+  exception?: EntityRecord & ClassPlanException;
   staffNames: string[];
   studentNames: string[];
   currentSession?: EntityRecord & TimetableEntry;
@@ -395,10 +396,27 @@ export class AttendancePage implements OnInit, OnDestroy {
     const selectedPlan = vm.classPlans.find(p => p.id === filter.classPlanId);
     if (!selectedPlan) return [];
 
-    return vm.students.filter((student) => 
-      student['classId'] === selectedPlan.classId || 
-      ((student['classIds'] as string[]) || []).includes(selectedPlan.classId)
-    );
+    const targetClassId = String(selectedPlan.classId || '').trim();
+    const targetGroupIds = Array.from(new Set([
+      ...(Array.isArray(selectedPlan.groupIds) ? selectedPlan.groupIds.map(String) : []),
+      selectedPlan.groupId || ''
+    ].filter(Boolean).map(s => s.trim())));
+
+    return vm.students.filter((student) => {
+      const sClassId = String(student['classId'] || '').trim();
+      const sClassIds = Array.isArray(student['classIds']) ? student['classIds'].map(String) : [];
+      const matchesClass = sClassId === targetClassId || sClassIds.includes(targetClassId);
+      if (!matchesClass) return false;
+
+      if (targetGroupIds.length > 0) {
+        const sGroupId = String(student['groupId'] || '').trim();
+        const sGroupIds = Array.isArray(student['groupIds']) ? student['groupIds'].map(String) : [];
+        const matchesGroup = targetGroupIds.includes(sGroupId) || sGroupIds.some(id => targetGroupIds.includes(id));
+        return matchesGroup;
+      }
+
+      return true;
+    });
   }
 
   getExceptionForSelectedDate(vm: AttendanceVm): (EntityRecord & ClassPlanException) | undefined {
@@ -408,6 +426,13 @@ export class AttendancePage implements OnInit, OnDestroy {
     return vm.classPlanExceptions.find(
       e => e.classPlanId === filter.classPlanId && e.date === dateStr
     );
+  }
+
+  isExceptionAttendanceDisabled(ex?: (EntityRecord & ClassPlanException) | null): boolean {
+    if (!ex) return false;
+    if (ex.enableAttendance !== undefined) return !ex.enableAttendance;
+    if (['holiday', 'cancelled', 'suddenLeave'].includes(ex.type)) return true;
+    return ex.affectsAttendance !== false;
   }
 
   async removeException(exception: EntityRecord & ClassPlanException): Promise<void> {
@@ -505,33 +530,105 @@ export class AttendancePage implements OnInit, OnDestroy {
     const selectedPlan = vm.classPlans.find(p => p.id === filter.classPlanId);
     if (!selectedPlan) return [];
 
-    const teacherUids = new Set<string>();
+    const targetClassId = String(selectedPlan.classId || '').trim();
+    const targetGroupIds = Array.from(new Set([
+      ...(Array.isArray(selectedPlan.groupIds) ? selectedPlan.groupIds.map(String) : []),
+      selectedPlan.groupId || ''
+    ].filter(Boolean).map(s => s.trim())));
 
+    const assignedStaffIds = new Set<string>();
+
+    // 1. Extract assigned staff from target Class Groups
+    const matchingClassGroups = (vm.classGroups || []).filter(g => {
+      const gClassId = String(g['classId'] || '').trim();
+      const gId = String(g.id || '').trim();
+      if (targetClassId && gClassId && gClassId !== targetClassId) return false;
+      if (targetGroupIds.length > 0) return targetGroupIds.includes(gId);
+      return true;
+    });
+
+    matchingClassGroups.forEach(g => {
+      const ids = Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'] : [];
+      ids.forEach((id: any) => {
+        if (id) assignedStaffIds.add(String(id).trim());
+      });
+    });
+
+    // 2. Extract assigned staff from timetable activities for this date
     if (filter.timetableEntryId && filter.timetableEntryId !== 'ALL') {
       const selectedActivity = this.activitiesForDate.find(a => String(a.id) === String(filter.timetableEntryId));
       if (selectedActivity && selectedActivity.teacherId) {
-        teacherUids.add(String(selectedActivity.teacherId));
+        assignedStaffIds.add(String(selectedActivity.teacherId).trim());
       }
     } else {
       this.activitiesForDate.forEach(a => {
-        if (a.teacherId) teacherUids.add(String(a.teacherId));
+        if (a.teacherId) assignedStaffIds.add(String(a.teacherId).trim());
       });
     }
 
-    this.staffUserIdsFromAssignmentIds(
-      vm,
-      this.groupStaffIds(vm, selectedPlan.classId, selectedPlan.groupId)
-    ).forEach(id => teacherUids.add(id));
-    
-    if (vm.profile.role === 'teacher' || vm.profile.role === 'coordinator' || vm.profile.role === 'madrasaIncharge') {
-       teacherUids.add(vm.profile.uid);
+    // 3. Combine staffDocs and staffUsers into a unified pool of staff records
+    const allStaffRecords = [...(vm.staffDocs || []), ...(vm.staffUsers || [])];
+
+    // Exclude students and parents
+    const validStaffRecords = allStaffRecords.filter(s => {
+      const role = String(s['role'] || '').toLowerCase();
+      const roles: string[] = Array.isArray(s['roles']) ? s['roles'].map(r => String(r).toLowerCase()) : (role ? [role] : []);
+      return !roles.includes('student') && !roles.includes('parent') && role !== 'student' && role !== 'parent';
+    });
+
+    // Check staff profiles with explicit matching groupId or classId
+    validStaffRecords.forEach(s => {
+      const sGroupIds = [
+        String(s['groupId'] || ''),
+        String(s['assignedGroupId'] || ''),
+        ...(Array.isArray(s['groupIds']) ? s['groupIds'].map(String) : []),
+        ...(Array.isArray(s['assignedGroupIds']) ? s['assignedGroupIds'].map(String) : []),
+        ...(Array.isArray(s['teachingGroupIds']) ? s['teachingGroupIds'].map(String) : [])
+      ].filter(Boolean).map(v => v.trim());
+
+      const sClassIds = [
+        String(s['classId'] || ''),
+        String(s['assignedClassId'] || ''),
+        ...(Array.isArray(s['classIds']) ? s['classIds'].map(String) : []),
+        ...(Array.isArray(s['assignedClassIds']) ? s['assignedClassIds'].map(String) : []),
+        ...(Array.isArray(s['teachingClassIds']) ? s['teachingClassIds'].map(String) : [])
+      ].filter(Boolean).map(v => v.trim());
+
+      const matchesGroup = targetGroupIds.length > 0 && targetGroupIds.some(gId => sGroupIds.includes(gId));
+      const matchesClass = targetClassId && sClassIds.includes(targetClassId);
+
+      if (matchesGroup || matchesClass) {
+        this.identityValues(s).forEach(id => assignedStaffIds.add(id));
+      }
+    });
+
+    if (assignedStaffIds.size === 0) {
+      return [];
     }
 
-    const staff = vm.staffUsers.filter((s) => {
-      const isExplicitlyAdded = teacherUids.has(String(s.id));
-      return isExplicitlyAdded;
+    // Match staff from validStaffRecords (BOTH staffDocs and staffUsers!)
+    const matchedStaffMap = new Map<string, EntityRecord>();
+    validStaffRecords.forEach(s => {
+      const sIdentities = this.identityValues(s);
+      if (sIdentities.some(id => assignedStaffIds.has(id))) {
+        const personKey = String(s['displayName'] || s['name'] || s['email'] || s.id).toLowerCase().trim();
+        if (!matchedStaffMap.has(personKey)) {
+          matchedStaffMap.set(personKey, s);
+        }
+      }
     });
-    return staff;
+
+    const finalStaffList = Array.from(matchedStaffMap.values());
+
+    console.log('[Attendance Page Staff Debug]', {
+      planTitle: selectedPlan.title,
+      targetClassId,
+      targetGroupIds,
+      assignedStaffIds: Array.from(assignedStaffIds),
+      matchedStaffNames: finalStaffList.map(s => s['displayName'] || s['name'] || s['email'])
+    });
+
+    return finalStaffList;
   }
 
   private _lastMadrasas: EntityRecord[] | null = null;
@@ -734,7 +831,10 @@ export class AttendancePage implements OnInit, OnDestroy {
         
         // Also populate teacherName inside the activity for display in UI
         if (e.teacherId) {
-          e['teacherName'] = vm.staffUsers.find(s => String(s['userId'] || s.id) === String(e.teacherId))?.['displayName'] as string || vm.staffUsers.find(s => String(s['userId'] || s.id) === String(e.teacherId))?.['name'] as string;
+          const tId = String(e.teacherId).trim();
+          const matched = [...(vm.staffUsers || []), ...(vm.staffDocs || [])]
+            .find(s => this.identityValues(s).includes(tId));
+          e['teacherName'] = matched ? String(matched['displayName'] || matched['name'] || matched['email'] || '').trim() : '';
         }
       });
       
@@ -743,25 +843,28 @@ export class AttendancePage implements OnInit, OnDestroy {
         this.groupStaffIds(vm, plan.classId, plan.groupId)
       ).forEach(id => teacherIds.add(id));
       
-      staffNames = Array.from(teacherIds)
-        .map(id => {
-          let user = vm.staffUsers.find(s => String(s.id) === String(id));
-          if (user) return (user['displayName'] || user['name']) as string;
-          let doc = vm.staffDocs.find(s => String(s.id) === String(id));
-          if (doc) return (doc['displayName'] || doc['name']) as string;
-          return null;
-        })
-        .filter(name => !!name) as string[];
+      staffNames = Array.from(new Set(
+        Array.from(teacherIds)
+          .map(id => {
+            let user = vm.staffUsers.find(s => this.identityValues(s).includes(id));
+            if (user) return String(user['displayName'] || user['name'] || '').trim();
+            let doc = vm.staffDocs.find(s => this.identityValues(s).includes(id));
+            if (doc) return String(doc['displayName'] || doc['name'] || '').trim();
+            return null;
+          })
+          .filter(Boolean) as string[]
+      ));
         
       const studentsInClass = vm.students.filter(s => s['classId'] === plan.classId);
-      studentNames = studentsInClass.map(s => String(s['displayName'] || s['name'] || 'Unknown Student'));
+      studentNames = Array.from(new Set(studentsInClass.map(s => String(s['displayName'] || s['name'] || 'Unknown Student'))));
     }
     
     return {
       date: dateStr,
       isException: !!ex,
-      exceptionType: ex?.type,
+      exceptionType: ex?.customTypeName || ex?.type,
       exceptionReason: ex?.reason,
+      exception: ex,
       staffNames,
       studentNames,
       currentSession,

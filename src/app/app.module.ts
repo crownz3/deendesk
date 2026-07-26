@@ -83,6 +83,7 @@ import { AttendanceHistoryDialogComponent } from './shared/components/attendance
 import { ClassPlanTimetableComponent } from './pages/class-plans/class-plan-timetable.component';
 import { ClassPlanTimetableCopyDialogComponent } from './pages/class-plans/class-plan-timetable-copy-dialog.component';
 import { TimetableEntryFormDialogComponent } from './pages/class-plans/timetable-entry-form-dialog.component';
+import { ScheduleTypesHelpDialogComponent } from './pages/class-plans/schedule-types-help-dialog.component';
 import { BulkDeleteConfirmDialogComponent } from './shared/components/bulk-delete-confirm-dialog/bulk-delete-confirm-dialog.component';
 import { BulkDeleteProgressDialogComponent } from './shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
 import { ClassDeactivationDialogComponent } from './pages/management/class-deactivation-dialog/class-deactivation-dialog.component';
@@ -169,6 +170,10 @@ import { AnnouncementsPage } from './pages/announcements/announcements.page';
 import { AnnouncementDialogComponent } from './pages/announcements/announcement-dialog.component';
 import { AnnouncementDetailsDialogComponent } from './pages/announcements/announcement-details-dialog.component';
 
+import { HelpSupportPage } from './pages/help-support/help-support.page';
+import { SubmitTicketDialogComponent } from './pages/help-support/submit-ticket-dialog.component';
+import { TicketDetailDialogComponent } from './pages/help-support/ticket-detail-dialog.component';
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -222,6 +227,7 @@ import { AnnouncementDetailsDialogComponent } from './pages/announcements/announ
     ClassPlanTimetableComponent,
     ClassPlanTimetableCopyDialogComponent,
     TimetableEntryFormDialogComponent,
+    ScheduleTypesHelpDialogComponent,
     BulkDeleteConfirmDialogComponent,
     BulkDeleteProgressDialogComponent,
     ClassDeactivationDialogComponent,
@@ -295,6 +301,9 @@ import { AnnouncementDetailsDialogComponent } from './pages/announcements/announ
     AnnouncementsPage,
     AnnouncementDialogComponent,
     AnnouncementDetailsDialogComponent,
+    HelpSupportPage,
+    SubmitTicketDialogComponent,
+    TicketDetailDialogComponent,
   ],
   imports: [
     BrowserModule,

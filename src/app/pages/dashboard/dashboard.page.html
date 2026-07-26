@@ -6,22 +6,18 @@
         <h1>Operational overview</h1>
       </div>
       <div class="header-right-actions">
-        <button *ngIf="vm.isSuperAdmin" mat-flat-button color="primary" routerLink="/firebase-usage" class="help-guide-btn" style="background: #2563eb; color: #ffffff;">
-          <ion-icon name="cloud-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
-          <span class="btn-text">Firebase Usage & Billing</span>
+        <button *ngIf="vm.isSuperAdmin" mat-flat-button color="primary" routerLink="/firebase-usage" class="header-action-btn usage-btn">
+          <ion-icon name="cloud-outline" slot="start"></ion-icon>
+          <span class="btn-text">Usage & Billing</span>
         </button>
-        <button mat-stroked-button color="primary" type="button" (click)="refreshData()" class="help-guide-btn">
-          <ion-icon name="refresh-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
+        <button mat-stroked-button color="primary" type="button" (click)="openHelpGuide()" class="header-action-btn help-btn">
+          <ion-icon name="help-circle-outline" slot="start"></ion-icon>
+          <span class="btn-text">Help Guide / உதவி</span>
+        </button>
+        <button mat-stroked-button color="primary" type="button" (click)="refreshData()" class="header-action-btn refresh-btn">
+          <ion-icon name="refresh-outline" slot="start"></ion-icon>
           <span class="btn-text">Refresh</span>
         </button>
-        <button mat-stroked-button color="primary" (click)="openHelpGuide()" class="help-guide-btn">
-          <ion-icon name="help-circle-outline" slot="start" style="font-size: 1.25rem; margin-right: 4px; vertical-align: middle;"></ion-icon>
-          <span class="btn-text">Help Guide / உதவி வழிகாட்டி</span>
-        </button>
-        <div class="attendance-ring" [style.--rate]="vm.attendance.rate">
-          <strong>{{ vm.attendance.rate }}%</strong>
-          <span>Attendance</span>
-        </div>
       </div>
     </header>
 
@@ -106,8 +102,30 @@
       </div>
     </div>
 
+    <!-- Active / Inactive / All Segment Button Group -->
+    <div class="overview-filter-bar">
+      <div class="filter-label">
+        <ion-icon name="options-outline"></ion-icon>
+        <span>Overview Filter:</span>
+      </div>
+
+      <div class="filter-toggle-wrapper">
+        <mat-button-toggle-group [value]="statusFilter" (change)="setStatusFilter($event.value)" class="custom-toggle-group">
+          <mat-button-toggle value="all">
+            All <span class="count-badge">({{ getCounts('all', vm) }})</span>
+          </mat-button-toggle>
+          <mat-button-toggle value="active">
+            <span class="active-text">Active</span> <span class="count-badge green">({{ getCounts('active', vm) }})</span>
+          </mat-button-toggle>
+          <mat-button-toggle value="inactive">
+            <span class="inactive-text">Inactive</span> <span class="count-badge red">({{ getCounts('inactive', vm) }})</span>
+          </mat-button-toggle>
+        </mat-button-toggle-group>
+      </div>
+    </div>
+
     <section class="stats-grid">
-      <app-stats-card *ngFor="let stat of vm.stats; trackBy: trackByLabel" [label]="stat.label" [value]="stat.value"
+      <app-stats-card *ngFor="let stat of getFilteredStats(vm); trackBy: trackByLabel" [label]="stat.label" [value]="stat.value"
         [icon]="stat.icon" [tone]="stat.tone"></app-stats-card>
     </section>
 

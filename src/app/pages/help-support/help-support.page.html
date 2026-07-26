@@ -1,0 +1,221 @@
+<ion-content class="page-container">
+  <div *ngIf="vm$ | async as state" class="content-wrapper">
+    <!-- Loading State -->
+    <div *ngIf="state.loading" class="center-spinner">
+      <mat-spinner diameter="44"></mat-spinner>
+      <p>Loading Help & Support Desk...</p>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="state.error" class="error-card">
+      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+      <p>{{ state.error }}</p>
+    </div>
+
+    <!-- Data Loaded State -->
+    <div *ngIf="state.data as vm" class="help-dashboard">
+      <!-- Page Header -->
+      <div class="header-section">
+        <div class="header-text">
+          <div class="badge-tag">
+            <ion-icon name="help-buoy-outline"></ion-icon>
+            <span>DEENDESK HELP DESK</span>
+          </div>
+          <h1>{{ vm.isSuperAdmin ? 'Super Admin Support Console' : 'Help & Support Desk' }}</h1>
+          <p class="subtitle">
+            {{ vm.isSuperAdmin
+                ? 'Central management console to review issues, inspect screenshots, ask questions, and resolve tickets across all organizations.'
+                : 'Need assistance or spotted a problem? Report issues, upload screenshots, track ticket progress, and chat with support.' }}
+          </p>
+        </div>
+
+        <div class="header-actions">
+          <button mat-raised-button color="primary" (click)="openSubmitDialog(vm.profile!)" class="report-btn">
+            <ion-icon name="add-circle-outline"></ion-icon>
+            <span>Report New Issue / Get Help</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Summary Cards (Especially useful for Super Admin & Org Admins) -->
+      <div class="stats-row">
+        <div class="stat-card blue">
+          <div class="stat-icon"><ion-icon name="ticket-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-val">{{ vm.stats.total }}</span>
+            <span class="stat-label">Total Tickets</span>
+          </div>
+        </div>
+
+        <div class="stat-card sky">
+          <div class="stat-icon"><ion-icon name="alert-circle-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-val">{{ vm.stats.open }}</span>
+            <span class="stat-label">Open Issues</span>
+          </div>
+        </div>
+
+        <div class="stat-card amber">
+          <div class="stat-icon"><ion-icon name="time-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-val">{{ vm.stats.inProgress }}</span>
+            <span class="stat-label">In Progress</span>
+          </div>
+        </div>
+
+        <div class="stat-card purple">
+          <div class="stat-icon"><ion-icon name="chatbubbles-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-val">{{ vm.stats.waitingForUser }}</span>
+            <span class="stat-label">Waiting For User</span>
+          </div>
+        </div>
+
+        <div class="stat-card green">
+          <div class="stat-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+          <div class="stat-content">
+            <span class="stat-val">{{ vm.stats.resolved }}</span>
+            <span class="stat-label">Resolved</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters Bar -->
+      <div class="filters-card">
+        <div class="search-box">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input
+            type="text"
+            placeholder="Search by Ticket #, Title, User Name, Email ID, Org Name, or Page..."
+            (input)="onSearchChange($any($event.target).value)"
+            class="search-input"
+          />
+        </div>
+
+        <div class="filter-controls">
+          <mat-form-field appearance="outline" class="filter-select">
+            <mat-label>Status</mat-label>
+            <mat-select (selectionChange)="onStatusChange($event.value)" value="ALL">
+              <mat-option value="ALL">All Statuses</mat-option>
+              <mat-option value="OPEN">Open</mat-option>
+              <mat-option value="IN_PROGRESS">In Progress</mat-option>
+              <mat-option value="WAITING_FOR_USER">Waiting For User</mat-option>
+              <mat-option value="RESOLVED">Resolved</mat-option>
+              <mat-option value="CLOSED">Closed</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-select">
+            <mat-label>Priority</mat-label>
+            <mat-select (selectionChange)="onPriorityChange($event.value)" value="ALL">
+              <mat-option value="ALL">All Priorities</mat-option>
+              <mat-option value="LOW">Low</mat-option>
+              <mat-option value="MEDIUM">Medium</mat-option>
+              <mat-option value="HIGH">High</mat-option>
+              <mat-option value="URGENT">Urgent</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-select">
+            <mat-label>Category</mat-label>
+            <mat-select (selectionChange)="onCategoryChange($event.value)" value="ALL">
+              <mat-option value="ALL">All Categories</mat-option>
+              <mat-option value="bug">Bug / Technical Error</mat-option>
+              <mat-option value="ui_issue">UI / Display</mat-option>
+              <mat-option value="login_access">Account & Login</mat-option>
+              <mat-option value="billing_fees">Fees & Payments</mat-option>
+              <mat-option value="feature">Feature Request</mat-option>
+              <mat-option value="other">Other</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <!-- Super Admin Organization Filter -->
+          <mat-form-field *ngIf="vm.isSuperAdmin" appearance="outline" class="filter-select">
+            <mat-label>Organization</mat-label>
+            <mat-select (selectionChange)="onOrgChange($event.value)" value="ALL">
+              <mat-option value="ALL">All Organizations</mat-option>
+              <mat-option *ngFor="let org of vm.organizations" [value]="org.id">
+                {{ org['name'] }}
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- Tickets Table View -->
+      <div class="table-card">
+        <div *ngIf="vm.filteredTickets.length === 0" class="empty-state">
+          <ion-icon name="document-text-outline" class="empty-icon"></ion-icon>
+          <h3>No support tickets found</h3>
+          <p>No tickets match your filter criteria. Click below to submit a new issue.</p>
+          <button mat-stroked-button color="primary" (click)="openSubmitDialog(vm.profile!)">
+            Report New Issue
+          </button>
+        </div>
+
+        <div *ngIf="vm.filteredTickets.length > 0" class="responsive-table-container">
+          <table class="tickets-table">
+            <thead>
+              <tr>
+                <th>Ticket #</th>
+                <th>Issue Title & Category</th>
+                <th>Submitted By</th>
+                <th *ngIf="vm.isSuperAdmin">Organization</th>
+                <th>Page / Screen</th>
+                <th>Created Date</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let ticket of vm.filteredTickets" (click)="openTicketDetail(ticket, vm.profile!)" class="clickable-row">
+                <td>
+                  <span class="ticket-no-badge">{{ ticket.ticketNumber }}</span>
+                </td>
+                <td>
+                  <div class="ticket-title-col">
+                    <span class="ticket-title-text">{{ ticket.title }}</span>
+                    <span class="cat-tag">{{ ticket.category }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="user-meta-col">
+                    <span class="user-name-text">{{ ticket.createdByName }}</span>
+                    <span class="user-email-text">{{ ticket.createdByEmail }}</span>
+                    <span class="role-chip">{{ ticket.createdByRole }}</span>
+                  </div>
+                </td>
+                <td *ngIf="vm.isSuperAdmin">
+                  <span class="org-name-text">{{ getOrgName(ticket, vm.organizations) }}</span>
+                </td>
+                <td>
+                  <span class="page-name-tag" [title]="ticket.pageUrl">{{ ticket.pageName }}</span>
+                </td>
+                <td>
+                  <span class="date-text">{{ formatDate(ticket.createdAt) }}</span>
+                </td>
+                <td>
+                  <span class="prio-tag" [style.color]="getPriorityColor(ticket.priority)">
+                    ● {{ ticket.priority }}
+                  </span>
+                </td>
+                <td>
+                  <span class="status-pill" [ngClass]="getStatusBadgeClass(ticket.status)">
+                    {{ ticket.status }}
+                  </span>
+                </td>
+                <td class="text-right" (click)="$event.stopPropagation()">
+                  <button mat-raised-button color="primary" (click)="openTicketDetail(ticket, vm.profile!)" class="view-btn">
+                    <ion-icon name="chatbubbles-outline"></ion-icon>
+                    <span>View & Respond</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>

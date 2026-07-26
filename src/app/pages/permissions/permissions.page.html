@@ -1,30 +1,169 @@
 <ion-content>
   <main class="page">
     <header class="page-header">
-      <div>
-        <p class="eyebrow">Permissions</p>
-        <h1>Roles and permissions</h1>
-        <p>Default permissions are inherited by role and can be customized while creating each user.</p>
+      <div class="header-text">
+        <p class="eyebrow">Settings</p>
+        <h1>Roles &amp; Permissions</h1>
+        <p>Configure default permissions for each role. Changes apply to all new users with that role.</p>
       </div>
     </header>
 
-    <section class="role-grid">
-      <article *ngFor="let role of roles">
-        <div class="role-heading">
-          <app-role-badge [role]="role"></app-role-badge>
-          <button mat-stroked-button type="button" (click)="save(role)" [disabled]="role === 'superAdmin' || role === currentUserRole">Save</button>
-        </div>
-        <mat-selection-list>
-          <mat-list-option
-            *ngFor="let permission of permissions"
-            [selected]="checked(role, permission)"
-            [disabled]="role === 'superAdmin' || role === currentUserRole"
-            (selectedChange)="toggle(role, permission, $event)"
+    <ng-container *ngIf="roles.length > 0; else noAccess">
+
+      <!-- Role Tab Bar + Add Role button -->
+      <div class="role-tabs-bar">
+        <div class="role-tabs-scroll">
+          <button
+            class="role-chip"
+            *ngFor="let role of roles"
+            [class.active]="selectedRole === role"
+            (click)="selectRole(role)"
+            type="button"
           >
-            {{ permissionLabels[permission] }}
-          </mat-list-option>
-        </mat-selection-list>
-      </article>
-    </section>
+            <span class="chip-label">{{ getRoleLabel(role) }}</span>
+            <span class="chip-count">{{ totalChecked(role) }}</span>
+            <span
+              *ngIf="canEdit(role)"
+              class="chip-delete"
+              title="Delete Role"
+              (click)="$event.stopPropagation(); deleteRole(role)"
+            >
+              <ion-icon name="close-outline"></ion-icon>
+            </span>
+          </button>
+        </div>
+        <button
+          *ngIf="canAddRoles"
+          mat-flat-button
+          color="primary"
+          class="add-role-btn"
+          type="button"
+          (click)="addRole()"
+        >
+          <ion-icon name="add-outline"></ion-icon>
+          Add Role
+        </button>
+      </div>
+
+      <!-- Permission Panel for selected role -->
+      <section class="permission-panel" *ngIf="selectedRole">
+        <!-- Search Bar -->
+        <div class="search-bar">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input
+            type="text"
+            class="search-input"
+            placeholder="Search permissions..."
+            [(ngModel)]="permissionSearch"
+            autocomplete="off"
+          />
+          <button
+            *ngIf="permissionSearch"
+            class="search-clear"
+            type="button"
+            (click)="permissionSearch = ''"
+          >
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+
+        <div class="panel-header">
+          <div class="panel-title">
+            <ion-icon name="shield-checkmark-outline" class="panel-icon"></ion-icon>
+            <div>
+              <h2>{{ getRoleLabel(selectedRole) }}</h2>
+              <span class="permission-summary">{{ totalChecked(selectedRole) }} of {{ totalPermissionCount }} permissions enabled</span>
+            </div>
+          </div>
+          <div class="panel-actions">
+            <button
+              *ngIf="canEdit(selectedRole)"
+              mat-stroked-button
+              color="warn"
+              type="button"
+              (click)="deleteRole(selectedRole)"
+            >
+              <ion-icon name="trash-outline"></ion-icon>
+              Delete Role
+            </button>
+            <button
+              mat-flat-button
+              color="primary"
+              type="button"
+              [disabled]="!canEdit(selectedRole)"
+              (click)="save(selectedRole)"
+            >
+              <ion-icon name="save-outline"></ion-icon>
+              Save Changes
+            </button>
+          </div>
+        </div>
+
+        <div class="cannot-edit-notice" *ngIf="!canEdit(selectedRole)">
+          <ion-icon name="lock-closed-outline"></ion-icon>
+          <span *ngIf="selectedRole === 'superAdmin'">Super Admin has all permissions and cannot be restricted.</span>
+          <span *ngIf="selectedRole !== 'superAdmin' && selectedRole === currentUserRole">You cannot modify your own role's permissions.</span>
+        </div>
+
+        <!-- Permission Groups Grid -->
+        <div class="group-grid">
+          <div class="no-results" *ngIf="filteredPermissionGroups.length === 0">
+            <ion-icon name="search-outline"></ion-icon>
+            <p>No permissions match "{{ permissionSearch }}"</p>
+          </div>
+          <div class="permission-group" *ngFor="let group of filteredPermissionGroups">
+            <!-- Group Header -->
+            <div class="group-header" (click)="toggleGroup(group.label)">
+              <div class="group-left">
+                <mat-checkbox
+                  [checked]="isGroupAllChecked(selectedRole, group)"
+                  [indeterminate]="isGroupIndeterminate(selectedRole, group)"
+                  [disabled]="!canEdit(selectedRole)"
+                  (change)="toggleAllInGroup(selectedRole, group, $event.checked)"
+                  (click)="$event.stopPropagation()"
+                  color="primary"
+                ></mat-checkbox>
+                <ion-icon [name]="group.icon" class="group-icon"></ion-icon>
+                <span class="group-label">{{ group.label }}</span>
+              </div>
+              <div class="group-right">
+                <span class="group-badge" [class.full]="groupCheckedCount(selectedRole, group) === group.permissions.length">
+                  {{ groupCheckedCount(selectedRole, group) }}/{{ group.permissions.length }}
+                </span>
+                <ion-icon
+                  [name]="isGroupExpanded(group.label) ? 'chevron-up-outline' : 'chevron-down-outline'"
+                  class="chevron"
+                ></ion-icon>
+              </div>
+            </div>
+
+            <!-- Permission Rows -->
+            <div class="group-body" *ngIf="isGroupExpanded(group.label)">
+              <label
+                class="permission-row"
+                *ngFor="let perm of group.permissions"
+                [class.checked]="checked(selectedRole, perm)"
+                [class.disabled]="!canEdit(selectedRole)"
+              >
+                <mat-checkbox
+                  [checked]="checked(selectedRole, perm)"
+                  [disabled]="!canEdit(selectedRole)"
+                  (change)="toggle(selectedRole, perm, $event.checked)"
+                  color="primary"
+                ></mat-checkbox>
+                <span class="perm-label">{{ permissionLabels[perm] }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+
+    <ng-template #noAccess>
+      <div class="no-access">
+        <ion-icon name="lock-closed-outline"></ion-icon>
+        <p>You do not have permission to manage roles.</p>
+      </div>
+    </ng-template>
   </main>
 </ion-content>

@@ -1,4 +1,4 @@
-<h2 mat-dialog-title>Add Leave / Cancel Class</h2>
+<h2 mat-dialog-title>{{ data.exception ? 'Edit Plan Exception / Event' : 'Add Leave / Exception / Cancel Class' }}</h2>
 
 <mat-dialog-content>
   <form [formGroup]="form" class="ion-padding-vertical" style="display: flex; flex-direction: column; gap: 16px;">
@@ -24,9 +24,15 @@
       </mat-select>
     </mat-form-field>
 
+    <mat-form-field appearance="outline" *ngIf="form.get('type')?.value === 'custom'">
+      <mat-label>Custom Exception Type Name *</mat-label>
+      <input matInput formControlName="customTypeName" placeholder="e.g. Sports Day, Educational Trip, Bayaan">
+      <mat-hint>Type your custom activity or event type</mat-hint>
+    </mat-form-field>
+
     <mat-form-field appearance="outline">
-      <mat-label>Reason</mat-label>
-      <input matInput formControlName="reason">
+      <mat-label>Reason / Activity Details</mat-label>
+      <input matInput formControlName="reason" placeholder="e.g. Annual Quran Recitation Competition">
     </mat-form-field>
 
     <div *ngIf="form.get('type')?.value === 'rescheduled'" style="display: flex; flex-direction: column; gap: 16px;">
@@ -49,8 +55,18 @@
       </div>
     </div>
 
-    <div>
-      <mat-checkbox formControlName="affectsAttendance">Skip/adjust auto-generated attendance</mat-checkbox>
+    <div style="padding: 12px 16px; background: #f8f9fa; border-radius: 8px; border: 1px solid #e0e0e0; display: flex; flex-direction: column; gap: 8px;">
+      <label style="font-weight: 600; font-size: 13px; color: #444;">Attendance Settings for this Day:</label>
+      <mat-radio-group formControlName="enableAttendance" style="display: flex; flex-direction: column; gap: 8px;">
+        <mat-radio-button [value]="true" color="primary">
+          <strong>Enable Attendance</strong>
+          <span style="display: block; font-size: 12px; color: #666;">Allow marking attendance for Special Activity, Event, Exam, or Extra Class.</span>
+        </mat-radio-button>
+        <mat-radio-button [value]="false" color="warn">
+          <strong>Disable Attendance</strong>
+          <span style="display: block; font-size: 12px; color: #666;">Lock/disable attendance for Holiday, Leave, or Cancelled Day.</span>
+        </mat-radio-button>
+      </mat-radio-group>
     </div>
 
   </form>

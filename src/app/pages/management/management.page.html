@@ -185,14 +185,9 @@
           <mat-label>Filter by Role</mat-label>
           <mat-select [ngModel]="roleFilter$ | async" (ngModelChange)="roleFilter$.next($event); pageIndex$.next(0)">
             <mat-option value="all">All Roles</mat-option>
-            <mat-option value="superAdmin" *ngIf="vm.profile?.role === 'superAdmin'">Super Admin</mat-option>
-            <mat-option value="organizationAdmin" *ngIf="vm.profile?.role === 'superAdmin'">Organization Admin</mat-option>
-            <mat-option value="coordinator">Coordinator</mat-option>
-            <mat-option value="madrasaIncharge">Madrasa Incharge</mat-option>
-            <mat-option value="stageHead">Stage Head / Course Lead</mat-option>
-            <mat-option value="teacher">Teacher</mat-option>
-            <mat-option value="student">Student</mat-option>
-            <mat-option value="parent">Parent</mat-option>
+            <mat-option *ngFor="let opt of roleOptions$ | async" [value]="opt.value">
+              {{ opt.label }}
+            </mat-option>
           </mat-select>
         </mat-form-field>
 
@@ -252,6 +247,7 @@
             <mat-option value="all">All Statuses</mat-option>
             <mat-option value="active">Active</mat-option>
             <mat-option value="pending">Pending</mat-option>
+            <mat-option value="inactive">Inactive</mat-option>
             <mat-option value="disabled">Disabled</mat-option>
           </mat-select>
         </mat-form-field>

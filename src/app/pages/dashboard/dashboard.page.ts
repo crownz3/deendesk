@@ -87,6 +87,8 @@ interface DashboardVm {
   setupSteps: SetupMapStep[];
   accessOverview?: AccessOverview;
   todaySchedule: (EntityRecord & TimetableEntry & { classId?: string | null })[];
+  profile: AppUser;
+  _rawData?: Record<string, any[]>;
 }
 
 @Component({
@@ -98,6 +100,49 @@ interface DashboardVm {
 export class DashboardPage {
   private readonly refresh$ = new BehaviorSubject<void>(undefined);
   showMadrasaDetails = false;
+  statusFilter: 'all' | 'active' | 'inactive' = 'all';
+
+  setStatusFilter(filter: 'all' | 'active' | 'inactive'): void {
+    this.statusFilter = filter;
+  }
+
+  isEntityActive(record: any): boolean {
+    if (!record) return true;
+    const status = String(record['status'] || record['state'] || '').toLowerCase();
+    if (['inactive', 'disabled', 'suspended', 'archived', 'closed', 'deleted'].includes(status)) return false;
+    if (record['isActive'] === false || record['enabled'] === false || record['isDeleted'] === true) return false;
+    return true;
+  }
+
+  getFilteredStats(vm: DashboardVm | null): DashboardStat[] {
+    if (!vm || !vm.stats) return [];
+    if (this.statusFilter === 'all') return vm.stats;
+
+    const rawData = vm._rawData || {};
+    const filteredData: Record<string, EntityRecord[]> = {};
+
+    Object.keys(rawData).forEach(key => {
+      const items = Array.isArray(rawData[key]) ? rawData[key] : [];
+      filteredData[key] = items.filter(item => {
+        const isActive = this.isEntityActive(item);
+        return this.statusFilter === 'active' ? isActive : !isActive;
+      });
+    });
+
+    return this.statsForRole(vm.profile.role, filteredData);
+  }
+
+  getCounts(filter: 'all' | 'active' | 'inactive', vm: DashboardVm | null): number {
+    if (!vm) return 0;
+    const rawData = vm._rawData || {};
+    const students = Array.isArray(rawData['students']) ? rawData['students'] : [];
+    const users = Array.isArray(rawData['users']) ? rawData['users'] : [];
+    const allRecords = [...students, ...users];
+
+    if (filter === 'all') return allRecords.length;
+    if (filter === 'active') return allRecords.filter(r => this.isEntityActive(r)).length;
+    return allRecords.filter(r => !this.isEntityActive(r)).length;
+  }
 
   toggleMadrasaDetails(): void {
     this.showMadrasaDetails = !this.showMadrasaDetails;
@@ -356,6 +401,8 @@ export class DashboardPage {
       setupSteps,
       accessOverview,
       todaySchedule: finalSchedule,
+      profile,
+      _rawData: data
     };
   }
 
@@ -378,9 +425,9 @@ export class DashboardPage {
 
   openHelpGuide(): void {
     this.dialog.open(HelpGuideDialogComponent, {
-      width: '80vw',
-      maxWidth: '80vw',
-      height: '85vh',
+      width: '95vw',
+      maxWidth: '850px',
+      maxHeight: '92vh',
       panelClass: 'help-guide-dialog-panel'
     });
   }

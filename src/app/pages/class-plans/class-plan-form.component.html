@@ -37,17 +37,16 @@
     </div>
 
     <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-      <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;">
-        <mat-label>Class Group / Section (Optional)</mat-label>
-        <mat-select formControlName="groupId">
-          <mat-option value="">All Groups / All Sections</mat-option>
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 220px;">
+        <mat-label>Class Groups / Sections (Optional)</mat-label>
+        <mat-select formControlName="groupIds" multiple placeholder="Select Sections">
           <mat-option *ngFor="let g of filteredGroups" [value]="g.id">{{ g['name'] }}</mat-option>
         </mat-select>
-        <mat-hint>Select to restrict plan to a specific section (e.g. Section A)</mat-hint>
+        <mat-hint>Select one or more sections (e.g. Section A & Section B). Leave empty for All Sections.</mat-hint>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;" *ngIf="isSubjectRequired || filteredSubjects.length > 0">
-        <mat-label>Subject {{ isSubjectRequired ? '*' : '(Optional)' }}</mat-label>
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;" *ngIf="isSubjectRequired">
+        <mat-label>Subject *</mat-label>
         <mat-select formControlName="subjectId">
           <mat-option value="">All Subjects / General</mat-option>
           <mat-option *ngFor="let s of filteredSubjects" [value]="s.id">{{ s['name'] }}</mat-option>
@@ -71,7 +70,7 @@
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" style="flex: 2; min-width: 200px;" *ngIf="form.get('scheduleType')?.value === 'weekly' || form.get('scheduleType')?.value === 'dateRange'">
+      <mat-form-field appearance="outline" style="flex: 2; min-width: 200px;" *ngIf="['weekly', 'yearly', 'monthly', 'term', 'dateRange'].includes(form.get('scheduleType')?.value || '')">
         <mat-label>Days of Week</mat-label>
         <mat-select formControlName="weekDays" multiple>
           <mat-option *ngFor="let d of days" [value]="d">{{ d | titlecase }}</mat-option>

@@ -1,0 +1,430 @@
+.page-container {
+  --background: #f8fafc;
+}
+
+.content-wrapper {
+  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.center-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  color: #64748b;
+  gap: 16px;
+}
+
+.error-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 16px 20px;
+  border-radius: 10px;
+  margin-bottom: 24px;
+
+  .error-icon {
+    font-size: 24px;
+  }
+}
+
+.help-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header-section {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 24px 28px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  .header-text {
+    .badge-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e0f2fe;
+      color: #0369a1;
+      font-weight: 700;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #0f172a;
+      font-family: 'Poppins', sans-serif;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #64748b;
+      max-width: 800px;
+      line-height: 1.5;
+    }
+  }
+
+  .header-actions {
+    .report-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 46px;
+      padding: 0 22px;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+  }
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+
+  .stat-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      ion-icon {
+        font-size: 24px;
+      }
+    }
+
+    .stat-content {
+      display: flex;
+      flex-direction: column;
+
+      .stat-val {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #0f172a;
+      }
+
+      .stat-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #64748b;
+      }
+    }
+
+    &.blue { .stat-icon { background: #e0f2fe; color: #0284c7; } }
+    &.sky { .stat-icon { background: #f0f9ff; color: #0369a1; } }
+    &.amber { .stat-icon { background: #fef3c7; color: #d97706; } }
+    &.purple { .stat-icon { background: #f3e8ff; color: #7c3aed; } }
+    &.green { .stat-icon { background: #dcfce7; color: #16a34a; } }
+  }
+}
+
+.filters-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px 20px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+
+  .search-box {
+    flex: 1;
+    min-width: 280px;
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      font-size: 20px;
+      color: #94a3b8;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 14px 10px 40px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      outline: none;
+      font-size: 0.9rem;
+
+      &:focus {
+        border-color: var(--ion-color-primary, #0284c7);
+        box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+      }
+    }
+  }
+
+  .filter-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .filter-select {
+      width: 160px;
+      margin-bottom: -1.25em;
+    }
+  }
+}
+
+.table-card {
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+
+    .empty-icon {
+      font-size: 48px;
+      color: #cbd5e1;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: #334155;
+    }
+
+    p {
+      margin: 0;
+      color: #64748b;
+      font-size: 0.9rem;
+    }
+  }
+
+  .responsive-table-container {
+    overflow-x: auto;
+
+    .tickets-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+
+      th {
+        background: #f8fafc;
+        padding: 14px 18px;
+        font-size: 0.8rem;
+        font-weight: 700;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 1px solid #e2e8f0;
+      }
+
+      td {
+        padding: 14px 18px;
+        border-bottom: 1px solid #f1f5f9;
+        vertical-align: middle;
+        font-size: 0.9rem;
+      }
+
+      .clickable-row {
+        cursor: pointer;
+        transition: background 0.15s ease;
+
+        &:hover {
+          background: #f0f9ff;
+        }
+      }
+
+      .ticket-no-badge {
+        font-weight: 700;
+        color: #0284c7;
+        background: #e0f2fe;
+        padding: 4px 8px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+      }
+
+      .ticket-title-col {
+        display: flex;
+        flex-direction: column;
+
+        .ticket-title-text {
+          font-weight: 600;
+          color: #0f172a;
+        }
+
+        .cat-tag {
+          font-size: 0.72rem;
+          color: #64748b;
+          text-transform: capitalize;
+        }
+      }
+
+      .user-meta-col {
+        display: flex;
+        flex-direction: column;
+
+        .user-name-text {
+          font-weight: 600;
+          color: #1e293b;
+        }
+
+        .user-email-text {
+          font-size: 0.78rem;
+          color: #64748b;
+        }
+
+        .role-chip {
+          display: inline-block;
+          margin-top: 2px;
+          font-size: 0.68rem;
+          background: #f1f5f9;
+          color: #475569;
+          padding: 1px 6px;
+          border-radius: 4px;
+          font-weight: 600;
+        }
+      }
+
+      .org-name-text {
+        font-weight: 600;
+        color: #334155;
+      }
+
+      .page-name-tag {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        color: #0284c7;
+        font-weight: 500;
+      }
+
+      .date-text {
+        color: #64748b;
+        font-size: 0.82rem;
+      }
+
+      .prio-tag {
+        font-weight: 700;
+        font-size: 0.8rem;
+      }
+
+      .status-pill {
+        padding: 4px 10px;
+        border-radius: 16px;
+        font-size: 0.75rem;
+        font-weight: 700;
+
+        &.status-open { background: #e0f2fe; color: #0369a1; }
+        &.status-progress { background: #fef3c7; color: #b45309; }
+        &.status-waiting { background: #f3e8ff; color: #6b21a8; }
+        &.status-resolved { background: #dcfce7; color: #15803d; }
+        &.status-closed { background: #f1f5f9; color: #475569; }
+      }
+
+      .view-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 34px;
+        padding: 0 12px;
+        font-size: 0.8rem;
+      }
+    }
+  }
+}
+
+.text-right {
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .content-wrapper {
+    padding: 16px;
+  }
+
+  .header-section {
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+
+    .header-actions {
+      width: 100%;
+
+      .report-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+
+  .filter-card {
+    padding: 14px;
+    gap: 12px;
+
+    .search-box {
+      width: 100%;
+      max-width: 100%;
+    }
+
+    .filter-group {
+      width: 100%;
+      flex-wrap: wrap;
+
+      mat-form-field {
+        width: 100%;
+        min-width: 100% !important;
+      }
+    }
+  }
+
+  .tickets-card {
+    border-radius: 10px;
+    padding: 0;
+
+    .table-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+  }
+}

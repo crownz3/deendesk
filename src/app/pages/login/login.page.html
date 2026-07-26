@@ -55,15 +55,17 @@
 
     <section class="login-card">
       <ng-container *ngIf="authReady$ | async; else checkingSession">
+        <!-- Already signed in — show redirect spinner instead of Continue card -->
         <ng-container *ngIf="profile$ | async as profile">
-          <div class="continue-card" *ngIf="profile.status === 'active'">
-            <div class="avatar">{{ profile.displayName.charAt(0) }}</div>
-            <div class="continue-card-content">
-              <p class="continue-card-label">Continue as</p>
-              <h2 class="continue-card-name">{{ profile.displayName }}</h2>
-              <p class="continue-card-email">{{ profile.email }}</p>
-            </div>
-            <button mat-flat-button color="primary" type="button" (click)="continue(profile)">Continue</button>
+          <div class="redirecting-card" *ngIf="profile.status === 'active'">
+            <ion-spinner name="crescent"></ion-spinner>
+            <p>Taking you to your dashboard...</p>
+          </div>
+          <div class="pending-card" *ngIf="profile.status !== 'active'">
+            <ion-icon name="time-outline"></ion-icon>
+            <h2>Access Pending</h2>
+            <p>Your account is not yet active. Please contact your organization authority to activate your access.</p>
+            <button mat-stroked-button color="warn" type="button" (click)="continue(profile)">Continue anyway</button>
           </div>
         </ng-container>
 
