@@ -4,8 +4,14 @@
 
 .content-wrapper {
   padding: 24px;
+  padding-bottom: 90px;
   max-width: 1400px;
   margin: 0 auto;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+    padding-bottom: 110px;
+  }
 }
 
 .page-header {
@@ -31,13 +37,32 @@
     border-radius: 8px;
     font-weight: 600;
   }
+
+  @media (max-width: 600px) {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+
+    .add-btn {
+      width: 100%;
+    }
+  }
 }
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 16px;
   margin-bottom: 24px;
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .stat-card {
@@ -89,6 +114,14 @@
   margin-bottom: 20px;
   border-bottom: 2px solid #e2e8f0;
   padding-bottom: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   .tab-btn {
     display: flex;
@@ -102,6 +135,8 @@
     color: #64748b;
     cursor: pointer;
     border-radius: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
 
     &:hover {
       background: #f1f5f9;

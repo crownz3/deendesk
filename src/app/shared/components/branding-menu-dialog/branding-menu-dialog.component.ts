@@ -41,6 +41,8 @@ const DEFAULT_MENU_ITEMS: Array<{ route: string; label: string; group: string; i
   { route: '/alumni', label: 'Alumni Directory', group: 'People', icon: 'ribbon-outline' },
 
   { route: '/courses', label: 'Courses', group: 'Academics', icon: 'library-outline' },
+  { route: '/course-types', label: 'Course Types', group: 'Academics', icon: 'library-outline' },
+  { route: '/stages', label: 'Course Stages', group: 'Academics', icon: 'layers-outline' },
   { route: '/classes', label: 'Classes', group: 'Academics', icon: 'easel-outline' },
   { route: '/classGroups', label: 'Class Groups', group: 'Academics', icon: 'people-circle-outline' },
   { route: '/subjects', label: 'Subjects', group: 'Academics', icon: 'book-outline' },

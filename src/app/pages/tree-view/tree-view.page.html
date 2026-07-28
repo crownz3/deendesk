@@ -265,11 +265,11 @@
                     <button mat-icon-button
                       [matMenuTriggerFor]="actionMenu"
                       class="mobile-actions"
-                      (click)="$event.stopPropagation(); $event.preventDefault()">
+                      (click)="$event.stopPropagation()">
                       <mat-icon>more_vert</mat-icon>
                     </button>
                     <mat-menu #actionMenu="matMenu">
-                      <!-- Map all the actions above into menu items based on type -->
+                      <!-- Madrasa -->
                       <ng-container *ngIf="node.type === 'madrasa'">
                         <button mat-menu-item (click)="viewMadrasaDetails(node.raw, $event)" *ngIf="node.raw">
                           <ion-icon name="information-circle-outline"></ion-icon> View Details
@@ -278,26 +278,44 @@
                           <ion-icon name="shield-checkmark-outline"></ion-icon> View Admins
                         </button>
                       </ng-container>
+
+                      <!-- Course -->
                       <ng-container *ngIf="node.type === 'course'">
                         <button mat-menu-item (click)="viewStudents(node, $event)">
-                          <ion-icon name="people-outline"></ion-icon> Students
+                          <ion-icon name="people-outline"></ion-icon> View Students
                         </button>
                         <button mat-menu-item (click)="viewStaff(node, $event)">
-                          <ion-icon name="id-card-outline"></ion-icon> Staff
+                          <ion-icon name="id-card-outline"></ion-icon> View Staff
                         </button>
                       </ng-container>
+
+                      <!-- Class -->
+                      <ng-container *ngIf="node.type === 'class'">
+                        <button mat-menu-item (click)="toggleNode(node, $event)">
+                          <ion-icon name="people-circle-outline"></ion-icon> Toggle Class Groups
+                        </button>
+                      </ng-container>
+
+                      <!-- Class Group -->
                       <ng-container *ngIf="node.type === 'classGroup'">
                         <button mat-menu-item (click)="assignStudents(node, vm.students || [], $event)">
-                          <ion-icon name="person-add-outline"></ion-icon> Assign Students
+                          <ion-icon name="person-add-outline"></ion-icon> {{ node.studentCount > 0 ? 'Edit' : 'Add' }} Students
                         </button>
                         <button mat-menu-item (click)="assignStaff(node, vm.staff || [], $event)">
-                          <ion-icon name="person-add-outline"></ion-icon> Assign Staff
+                          <ion-icon name="person-add-outline"></ion-icon> {{ node.staffCount > 0 ? 'Edit' : 'Add' }} Staff
                         </button>
                         <button mat-menu-item (click)="viewStudents(node, $event)" *ngIf="node.studentCount > 0">
                           <ion-icon name="people-outline"></ion-icon> View Students
                         </button>
                         <button mat-menu-item (click)="viewStaff(node, $event)" *ngIf="node.staffCount > 0">
                           <ion-icon name="id-card-outline"></ion-icon> View Staff
+                        </button>
+                      </ng-container>
+
+                      <!-- Subject -->
+                      <ng-container *ngIf="node.type === 'subject'">
+                        <button mat-menu-item (click)="viewLessons(node, $event)">
+                          <ion-icon name="book-outline"></ion-icon> View Lessons
                         </button>
                       </ng-container>
                     </mat-menu>

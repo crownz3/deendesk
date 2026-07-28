@@ -1,125 +1,118 @@
 <ion-app>
   <app-global-loader></app-global-loader>
-  <ng-container *ngIf="isAuthPage$ | async; else appShell">
-    <ion-router-outlet></ion-router-outlet>
-  </ng-container>
 
-  <ng-template #appShell>
-    <!-- Single layout to guarantee router outlet survives mode changes.
-         Split pane behavior is disabled via [when]=false for overlay/push -->
-    <ion-split-pane contentId="main-content" [when]="splitPaneWhen$ | async">
-      <ion-menu contentId="main-content" [type]="menuType$ | async" class="app-sidebar"
-                (ionWillOpen)="onMenuWillOpen()"
-                (ionDidClose)="onMenuDidClose()">
-        <div class="menu-header">
-          <div class="app-logo">
-            <img
-              [src]="logoUrl$ | async"
-              alt="App Logo"
-              class="sidebar-logo-img"
-              (error)="$any($event.target).src = 'assets/images/deendesk-logo.png'"
-            />
-          </div>
-          <div>
-            <h2 class="app-name">{{ appName$ | async }}</h2>
-            <p class="app-subtitle">{{ subTitle$ | async }}</p>
-          </div>
+  <ion-split-pane contentId="main-content" [when]="(isAuthPage$ | async) ? false : (splitPaneWhen$ | async)" [disabled]="(isAuthPage$ | async) || false">
+    <ion-menu *ngIf="!(isAuthPage$ | async)" contentId="main-content" [type]="menuType$ | async" class="app-sidebar"
+              (ionWillOpen)="onMenuWillOpen()"
+              (ionDidClose)="onMenuDidClose()">
+      <div class="menu-header">
+        <div class="app-logo">
+          <img
+            [src]="logoUrl$ | async"
+            alt="App Logo"
+            class="sidebar-logo-img"
+            (error)="$any($event.target).src = 'assets/images/deendesk-logo.png'"
+          />
         </div>
-        <ion-content>
-          <ion-list class="menu-list" *ngIf="profile$ | async as profile">
-            <!-- Search bar styled like a menu item -->
-            <ion-item class="menu-item search-item" lines="none">
-              <ion-icon slot="start" name="search-outline"></ion-icon>
-              <ion-input
-                placeholder="Search menu..."
-                [ngModel]="searchQuery$ | async"
-                (ngModelChange)="searchQuery$.next($event)"
-                clearInput="true"
-              ></ion-input>
-            </ion-item>
-
-            <!-- Subtle Dedicated Quran Quick Access Card -->
-            <div class="quran-nav-banner">
-              <ion-menu-toggle auto-hide="false">
-                <div class="quran-sidebar-btn" (click)="navigateToQuran()" [class.active]="isQuranActive()" role="button" tabindex="0">
-                  <div class="quran-btn-icon">
-                    <ion-icon name="book-outline"></ion-icon>
-                  </div>
-                  <div class="quran-btn-text">
-                    <span class="quran-btn-title">Al-Qur'an</span>
-                    <span class="quran-btn-subtitle">Read & Listen</span>
-                  </div>
-                  <ion-icon name="chevron-forward-outline" class="quran-btn-arrow"></ion-icon>
-                </div>
-              </ion-menu-toggle>
-            </div>
-
-            <ion-item-group *ngFor="let group of filteredNavGroups$ | async">
-              <ion-item-divider class="menu-divider">
-                <ion-label>{{ group.label }}</ion-label>
-              </ion-item-divider>
-
-              <ng-container *ngFor="let item of group.items">
-                <ion-menu-toggle auto-hide="false">
-                  <ion-item class="menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
-                    <ion-icon slot="start" [name]="item.icon"></ion-icon>
-                    <ion-label>{{ item.displayLabel || item.label }}</ion-label>
-                  </ion-item>
-                </ion-menu-toggle>
-              </ng-container>
-            </ion-item-group>
-          </ion-list>
-        </ion-content>
-      </ion-menu>
-
-      <!-- Adding ion-page guarantees it has absolute position and 100% dimensions,
-           fixing the bug where overlay/push modes shrank or disappeared -->
-      <div class="app-frame ion-page" id="main-content"
-           [class.menu-overlay-active]="(sidebarSettings.sidebarMode$ | async) === 'overlay' && isMenuOpen">
-        <ion-header class="app-header">
-          <ion-toolbar>
-            <div class="toolbar-left" slot="start">
-              <ion-menu-button class="menu-toggle" [class.ion-hide-lg-up]="(sidebarSettings.sidebarMode$ | async) === 'split'"></ion-menu-button>
-              <span class="header-title-text">{{ appName$ | async }}</span>
-            </div>
-            <div class="toolbar-actions" slot="end" *ngIf="profile$ | async as profile">
-              <button
-                *ngIf="canManageBranding(profile)"
-                class="settings-button notification-button"
-                type="button"
-                aria-label="Customize Branding & Menus"
-                title="Customize App Name, Logo & Sidenav Menus"
-                (click)="openBrandingDialog()"
-              >
-                <ion-icon name="color-palette-outline"></ion-icon>
-              </button>
-              <button class="settings-button notification-button" type="button" aria-label="Settings" (click)="openSettings()">
-                <ion-icon name="settings-outline"></ion-icon>
-              </button>
-              <button class="notification-button" routerLink="/notifications" type="button" aria-label="Notifications">
-                <ion-icon name="notifications-outline"></ion-icon>
-              </button>
-              <button class="header-user user-chip" routerLink="/profile" type="button">
-                <img
-                  class="user-avatar-small header-avatar-img"
-                  [src]="getAvatarUrl(profile)"
-                  alt="User avatar"
-                  (load)="onAvatarLoad()"
-                  (error)="onAvatarError(profile)"
-                />
-                <span>{{ profile.displayName }}</span>
-              </button>
-              <button class="logout-button" type="button" (click)="logout()" aria-label="Logout">
-                <ion-icon name="log-out-outline"></ion-icon>
-              </button>
-            </div>
-          </ion-toolbar>
-        </ion-header>
-
-        <div style="flex: 1; position: relative; width: 100%; display: flex; flex-direction: column;">
-          <ion-router-outlet></ion-router-outlet>
+        <div>
+          <h2 class="app-name">{{ appName$ | async }}</h2>
+          <p class="app-subtitle">{{ subTitle$ | async }}</p>
         </div>
       </div>
-    </ion-split-pane>
-  </ng-template>
+      <ion-content>
+        <ion-list class="menu-list" *ngIf="profile$ | async as profile">
+          <!-- Search bar styled like a menu item -->
+          <ion-item class="menu-item search-item" lines="none">
+            <ion-icon slot="start" name="search-outline"></ion-icon>
+            <ion-input
+              placeholder="Search menu..."
+              [ngModel]="searchQuery$ | async"
+              (ngModelChange)="searchQuery$.next($event)"
+              clearInput="true"
+            ></ion-input>
+          </ion-item>
+
+          <!-- Subtle Dedicated Quran Quick Access Card -->
+          <div class="quran-nav-banner">
+            <ion-menu-toggle auto-hide="false">
+              <div class="quran-sidebar-btn" (click)="navigateToQuran()" [class.active]="isQuranActive()" role="button" tabindex="0">
+                <div class="quran-btn-icon">
+                  <ion-icon name="book-outline"></ion-icon>
+                </div>
+                <div class="quran-btn-text">
+                  <span class="quran-btn-title">Al-Qur'an</span>
+                  <span class="quran-btn-subtitle">Read & Listen</span>
+                </div>
+                <ion-icon name="chevron-forward-outline" class="quran-btn-arrow"></ion-icon>
+              </div>
+            </ion-menu-toggle>
+          </div>
+
+          <ion-item-group *ngFor="let group of filteredNavGroups$ | async">
+            <ion-item-divider class="menu-divider">
+              <ion-label>{{ group.label }}</ion-label>
+            </ion-item-divider>
+
+            <ng-container *ngFor="let item of group.items">
+              <ion-menu-toggle auto-hide="false">
+                <ion-item class="menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
+                  <ion-icon slot="start" [name]="item.icon"></ion-icon>
+                  <ion-label>{{ item.displayLabel || item.label }}</ion-label>
+                </ion-item>
+              </ion-menu-toggle>
+            </ng-container>
+          </ion-item-group>
+        </ion-list>
+      </ion-content>
+    </ion-menu>
+
+    <!-- Adding ion-page guarantees it has absolute position and 100% dimensions,
+         fixing the bug where overlay/push modes shrank or disappeared -->
+    <div class="app-frame ion-page" id="main-content"
+         [class.menu-overlay-active]="(sidebarSettings.sidebarMode$ | async) === 'overlay' && isMenuOpen">
+      <ion-header class="app-header" *ngIf="!(isAuthPage$ | async)">
+        <ion-toolbar>
+          <div class="toolbar-left" slot="start">
+            <ion-menu-button class="menu-toggle" [class.ion-hide-lg-up]="(sidebarSettings.sidebarMode$ | async) === 'split'"></ion-menu-button>
+            <span class="header-title-text">{{ appName$ | async }}</span>
+          </div>
+          <div class="toolbar-actions" slot="end" *ngIf="profile$ | async as profile">
+            <button
+              *ngIf="canManageBranding(profile)"
+              class="settings-button notification-button"
+              type="button"
+              aria-label="Customize Branding & Menus"
+              title="Customize App Name, Logo & Sidenav Menus"
+              (click)="openBrandingDialog()"
+            >
+              <ion-icon name="color-palette-outline"></ion-icon>
+            </button>
+            <button *ngIf="profile.role === 'superAdmin'" class="settings-button notification-button" type="button" aria-label="Settings" (click)="openSettings()">
+              <ion-icon name="settings-outline"></ion-icon>
+            </button>
+            <button class="notification-button" routerLink="/notifications" type="button" aria-label="Notifications">
+              <ion-icon name="notifications-outline"></ion-icon>
+            </button>
+            <button class="header-user user-chip" routerLink="/profile" type="button">
+              <img
+                class="user-avatar-small header-avatar-img"
+                [src]="getAvatarUrl(profile)"
+                alt="User avatar"
+                (load)="onAvatarLoad()"
+                (error)="onAvatarError(profile)"
+              />
+              <span>{{ profile.displayName }}</span>
+            </button>
+            <button class="logout-button" type="button" (click)="logout()" aria-label="Logout">
+              <ion-icon name="log-out-outline"></ion-icon>
+            </button>
+          </div>
+        </ion-toolbar>
+      </ion-header>
+
+      <div style="flex: 1; position: relative; width: 100%; display: flex; flex-direction: column;">
+        <ion-router-outlet id="main-router-outlet"></ion-router-outlet>
+      </div>
+    </div>
+  </ion-split-pane>
 </ion-app>

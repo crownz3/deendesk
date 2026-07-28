@@ -3,16 +3,13 @@
 
 <head>
   <meta charset="utf-8" />
-  <title>Ionic App</title>
+  <title>Deendesk - Madrasa Management</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined" rel="stylesheet">
-  <!-- Note: For offline support, local font hosting can be implemented later. -->
-  <link
-  href="https://fonts.googleapis.com/icon?family=Material+Icons"
-  rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
   <base href="/" />
 
@@ -29,7 +26,16 @@
 </head>
 
 <body>
-  <app-root></app-root>
+  <app-root>
+    <div style="position: fixed; inset: 0; background: linear-gradient(135deg, #f0f7ff 0%, #e0e7ff 50%, #f5f3ff 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 99999; font-family: 'Poppins', sans-serif;">
+      <h1 style="color: #0f172a; font-size: 32px; font-weight: 800; margin: 0 0 6px 0; letter-spacing: -0.5px;">Deendesk</h1>
+      <p style="color: #475569; font-size: 14px; font-weight: 600; margin: 0 0 32px 0; letter-spacing: 0.2px;">Madrasa Management</p>
+      <div style="width: 36px; height: 36px; border: 3.5px solid #cbd5e1; border-top-color: #2563eb; border-radius: 50%; animation: deendeskSpin 0.8s linear infinite;"></div>
+      <style>
+        @keyframes deendeskSpin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      </style>
+    </div>
+  </app-root>
 </body>
 
 </html>

@@ -1014,8 +1014,11 @@ export class AttendancePage implements OnInit, OnDestroy {
     }
 
     const dialogRef = this.dialog.open(StudentEvaluationDialogComponent, {
-      width: '600px',
-      maxWidth: '95vw',
+      width: '90vw',
+      height: '90vh',
+      maxWidth: '90vw',
+      maxHeight: '90vh',
+      panelClass: 'responsive-evaluation-dialog',
       data: {
         studentId: String(student.id),
         studentName: String(student['displayName'] || student['name'] || 'Student'),

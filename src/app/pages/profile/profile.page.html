@@ -38,8 +38,9 @@
           <mat-error>Display name is required</mat-error>
         </mat-form-field>
         <mat-form-field appearance="outline">
-          <mat-label>Phone</mat-label>
-          <input matInput formControlName="phone" />
+          <mat-label>Phone / Mobile Number</mat-label>
+          <input matInput formControlName="mobileNumber" />
+          <mat-error *ngIf="form.get('mobileNumber')?.hasError('pattern')">Mobile number must contain digits only</mat-error>
         </mat-form-field>
         <button mat-flat-button color="primary" type="submit">Save profile</button>
       </form>

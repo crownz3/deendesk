@@ -654,6 +654,8 @@ ion-content {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
     margin-bottom: 20px;
     padding-bottom: 12px;
     border-bottom: 1px dashed var(--app-border-color, #cbd5e1);
@@ -669,16 +671,20 @@ ion-content {
       justify-content: center;
       font-weight: 700;
       font-size: 0.85rem;
+      flex-shrink: 0;
     }
 
     .ayah-actions-bar {
       display: flex;
       align-items: center;
-      gap: 8px;
+      flex-wrap: wrap;
+      gap: 6px;
+      max-width: 100%;
 
       .action-btn {
         display: flex;
         align-items: center;
+        justify-content: center;
         gap: 6px;
         padding: 6px 12px;
         border-radius: 8px;
@@ -689,9 +695,11 @@ ion-content {
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
+        white-space: nowrap;
 
         ion-icon {
           font-size: 18px;
+          flex-shrink: 0;
         }
 
         &:hover {
@@ -724,6 +732,33 @@ ion-content {
           color: #d97706;
           border-color: #fef08a;
           background: rgba(254, 240, 138, 0.3);
+        }
+      }
+
+      @media (max-width: 640px) {
+        gap: 4px;
+
+        .action-btn {
+          padding: 6px 8px;
+          font-size: 0.76rem;
+
+          &.play-here-btn span {
+            display: none;
+          }
+        }
+      }
+
+      @media (max-width: 480px) {
+        .action-btn {
+          padding: 6px 8px;
+
+          span {
+            display: none;
+          }
+
+          &.play-btn span {
+            display: inline-block;
+          }
         }
       }
     }

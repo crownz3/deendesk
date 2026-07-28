@@ -1,0 +1,244 @@
+<ion-content class="subscriptions-page-content">
+  <div class="subscriptions-wrapper" *ngIf="profile$ | async as profile">
+    
+    <!-- Hero Header Banner -->
+    <div class="hero-header-card">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <ion-icon name="shield-checkmark"></ion-icon> Enterprise Billing Center
+        </div>
+        <h1 class="hero-title">Subscriptions & Custom Pricing</h1>
+        <p>
+          Manage organization trial periods, per-user pricing rates, custom role fees, resource limits, and custom billing agreements across all tenants.
+        </p>
+      </div>
+      <div class="hero-action">
+        <button mat-raised-button color="accent" class="refresh-btn" (click)="loadData()">
+          <ion-icon name="refresh-outline" slot="start"></ion-icon> Sync Data
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-state" *ngIf="loading">
+      <mat-spinner diameter="46" color="primary"></mat-spinner>
+      <p>Fetching subscription records...</p>
+    </div>
+
+    <ng-container *ngIf="!loading">
+      <!-- SUPER ADMIN DASHBOARD VIEW ONLY -->
+      <ng-container *ngIf="profile.role === 'superAdmin'">
+        <!-- KPI Summary Cards Grid -->
+        <div class="kpi-grid">
+          <div class="kpi-card blue-card">
+            <div class="kpi-icon-wrap">
+              <ion-icon name="business-outline"></ion-icon>
+            </div>
+            <div class="kpi-details">
+              <span class="kpi-title">Total Organizations</span>
+              <strong class="kpi-num">{{ totalOrgs }}</strong>
+              <span class="kpi-sub">Across all registered tenants</span>
+            </div>
+          </div>
+
+          <div class="kpi-card green-card">
+            <div class="kpi-icon-wrap">
+              <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+            </div>
+            <div class="kpi-details">
+              <span class="kpi-title">Active Subscriptions</span>
+              <strong class="kpi-num">{{ activeCount }}</strong>
+              <span class="kpi-sub">Paying & operational</span>
+            </div>
+          </div>
+
+          <div class="kpi-card orange-card">
+            <div class="kpi-icon-wrap">
+              <ion-icon name="hourglass-outline"></ion-icon>
+            </div>
+            <div class="kpi-details">
+              <span class="kpi-title">In Trial Period</span>
+              <strong class="kpi-num">{{ trialCount }}</strong>
+              <span class="kpi-sub">Evaluating platform</span>
+            </div>
+          </div>
+
+          <div class="kpi-card red-card" *ngIf="expiringSoonCount > 0">
+            <div class="kpi-icon-wrap pulsating">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+            </div>
+            <div class="kpi-details">
+              <span class="kpi-title">Expiring Soon (≤3 Days)</span>
+              <strong class="kpi-num">{{ expiringSoonCount }}</strong>
+              <span class="kpi-sub text-danger">Requires immediate action</span>
+            </div>
+          </div>
+
+          <div class="kpi-card purple-card">
+            <div class="kpi-icon-wrap">
+              <ion-icon name="wallet-outline"></ion-icon>
+            </div>
+            <div class="kpi-details">
+              <span class="kpi-title">Est. Monthly Revenue</span>
+              <strong class="kpi-num">₹{{ totalMonthlyRevenue | number:'1.0-0' }}</strong>
+              <span class="kpi-sub">Projected monthly yield</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Controls Bar: Filter Chips & Search Field -->
+        <mat-card class="filter-controls-card">
+          <div class="controls-wrapper">
+            <div class="filter-chips">
+              <button 
+                class="chip-btn" 
+                [class.active]="selectedFilter === 'all'"
+                (click)="selectedFilter = 'all'">
+                All Organizations ({{ totalOrgs }})
+              </button>
+
+              <button 
+                class="chip-btn green-chip" 
+                [class.active]="selectedFilter === 'active'"
+                (click)="selectedFilter = 'active'">
+                Active ({{ activeCount }})
+              </button>
+
+              <button 
+                class="chip-btn orange-chip" 
+                [class.active]="selectedFilter === 'trial'"
+                (click)="selectedFilter = 'trial'">
+                Trial ({{ trialCount }})
+              </button>
+
+              <button 
+                *ngIf="expiringSoonCount > 0"
+                class="chip-btn red-chip" 
+                [class.active]="selectedFilter === 'expiring'"
+                (click)="selectedFilter = 'expiring'">
+                ⚠️ Expiring Soon ({{ expiringSoonCount }})
+              </button>
+            </div>
+
+            <div class="search-input-box">
+              <ion-icon name="search-outline"></ion-icon>
+              <input 
+                type="text" 
+                [(ngModel)]="searchTerm" 
+                placeholder="Search by name, ID, or plan status..." />
+              <button *ngIf="searchTerm" class="clear-search" (click)="searchTerm = ''">
+                <ion-icon name="close-circle"></ion-icon>
+              </button>
+            </div>
+          </div>
+        </mat-card>
+
+        <!-- Organizations Subscription Table Card -->
+        <mat-card class="main-table-card">
+          <div class="table-header-bar">
+            <h2><ion-icon name="list-outline"></ion-icon> Organization Subscription Directory</h2>
+            <span class="count-badge">{{ getFilteredVMs().length }} records</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="modern-custom-table">
+              <thead>
+                <tr>
+                  <th>Organization</th>
+                  <th>Status</th>
+                  <th>Trial Status</th>
+                  <th>Pricing Rates</th>
+                  <th>User Breakdown</th>
+                  <th>Monthly Fee</th>
+                  <th class="sticky-action-col text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let vm of getFilteredVMs()" [class.row-expiring]="vm.isExpiringSoon">
+                  <td>
+                    <div class="org-cell">
+                      <div class="org-info">
+                        <strong class="org-title">{{ vm.orgName }}</strong>
+                        <span class="org-sub-id">ID: {{ vm.orgId }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="status-pill" [ngClass]="vm.subscription.status">
+                      <span class="dot"></span>
+                      {{ vm.subscription.status | uppercase }}
+                    </span>
+                  </td>
+                  <td>
+                    <div *ngIf="vm.subscription.status === 'trial'" class="trial-cell" [class.urgent-trial]="vm.trialDaysLeft <= 3">
+                      <ion-icon name="time-outline"></ion-icon>
+                      <span><strong>{{ vm.trialDaysLeft }} Days</strong> Left</span>
+                    </div>
+                    <span *ngIf="vm.subscription.status !== 'trial'" class="text-muted small-text">—</span>
+                  </td>
+                  <td>
+                    <div class="pricing-rates-stack">
+                      <span class="rate-item">Base: <strong>₹{{ vm.subscription.pricing.basePrice }}</strong></span>
+                      <span class="rate-item">Student: <strong>₹{{ vm.subscription.pricing.pricePerStudent }}</strong></span>
+                      <span class="rate-item">Staff: <strong>₹{{ vm.subscription.pricing.pricePerStaff }}</strong></span>
+                      <span *ngIf="vm.subscription.pricing.pricePerCoordinator" class="rate-item">Coord: <strong>₹{{ vm.subscription.pricing.pricePerCoordinator }}</strong></span>
+                      <span *ngIf="vm.subscription.pricing.customRoleName && vm.subscription.pricing.pricePerCustomRole" class="rate-item">{{ vm.subscription.pricing.customRoleName }}: <strong>₹{{ vm.subscription.pricing.pricePerCustomRole }}</strong></span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="user-caps-pills">
+                      <span class="cap-pill students" title="Students">
+                        <ion-icon name="school-outline"></ion-icon> {{ vm.roleCounts.student }}
+                      </span>
+                      <span class="cap-pill staff" title="Teachers & Staff">
+                        <ion-icon name="people-outline"></ion-icon> {{ vm.roleCounts.teacher }}
+                      </span>
+                      <span *ngIf="vm.roleCounts.coordinator" class="cap-pill coord" title="Coordinators">
+                        <ion-icon name="git-network-outline"></ion-icon> {{ vm.roleCounts.coordinator }}
+                      </span>
+                      <span *ngIf="vm.roleCounts.madrasaIncharge" class="cap-pill incharge" title="Madrasa Incharges">
+                        <ion-icon name="home-outline"></ion-icon> {{ vm.roleCounts.madrasaIncharge }}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="total-rev-cell">
+                      <span class="total-rev-amount">₹{{ vm.cost.total | number:'1.0-0' }}</span>
+                      <span class="cycle-label">/mo</span>
+                      <span *ngIf="vm.subscription.discountPercentage" class="discount-tag">-{{ vm.subscription.discountPercentage }}%</span>
+                    </div>
+                  </td>
+                  <td class="sticky-action-col text-center">
+                    <button 
+                      mat-raised-button 
+                      color="primary" 
+                      class="config-btn"
+                      (click)="configureSubscription(vm)">
+                      <ion-icon name="create-outline" slot="start"></ion-icon> Edit Plan
+                    </button>
+                  </td>
+                </tr>
+
+                <tr *ngIf="getFilteredVMs().length === 0">
+                  <td colspan="7" class="empty-table-cell">
+                    <div class="empty-state-box">
+                      <ion-icon name="search-outline"></ion-icon>
+                      <p>No organizations found matching your search filter.</p>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </mat-card>
+      </ng-container>
+
+      <!-- Access Denied for Non-Super-Admins (fallback) -->
+      <div class="access-denied-card" *ngIf="profile.role !== 'superAdmin'">
+        <ion-icon name="lock-closed-outline"></ion-icon>
+        <h2>Restricted Area</h2>
+        <p>The Organization Subscriptions Management console is accessible only to System Super Administrators.</p>
+      </div>
+    </ng-container>
+  </div>
+</ion-content>

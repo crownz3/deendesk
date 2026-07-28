@@ -175,8 +175,13 @@ import { HelpSupportPage } from './pages/help-support/help-support.page';
 import { SubmitTicketDialogComponent } from './pages/help-support/submit-ticket-dialog.component';
 import { TicketDetailDialogComponent } from './pages/help-support/ticket-detail-dialog.component';
 
+import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
+import { SubscriptionEditDialogComponent } from './pages/subscriptions/subscription-edit-dialog.component';
+
 @NgModule({
   declarations: [
+    SubscriptionsPage,
+    SubscriptionEditDialogComponent,
     AppComponent,
     QuranPage,
     ReciterSelectDialogComponent,

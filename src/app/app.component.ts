@@ -1,6 +1,9 @@
 import { Component } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { BehaviorSubject, Observable, combineLatest, filter, map, startWith } from 'rxjs';
+import { App as CapacitorApp } from '@capacitor/app';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { CustomMenuItemConfig, PermissionKey, UserRole } from './core/models/domain.model';
 import { AppUser } from './core/models/domain.model';
 import { AuthService } from './core/services/auth.service';
@@ -20,6 +23,7 @@ interface NavItem {
   permission?: PermissionKey | PermissionKey[];
   permissionsAny?: PermissionKey[];
   roleRequired?: UserRole;
+  rolesAny?: UserRole[];
   hidden?: boolean;
   orderIndex?: number;
 }
@@ -63,48 +67,39 @@ export class AppComponent {
       label: 'Administration',
       items: [
         { label: 'Organizations', route: '/organizations', icon: 'business-outline', permission: 'manageOrganizations', roleRequired: 'superAdmin' },
+        { label: 'Subscriptions & Billing', route: '/subscriptions', icon: 'card-outline', roleRequired: 'superAdmin' },
         { label: 'Madrasas', route: '/madrasas', icon: 'school-outline', permission: 'manageMadrasas' },
         { label: 'Roles', route: '/roles-permissions', icon: 'shield-checkmark-outline', permission: 'managePermissions' },
         { label: 'Users', route: '/users', icon: 'people-outline', permission: 'manageUsers' },
-        { label: 'Lifecycle History', route: '/lifecycle', icon: 'time-outline', permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] },
+        { label: 'Lifecycle History', route: '/lifecycle', icon: 'time-outline', permissionsAny: ['manageUserLifecycle'] },
       ]
     },
     {
-      label: 'People',
+      label: 'Academic Management',
       items: [
-        { label: 'Coordinators', route: '/coordinators', icon: 'git-network-outline', permission: 'manageCoordinators' },
-        { label: 'Incharges', route: '/madrasa-incharges', icon: 'person-circle-outline', permission: 'manageIncharges' },
-        { label: 'Stage Heads', route: '/stage-heads', icon: 'ribbon-outline', permissionsAny: ['manageStaff', 'manageCourses', 'viewDashboard'] },
-        { label: 'Staff', route: '/staff', icon: 'briefcase-outline', permission: 'manageStaff' },
-        { label: 'Students', route: '/students', icon: 'person-outline', permission: 'manageStudents' },
-        { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permission: 'manageParents' },
-        { label: 'Alumni Directory', route: '/alumni', icon: 'ribbon-outline', permissionsAny: ['viewAlumni', 'manageAlumni'] },
-      ]
-    },
-    {
-      label: 'Academics',
-      items: [
-        { label: 'Courses', route: '/courses', icon: 'library-outline', permission: 'manageCourses' },
-        { label: 'Classes', route: '/classes', icon: 'easel-outline', permission: 'manageClasses' },
-        { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permission: 'manageClasses' },
-        { label: 'Subjects', route: '/subjects', icon: 'book-outline', permission: 'manageSubjects' },
-        { label: 'Exams & Re-Exams', route: '/exams', icon: 'document-text-outline', permissionsAny: ['viewExams', 'manageExams'] },
-        { label: 'Class Plans', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] },
-        { label: 'Study Time (Mutala\'a)', route: '/study-time', icon: 'time-outline', permissionsAny: ['viewStudyTime', 'manageStudyTime', 'recordStudyTimeAttendance'] },
-        { label: 'Academic Tree', route: '/academic-tree', icon: 'git-branch-outline', permissionsAny: ['viewDashboard', 'manageAcademicPlans'] },
+        { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', permissionsAny: ['manageCourses', 'manageClasses'] },
+        { label: 'Courses & Stages', route: '/courses', icon: 'ribbon-outline', permissionsAny: ['manageCourses'] },
+        { label: 'Course Types', route: '/course-types', icon: 'library-outline', permissionsAny: ['manageCourses'] },
+        { label: 'Course Stages', route: '/stages', icon: 'layers-outline', permissionsAny: ['manageCourses'] },
+        { label: 'Stage Heads', route: '/stage-heads', icon: 'person-add-outline', permission: 'manageStageHeads' },
+        { label: 'Classes', route: '/classes', icon: 'easel-outline', permissionsAny: ['manageClasses'] },
+        { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permissionsAny: ['manageClasses'] },
+        { label: 'Subjects & Syllabus', route: '/subjects', icon: 'book-outline', permissionsAny: ['manageSubjects'] },
+        { label: 'Class Plans & Timetables', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans'] },
+        { label: 'Study Time & Homework', route: '/study-time', icon: 'hourglass-outline', permissionsAny: ['manageStudyTime'] },
       ]
     },
     {
       label: 'Operations',
       items: [
         { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
-        { label: 'External Activities', route: '/external-activities', icon: 'briefcase-outline', permissionsAny: ['viewExternalActivities', 'manageExternalActivities'] },
-        { label: 'Hostel Management', route: '/hostels', icon: 'bed-outline', permissionsAny: ['viewHostels', 'manageHostels'] },
-        { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees', 'viewFees'] },
-        { label: 'Events', route: '/events', icon: 'calendar-outline', permissionsAny: ['viewEvents', 'manageEvents'] },
-        { label: 'Competitions & Prizes', route: '/competitions', icon: 'trophy-outline', permissionsAny: ['viewCompetitions', 'manageCompetitions'] },
-        { label: 'Issues', route: '/issues', icon: 'warning-outline', permissionsAny: ['viewIssues', 'reportIssues', 'manageIssues'] },
-        { label: 'Properties & Assets', route: '/properties', icon: 'cube-outline', permissionsAny: ['viewProperties', 'manageProperties'] },
+        { label: 'External Activities', route: '/external-activities', icon: 'briefcase-outline', permissionsAny: ['manageExternalActivities'] },
+        { label: 'Hostel Management', route: '/hostels', icon: 'bed-outline', permissionsAny: ['manageHostels'] },
+        { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees'] },
+        { label: 'Events', route: '/events', icon: 'calendar-outline', permissionsAny: ['manageEvents'] },
+        { label: 'Competitions & Prizes', route: '/competitions', icon: 'trophy-outline', permissionsAny: ['manageCompetitions'] },
+        { label: 'Issues', route: '/issues', icon: 'warning-outline', permissionsAny: ['manageIssues', 'reportIssues'] },
+        { label: 'Properties & Assets', route: '/properties', icon: 'cube-outline', permissionsAny: ['manageProperties'] },
         { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
         { label: 'CSV Imports', route: '/csv-imports', icon: 'cloud-upload-outline', permission: 'importCsv' },
         { label: 'Password Requests', route: '/password-requests', icon: 'lock-open-outline', permission: 'managePasswordRequests' },
@@ -160,6 +155,10 @@ export class AppComponent {
     })
   );
 
+  private lastBackPressTime = 0;
+  isAvatarLoading = false;
+  avatarLoadFailed = false;
+
   constructor(
     private readonly auth: AuthService,
     private readonly router: Router,
@@ -167,8 +166,41 @@ export class AppComponent {
     public readonly sidebarSettings: SidebarSettingsService,
     private readonly dialog: MatDialog,
     private readonly auditLogService: AuditLogService,
-    public readonly orgBranding: OrgBrandingService
-  ) { }
+    public readonly orgBranding: OrgBrandingService,
+    private readonly location: Location,
+    private readonly snackBar: MatSnackBar
+  ) {
+    this.initBackButtonHandler();
+  }
+
+  private initBackButtonHandler(): void {
+    CapacitorApp.addListener('backButton', () => {
+      const currentUrl = this.router.url.split('?')[0];
+
+      // If user is on Dashboard, Login, or root page
+      if (currentUrl === '/dashboard' || currentUrl === '/login' || currentUrl === '/') {
+        const currentTime = new Date().getTime();
+        if (currentTime - this.lastBackPressTime < 2000) {
+          // Double press -> Exit App
+          CapacitorApp.exitApp();
+        } else {
+          this.lastBackPressTime = currentTime;
+          this.snackBar.open('Press back again to exit', '', {
+            duration: 2000,
+            horizontalPosition: 'center',
+            verticalPosition: 'bottom',
+          });
+        }
+      } else {
+        // For all other pages -> Navigate back to previous page
+        if (window.history.length > 1) {
+          this.location.back();
+        } else {
+          this.router.navigate(['/dashboard']);
+        }
+      }
+    });
+  }
 
   isMenuOpen = false;
 
@@ -196,97 +228,81 @@ export class AppComponent {
 
   get menuType$() {
     return this.sidebarSettings.sidebarMode$.pipe(
-      map(mode => mode === 'push' ? 'push' : 'overlay')
+      map(mode => mode === 'split' ? 'overlay' : mode)
     );
   }
 
-  openSettings() {
+  getAvatarUrl(user: AppUser | null): string {
+    if (user?.photoURL && !this.avatarLoadFailed) {
+      return user.photoURL;
+    }
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || 'User')}&background=2563eb&color=fff`;
+  }
+
+  onAvatarLoad(): void {
+    this.isAvatarLoading = false;
+  }
+
+  onAvatarError(user: AppUser | null): void {
+    this.isAvatarLoading = false;
+    this.avatarLoadFailed = true;
+  }
+
+  openSettings(): void {
     this.dialog.open(AppSettingsDialogComponent, {
-      width: '90vw',
-      height: '90vh',
-      maxWidth: '90vw',
-      maxHeight: '90vh',
-      panelClass: 'app-settings-dialog-panel'
+      width: '640px',
+      maxWidth: '95vw',
+      panelClass: 'modern-dialog-container',
     });
+  }
+
+  canManageBranding(user: AppUser | null): boolean {
+    if (!user) return false;
+    return user.role === 'superAdmin' || user.role === 'organizationAdmin';
   }
 
   openBrandingDialog(): void {
     this.dialog.open(BrandingMenuDialogComponent, {
       width: '720px',
       maxWidth: '95vw',
-      maxHeight: '90vh',
-      panelClass: 'branding-menu-dialog-panel',
+      panelClass: 'modern-dialog-container',
     });
-  }
-
-  canManageBranding(profile: AppUser | null): boolean {
-    if (!profile) return false;
-    if (profile.role === 'superAdmin' || profile.role === 'organizationAdmin') return true;
-    return this.auth.hasPermission(profile, 'manageBrandingAndMenu');
-  }
-
-  visible(item: NavItem, profile: AppUser | null): boolean {
-    if (item.roleRequired && profile?.role !== item.roleRequired) {
-      return false;
-    }
-
-    if (item.permissionsAny && item.permissionsAny.length > 0) {
-      return this.auth.hasAnyPermission(profile, item.permissionsAny);
-    }
-
-    if (!item.permission) {
-      return Boolean(profile);
-    }
-
-    const permissions = Array.isArray(item.permission) ? item.permission : [item.permission];
-    return this.auth.hasAnyPermission(profile, permissions);
-  }
-
-  avatarLoadFailed = false;
-
-  getDefaultAvatar(gender?: string | null): string {
-    const normalizedGender = (gender || '').toLowerCase().trim();
-    if (normalizedGender === 'male') return '/assets/images/avatars/default-male.png';
-    if (normalizedGender === 'female') return '/assets/images/avatars/default-female.png';
-    return '/assets/images/avatars/default-neutral.png';
-  }
-
-  getAvatarUrl(user: AppUser | null | undefined): string {
-    if (user?.photoURL && !this.avatarLoadFailed) {
-      return user.photoURL;
-    }
-    return this.getDefaultAvatar(user?.gender);
-  }
-
-  onAvatarError(user?: AppUser | null): void {
-    this.avatarLoadFailed = true;
-  }
-
-  onAvatarLoad(): void {
-    // handled implicitly
-  }
-
-  getUserInitials(name: string | undefined): string {
-    if (!name) return 'U';
-
-    return name
-      .trim()
-      .split(' ')
-      .filter(Boolean)
-      .slice(0, 2)
-      .map(part => part.charAt(0).toUpperCase())
-      .join('');
   }
 
   async logout(): Promise<void> {
-    await this.loader.withLoader('Signing you in securely...', async () => {
-      await this.auditLogService.logAction({
-        module: 'Auth',
-        action: 'Logout',
-        status: 'success',
-        message: 'User logged out'
-      });
+    await this.loader.withLoader('Signing out...', async () => {
       await this.auth.logout();
     });
+  }
+
+  private visible(item: NavItem, user: AppUser | null): boolean {
+    if (!user) return false;
+    if (user.role === 'superAdmin') return true;
+
+    if (item.roleRequired && user.role !== item.roleRequired) {
+      return false;
+    }
+
+    if (item.rolesAny && !item.rolesAny.includes(user.role)) {
+      return false;
+    }
+
+    if (item.permission) {
+      if (Array.isArray(item.permission)) {
+        if (!item.permission.some((p) => this.auth.hasPermission(user, p))) {
+          return false;
+        }
+      } else if (!this.auth.hasPermission(user, item.permission)) {
+        return false;
+      }
+    }
+
+    if (item.permissionsAny && item.permissionsAny.length > 0) {
+      if (!item.permissionsAny.some((p) => this.auth.hasPermission(user, p))) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

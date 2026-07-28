@@ -102,7 +102,62 @@ export type PermissionKey =
   | 'generateCompetitionReports'
   | 'manageAnnouncements'
   | 'viewAnnouncements'
-  | 'manageBrandingAndMenu';
+  | 'manageBrandingAndMenu'
+  | 'manageBilling'
+  | 'viewBilling';
+
+export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'expired' | 'suspended';
+
+export interface OrgSubscriptionPricing {
+  basePrice: number;
+  pricePerStudent: number;
+  pricePerStaff: number;
+  pricePerCoordinator?: number;
+  pricePerIncharge?: number;
+  pricePerStageHead?: number;
+  pricePerParent?: number;
+  customRoleName?: string;
+  pricePerCustomRole?: number;
+  currency: string;
+  billingCycle: 'monthly' | 'yearly';
+  billedRoles?: string[];
+}
+
+export interface OrgSubscriptionLimits {
+  maxStudents?: number;
+  maxStaff?: number;
+  maxMadrasas?: number;
+}
+
+export interface OrgSubscription {
+  id?: string;
+  organizationId: string;
+  organizationName?: string;
+  status: SubscriptionStatus;
+  trialStartDate?: string;
+  trialEndDate?: string;
+  nextBillingDate?: string;
+  pricing: OrgSubscriptionPricing;
+  limits?: OrgSubscriptionLimits;
+  discountPercentage?: number;
+  notes?: string;
+  updatedAt?: unknown;
+  updatedBy?: string;
+}
+
+export interface OrgPaymentRecord {
+  id?: string;
+  organizationId: string;
+  amount: number;
+  currency: string;
+  paymentDate: string;
+  paymentMethod: 'bank_transfer' | 'upi' | 'card' | 'cash' | 'other';
+  referenceNumber?: string;
+  invoiceNumber?: string;
+  status: 'paid' | 'pending' | 'failed';
+  notes?: string;
+  createdAt?: unknown;
+}
 
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'leave';
 

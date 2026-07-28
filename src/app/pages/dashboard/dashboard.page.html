@@ -132,76 +132,7 @@
 
 
 
-    <section class="access-overview" *ngIf="vm.accessOverview">
-      <header class="section-header">
-        <h2>{{ vm.accessOverview.title }}</h2>
-      </header>
 
-      <ng-template #cardTemplate let-card="card">
-        <div class="card-header">
-          <div class="icon-box" [ngClass]="card.tone || 'primary'">
-            <ion-icon [name]="card.icon || 'folder-outline'"></ion-icon>
-          </div>
-          <div class="title-box">
-            <h3 *ngIf="card.titleId; else staticTitle">{{ (resolver.resolveName(card.titleId, card.titleType || 'class') | async) || 'Loading...' }}</h3>
-            <ng-template #staticTitle><h3>{{ card.title }}</h3></ng-template>
-
-            <p *ngIf="card.subtitleId; else staticSubtitle">{{ (resolver.resolveName(card.subtitleId, card.subtitleType || 'madrasa') | async) || 'Loading...' }}</p>
-            <ng-template #staticSubtitle>
-              <p *ngIf="card.subtitle">{{ card.subtitle }}</p>
-            </ng-template>
-          </div>
-        </div>
-        <div class="card-stats">
-          <div class="stat-item" *ngFor="let item of card.items">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-          </div>
-        </div>
-        <div class="card-actions" *ngIf="card.actions && card.actions.length > 0">
-          <ion-button fill="clear" size="small" [routerLink]="action.link" *ngFor="let action of card.actions">
-            <ion-icon slot="start" [name]="action.icon"></ion-icon>
-            {{ action.label }}
-          </ion-button>
-        </div>
-      </ng-template>
-
-      <ng-container *ngIf="vm.accessOverview.cards.length > 0; else emptyState">
-        <ng-container *ngIf="vm.accessOverview.title === 'My Assigned Madrasas' && vm.accessOverview.cards.length > 1; else defaultGrid">
-          <div class="carousel-container">
-            <ion-button fill="clear" class="carousel-nav-btn" (click)="prevCard()" [disabled]="currentCardIndex === 0">
-              <ion-icon name="chevron-back-outline" slot="icon-only"></ion-icon>
-            </ion-button>
-
-            <div class="carousel-viewport">
-              <div class="carousel-track" [style.transform]="'translateX(' + (-currentCardIndex * 100) + '%)'">
-                <article class="access-card carousel-card" *ngFor="let card of vm.accessOverview.cards">
-                  <ng-container [ngTemplateOutlet]="cardTemplate" [ngTemplateOutletContext]="{ card: card }"></ng-container>
-                </article>
-              </div>
-            </div>
-
-            <ion-button fill="clear" class="carousel-nav-btn" (click)="nextCard(vm.accessOverview.cards.length)" [disabled]="currentCardIndex >= vm.accessOverview.cards.length - 1">
-              <ion-icon name="chevron-forward-outline" slot="icon-only"></ion-icon>
-            </ion-button>
-          </div>
-        </ng-container>
-
-        <ng-template #defaultGrid>
-          <div class="access-grid">
-            <article class="access-card" *ngFor="let card of vm.accessOverview.cards">
-              <ng-container [ngTemplateOutlet]="cardTemplate" [ngTemplateOutletContext]="{ card: card }"></ng-container>
-            </article>
-          </div>
-        </ng-template>
-      </ng-container>
-
-      <ng-template #emptyState>
-        <app-empty-state *ngIf="vm.accessOverview.emptyState" [icon]="vm.accessOverview.emptyState.icon"
-          [title]="vm.accessOverview.emptyState.title" [message]="vm.accessOverview.emptyState.message">
-        </app-empty-state>
-      </ng-template>
-    </section>
 
     <app-setup-map [steps]="vm.setupSteps"></app-setup-map>
 
@@ -405,20 +336,18 @@
 
   <ng-template #loading>
     <main class="page">
-      <header class="page-header" style="display: flex; gap: 20px;">
-        <div class="skeleton-card" style="width: 250px; height: 60px;"></div>
-        <div class="skeleton-card" style="width: 100px; height: 100px; border-radius: 50%;"></div>
-      </header>
+      <div class="dashboard-loading-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; min-height: 420px; text-align: center; width: 100%; box-sizing: border-box;">
+        <mat-spinner diameter="44" style="margin-bottom: 20px; color: #2563eb;"></mat-spinner>
+        <h2 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Loading Dashboard...</h2>
+        <p style="font-size: 13px; color: #64748b; margin: 0 0 32px 0;">Fetching operational overview & analytics</p>
 
-      <div class="skeleton-card" style="height: 120px; margin-bottom: 24px;"></div>
-
-      <section class="stats-grid">
-        <div class="skeleton-card" style="height: 100px;" *ngFor="let i of [1,2,3,4]"></div>
-      </section>
-
-      <section class="dashboard-grid" style="margin-top: 24px;">
-        <div class="skeleton-card" style="height: 300px;" *ngFor="let i of [1,2,3,4]"></div>
-      </section>
+        <div style="width: 100%; max-width: 1000px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; box-sizing: border-box;">
+          <div class="skeleton-card" style="height: 100px;" *ngFor="let i of [1,2,3,4]"></div>
+        </div>
+        <div style="width: 100%; max-width: 1000px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 24px; box-sizing: border-box;">
+          <div class="skeleton-card" style="height: 240px;" *ngFor="let i of [1,2]"></div>
+        </div>
+      </div>
     </main>
   </ng-template>
 </ion-content>

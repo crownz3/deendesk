@@ -1,22 +1,29 @@
 <ion-header [translucent]="true">
-  <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-menu-button></ion-menu-button>
-    </ion-buttons>
-    <ion-title>Madrasa Property & Asset Register</ion-title>
-    <ion-buttons slot="end" *ngIf="vm$ | async as vm">
-      <button mat-stroked-button color="primary" style="margin-right: 12px;" (click)="refreshData()">
+  <ion-toolbar class="responsive-properties-toolbar">
+    <ion-title class="header-title-text">Property & Asset Register</ion-title>
+    <ion-buttons slot="end" *ngIf="vm$ | async as vm" class="header-action-buttons">
+      <button mat-icon-button color="primary" class="mobile-only-btn" (click)="refreshData()" title="Refresh">
+        <mat-icon>refresh</mat-icon>
+      </button>
+      <button mat-stroked-button color="primary" class="desktop-only-btn" (click)="refreshData()">
         <mat-icon>refresh</mat-icon> Refresh
       </button>
-      <button mat-stroked-button color="primary" style="margin-right: 12px;"
+
+      <button mat-icon-button color="primary" class="mobile-only-btn"
+              *ngIf="vm.data?.profile?.role === 'superAdmin' || vm.data?.profile?.role === 'organizationAdmin' || (vm.data?.profile?.permissions?.includes('manageProperties') ?? false)"
+              routerLink="/property-categories" title="Categories">
+        <mat-icon>category</mat-icon>
+      </button>
+      <button mat-stroked-button color="primary" class="desktop-only-btn"
               *ngIf="vm.data?.profile?.role === 'superAdmin' || vm.data?.profile?.role === 'organizationAdmin' || (vm.data?.profile?.permissions?.includes('manageProperties') ?? false)"
               routerLink="/property-categories">
-        <mat-icon>category</mat-icon> Config Categories
+        <mat-icon>category</mat-icon> Categories
       </button>
+
       <button mat-raised-button color="primary" class="add-btn"
               *ngIf="vm.data?.profile?.role === 'superAdmin' || vm.data?.profile?.role === 'organizationAdmin'"
               (click)="openAddAssetDialog(vm.data!)">
-        <mat-icon>add</mat-icon> Register Asset
+        <mat-icon>add</mat-icon> <span class="btn-text">Register Asset</span>
       </button>
     </ion-buttons>
   </ion-toolbar>

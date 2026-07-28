@@ -409,6 +409,38 @@ h1 {
   font-size: 13px;
   color: #2d4a42;
   line-height: 1.4;
+  word-break: break-word;
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .group-grid {
+    grid-template-columns: 1fr;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .permission-group {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .group-header {
+    padding: 8px 10px;
+
+    .group-label {
+      font-size: 12px;
+    }
+  }
+
+  .group-body {
+    padding: 4px 6px 8px;
+  }
+
+  .permission-row {
+    padding: 6px;
+    gap: 6px;
+  }
 }
 
 /* ─── No Access ──────────────────────────────────── */

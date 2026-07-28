@@ -10,6 +10,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
 
     .ticket-num-tag {
       background: var(--ion-color-primary, #0284c7);
@@ -19,6 +20,7 @@
       padding: 4px 10px;
       border-radius: 6px;
       letter-spacing: 0.5px;
+      flex-shrink: 0;
     }
 
     .ticket-title {
@@ -27,6 +29,15 @@
       font-weight: 700;
       color: #0f172a;
       font-family: 'Poppins', sans-serif;
+      word-break: break-word;
+    }
+  }
+
+  @media (max-width: 600px) {
+    padding: 12px 16px;
+
+    .header-left .ticket-title {
+      font-size: 1.05rem;
     }
   }
 }
@@ -37,11 +48,17 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+
+  @media (max-width: 600px) {
+    padding: 14px 16px !important;
+    gap: 14px;
+    max-height: calc(88vh - 130px);
+  }
 }
 
 .ticket-meta-banner {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 16px;
   background: #f1f5f9;
   border-radius: 10px;
@@ -62,6 +79,7 @@
     div {
       display: flex;
       flex-direction: column;
+      min-width: 0;
 
       .meta-label {
         font-size: 0.72rem;
@@ -74,6 +92,7 @@
       .meta-value {
         font-size: 0.88rem;
         color: #1e293b;
+        word-break: break-word;
 
         &.font-bold {
           font-weight: 700;
@@ -85,6 +104,12 @@
         }
       }
     }
+  }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+    padding: 12px 14px;
+    gap: 12px;
   }
 }
 
@@ -102,6 +127,7 @@
   .current-badges {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
 
     .status-badge {
@@ -130,6 +156,7 @@
   .super-controls {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
 
     .inline-select {
@@ -142,6 +169,35 @@
       display: flex;
       align-items: center;
       gap: 6px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .current-badges {
+      justify-content: space-between;
+      width: 100%;
+    }
+
+    .super-controls {
+      flex-direction: column;
+      align-items: stretch;
+      width: 100%;
+      gap: 10px;
+
+      .inline-select {
+        width: 100%;
+        margin-bottom: 0;
+      }
+
+      button {
+        width: 100%;
+        justify-content: center;
+      }
     }
   }
 }
@@ -172,6 +228,7 @@
     color: #334155;
     white-space: pre-wrap;
     line-height: 1.6;
+    word-break: break-word;
   }
 
   .attachment-gallery {
@@ -223,6 +280,15 @@
 
         &:hover .gallery-overlay {
           opacity: 1;
+        }
+      }
+
+      @media (max-width: 600px) {
+        gap: 8px;
+
+        .gallery-item {
+          width: 85px;
+          height: 85px;
         }
       }
     }
@@ -287,10 +353,13 @@
         align-items: center;
         justify-content: space-between;
         margin-bottom: 8px;
+        flex-wrap: wrap;
+        gap: 6px;
 
         .sender-info {
           display: flex;
           align-items: center;
+          flex-wrap: wrap;
           gap: 8px;
 
           .avatar-icon {
@@ -330,10 +399,12 @@
         color: #334155;
         white-space: pre-wrap;
         line-height: 1.5;
+        word-break: break-word;
       }
 
       .msg-attachments {
         display: flex;
+        flex-wrap: wrap;
         gap: 8px;
         margin-top: 10px;
 
@@ -436,6 +507,31 @@
       }
     }
   }
+
+  @media (max-width: 600px) {
+    padding: 12px 16px;
+
+    .composer-container .input-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+
+      .reply-textarea {
+        width: 100%;
+        min-height: 70px;
+      }
+
+      .composer-actions {
+        justify-content: space-between;
+        width: 100%;
+
+        .send-btn {
+          flex: 1;
+          justify-content: center;
+        }
+      }
+    }
+  }
 }
 
 .image-lightbox-modal {
@@ -481,3 +577,4 @@
     }
   }
 }
+

@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder } from '@angular/forms';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom } from 'rxjs';
 import { AuditLog } from '../../core/models/audit-log.model';
@@ -22,6 +23,9 @@ export class ActivityLogsPage implements OnInit {
   hasMore = true;
   currentUser: AppUser | null = null;
   limitCount = 50;
+  
+  pageIndex = 0;
+  pageSize = 10;
   
   readonly columns = [
     'date',
@@ -84,11 +88,25 @@ export class ActivityLogsPage implements OnInit {
     this.loadLogs(true);
   }
 
+  getPaginatedLogs(): AuditLog[] {
+    const start = this.pageIndex * this.pageSize;
+    return this.logs.slice(start, start + this.pageSize);
+  }
+
+  onPageChange(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    if ((this.pageIndex + 1) * this.pageSize >= this.logs.length && this.hasMore && !this.isLoading) {
+      this.loadLogs(false);
+    }
+  }
+
   async loadLogs(reset = false): Promise<void> {
     if (reset) {
       this.logs = [];
       this.lastDoc = undefined;
       this.hasMore = true;
+      this.pageIndex = 0;
     }
 
     if (!this.hasMore) return;

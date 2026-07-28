@@ -1,4 +1,13 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .evaluation-dialog-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -9,36 +18,48 @@
 
   .header-title-wrapper {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
+    flex: 1;
+    min-width: 0;
 
     .header-icon {
-      font-size: 26px;
-      width: 26px;
-      height: 26px;
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
       color: #2563eb;
       flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    > div {
+      flex: 1;
+      min-width: 0;
     }
 
     h2 {
       margin: 0;
-      font-size: 1.15rem;
+      font-size: 1.1rem;
       font-weight: 700;
       color: #0f172a;
       word-break: break-word;
+      line-height: 1.3;
     }
 
     .dialog-subtitle {
-      margin: 3px 0 0;
-      font-size: 0.82rem;
+      margin: 4px 0 0;
+      font-size: 0.8rem;
       color: #64748b;
       word-break: break-word;
+      line-height: 1.4;
 
       .course-badge {
         color: #2563eb;
         background: #eff6ff;
         padding: 2px 6px;
         border-radius: 4px;
+        display: inline-block;
+        margin-top: 2px;
       }
     }
   }
@@ -46,12 +67,14 @@
   .close-btn {
     color: #64748b;
     flex-shrink: 0;
+    margin-left: 8px;
   }
 }
 
 .evaluation-dialog-content {
+  flex: 1 1 auto;
   padding: 16px 20px;
-  max-height: 75vh;
+  max-height: none;
   overflow-y: auto;
   box-sizing: border-box;
 }

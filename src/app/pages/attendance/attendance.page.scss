@@ -985,17 +985,68 @@
   }
 
   .participant-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+
+    .participant-info {
+      width: 100%;
+    }
+
     .attendance-actions {
-      justify-content: space-between;
-      
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: stretch;
+
       .modern-toggle {
         width: 100%;
         display: flex;
-        flex-wrap: wrap;
-        
+
         mat-button-toggle {
           flex: 1;
-          min-width: 80px;
+          min-width: 0;
+
+          ::ng-deep .mat-button-toggle-button {
+            padding: 0 4px;
+            justify-content: center;
+          }
+
+          ::ng-deep .mat-button-toggle-label-content {
+            font-size: 11px;
+            gap: 3px;
+          }
+        }
+      }
+
+      .row-action-buttons {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+
+        .evaluate-btn {
+          flex: 1;
+          height: 36px;
+          border-radius: 8px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-weight: 600;
+          font-size: 13px;
+          background: #2563eb !important;
+          color: #ffffff !important;
+          box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
+
+          mat-icon {
+            font-size: 18px;
+            width: 18px;
+            height: 18px;
+            color: #ffffff !important;
+          }
         }
       }
     }
@@ -1004,7 +1055,7 @@
   .exception-banner {
     flex-direction: column;
     align-items: flex-start;
-    
+
     > div:last-child {
       width: 100%;
       align-items: stretch !important;
@@ -1013,14 +1064,33 @@
   }
 }
 
-.evaluate-btn {
-  color: #2563eb;
-  background: #eff6ff;
-  border-radius: 50%;
-  margin-left: 4px;
-  
-  &:hover {
-    background: #dbeafe;
+.row-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .evaluate-btn {
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+    font-size: 13px;
+    background: #2563eb !important;
+    color: #ffffff !important;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #ffffff !important;
+    }
+
+    &:hover {
+      background: #1d4ed8 !important;
+    }
   }
 }
 

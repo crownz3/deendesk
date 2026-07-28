@@ -516,7 +516,9 @@ ion-toolbar {
 .toolbar-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .menu-toggle {
@@ -529,6 +531,7 @@ ion-toolbar {
   transition: background 180ms ease, color 180ms ease, transform 180ms ease;
   margin: 0;
   --color: var(--app-text-main);
+  flex-shrink: 0;
 }
 
 .menu-toggle:hover {
@@ -539,13 +542,12 @@ ion-toolbar {
 
 .header-title-text {
   color: var(--app-text-main);
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 800;
   letter-spacing: -0.03em;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
+  flex-shrink: 0;
+  overflow: visible;
 }
 
 .toolbar-actions {
@@ -631,12 +633,10 @@ img.user-avatar-small {
 
   .toolbar-left {
     gap: 6px;
-    max-width: 140px;
   }
 
   .header-title-text {
     font-size: 16px;
-    max-width: 100px;
   }
 
   .toolbar-actions {
@@ -676,13 +676,11 @@ img.user-avatar-small {
 }
 
 @media (max-width: 480px) {
-  .toolbar-left {
-    max-width: 120px;
-  }
-
   .header-title-text {
     font-size: 15px;
-    max-width: 80px;
+    white-space: nowrap;
+    overflow: visible;
+    flex-shrink: 0;
   }
 
   .settings-button {

@@ -55,7 +55,7 @@
 
     <mat-card class="table-card">
       <div class="table-container">
-        <table mat-table [dataSource]="logs" class="mat-elevation-z0">
+        <table mat-table [dataSource]="getPaginatedLogs()" class="mat-elevation-z0">
           
           <ng-container matColumnDef="date">
             <th mat-header-cell *matHeaderCellDef>Date & Time</th>
@@ -119,12 +119,12 @@
         </table>
       </div>
       
-      <div class="p-4 text-center" *ngIf="hasMore || isLoading">
-        <button mat-stroked-button (click)="loadLogs()" [disabled]="isLoading">
-          <mat-spinner diameter="20" *ngIf="isLoading" class="inline-block mr-2 align-middle"></mat-spinner>
-          Load More
-        </button>
-      </div>
+      <mat-paginator [length]="logs.length"
+                     [pageSize]="pageSize"
+                     [pageSizeOptions]="[10, 25, 50, 100]"
+                     [pageIndex]="pageIndex"
+                     (page)="onPageChange($event)">
+      </mat-paginator>
     </mat-card>
 
   </div>

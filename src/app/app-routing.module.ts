@@ -37,12 +37,14 @@ import { CompetitionsPage } from './pages/competitions/competitions.page';
 import { AnnouncementsPage } from './pages/announcements/announcements.page';
 
 import { HelpSupportPage } from './pages/help-support/help-support.page';
+import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
   { path: 'change-password', component: ChangePasswordPage, canActivate: [authGuard] },
   { path: 'continue', component: ContinueAccountPage },
   { path: 'dashboard', component: DashboardPage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewDashboard' } },
+  { path: 'subscriptions', component: SubscriptionsPage, canActivate: [authGuard, permissionGuard], data: { roleRequired: 'superAdmin' } },
   { path: 'quran', component: QuranPage, canActivate: [authGuard] },
   { path: 'my-assignments', component: MyAssignmentsPage, canActivate: [authGuard] },
   { path: 'announcements', component: AnnouncementsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewAnnouncements', 'manageAnnouncements'] } },
@@ -82,7 +84,7 @@ const routes: Routes = [
   { path: 'people-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'people', permissionsAny: ['manageStaff', 'manageStudents', 'manageParents'] } },
   { path: 'notifications', component: NotificationsPage, canActivate: [authGuard] },
   { path: 'help-support', component: HelpSupportPage, canActivate: [authGuard] },
-  { path: 'profile', component: ProfilePage, canActivate: [authGuard, permissionGuard], data: { permission: 'editProfile' } },
+  { path: 'profile', component: ProfilePage, canActivate: [authGuard] },
   { path: 'settings', component: SettingsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageSettings' } },
   { path: 'password-requests', component: PasswordRequestsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePasswordRequests' } },
   { path: 'lifecycle', component: LifecyclePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] } },

@@ -194,7 +194,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'gender', label: 'Gender' },
-      { key: 'role', label: 'Role', type: 'role' },
+      { key: 'roles', label: 'Role', type: 'role' },
       { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
       { key: 'madrasaIds', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
@@ -746,6 +746,35 @@ export class ManagementPage {
             if (config.resource === 'classes') {
               filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
             }
+
+            // Enrich 'users' rows with roles derived from madrasa membership.
+            // A person may have role='teacher' in their user doc but also appear
+            // in a madrasa's inchargeIds or coordinatorIds — both roles must show.
+            // We ALWAYS set row.roles (at minimum the primary role) because the
+            // column key is now 'roles' — without it the cell shows N/A.
+            if (config.resource === 'users') {
+              filteredRows = filteredRows.map(row => {
+                const userId = String(row['uid'] || row.id || '');
+
+                const derived = new Set<string>();
+                if (userId) {
+                  for (const madrasa of madrasas) {
+                    const inchargeIds: string[] = Array.isArray(madrasa['inchargeIds']) ? madrasa['inchargeIds'].map(String) : [];
+                    const coordinatorIds: string[] = Array.isArray(madrasa['coordinatorIds']) ? madrasa['coordinatorIds'].map(String) : [];
+                    if (inchargeIds.includes(userId)) derived.add('madrasaIncharge');
+                    if (coordinatorIds.includes(userId)) derived.add('coordinator');
+                  }
+                }
+
+                const primaryRole = String(row['role'] || '');
+                const existingRoles: string[] = Array.isArray(row['roles']) ? row['roles'].map(String) : (primaryRole ? [primaryRole] : []);
+                const allRoles = [...new Set([...existingRoles, ...Array.from(derived)])].filter(Boolean);
+
+                // Always return with roles set — even if no derived roles were found,
+                // the column needs a roles[] to render the primary role badge.
+                return { ...row, roles: allRoles };
+              });
+            }
            
             if (config.resource === 'students') {
                if (courseFilter !== 'all') {
@@ -762,7 +791,27 @@ export class ManagementPage {
             
             if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource)) {
                if (madrasaFilter !== 'all') {
-                 filteredRows = filteredRows.filter(r => r['madrasaId'] === madrasaFilter || (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter)));
+                 // Find the selected madrasa document to get inchargeIds and coordinatorIds
+                 const selectedMadrasa = madrasas.find(m => m.id === madrasaFilter);
+                 const madrasaInchargeIds: string[] = Array.isArray(selectedMadrasa?.['inchargeIds']) ? selectedMadrasa!['inchargeIds'].map(String) : [];
+                 const madrasaCoordinatorIds: string[] = Array.isArray(selectedMadrasa?.['coordinatorIds']) ? selectedMadrasa!['coordinatorIds'].map(String) : [];
+
+                 filteredRows = filteredRows.filter(r => {
+                   const userId = String(r['uid'] || r.id || '');
+                   // 1. Check user's own madrasaId / madrasaIds fields
+                   const ownLink = r['madrasaId'] === madrasaFilter ||
+                     (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter));
+                   // 2. Check if user appears in the madrasa's inchargeIds or coordinatorIds
+                   const madrasaLink = (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
+                   return ownLink || madrasaLink;
+                 });
+               }
+
+               // Role filter for 'users' — runs here (after enrichment) so derived roles are included.
+               // For other resources (incharges, coordinators etc.) filtering is already handled
+               // in userRowsForResource via queryRoles.
+               if (config.resource === 'users' && roleFilter !== 'all') {
+                 filteredRows = filteredRows.filter(r => this.getEffectiveRoles(r).includes(roleFilter));
                }
 
                if (statusFilter !== 'all') {
@@ -920,9 +969,9 @@ export class ManagementPage {
   private userRowsForResource(config: ManagementConfig, profile: AppUser | null, madrasaFilter: string = 'all', roleFilter: string = 'all'): Observable<EntityRecord[]> {
     const roles = this.rolesForResource(config.resource);
     let queryRoles = roles ? roles : undefined;
-    if (config.resource === 'users' && roleFilter !== 'all') {
-      queryRoles = [roleFilter];
-    }
+    // For 'users' resource, roleFilter is applied row-by-row using getEffectiveRoles()
+    // to support multi-role users. For other resources, queryRoles does the initial
+    // collection-level filter based on the fixed role set for that resource.
 
     const users$ = this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(catchError(() => of([])));
     const staff$ = this.repo.list<EntityRecord>('staff', profile, [], undefined).pipe(catchError(() => of([])));
@@ -958,13 +1007,17 @@ export class ManagementPage {
           return userRow;
         });
 
-        if (queryRoles && queryRoles.length > 0) {
+        if (queryRoles && queryRoles.length > 0 && config.resource !== 'users') {
           merged = merged.filter(r => queryRoles!.includes(String(r['role'])));
         }
 
-        if (config.resource === 'users' && madrasaFilter !== 'all') {
-          merged = merged.filter(r => r['madrasaId'] === madrasaFilter || (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter)));
+        // For 'users' resource, use effective-role matching:
+        // a user may hold multiple roles (primary 'role' field, a 'roles' array,
+        // or implicit roles like madrasaIncharge implying teacher).
+        if (config.resource === 'users' && roleFilter !== 'all') {
+          merged = merged.filter(r => this.getEffectiveRoles(r).includes(roleFilter));
         }
+
 
         return this.credentialRows(merged);
       })
@@ -980,6 +1033,32 @@ export class ManagementPage {
       case 'parents': return ['parent'];
       default: return undefined;
     }
+  }
+
+  /**
+   * Returns all roles a user effectively holds.
+   * This mirrors the logic in RoleBadgeComponent so that the role filter
+   * matches exactly what is visually shown to the admin.
+   *
+   * Sources:
+   *  1. The primary `role` field (always present)
+   *  2. A `roles` array field (for users with multiple stored roles)
+   *  3. Implicit expansions:  madrasaIncharge & stageHead also count as 'teacher'
+   */
+  private getEffectiveRoles(row: EntityRecord): string[] {
+    const primary = String(row['role'] || '');
+    const secondary: string[] = Array.isArray(row['roles']) ? row['roles'].map(String) : [];
+
+    const effective = new Set<string>([...secondary]);
+    if (primary) effective.add(primary);
+
+    // Mirror role-badge implicit expansions:
+    // madrasaIncharge and stageHead are also displayed as Teacher / Staff
+    if (effective.has('madrasaIncharge') || effective.has('stageHead')) {
+      effective.add('teacher');
+    }
+
+    return Array.from(effective);
   }
 
   private credentialRows(rows: EntityRecord[]): EntityRecord[] {

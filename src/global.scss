@@ -46,9 +46,15 @@
 html,
 body,
 ion-app {
-  background: var(--app-bg) !important;
+  background: #ffffff !important;
   color: var(--app-text-main);
   font-family: var(--app-font-family) !important;
+}
+
+.app-frame,
+#main-content,
+ion-router-outlet {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 *,
@@ -269,18 +275,21 @@ p,
 
 /* Global Page Spacing Layout */
 .page-shell,
-.page,
 .page-container,
 .main-page,
 .feature-page,
-.academic-tree-page {
+.academic-tree-page,
+.content-wrapper,
+.properties-dashboard,
+.competitions-container,
+.exams-container {
   padding: 14px;
   min-height: calc(100vh - 64px);
   background: var(--app-bg);
 }
 
 .page {
-  padding: 75px 24px !important;
+  padding: 24px 16px !important;
 }
 
 .page-header {
@@ -305,12 +314,19 @@ p,
 @media (max-width: 768px) {
 
   .page-shell,
-  .page,
   .page-container,
   .main-page,
   .feature-page,
-  .academic-tree-page {
-    padding: 24px 16px;
+  .academic-tree-page,
+  .content-wrapper,
+  .properties-dashboard,
+  .competitions-container,
+  .exams-container {
+    padding: 16px 12px;
+  }
+
+  .page {
+    padding: 16px 12px !important;
   }
 }
 
@@ -417,16 +433,17 @@ ion-content::part(scroll)::-webkit-scrollbar-thumb {
 /* Skeleton Loaders */
 .skeleton-card {
   height: 88px;
-  border-radius: var(--app-radius-lg);
+  border-radius: var(--app-radius-lg, 12px);
   background: linear-gradient(
     90deg,
-    var(--app-surface-soft, #f8f9fa) 0%,
-    var(--app-surface, #ffffff) 45%,
-    var(--app-surface-soft, #f8f9fa) 100%
-  );
-  background-size: 220% 100%;
-  animation: skeletonShimmer 1.2s ease-in-out infinite;
-  border: 1px solid var(--app-border, #e0e0e0);
+    #e2e8f0 0%,
+    #ffffff 50%,
+    #e2e8f0 100%
+  ) !important;
+  background-size: 200% 100% !important;
+  animation: skeletonShimmer 1.2s ease-in-out infinite !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 @keyframes skeletonShimmer {
@@ -630,5 +647,99 @@ select:-webkit-autofill {
     margin-left: 8px;
     color: #64748b;
     font-style: italic;
+  }
+}
+
+/* Global Responsive Tabs Header */
+.tabs-header,
+.tab-header,
+.nav-tabs,
+.mat-mdc-tab-header,
+.mat-tab-header {
+  display: flex !important;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  scrollbar-width: none;
+  border-bottom: 2px solid var(--app-border, #e2e8f0);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tab-btn, button, .mat-mdc-tab {
+    white-space: nowrap !important;
+    flex-shrink: 0;
+  }
+}
+
+/* Global Responsive Table Layout & Sticky Action Column */
+.table-container,
+.table-responsive,
+.table-wrapper,
+.mat-mdc-table-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  margin-bottom: 16px;
+}
+
+table.data-table,
+table.custom-table,
+table.mat-table,
+table.mat-mdc-table,
+table.responsive-table,
+.mat-mdc-table {
+  width: 100%;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+
+  th, td, .mat-mdc-header-cell, .mat-mdc-cell {
+    white-space: nowrap;
+    padding: 12px 14px;
+  }
+}
+
+/* Sticky Action Column on Mobile (Pinned to the right edge with solid background & shadow) */
+@media (max-width: 768px) {
+  table.data-table,
+  table.custom-table,
+  table.mat-table,
+  table.mat-mdc-table,
+  table.responsive-table,
+  .mat-mdc-table {
+    th.actions-col,
+    td.actions-col,
+    th.mat-column-actions,
+    td.mat-column-actions,
+    th.mat-column-action,
+    td.mat-column-action,
+    th:last-child,
+    td:last-child {
+      position: sticky !important;
+      right: 0 !important;
+      z-index: 10 !important;
+      background: #ffffff !important;
+      box-shadow: -4px 0 10px rgba(0, 0, 0, 0.08) !important;
+    }
+
+    tr:nth-child(even) {
+      td.actions-col,
+      td.mat-column-actions,
+      td.mat-column-action,
+      td:last-child {
+        background: #f8fafc !important;
+      }
+    }
+
+    tr:hover {
+      td.actions-col,
+      td.mat-column-actions,
+      td.mat-column-action,
+      td:last-child {
+        background: #f1f5f9 !important;
+      }
+    }
   }
 }

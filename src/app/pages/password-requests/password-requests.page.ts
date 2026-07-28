@@ -69,8 +69,6 @@ export class PasswordRequestsPage {
     private readonly dialog: MatDialog,
   ) {}
 
-  searchTerm: string = '';
-
   trackById(_: number, item: EntityRecord): string {
     return String(item.id);
   }
@@ -96,7 +94,66 @@ export class PasswordRequestsPage {
     return s === 'pending' || s === 'assigned';
   }
 
-  sortBy: 'newest' | 'oldest' | 'pending_first' | 'name_asc' = 'newest';
+  private _searchTerm: string = '';
+  get searchTerm(): string {
+    return this._searchTerm;
+  }
+  set searchTerm(val: string) {
+    this._searchTerm = val;
+    this.currentPage = 1;
+  }
+
+  private _sortBy: 'newest' | 'oldest' | 'pending_first' | 'name_asc' = 'newest';
+  get sortBy(): 'newest' | 'oldest' | 'pending_first' | 'name_asc' {
+    return this._sortBy;
+  }
+  set sortBy(val: 'newest' | 'oldest' | 'pending_first' | 'name_asc') {
+    this._sortBy = val;
+    this.currentPage = 1;
+  }
+
+  currentPage: number = 1;
+  pageSize: number = 10;
+
+  getPaginatedRequests(requests: (PasswordResetRequest & EntityRecord)[]): (PasswordResetRequest & EntityRecord)[] {
+    const filtered = this.filterRequests(requests);
+    const startIndex = (this.currentPage - 1) * this.pageSize;
+    return filtered.slice(startIndex, startIndex + this.pageSize);
+  }
+
+  getTotalPages(requests: (PasswordResetRequest & EntityRecord)[]): number {
+    const total = this.filterRequests(requests).length;
+    return Math.ceil(total / this.pageSize) || 1;
+  }
+
+  getStartIndex(requests: (PasswordResetRequest & EntityRecord)[]): number {
+    const total = this.filterRequests(requests).length;
+    if (total === 0) return 0;
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  getEndIndex(requests: (PasswordResetRequest & EntityRecord)[]): number {
+    const total = this.filterRequests(requests).length;
+    return Math.min(this.currentPage * this.pageSize, total);
+  }
+
+  prevPage(): void {
+    if (this.currentPage > 1) {
+      this.currentPage--;
+    }
+  }
+
+  nextPage(requests: (PasswordResetRequest & EntityRecord)[]): void {
+    if (this.currentPage < this.getTotalPages(requests)) {
+      this.currentPage++;
+    }
+  }
+
+  goToPage(page: number, requests: (PasswordResetRequest & EntityRecord)[]): void {
+    if (page >= 1 && page <= this.getTotalPages(requests)) {
+      this.currentPage = page;
+    }
+  }
 
   filterRequests(requests: (PasswordResetRequest & EntityRecord)[]): (PasswordResetRequest & EntityRecord)[] {
     let result = requests;

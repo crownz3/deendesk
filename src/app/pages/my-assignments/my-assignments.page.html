@@ -7,60 +7,55 @@
       </div>
     </header>
 
-    <div class="dashboard-welcome-card" style="margin-bottom: 24px;">
-      <p class="welcome-eyebrow">Your Schedule Overview</p>
-      <h2>Hi {{ vm.displayName }}, here are your classes and activities!</h2>
-      <p>View your timetable and class plans below.</p>
-    </div>
-
-    <mat-tab-group animationDuration="0ms">
+    <mat-tab-group animationDuration="0ms" class="responsive-tabs">
       <!-- TODAY'S SCHEDULE -->
       <mat-tab label="Today's Schedule">
         <div class="tab-content">
-          <section class="dashboard-grid" *ngIf="vm.todaySchedule.length > 0; else noToday">
-            <article class="panel">
+          <section *ngIf="vm.todaySchedule.length > 0; else noToday">
+            <div class="panel">
               <div class="panel-heading">
                 <h2>Activities for Today</h2>
-                <span>{{ vm.todaySchedule.length }} activities</span>
+                <span class="count-badge">{{ vm.todaySchedule.length }} activities</span>
               </div>
-              <div style="display: flex; gap: 16px; overflow-x: auto; padding: 16px 0; padding-bottom: 24px;">
-                <mat-card *ngFor="let entry of vm.todaySchedule" style="min-width: 280px; padding: 0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column;">
-                  <div style="background: var(--ion-color-primary, #3880ff); padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 6px;">
-                      <ion-icon name="time-outline" style="font-size: 1.2rem;"></ion-icon>
+
+              <div class="cards-grid">
+                <mat-card *ngFor="let entry of vm.todaySchedule" class="activity-card">
+                  <div class="card-top-bar">
+                    <div class="time-tag">
+                      <ion-icon name="time-outline"></ion-icon>
                       <span *ngIf="entry.startTime">{{ entry.startTime }} - {{ entry.endTime }}</span>
                       <span *ngIf="!entry.startTime">All Day</span>
                     </div>
-                    <span *ngIf="entry.scheduleType === 'fullDay'" style="font-size: 0.75rem; background: var(--ion-color-tertiary); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 600;">FULL DAY</span>
+                    <span *ngIf="entry.scheduleType === 'fullDay'" class="full-day-badge">FULL DAY</span>
                   </div>
                   
-                  <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
-                    <div style="font-size: 1.15rem; font-weight: 600; color: var(--ion-color-dark);">
+                  <div class="card-body">
+                    <div class="activity-title">
                       {{ entry.activityName }}
                     </div>
                     
-                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--ion-color-medium);">
-                      <div *ngIf="entry.classId" style="display: flex; align-items: flex-start; gap: 8px;">
-                        <ion-icon name="people-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-secondary);"></ion-icon> 
-                        <span style="flex: 1; line-height: 1.4;">Class: <strong style="color: var(--ion-color-dark);">{{ entry.className }}</strong></span>
+                    <div class="meta-list">
+                      <div *ngIf="entry.classId" class="meta-item">
+                        <ion-icon name="people-outline" class="icon-secondary"></ion-icon> 
+                        <span>Class: <strong>{{ entry.className }}</strong></span>
                       </div>
-                      <div *ngIf="entry.subjectId" style="display: flex; align-items: flex-start; gap: 8px;">
-                        <ion-icon name="book-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-tertiary);"></ion-icon> 
-                        <span style="flex: 1; line-height: 1.4;">Subject: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.subjectId, 'subject') | async) || 'Loading...' }}</strong></span>
+                      <div *ngIf="entry.subjectId" class="meta-item">
+                        <ion-icon name="book-outline" class="icon-tertiary"></ion-icon> 
+                        <span>Subject: <strong>{{ (resolver.resolveName(entry.subjectId, 'subject') | async) || 'Loading...' }}</strong></span>
                       </div>
-                      <div *ngIf="entry.teacherId" style="display: flex; align-items: flex-start; gap: 8px;">
-                        <ion-icon name="person-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-warning);"></ion-icon> 
-                        <span style="flex: 1; line-height: 1.4;">Teacher: <strong style="color: var(--ion-color-dark);">{{ (resolver.resolveName(entry.teacherId, 'user') | async) || 'Loading...' }}</strong></span>
+                      <div *ngIf="entry.teacherId" class="meta-item">
+                        <ion-icon name="person-outline" class="icon-warning"></ion-icon> 
+                        <span>Teacher: <strong>{{ (resolver.resolveName(entry.teacherId, 'user') | async) || 'Loading...' }}</strong></span>
                       </div>
-                      <div *ngIf="entry.roomId" style="display: flex; align-items: flex-start; gap: 8px;">
-                        <ion-icon name="location-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-danger);"></ion-icon> 
-                        <span style="flex: 1; line-height: 1.4;">Room: <strong style="color: var(--ion-color-dark);">{{ entry.roomId }}</strong></span>
+                      <div *ngIf="entry.roomId" class="meta-item">
+                        <ion-icon name="location-outline" class="icon-danger"></ion-icon> 
+                        <span>Room: <strong>{{ entry.roomId }}</strong></span>
                       </div>
                     </div>
                   </div>
                 </mat-card>
               </div>
-            </article>
+            </div>
           </section>
           <ng-template #noToday>
             <app-empty-state icon="calendar-clear-outline" title="No activities today" message="You don't have any classes scheduled for today."></app-empty-state>
@@ -75,7 +70,7 @@
             <article class="panel" *ngFor="let day of days">
               <div class="panel-heading">
                 <h2>{{ day }}</h2>
-                <span>{{ vm.weeklySchedule[day].length }} activities</span>
+                <span class="count-badge">{{ vm.weeklySchedule[day].length }} activities</span>
               </div>
               <div class="schedule-list" *ngIf="vm.weeklySchedule[day].length > 0; else noDay">
                 <div class="schedule-list-item" *ngFor="let entry of vm.weeklySchedule[day]">
@@ -90,7 +85,7 @@
                 </div>
               </div>
               <ng-template #noDay>
-                <div style="padding: 16px; color: var(--ion-color-medium); font-size: 0.9rem;">No activities scheduled.</div>
+                <div class="no-activity-msg">No activities scheduled.</div>
               </ng-template>
             </article>
           </section>
@@ -114,7 +109,7 @@
               <div class="card-stats">
                 <div class="stat-item">
                   <span>Schedule Type</span>
-                  <strong style="text-transform: capitalize;">{{ plan.scheduleType }}</strong>
+                  <strong class="text-capitalize">{{ plan.scheduleType }}</strong>
                 </div>
                 <div class="stat-item">
                   <span>Status</span>
@@ -142,45 +137,46 @@
       <!-- ASSIGNED EVENTS -->
       <mat-tab label="Assigned Events">
         <div class="tab-content">
-          <section class="dashboard-grid" *ngIf="vm.assignedEvents.length > 0; else noEvents">
-            <article class="panel">
+          <section *ngIf="vm.assignedEvents.length > 0; else noEvents">
+            <div class="panel">
               <div class="panel-heading">
                 <h2>Your Assigned Events</h2>
-                <span>{{ vm.assignedEvents.length }} events</span>
+                <span class="count-badge">{{ vm.assignedEvents.length }} events</span>
               </div>
-              <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; padding: 16px 0;">
-                <mat-card *ngFor="let e of vm.assignedEvents" style="padding: 0; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; display: flex; flex-direction: column;">
-                  <div [style.background]="e.status === 'expired' ? '#64748b' : (e.status === 'completed' ? '#10b981' : 'var(--ion-color-secondary, #3dc2ff)')" style="padding: 12px 16px; border-bottom: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-weight: 600; color: #ffffff; display: flex; align-items: center; gap: 6px;">
-                      <ion-icon name="calendar-outline" style="font-size: 1.2rem;"></ion-icon>
+
+              <div class="cards-grid">
+                <mat-card *ngFor="let e of vm.assignedEvents" class="event-card">
+                  <div class="event-top-bar" [ngClass]="e.status">
+                    <div class="event-date">
+                      <ion-icon name="calendar-outline"></ion-icon>
                       <span>{{ $any(e).startDate?.toDate ? ($any(e).startDate.toDate() | date:'short') : e.startDate }}</span>
                     </div>
-                    <span style="font-size: 0.75rem; background: rgba(0,0,0,0.25); color: white; padding: 2px 8px; border-radius: 12px; font-weight: 700; text-transform: uppercase;">{{ e.status }}</span>
+                    <span class="status-tag">{{ e.status }}</span>
                   </div>
                   
-                  <div style="padding: 16px; display: flex; flex-direction: column; gap: 12px; flex: 1;">
-                    <div style="font-size: 1.15rem; font-weight: 600; color: var(--ion-color-dark);">
+                  <div class="card-body">
+                    <div class="event-title">
                       {{ e.name }}
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.85rem; color: var(--ion-color-medium);">
-                      <div style="display: flex; align-items: flex-start; gap: 8px;">
-                        <ion-icon name="location-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-danger);"></ion-icon> 
-                        <span style="flex: 1; line-height: 1.4;">Venue: <strong style="color: var(--ion-color-dark);">
+                    <div class="meta-list">
+                      <div class="meta-item">
+                        <ion-icon name="location-outline" class="icon-danger"></ion-icon> 
+                        <span>Venue: <strong>
                           <ng-container *ngIf="e.customVenueName">{{ e.customVenueName }}</ng-container>
                           <ng-container *ngIf="!e.customVenueName && e.madrasaVenueId">{{ resolver.resolveName(e.madrasaVenueId, 'madrasa') | async }}</ng-container>
                           <ng-container *ngIf="!e.customVenueName && !e.madrasaVenueId">Organization Level</ng-container>
                         </strong></span>
                       </div>
-                      <div style="display: flex; align-items: flex-start; gap: 8px;">
-                        <ion-icon name="apps-outline" style="margin-top: 2px; font-size: 1.1rem; color: var(--ion-color-primary);"></ion-icon> 
-                        <span style="flex: 1; line-height: 1.4;">Type: <strong style="color: var(--ion-color-dark);">{{ e.customEventType || e.eventType }}</strong></span>
+                      <div class="meta-item">
+                        <ion-icon name="apps-outline" class="icon-primary"></ion-icon> 
+                        <span>Type: <strong>{{ e.customEventType || e.eventType }}</strong></span>
                       </div>
                     </div>
                   </div>
 
-                  <div style="padding: 12px 16px; border-top: 1px solid rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; background: #fafafa;">
+                  <div class="event-footer-bar">
                     <button mat-button color="primary" (click)="openEventDetails(vm, e)">View</button>
-                    <div>
+                    <div class="action-btn-group">
                       <button mat-icon-button color="primary" *ngIf="e.attendanceRequired && canRecordAttendance(e)" (click)="openAttendanceRecorder(vm, e)" matTooltip="Mark Attendance">
                         <mat-icon>how_to_reg</mat-icon>
                       </button>
@@ -191,7 +187,7 @@
                   </div>
                 </mat-card>
               </div>
-            </article>
+            </div>
           </section>
           <ng-template #noEvents>
             <app-empty-state icon="calendar-outline" title="No Assigned Events" message="You don't have any events assigned to you."></app-empty-state>
@@ -204,11 +200,10 @@
 
   <ng-template #loading>
     <main class="page">
-      <header class="page-header" style="display: flex; gap: 20px;">
-        <div class="skeleton-card" style="width: 250px; height: 60px;"></div>
+      <header class="page-header skeleton-header">
+        <div class="skeleton-card skeleton-title"></div>
       </header>
-      <div class="skeleton-card" style="height: 120px; margin-bottom: 24px;"></div>
-      <div class="skeleton-card" style="height: 300px;"></div>
+      <div class="skeleton-card skeleton-body"></div>
     </main>
   </ng-template>
 </ion-content>

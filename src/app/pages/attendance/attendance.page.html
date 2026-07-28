@@ -317,12 +317,14 @@
                           <span class="status-label">{{ status | titlecase }}</span>
                         </mat-button-toggle>
                       </mat-button-toggle-group>
-                      <button mat-icon-button class="evaluate-btn" matTooltip="Log Progress & Evaluation" (click)="openEvaluationDialog(student, vm)" type="button">
-                        <mat-icon>assignment_turned_in</mat-icon>
-                      </button>
-                      <button mat-icon-button class="history-btn" matTooltip="History" (click)="viewHistory(student)" type="button">
-                        <mat-icon>history</mat-icon>
-                      </button>
+                      <div class="row-action-buttons">
+                        <button mat-flat-button color="accent" class="evaluate-btn mobile-eval-btn" (click)="openEvaluationDialog(student, vm)" type="button" title="Log Progress & Evaluation">
+                          <mat-icon>assignment_turned_in</mat-icon> <span class="eval-btn-label">Progress</span>
+                        </button>
+                        <button mat-icon-button class="history-btn" matTooltip="History" (click)="viewHistory(student)" type="button">
+                          <mat-icon>history</mat-icon>
+                        </button>
+                      </div>
                     </div>
                     <!-- Detail chips for absent/late/leave -->
                     <div class="attendance-detail-chips" *ngIf="attendanceDetails[student.id || ''] as detail">

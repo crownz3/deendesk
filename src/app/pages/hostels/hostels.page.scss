@@ -141,6 +141,14 @@
   margin-bottom: 20px;
   border-bottom: 2px solid #e2e8f0;
   padding-bottom: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   .tab-btn {
     display: flex;
@@ -153,6 +161,9 @@
     font-weight: 600;
     color: #64748b;
     cursor: pointer;
+    border-radius: 8px;
+    white-space: nowrap;
+    flex-shrink: 0;
     border-radius: 8px;
 
     &:hover { background: #f1f5f9; color: #0f172a; }
