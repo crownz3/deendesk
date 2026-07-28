@@ -120,16 +120,6 @@
             <span class="header-title-text">{{ appName$ | async }}</span>
           </div>
           <div class="toolbar-actions" slot="end" *ngIf="profile$ | async as profile">
-            <button
-              *ngIf="canManageBranding(profile)"
-              class="settings-button notification-button"
-              type="button"
-              aria-label="Customize Branding & Menus"
-              title="Customize App Name, Logo & Sidenav Menus"
-              (click)="openBrandingDialog()"
-            >
-              <ion-icon name="color-palette-outline"></ion-icon>
-            </button>
             <button *ngIf="profile.role === 'superAdmin'" class="settings-button notification-button" type="button" aria-label="Settings" (click)="openSettings()">
               <ion-icon name="settings-outline"></ion-icon>
             </button>
