@@ -26,6 +26,7 @@ interface NavItem {
   rolesAny?: UserRole[];
   hidden?: boolean;
   orderIndex?: number;
+  children?: NavItem[];
 }
 
 interface NavGroup {
@@ -51,6 +52,21 @@ export class AppComponent {
   readonly logoUrl$ = this.orgBranding.logoUrl$;
   readonly subTitle$ = this.orgBranding.subTitle$;
 
+  expandedMenus: Record<string, boolean> = { '/users': true };
+
+  toggleMenuExpand(route: string, event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+    this.expandedMenus[route] = !this.isMenuExpanded(route);
+  }
+
+  isMenuExpanded(route: string): boolean {
+    return this.expandedMenus[route] !== false;
+  }
+
   readonly navGroups: NavGroup[] = [
     {
       label: 'Overview',
@@ -70,7 +86,21 @@ export class AppComponent {
         { label: 'Subscriptions & Billing', route: '/subscriptions', icon: 'card-outline', roleRequired: 'superAdmin' },
         { label: 'Madrasas', route: '/madrasas', icon: 'school-outline', permission: 'manageMadrasas' },
         { label: 'Roles', route: '/roles-permissions', icon: 'shield-checkmark-outline', permission: 'managePermissions' },
-        { label: 'Users', route: '/users', icon: 'people-outline', permission: 'manageUsers' },
+        {
+          label: 'Users',
+          route: '/users',
+          icon: 'people-outline',
+          permissionsAny: ['manageUsers', 'manageCoordinators', 'manageIncharges', 'manageStaff', 'manageStudents', 'manageParents'],
+          children: [
+            { label: 'All Users', route: '/users', icon: 'people-outline', permission: 'manageUsers' },
+            { label: 'Duplicate Users Audit', route: '/duplicate-users', icon: 'copy-outline', roleRequired: 'superAdmin' },
+            { label: 'Coordinators', route: '/coordinators', icon: 'git-network-outline', permissionsAny: ['manageCoordinators', 'manageUsers'] },
+            { label: 'Madrasa Incharges', route: '/madrasa-incharges', icon: 'person-circle-outline', permissionsAny: ['manageIncharges', 'manageUsers'] },
+            { label: 'Staff / Teachers', route: '/staff', icon: 'briefcase-outline', permissionsAny: ['manageStaff', 'manageUsers'] },
+            { label: 'Students', route: '/students', icon: 'school-outline', permissionsAny: ['manageStudents', 'manageUsers'] },
+            { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permissionsAny: ['manageParents', 'manageUsers'] },
+          ]
+        },
         { label: 'Lifecycle History', route: '/lifecycle', icon: 'time-outline', permissionsAny: ['manageUserLifecycle'] },
       ]
     },
@@ -135,14 +165,34 @@ export class AppComponent {
               const customLabel = custom?.customLabel !== undefined && custom.customLabel.trim() ? custom.customLabel.trim() : item.label;
               const orderIndex = custom?.orderIndex !== undefined ? custom.orderIndex : 999;
 
+              let filteredChildren: NavItem[] | undefined = undefined;
+              if (item.children && item.children.length > 0) {
+                filteredChildren = item.children
+                  .map(child => {
+                    const childCustom = customMap.get(child.route);
+                    const childHidden = childCustom?.hidden === true;
+                    const childCustomLabel = childCustom?.customLabel !== undefined && childCustom.customLabel.trim() ? childCustom.customLabel.trim() : child.label;
+                    return {
+                      ...child,
+                      displayLabel: childCustomLabel,
+                      hidden: childHidden,
+                    };
+                  })
+                  .filter(child => !child.hidden && this.visible(child, profile) && (child.displayLabel || child.label).toLowerCase().includes(lowerQuery));
+              }
+
               return {
                 ...item,
                 displayLabel: customLabel,
                 hidden: isHidden,
                 orderIndex,
+                children: filteredChildren,
               };
             })
-            .filter((item) => !item.hidden && this.visible(item, profile) && (item.displayLabel || item.label).toLowerCase().includes(lowerQuery));
+            .filter((item) => !item.hidden && (this.visible(item, profile) || (item.children && item.children.length > 0)) && (
+              (item.displayLabel || item.label).toLowerCase().includes(lowerQuery) ||
+              (item.children && item.children.some(c => (c.displayLabel || c.label).toLowerCase().includes(lowerQuery)))
+            ));
 
           items.sort((a, b) => (a.orderIndex ?? 999) - (b.orderIndex ?? 999));
 

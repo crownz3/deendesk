@@ -141,6 +141,15 @@
             <ion-icon name="download-outline"></ion-icon>
             Download CSV
           </button>
+          <button
+            *ngIf="vm.config.resource === 'users' && vm.rows.length > 0"
+            mat-stroked-button
+            color="accent"
+            type="button"
+            (click)="findDuplicateAccounts(vm.rows)">
+            <ion-icon name="search-outline"></ion-icon>
+            Audit Duplicates
+          </button>
         </div>
       </header>
 
@@ -278,6 +287,7 @@
             [currentUid]="vm.profile?.uid"
             [columns]="vm.config.columns"
             [rows]="vm.rows"
+            [excludeRole]="vm.config.fixedRole"
             [emptyTitle]="vm.config.emptyTitle || 'No data found'"
             [emptyText]="vm.config.emptyText"
             [emptyButton]="vm.config.emptyButton"

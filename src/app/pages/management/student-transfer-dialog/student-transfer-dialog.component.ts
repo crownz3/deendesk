@@ -125,18 +125,29 @@ export class StudentTransferDialogComponent implements OnInit {
     this.saving = true;
     try {
       const profile = await firstValueFrom(this.auth.profile$);
+      const targetMadrasaName = this.madrasas.find(m => m.id === this.newMadrasaId)?.['name'] || '';
+      const targetCourseName = this.courses.find(c => c.id === this.newCourseId)?.['name'] || this.courses.find(c => c.id === this.newCourseId)?.['title'] || '';
+      const targetClassName = this.classes.find(c => c.id === this.newClassId)?.['name'] || this.classes.find(c => c.id === this.newClassId)?.['title'] || '';
+      const targetGroupName = this.groups.find(g => g.id === this.newGroupId)?.['name'] || this.groups.find(g => g.id === this.newGroupId)?.['title'] || '';
+
       const studentUpdates = {
         madrasaId: this.newMadrasaId,
+        madrasaName: targetMadrasaName,
         courseId: this.newCourseId,
+        courseName: targetCourseName,
         classId: this.newClassId,
+        className: targetClassName,
         groupId: this.newGroupId,
+        groupName: targetGroupName,
       };
 
       for (const std of this.targetStudents) {
-        const studentId = String(std.id || std['uid']);
+        const studentId = String(std.id || std['uid'] || std['docId']);
+        const sName = String(std['name'] || std['studentName'] || std['displayName'] || 'Student');
 
         const transferHistory = {
           studentId: studentId,
+          studentName: sName,
           previousMadrasaId: std['madrasaId'] || undefined,
           previousCourseId: std['courseId'] || undefined,
           previousClassId: std['classId'] || undefined,
@@ -147,21 +158,52 @@ export class StudentTransferDialogComponent implements OnInit {
           newGroupId: this.newGroupId,
           reason: this.reason,
           actionDate: this.actionDate,
-          organizationId: std['organizationId'] || undefined,
-          madrasaId: std['madrasaId'] || undefined,
+          organizationId: std['organizationId'] || profile?.organizationId || undefined,
+          madrasaId: this.newMadrasaId,
         };
 
         await this.repo.create('studentTransfers', transferHistory, profile);
-        await this.repo.update('students', studentId, studentUpdates, profile);
 
-        const userUid = String(std['userId'] || std['uid'] || '');
-        if (userUid) {
-          await this.repo.update('users', userUid, {
+        await this.repo.create('userLifecycleHistory', {
+          userId: studentId,
+          userName: sName,
+          personType: 'student',
+          lifecycleAction: 'Transferred',
+          actionType: 'Transfer',
+          reason: `Transferred to ${targetClassName || 'Class'} (${targetGroupName || 'Group'}) in ${targetMadrasaName || 'Madrasa'}. Reason: ${this.reason}`,
+          previousMadrasaId: std['madrasaId'] || '',
+          newMadrasaId: this.newMadrasaId,
+          previousCourseId: std['courseId'] || '',
+          newCourseId: this.newCourseId,
+          previousClassId: std['classId'] || '',
+          newClassId: this.newClassId,
+          previousGroupId: std['groupId'] || '',
+          newGroupId: this.newGroupId,
+          effectiveDate: new Date().toISOString(),
+          effectiveDateMs: Date.now(),
+          performedBy: profile?.displayName || profile?.email || 'System',
+          actionPerformedByName: profile?.displayName || profile?.email || 'System',
+          organizationId: profile?.organizationId || std['organizationId'] || '',
+          madrasaId: this.newMadrasaId,
+          status: 'active'
+        }, profile).catch(e => console.warn('Failed to log userLifecycleHistory for transfer:', e));
+
+        const candidateIds = [std.id, std['uid'], std['docId'], std['userId'], std['entityId']]
+          .map(v => String(v || '').trim())
+          .filter(Boolean);
+
+        for (const sId of candidateIds) {
+          await this.repo.update('students', sId, studentUpdates, profile).catch(() => {});
+          await this.repo.update('users', sId, {
             ...studentUpdates,
             madrasaIds: [this.newMadrasaId]
-          }, profile).catch(e => console.warn('Failed to update users collection', e));
+          }, profile).catch(() => {});
         }
       }
+
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
+      this.repo.clearCache('userLifecycleHistory');
 
       this.snackBar.open(`${this.targetStudents.length} student(s) transferred successfully.`, 'Close', { duration: 4000 });
       this.dialogRef.close({ success: true });

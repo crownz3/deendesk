@@ -10,6 +10,7 @@ import { UserRole } from '../../../core/models/domain.model';
 })
 export class RoleBadgeComponent implements OnChanges {
   @Input() role: UserRole | string | string[] | undefined;
+  @Input() excludeRole: string | string[] | undefined;
 
   badges: { label: string; class: string }[] = [];
 
@@ -27,8 +28,15 @@ export class RoleBadgeComponent implements OnChanges {
       roles = this.role.split(',').map(r => r.trim());
     }
 
-    if (roles.includes('madrasaIncharge') && !roles.includes('teacher')) {
-      roles.push('teacher');
+    let excludes: string[] = [];
+    if (Array.isArray(this.excludeRole)) {
+      excludes = [...this.excludeRole];
+    } else if (typeof this.excludeRole === 'string') {
+      excludes = [this.excludeRole];
+    }
+
+    if (excludes.length > 0) {
+      roles = roles.filter(r => !excludes.includes(r));
     }
 
     return roles.map(r => {

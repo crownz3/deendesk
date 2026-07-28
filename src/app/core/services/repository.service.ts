@@ -27,6 +27,7 @@ import { AppUser, AppModuleId, ScopedEntity } from '../models/domain.model';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 import { FirebaseUsageTrackerService } from './firebase-usage-tracker.service';
+import { NameResolverService } from './name-resolver.service';
 
 export type EntityRecord = ScopedEntity & Record<string, any>;
 
@@ -36,7 +37,8 @@ export class RepositoryService {
 
   constructor(
     private auditLogService: AuditLogService,
-    private usageTracker: FirebaseUsageTrackerService
+    private usageTracker: FirebaseUsageTrackerService,
+    private nameResolver: NameResolverService
   ) {}
 
   private mapCollectionToModule(collectionName: string): AppModuleId {
@@ -475,23 +477,22 @@ export class RepositoryService {
     }
     
     if (collectionName === 'classGroups') {
-      const groupDoc = await getDoc(doc(this.firestore, `${collectionName}/${id}`));
-      const groupData = groupDoc.data();
-      if (groupData) {
-        const studentsQ = query(collection(this.firestore, 'students'), where('groupId', '==', id), limit(1));
-        const studentsSnap = await getDocs(studentsQ);
-        if (!studentsSnap.empty) {
-           throw new Error('Cannot delete this group because it contains students. You must first move the students to a different group or class before deleting this one.');
-        }
-        
-        const staffQ = query(collection(this.firestore, 'users'), where('groupIds', 'array-contains', id), limit(1));
-        const staffSnap = await getDocs(staffQ);
-        if (!staffSnap.empty) {
-           throw new Error('Cannot delete this group because it contains staff. You must first unassign them before deleting this one.');
-        }
-
-        // Allowed to delete the last group, so they can subsequently delete the class
+      const studentsQ = query(collection(this.firestore, 'students'), where('groupId', '==', id));
+      const studentsSnap = await getDocs(studentsQ);
+      for (const studentDoc of studentsSnap.docs) {
+        await updateDoc(doc(this.firestore, `students/${studentDoc.id}`), { groupId: null, groupName: null }).catch(() => {});
+        await updateDoc(doc(this.firestore, `users/${studentDoc.id}`), { groupId: null, groupName: null }).catch(() => {});
       }
+
+      const usersStudentsQ = query(collection(this.firestore, 'users'), where('groupId', '==', id));
+      const usersStudentsSnap = await getDocs(usersStudentsQ);
+      for (const userDoc of usersStudentsSnap.docs) {
+        await updateDoc(doc(this.firestore, `users/${userDoc.id}`), { groupId: null, groupName: null }).catch(() => {});
+        await updateDoc(doc(this.firestore, `students/${userDoc.id}`), { groupId: null, groupName: null }).catch(() => {});
+      }
+
+      this.clearCache('students');
+      this.clearCache('users');
     }
 
     if (collectionName === 'classes') {
@@ -607,32 +608,32 @@ export class RepositoryService {
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minute TTL
 
   clearCache(collectionName?: string) {
+    console.log('[CACHE CLEAR EXECUTED]', {
+      collectionName,
+      activeStreamKeys: Array.from(this.streamTriggerMap.keys()),
+      memoryCacheKeys: Array.from(this.memoryCache.keys())
+    });
+
     if (collectionName) {
       for (const key of Array.from(this.memoryCache.keys())) {
-        if (key.startsWith(collectionName)) {
+        if (key.startsWith(collectionName) || key.includes(`_${collectionName}_`)) {
           this.memoryCache.delete(key);
         }
       }
-      for (const key of Array.from(this.streamCache.keys())) {
-        if (key.startsWith(collectionName)) {
-          this.streamCache.delete(key);
-          const trigger = this.streamTriggerMap.get(key);
-          if (trigger) {
-            trigger.next(Date.now());
-            this.streamTriggerMap.delete(key);
-          }
+      for (const [key, trigger] of Array.from(this.streamTriggerMap.entries())) {
+        if (key.startsWith(collectionName) || key.includes(`_${collectionName}_`)) {
+          console.log(`[STREAM RE-TRIGGERING EMISSION] key=${key}`);
+          trigger.next(Date.now());
         }
       }
     } else {
       this.memoryCache.clear();
-      for (const key of Array.from(this.streamCache.keys())) {
-        this.streamCache.delete(key);
-      }
       for (const [key, trigger] of Array.from(this.streamTriggerMap.entries())) {
+        console.log(`[STREAM RE-TRIGGERING ALL EMISSIONS] key=${key}`);
         trigger.next(Date.now());
       }
-      this.streamTriggerMap.clear();
     }
+    this.nameResolver.clearCache();
   }
 
   async getAllOnce<T extends EntityRecord>(collectionName: string, user: AppUser | null, options?: { roles?: string[]; forceRefresh?: boolean }, extra: QueryConstraint[] = []): Promise<T[]> {

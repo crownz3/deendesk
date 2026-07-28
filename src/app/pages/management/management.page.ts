@@ -88,6 +88,7 @@ const baseStatusField: QuickAddField = {
   options: [
     { label: 'Active', value: 'active' },
     { label: 'Pending', value: 'pending' },
+    { label: 'Inactive', value: 'inactive' },
     { label: 'Disabled', value: 'disabled' },
   ],
 };
@@ -242,6 +243,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'gender', label: 'Gender' },
+      { key: 'roles', label: 'Other Roles', type: 'role' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -279,6 +281,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'gender', label: 'Gender' },
+      { key: 'roles', label: 'Other Roles', type: 'role' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -314,10 +317,11 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     emptyButton: 'Add Staff',
     emptyIcon: 'briefcase-outline',
     columns: [
-      { key: 'name', label: 'Name' },
+      { key: 'displayName', label: 'Name' },
       { key: 'email', label: 'Email' },
       { key: 'mobileNumber', label: 'Mobile Number' },
       { key: 'gender', label: 'Gender' },
+      { key: 'roles', label: 'Other Roles', type: 'role' },
       { key: 'assignedClassGroup', label: 'Assigned Class Group' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
@@ -530,8 +534,6 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     collection: 'classes',
     allowDelete: true,
     allowDetails: true,
-    allowAssignStudents: true,
-    allowAssignStaff: true,
     emptyTitle: 'No classes found',
     emptyText: 'Create classes to organize students within specific courses and stages.',
     emptyButton: 'Add Class',
@@ -747,33 +749,26 @@ export class ManagementPage {
               filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
             }
 
-            // Enrich 'users' rows with roles derived from madrasa membership.
-            // A person may have role='teacher' in their user doc but also appear
-            // in a madrasa's inchargeIds or coordinatorIds — both roles must show.
-            // We ALWAYS set row.roles (at minimum the primary role) because the
-            // column key is now 'roles' — without it the cell shows N/A.
-            if (config.resource === 'users') {
+            // Enrich 'users', 'incharges', 'coordinators', 'staff' rows with effective roles derived from madrasa membership.
+            // A person may have role='teacher' in their user doc but also appear in a madrasa's inchargeIds or coordinatorIds.
+            if (['users', 'incharges', 'coordinators', 'staff'].includes(config.resource)) {
               filteredRows = filteredRows.map(row => {
-                const userId = String(row['uid'] || row.id || '');
-
-                const derived = new Set<string>();
-                if (userId) {
-                  for (const madrasa of madrasas) {
-                    const inchargeIds: string[] = Array.isArray(madrasa['inchargeIds']) ? madrasa['inchargeIds'].map(String) : [];
-                    const coordinatorIds: string[] = Array.isArray(madrasa['coordinatorIds']) ? madrasa['coordinatorIds'].map(String) : [];
-                    if (inchargeIds.includes(userId)) derived.add('madrasaIncharge');
-                    if (coordinatorIds.includes(userId)) derived.add('coordinator');
-                  }
-                }
-
-                const primaryRole = String(row['role'] || '');
-                const existingRoles: string[] = Array.isArray(row['roles']) ? row['roles'].map(String) : (primaryRole ? [primaryRole] : []);
-                const allRoles = [...new Set([...existingRoles, ...Array.from(derived)])].filter(Boolean);
-
-                // Always return with roles set — even if no derived roles were found,
-                // the column needs a roles[] to render the primary role badge.
-                return { ...row, roles: allRoles };
+                const roles = this.getEffectiveRoles(row, madrasas);
+                return { ...row, roles };
               });
+            }
+
+            // Resource-level role filtering using effective roles:
+            // e.g. 'incharges' page shows anyone holding 'madrasaIncharge' role (primary, secondary, or derived from madrasa doc)
+            // 'coordinators' page shows anyone holding 'coordinator' role
+            if (['incharges', 'coordinators', 'staff', 'students', 'parents'].includes(config.resource)) {
+              const reqRoles = this.rolesForResource(config.resource);
+              if (reqRoles && reqRoles.length > 0) {
+                filteredRows = filteredRows.filter(r => {
+                  const userRoles = this.getEffectiveRoles(r, madrasas);
+                  return reqRoles.some(req => userRoles.includes(req));
+                });
+              }
             }
            
             if (config.resource === 'students') {
@@ -982,11 +977,15 @@ export class ManagementPage {
         staffRows.forEach(s => {
           const uid = String(s['userId'] || s['uid'] || s.id || '');
           if (uid) staffMap.set(uid, s);
+          const email = String(s['email'] || '').toLowerCase().trim();
+          if (email) staffMap.set(email, s);
         });
 
         // Merge staff entity data over user data so updates in staff collection reflect in the table!
         let merged = userRows.map(userRow => {
-          const staffDoc = userRow.id ? staffMap.get(userRow.id) : undefined;
+          const uid = String(userRow['uid'] || userRow.id || '');
+          const email = String(userRow['email'] || '').toLowerCase().trim();
+          const staffDoc = (uid ? staffMap.get(uid) : undefined) || (email ? staffMap.get(email) : undefined);
           if (staffDoc) {
             return {
               ...userRow,
@@ -1007,18 +1006,8 @@ export class ManagementPage {
           return userRow;
         });
 
-        if (queryRoles && queryRoles.length > 0 && config.resource !== 'users') {
-          merged = merged.filter(r => queryRoles!.includes(String(r['role'])));
-        }
-
-        // For 'users' resource, use effective-role matching:
-        // a user may hold multiple roles (primary 'role' field, a 'roles' array,
-        // or implicit roles like madrasaIncharge implying teacher).
-        if (config.resource === 'users' && roleFilter !== 'all') {
-          merged = merged.filter(r => this.getEffectiveRoles(r).includes(roleFilter));
-        }
-
-
+        // Effective role filtering is performed uniformly in the vm$ pipeline using getEffectiveRoles(r, madrasas)
+        // so multi-role users (e.g. Incharges/Coordinators with teaching duties) match consistently on all pages.
         return this.credentialRows(merged);
       })
     );
@@ -1028,7 +1017,7 @@ export class ManagementPage {
     switch (resource) {
       case 'coordinators': return ['coordinator'];
       case 'incharges': return ['madrasaIncharge'];
-      case 'staff': return ['teacher', 'staff', 'stageHead', 'madrasaIncharge', 'coordinator', 'organizationAdmin'];
+      case 'staff': return ['teacher', 'staff', 'stageHead', 'madrasaIncharge', 'coordinator'];
       case 'students': return ['student'];
       case 'parents': return ['parent'];
       default: return undefined;
@@ -1045,12 +1034,26 @@ export class ManagementPage {
    *  2. A `roles` array field (for users with multiple stored roles)
    *  3. Implicit expansions:  madrasaIncharge & stageHead also count as 'teacher'
    */
-  private getEffectiveRoles(row: EntityRecord): string[] {
+  private getEffectiveRoles(row: EntityRecord, madrasas?: EntityRecord[]): string[] {
     const primary = String(row['role'] || '');
     const secondary: string[] = Array.isArray(row['roles']) ? row['roles'].map(String) : [];
 
     const effective = new Set<string>([...secondary]);
     if (primary) effective.add(primary);
+
+    const userId = String(row['uid'] || row['userId'] || row.id || '');
+    if (userId && madrasas && madrasas.length > 0) {
+      for (const m of madrasas) {
+        const inchargeIds: string[] = Array.isArray(m['inchargeIds']) ? m['inchargeIds'].map(String) : [];
+        const coordinatorIds: string[] = Array.isArray(m['coordinatorIds']) ? m['coordinatorIds'].map(String) : [];
+        if (inchargeIds.includes(userId) || (row.id && inchargeIds.includes(row.id))) {
+          effective.add('madrasaIncharge');
+        }
+        if (coordinatorIds.includes(userId) || (row.id && coordinatorIds.includes(row.id))) {
+          effective.add('coordinator');
+        }
+      }
+    }
 
     // Mirror role-badge implicit expansions:
     // madrasaIncharge and stageHead are also displayed as Teacher / Staff
@@ -1064,10 +1067,11 @@ export class ManagementPage {
   private credentialRows(rows: EntityRecord[]): EntityRecord[] {
     return rows.map((row) => {
       const creds = this.credentialService.getCredentialStatus(row);
+      const fullName = row['displayName'] || row['name'] || row['email'] || 'N/A';
       return {
         ...row,
-        name: row['name'] || row['displayName'] || row['email'] || 'N/A',
-        displayName: row['displayName'] || row['name'] || row['email'] || 'N/A',
+        name: fullName,
+        displayName: fullName,
         mobileNumber: row['mobileNumber'] || row['phone'] || '',
         phone: row['phone'] || row['mobileNumber'] || '',
         credentialStatus: creds.status,
@@ -1087,6 +1091,10 @@ export class ManagementPage {
         console.warn('[Students] Classes load failed:', e);
         return of([] as EntityRecord[]);
       })),
+      this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError((e) => {
+        console.warn('[Students] Class groups load failed:', e);
+        return of([] as EntityRecord[]);
+      })),
       this.repo.list<EntityRecord>('parents', profile).pipe(catchError((e) => {
         console.warn('[Students] Parents load failed:', e);
         return of([] as EntityRecord[]);
@@ -1103,7 +1111,7 @@ export class ManagementPage {
         return of([] as EntityRecord[]);
       })),
     ]).pipe(
-      map(([students, courses, classes, parents, userRows, madrasas]) => {
+      map(([students, courses, classes, classGroups, parents, userRows, madrasas]) => {
         if (profile?.role === 'teacher' || (profile?.role as string) === 'staff') {
           const allowedClassIds = classes.map(c => c.id);
           students = students.filter(s => allowedClassIds.includes(String(s['classId'])));
@@ -1116,6 +1124,34 @@ export class ManagementPage {
         const studentIds = this.uniqueStrings([row.id, row['userId'], row['uid']]);
         const parentEmail = this.resolveParentEmail(userRow, row, parents, studentUserId, studentIds);
 
+        const effectiveClassId = row['classId'] !== undefined && row['classId'] !== null ? row['classId'] : userRow['classId'];
+        const effectiveGroupId = row['groupId'] !== undefined && row['groupId'] !== null ? row['groupId'] : userRow['groupId'];
+        const effectiveCourseId = row['courseId'] !== undefined && row['courseId'] !== null ? row['courseId'] : userRow['courseId'];
+        const effectiveMadrasaId = row['madrasaId'] !== undefined && row['madrasaId'] !== null ? row['madrasaId'] : userRow['madrasaId'];
+
+        const matchedClass = classes.find((c: any) => c.id === effectiveClassId);
+        const matchedGroup = classGroups.find((g: any) => g.id === effectiveGroupId);
+        const matchedCourse = courses.find((c: any) => c.id === effectiveCourseId);
+        const matchedMadrasa = madrasas.find((m: any) => m.id === effectiveMadrasaId);
+
+        const resolvedClassName = matchedClass?.['name'] || matchedClass?.['title'] || row['className'] || userRow['className'] || '';
+        const resolvedGroupName = matchedGroup?.['name'] || matchedGroup?.['title'] || (effectiveGroupId ? (row['groupName'] || userRow['groupName'] || '') : '');
+        const resolvedCourseName = matchedCourse?.['name'] || matchedCourse?.['title'] || row['courseName'] || userRow['courseName'] || '';
+        const resolvedMadrasaName = matchedMadrasa?.['name'] || row['madrasaName'] || userRow['madrasaName'] || '';
+
+        console.log('[Student Row Resolution Debug]', {
+          studentName: row['name'] || userRow['displayName'],
+          studentDocId: row.id,
+          rowClassId: row['classId'],
+          userRowClassId: userRow['classId'],
+          effectiveClassId,
+          resolvedClassName,
+          rowGroupId: row['groupId'],
+          userRowGroupId: userRow['groupId'],
+          effectiveGroupId,
+          resolvedGroupName
+        });
+
         return {
           ...userRow,
           ...row,
@@ -1126,16 +1162,17 @@ export class ManagementPage {
           name: row['name'] || row['studentName'] || userRow['displayName'] || userRow['name'] || '',
           email: row['email'] || userRow['email'] || '',
           fatherName: row['fatherName'] || userRow['fatherName'] || row['parentName'] || userRow['parentName'] || '',
-          courseId: userRow['courseId'] || row['courseId'],
-          classId: userRow['classId'] || row['classId'],
-          groupId: userRow['groupId'] || row['groupId'],
-          courseName: row['courseName'] || courses.find((c: any) => c.id === (userRow['courseId'] || row['courseId']))?.['title'] || courses.find((c: any) => c.id === (userRow['courseId'] || row['courseId']))?.['name'] || '',
-          className: row['className'] || classes.find((c: any) => c.id === (userRow['classId'] || row['classId']))?.['name'] || classes.find((c: any) => c.id === (userRow['classId'] || row['classId']))?.['title'] || '',
-          madrasaName: row['madrasaName'] || madrasas.find((m: any) => m.id === (userRow['madrasaId'] || row['madrasaId']))?.['name'] || '',
+          courseId: effectiveCourseId || null,
+          classId: effectiveClassId || null,
+          groupId: effectiveGroupId || null,
+          groupName: resolvedGroupName,
+          className: resolvedClassName,
+          courseName: resolvedCourseName,
+          madrasaName: resolvedMadrasaName,
           stage: this.getStudentStage(userRow) !== '-' ? this.getStudentStage(userRow) : this.getStudentStage(row),
           parentEmail,
           organizationId: userRow['organizationId'] || row['organizationId'],
-          madrasaId: userRow['madrasaId'] || row['madrasaId'],
+          madrasaId: effectiveMadrasaId || null,
           madrasaIds: (Array.isArray(userRow['madrasaIds']) && userRow['madrasaIds'].length > 0) ? userRow['madrasaIds'] : row['madrasaIds'],
           credentialStatus: creds.status,
           temporaryPasswordDisplay: creds.display,
@@ -1451,6 +1488,108 @@ export class ManagementPage {
     } finally {
       this.loader.hide();
     }
+  }
+
+  findDuplicateAccounts(rows: EntityRecord[]): void {
+    const normalizeName = (name: string) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalizeEmail = (email: string) => (email || '').toLowerCase().trim();
+
+    const isParent = (u: EntityRecord) => {
+      const role = String(u['role'] || '');
+      const roles = Array.isArray(u['roles']) ? u['roles'].map(String) : [];
+      return role === 'parent' || roles.includes('parent');
+    };
+
+    const groups: { original: EntityRecord; duplicates: EntityRecord[]; reason: string }[] = [];
+    const seenUids = new Set<string>();
+
+    for (let i = 0; i < rows.length; i++) {
+      const u1 = rows[i];
+      if (isParent(u1)) continue;
+      const uid1 = String(u1['uid'] || u1.id || '');
+      if (seenUids.has(uid1)) continue;
+
+      const name1 = normalizeName(String(u1['displayName'] || u1['name'] || ''));
+      const email1 = normalizeEmail(String(u1['email'] || ''));
+      const phone1 = String(u1['mobileNumber'] || u1['phone'] || '').trim();
+
+      const matchedDuplicates: EntityRecord[] = [];
+      let matchReason = '';
+
+      for (let j = i + 1; j < rows.length; j++) {
+        const u2 = rows[j];
+        if (isParent(u2)) continue;
+        const uid2 = String(u2['uid'] || u2.id || '');
+        if (seenUids.has(uid2)) continue;
+
+        const name2 = normalizeName(String(u2['displayName'] || u2['name'] || ''));
+        const email2 = normalizeEmail(String(u2['email'] || ''));
+        const phone2 = String(u2['mobileNumber'] || u2['phone'] || '').trim();
+
+        let isMatch = false;
+        if (name1 && name2 && name1 === name2 && uid1 !== uid2) {
+          isMatch = true;
+          matchReason = 'Identical / Similar Name';
+        } else if (email1 && email2 && this.isSimilarEmail(email1, email2) && uid1 !== uid2) {
+          isMatch = true;
+          matchReason = 'Similar Email';
+        } else if (phone1 && phone2 && phone1 === phone2 && phone1.length >= 10 && uid1 !== uid2) {
+          isMatch = true;
+          matchReason = 'Same Phone Number';
+        }
+
+        if (isMatch) {
+          matchedDuplicates.push(u2);
+          seenUids.add(uid2);
+        }
+      }
+
+      if (matchedDuplicates.length > 0) {
+        seenUids.add(uid1);
+        groups.push({ original: u1, duplicates: matchedDuplicates, reason: matchReason });
+      }
+    }
+
+    if (groups.length === 0) {
+      this.snackBar.open('No duplicate accounts found!', 'Close', { duration: 4000 });
+      return;
+    }
+
+    let messageText = `Found ${groups.length} potential duplicate account group(s):\n\n`;
+    groups.forEach((g, idx) => {
+      const origName = g.original['displayName'] || g.original['name'] || 'N/A';
+      const origEmail = g.original['email'] || 'N/A';
+      messageText += `${idx + 1}. Main Account: ${origName} (${origEmail})\n`;
+      g.duplicates.forEach(d => {
+        const dupName = d['displayName'] || d['name'] || 'N/A';
+        const dupEmail = d['email'] || 'N/A';
+        messageText += `   - Duplicate Account: ${dupName} (${dupEmail}) [Match Reason: ${g.reason}]\n`;
+      });
+      messageText += '\n';
+    });
+
+    this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Duplicate Accounts Audit (${groups.length} Found)`,
+        message: messageText,
+        confirmLabel: 'OK',
+        hideCancel: true,
+      }
+    });
+  }
+
+  private isSimilarEmail(e1: string, e2: string): boolean {
+    if (e1 === e2) return true;
+    const [user1, domain1] = e1.split('@');
+    const [user2, domain2] = e2.split('@');
+    if (!user1 || !user2 || domain1 !== domain2) return false;
+    if (user1.includes(user2) || user2.includes(user1)) return true;
+    let diff = 0;
+    const maxLen = Math.max(user1.length, user2.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (user1[i] !== user2[i]) diff++;
+    }
+    return diff <= 2;
   }
 
 
@@ -2215,8 +2354,10 @@ export class ManagementPage {
     }).afterClosed());
 
     if (result?.success) {
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
+      this.pageIndex$.next(this.pageIndex$.value);
       this.snackBar.open('Student transferred successfully.', 'Close', { duration: 4000 });
-      // The snapshot listener will automatically refresh the list
     }
   }
 
@@ -2229,6 +2370,8 @@ export class ManagementPage {
     }).afterClosed());
 
     if (result?.success) {
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
       dataTable.selection.clear();
       this.pageIndex$.next(this.pageIndex$.value);
     }
@@ -2243,6 +2386,8 @@ export class ManagementPage {
     }).afterClosed());
 
     if (result?.success) {
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
       dataTable.selection.clear();
       this.pageIndex$.next(this.pageIndex$.value);
     }
@@ -2380,9 +2525,97 @@ export class ManagementPage {
                 console.warn(`[openEditor] Shadow update for users/${targetUid} skipped:`, e);
               });
             }
-            // Case 3: Other collections (courses, classes, subjects, madrasas, etc.)
+            // Case 3: Other collections (students, courses, classes, subjects, madrasas, etc.)
             else {
               await this.repo.update(config.collection, initial.id, processedPayload, profile);
+
+              if (config.collection === 'students') {
+                const oldMadrasaId = initial['madrasaId'];
+                const newMadrasaId = processedPayload['madrasaId'] !== undefined ? processedPayload['madrasaId'] : oldMadrasaId;
+                const oldCourseId = initial['courseId'];
+                const newCourseId = processedPayload['courseId'] !== undefined ? processedPayload['courseId'] : oldCourseId;
+                const oldClassId = initial['classId'];
+                const newClassId = processedPayload['classId'] !== undefined ? processedPayload['classId'] : oldClassId;
+                const oldGroupId = initial['groupId'];
+                const newGroupId = processedPayload['groupId'] !== undefined ? processedPayload['groupId'] : oldGroupId;
+
+                const isAcademicChange = (
+                  (newMadrasaId && newMadrasaId !== oldMadrasaId) ||
+                  (newCourseId && newCourseId !== oldCourseId) ||
+                  (newClassId && newClassId !== oldClassId) ||
+                  (newGroupId !== undefined && newGroupId !== oldGroupId)
+                );
+
+                if (isAcademicChange) {
+                  const studentId = String(initial.id || initial['uid'] || initial['userId']);
+                  const sName = String(processedPayload['name'] || initial['name'] || initial['displayName'] || 'Student');
+
+                  const [classes, groups, madrasas] = await Promise.all([
+                    this.repo.getAllOnce('classes', profile).catch(() => []),
+                    this.repo.getAllOnce('classGroups', profile).catch(() => []),
+                    this.repo.getAllOnce('madrasas', profile).catch(() => []),
+                  ]);
+
+                  const newClassName = classes.find((c: any) => c.id === newClassId)?.['name'] || processedPayload['className'] || '';
+                  const newGroupName = groups.find((g: any) => g.id === newGroupId)?.['name'] || processedPayload['groupName'] || '';
+                  const newMadrasaName = madrasas.find((m: any) => m.id === newMadrasaId)?.['name'] || processedPayload['madrasaName'] || '';
+
+                  await this.repo.create('userLifecycleHistory', {
+                    userId: studentId,
+                    userName: sName,
+                    personType: 'student',
+                    lifecycleAction: 'Transferred',
+                    actionType: 'Transfer',
+                    reason: `Academic placement updated via Edit Student form (${newClassName}${newGroupName ? ' - ' + newGroupName : ''}${newMadrasaName ? ' in ' + newMadrasaName : ''})`,
+                    previousMadrasaId: oldMadrasaId || '',
+                    newMadrasaId: newMadrasaId || '',
+                    previousCourseId: oldCourseId || '',
+                    newCourseId: newCourseId || '',
+                    previousClassId: oldClassId || '',
+                    newClassId: newClassId || '',
+                    previousGroupId: oldGroupId || '',
+                    newGroupId: newGroupId || '',
+                    effectiveDate: new Date().toISOString(),
+                    effectiveDateMs: Date.now(),
+                    performedBy: profile?.displayName || profile?.email || 'System',
+                    actionPerformedByName: profile?.displayName || profile?.email || 'System',
+                    organizationId: profile?.organizationId || initial['organizationId'] || '',
+                    madrasaId: newMadrasaId || oldMadrasaId || '',
+                    status: 'active'
+                  }, profile).catch(e => console.warn('Failed to log userLifecycleHistory for edit academic change:', e));
+
+                  await this.repo.create('studentTransfers', {
+                    studentId: studentId,
+                    studentName: sName,
+                    previousMadrasaId: oldMadrasaId || undefined,
+                    previousCourseId: oldCourseId || undefined,
+                    previousClassId: oldClassId || undefined,
+                    previousGroupId: oldGroupId || undefined,
+                    newMadrasaId: newMadrasaId || undefined,
+                    newCourseId: newCourseId || undefined,
+                    newClassId: newClassId || undefined,
+                    newGroupId: newGroupId || undefined,
+                    reason: `Academic placement updated via Edit Student form`,
+                    actionDate: new Date().toISOString().substring(0, 10),
+                    organizationId: profile?.organizationId || initial['organizationId'] || undefined,
+                    madrasaId: newMadrasaId || oldMadrasaId || undefined,
+                  }, profile).catch(e => console.warn('Failed to log studentTransfers for edit academic change:', e));
+
+                  this.repo.clearCache('userLifecycleHistory');
+                }
+
+                // Also shadow sync to users/{uid} document
+                const candidateIds = [initial.id, initial['uid'], initial['userId']]
+                  .map(v => String(v || '').trim())
+                  .filter(Boolean);
+
+                for (const sId of candidateIds) {
+                  await this.repo.update('users', sId, processedPayload, profile, true).catch(() => {});
+                }
+
+                this.repo.clearCache('students');
+                this.repo.clearCache('users');
+              }
             }
 
             // Sync coordinator/incharge into madrasa documents when madrasaIds changes

@@ -67,6 +67,7 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       });
     }
 
+    const isEditMode = !!data.initialValue;
     const controls = data.fields.reduce<Record<string, unknown[]>>((group, field) => {
       if (field.type === 'password') {
         this.hidePasswords[field.key] = true;
@@ -89,7 +90,9 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         validators.push(Validators.maxLength(10));
       }
 
-      group[field.key] = [{ value: initialVal, disabled: field.type === 'info' }, validators];
+      const isDisabled = field.type === 'info' || (isEditMode && field.key === 'email');
+
+      group[field.key] = [{ value: initialVal, disabled: isDisabled }, validators];
       return group;
     }, {});
     this.form = this.fb.group(controls);

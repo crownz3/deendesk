@@ -32,6 +32,7 @@ export class DataTableComponent implements OnChanges, AfterViewInit {
   @Input() allowImpersonate = false;
   @Input() generatedCredentials: Record<string, any> = {};
   @Input() currentUid?: string;
+  @Input() excludeRole?: string | string[];
 
   @Output() edit = new EventEmitter<EntityRecord>();
   @Output() remove = new EventEmitter<EntityRecord>();

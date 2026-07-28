@@ -160,7 +160,10 @@ export class LifecyclePage implements OnInit, OnDestroy {
       this.subscriptions.add(
         this.lifecycleService.listLifecycleHistory(profile).subscribe({
           next: async (history) => {
-            const promotionRecords = await this.repo.getAllOnce<EntityRecord>('promotionHistory', profile).catch(() => []);
+            const [promotionRecords, transferRecords] = await Promise.all([
+              this.repo.getAllOnce<EntityRecord>('promotionHistory', profile).catch(() => []),
+              this.repo.getAllOnce<EntityRecord>('studentTransfers', profile).catch(() => []),
+            ]);
             
             const normalizedPromotions = promotionRecords.map(p => {
               const rawStudent = p['studentName'] || p['userName'] || p['studentId'] || 'Student';
@@ -183,7 +186,50 @@ export class LifecyclePage implements OnInit, OnDestroy {
               };
             });
 
+            const normalizedTransfers = transferRecords.map(t => {
+              const rawStudent = t['studentName'] || t['userName'] || t['studentId'] || 'Student';
+              const resolvedStudent = this.getUserName(rawStudent);
+              const resolvedPerformed = this.getUserName(t['createdBy'] || t['actionPerformedBy'] || 'System');
+              const act = 'Transferred';
+              return {
+                id: t.id,
+                userId: t['studentId'] || '',
+                madrasaId: t['newMadrasaId'] || t['madrasaId'] || '',
+                organizationId: t['organizationId'] || '',
+                effectiveDate: t['actionDate'] || t['createdAt'] || new Date().toISOString(),
+                userName: resolvedStudent,
+                personType: 'student',
+                lifecycleAction: act,
+                actionClass: 'transferred',
+                reason: t['reason'] || 'Student academic transfer',
+                performedBy: resolvedPerformed,
+                actionPerformedByName: resolvedPerformed,
+              };
+            });
+
             const normalizedHistory = history.map(h => this.normalizeHistoryItem(h));
+
+            const historyKeys = new Set<string>();
+            normalizedHistory.forEach(h => {
+              const uKey = String(h.userId || h.userName || '').toLowerCase();
+              const actKey = String(h.lifecycleAction || h.actionType || '').toLowerCase();
+              const timeMin = Math.floor(this.getMillis(h.effectiveDate) / 60000);
+              historyKeys.add(`${uKey}_${actKey}_${timeMin}`);
+              if (actKey.includes('promot')) historyKeys.add(`${uKey}_promoted_${timeMin}`);
+              if (actKey.includes('transfer')) historyKeys.add(`${uKey}_transferred_${timeMin}`);
+            });
+
+            const filteredPromotions = normalizedPromotions.filter(p => {
+              const uKey = String(p.userId || p.userName || '').toLowerCase();
+              const timeMin = Math.floor(this.getMillis(p.effectiveDate) / 60000);
+              return !historyKeys.has(`${uKey}_promoted_${timeMin}`);
+            });
+
+            const filteredTransfers = normalizedTransfers.filter(t => {
+              const uKey = String(t.userId || t.userName || '').toLowerCase();
+              const timeMin = Math.floor(this.getMillis(t.effectiveDate) / 60000);
+              return !historyKeys.has(`${uKey}_transferred_${timeMin}`);
+            });
 
             const existingUserKeys = new Set<string>();
             normalizedHistory.forEach(h => {
@@ -246,7 +292,7 @@ export class LifecyclePage implements OnInit, OnDestroy {
               });
 
             // Merge and sort desc by date
-            const combined = [...normalizedHistory, ...normalizedPromotions, ...synthesizedStudentJoins, ...synthesizedStaffJoins].sort((a, b) => {
+            const combined = [...normalizedHistory, ...filteredPromotions, ...filteredTransfers, ...synthesizedStudentJoins, ...synthesizedStaffJoins].sort((a, b) => {
               const timeA = this.getMillis(a.effectiveDate);
               const timeB = this.getMillis(b.effectiveDate);
               return timeB - timeA;
@@ -443,7 +489,10 @@ export class LifecyclePage implements OnInit, OnDestroy {
     const rawPerformed = h.performedBy || h.createdBy || h.actionPerformedByName || '';
     const resolvedPerformed = this.getUserName(rawPerformed);
 
-    const act = String(h.lifecycleAction || h.actionType || 'Updated');
+    let act = String(h.lifecycleAction || h.actionType || 'Updated');
+    if (act.toLowerCase() === 'promotion') act = 'Promoted';
+    if (act.toLowerCase() === 'demotion') act = 'Demoted';
+    if (act.toLowerCase() === 'transfer') act = 'Transferred';
 
     return {
       ...h,
@@ -473,10 +522,13 @@ export class LifecyclePage implements OnInit, OnDestroy {
     else ms = new Date(dateVal).getTime();
 
     if (!ms || isNaN(ms)) return String(dateVal);
-    return new Date(ms).toLocaleDateString('en-US', {
+    return new Date(ms).toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     });
   }
 }

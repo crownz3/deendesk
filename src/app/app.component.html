@@ -48,18 +48,61 @@
             </ion-menu-toggle>
           </div>
 
+          <!-- Dedicated Customize App Option for Admins -->
+          <div class="quran-nav-banner" *ngIf="profile$ | async as profile">
+            <ion-menu-toggle auto-hide="false" *ngIf="canManageBranding(profile)">
+              <div class="quran-sidebar-btn customize-sidebar-btn" (click)="openBrandingDialog()" role="button" tabindex="0">
+                <div class="quran-btn-icon customize-icon">
+                  <ion-icon name="color-palette-outline"></ion-icon>
+                </div>
+                <div class="quran-btn-text">
+                  <span class="quran-btn-title">Customize App</span>
+                  <span class="quran-btn-subtitle">Logo, Name & Menus</span>
+                </div>
+                <ion-icon name="chevron-forward-outline" class="quran-btn-arrow"></ion-icon>
+              </div>
+            </ion-menu-toggle>
+          </div>
+
           <ion-item-group *ngFor="let group of filteredNavGroups$ | async">
             <ion-item-divider class="menu-divider">
               <ion-label>{{ group.label }}</ion-label>
             </ion-item-divider>
 
             <ng-container *ngFor="let item of group.items">
-              <ion-menu-toggle auto-hide="false">
-                <ion-item class="menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
-                  <ion-icon slot="start" [name]="item.icon"></ion-icon>
-                  <ion-label>{{ item.displayLabel || item.label }}</ion-label>
-                </ion-item>
-              </ion-menu-toggle>
+              <ng-container *ngIf="item.children && item.children.length; else singleMenuItem">
+                <div class="menu-item-with-children">
+                  <ion-menu-toggle auto-hide="false">
+                    <ion-item class="menu-item parent-menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
+                      <ion-icon slot="start" [name]="item.icon"></ion-icon>
+                      <ion-label>{{ item.displayLabel || item.label }}</ion-label>
+                      <span slot="end" class="submenu-arrow-btn" (click)="toggleMenuExpand(item.route, $event)" role="button" tabindex="0" aria-label="Toggle submenu">
+                        <ion-icon [name]="isMenuExpanded(item.route) ? 'chevron-down-outline' : 'chevron-forward-outline'"></ion-icon>
+                      </span>
+                    </ion-item>
+                  </ion-menu-toggle>
+
+                  <div class="submenu-container" *ngIf="isMenuExpanded(item.route)">
+                    <ng-container *ngFor="let child of item.children">
+                      <ion-menu-toggle auto-hide="false">
+                        <ion-item class="menu-item child-menu-item" button="true" routerDirection="root" [routerLink]="child.route" routerLinkActive="active" lines="none">
+                          <ion-icon slot="start" [name]="child.icon"></ion-icon>
+                          <ion-label>{{ child.displayLabel || child.label }}</ion-label>
+                        </ion-item>
+                      </ion-menu-toggle>
+                    </ng-container>
+                  </div>
+                </div>
+              </ng-container>
+
+              <ng-template #singleMenuItem>
+                <ion-menu-toggle auto-hide="false">
+                  <ion-item class="menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
+                    <ion-icon slot="start" [name]="item.icon"></ion-icon>
+                    <ion-label>{{ item.displayLabel || item.label }}</ion-label>
+                  </ion-item>
+                </ion-menu-toggle>
+              </ng-template>
             </ng-container>
           </ion-item-group>
         </ion-list>

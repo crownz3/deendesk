@@ -177,9 +177,11 @@ import { TicketDetailDialogComponent } from './pages/help-support/ticket-detail-
 
 import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
 import { SubscriptionEditDialogComponent } from './pages/subscriptions/subscription-edit-dialog.component';
+import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
 
 @NgModule({
   declarations: [
+    DuplicateUsersPage,
     SubscriptionsPage,
     SubscriptionEditDialogComponent,
     AppComponent,

@@ -23,6 +23,14 @@ export class NameResolverService {
   private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
   private cache = new Map<string, Observable<string>>();
 
+  clearCache(type?: ResolvableType, id?: string): void {
+    if (type && id) {
+      this.cache.delete(`${type}_${id}`);
+    } else {
+      this.cache.clear();
+    }
+  }
+
   resolveName(id: string | undefined | null, type: ResolvableType): Observable<string> {
     if (!id) {
       return of('N/A');

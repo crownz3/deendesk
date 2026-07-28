@@ -25,6 +25,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   availableStudents: any[] = [];
   selectedStudents: any[] = [];
   originalSelectedIds = new Set<string>();
+  originalSelectedStudents: any[] = [];
 
   // Transfer feature
   allGroups: any[] = [];
@@ -151,10 +152,13 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       incomingAvailable.filter((student: any) => !this.isAlreadySelected(student))
     );
 
+    this.originalSelectedStudents = [...this.selectedStudents];
     this.originalSelectedIds = new Set();
     this.selectedStudents.forEach(student => {
-      const id = this.getUserId(student);
-      if (id) this.originalSelectedIds.add(id);
+      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+      ids.forEach(id => this.originalSelectedIds.add(id));
     });
 
     this.loadTransferTargets();
@@ -165,13 +169,42 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       const profile = await firstValueFrom(this.auth.profile$);
       const groups = await this.repo.getAllOnce<any>('classGroups', profile);
       const classes = await this.repo.getAllOnce<any>('classes', profile);
-      // Combine groups and classes, exclude current node
-      this.allGroups = [
-        ...groups.filter((g: any) => g.id !== this.node?.id).map((g: any) => ({ ...g, _type: 'classGroup' })),
-        ...classes.filter((c: any) => c.id !== this.node?.id).map((c: any) => ({ ...c, _type: 'class' }))
-      ];
+      const courses = await this.repo.getAllOnce<any>('courses', profile);
+      const madrasas = await this.repo.getAllOnce<any>('madrasas', profile);
+
+      const enrichedGroups = groups.filter((g: any) => g.id !== this.node?.id).map((g: any) => {
+        const cls = classes.find((c: any) => c.id === g.classId);
+        const crs = courses.find((c: any) => c.id === (g.courseId || cls?.courseId));
+        const mdr = madrasas.find((m: any) => m.id === (g.madrasaId || cls?.madrasaId || crs?.madrasaId));
+
+        return {
+          ...g,
+          _type: 'classGroup',
+          className: g.className || cls?.name || cls?.title || '',
+          courseId: g.courseId || cls?.courseId || crs?.id || null,
+          courseName: g.courseName || crs?.title || crs?.name || '',
+          madrasaId: g.madrasaId || cls?.madrasaId || crs?.madrasaId || mdr?.id || null,
+          madrasaName: g.madrasaName || mdr?.name || '',
+        };
+      });
+
+      const enrichedClasses = classes.filter((c: any) => c.id !== this.node?.id).map((c: any) => {
+        const crs = courses.find((cr: any) => cr.id === c.courseId);
+        const mdr = madrasas.find((m: any) => m.id === (c.madrasaId || crs?.madrasaId));
+
+        return {
+          ...c,
+          _type: 'class',
+          courseId: c.courseId || crs?.id || null,
+          courseName: c.courseName || crs?.title || crs?.name || '',
+          madrasaId: c.madrasaId || crs?.madrasaId || mdr?.id || null,
+          madrasaName: c.madrasaName || mdr?.name || '',
+        };
+      });
+
+      this.allGroups = [...enrichedGroups, ...enrichedClasses];
     } catch (e) {
-      // Transfer targets not critical
+      // Transfer targets fallback
     }
   }
 
@@ -243,15 +276,135 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.selectedStudents = this.selectedStudents.filter(item => this.getUserId(item) !== this.getUserId(student));
   }
 
+  activeTransferTab: 'sameClass' | 'sameMadrasa' | 'otherMadrasa' | 'unassign' = 'sameClass';
+
   toggleTransferMenu(studentId: string): void {
-    this.transferMenuStudentId = this.transferMenuStudentId === studentId ? null : studentId;
-    this.transferSearch = '';
+    if (this.transferMenuStudentId === studentId) {
+      this.transferMenuStudentId = null;
+    } else {
+      this.transferMenuStudentId = studentId;
+      this.transferSearch = '';
+      this.activeTransferTab = 'sameClass';
+    }
+  }
+
+  get sameClassTargets(): any[] {
+    const parentClassId = this.node?.parentClassId || this.node?.classId;
+    return this.allGroups.filter(g => g._type === 'classGroup' && g.classId === parentClassId && g.id !== this.node?.id);
+  }
+
+  get sameMadrasaTargets(): any[] {
+    const parentMadrasaId = this.node?.madrasaId || this.data?.node?.madrasaId;
+    const parentClassId = this.node?.parentClassId || this.node?.classId;
+    return this.allGroups.filter(g => {
+      const isSameMadrasa = !g.madrasaId || g.madrasaId === parentMadrasaId;
+      const isDifferentClass = (g._type === 'class' && g.id !== parentClassId) || (g._type === 'classGroup' && g.classId !== parentClassId);
+      return isSameMadrasa && isDifferentClass;
+    });
+  }
+
+  get otherMadrasaTargets(): any[] {
+    const parentMadrasaId = this.node?.madrasaId || this.data?.node?.madrasaId;
+    return this.allGroups.filter(g => g.madrasaId && g.madrasaId !== parentMadrasaId);
+  }
+
+  get filteredSameClassTargets(): any[] {
+    const list = this.sameClassTargets;
+    if (!this.transferSearch) return list;
+    const q = this.transferSearch.toLowerCase();
+    return list.filter(g => 
+      (g.name || '').toLowerCase().includes(q) ||
+      (g.title || '').toLowerCase().includes(q)
+    );
+  }
+
+  get filteredSameMadrasaTargets(): any[] {
+    const list = this.sameMadrasaTargets;
+    if (!this.transferSearch) return list;
+    const q = this.transferSearch.toLowerCase();
+    return list.filter(g => 
+      (g.name || '').toLowerCase().includes(q) ||
+      (g.title || '').toLowerCase().includes(q) ||
+      (g.className || '').toLowerCase().includes(q) ||
+      (g.courseName || '').toLowerCase().includes(q)
+    );
+  }
+
+  get filteredOtherMadrasaTargets(): any[] {
+    const list = this.otherMadrasaTargets;
+    if (!this.transferSearch) return list;
+    const q = this.transferSearch.toLowerCase();
+    return list.filter(g => 
+      (g.name || '').toLowerCase().includes(q) ||
+      (g.title || '').toLowerCase().includes(q) ||
+      (g.className || '').toLowerCase().includes(q) ||
+      (g.madrasaName || '').toLowerCase().includes(q) ||
+      (g.courseName || '').toLowerCase().includes(q)
+    );
   }
 
   get filteredTransferGroups(): any[] {
     if (!this.transferSearch) return this.allGroups;
     const q = this.transferSearch.toLowerCase();
     return this.allGroups.filter(g => (g.name || '').toLowerCase().includes(q));
+  }
+
+  async unassignFromGroupOnly(student: any): Promise<void> {
+    this.transferMenuStudentId = null;
+    this.isTransferring = true;
+    this.errorMsg = '';
+    try {
+      const userProfile = await firstValueFrom(this.auth.profile$);
+      const patch = { groupId: null, groupName: null };
+      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+
+      for (const sId of ids) {
+        await this.repo.update('students', sId, patch, userProfile).catch(() => {});
+        await this.repo.update('users', sId, patch, userProfile).catch(() => {});
+      }
+
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
+
+      this.selectedStudents = this.selectedStudents.filter(s => this.getUserId(s) !== this.getUserId(student));
+      this.successMsg = `${student.name || student.displayName || 'Student'} unassigned from group.`;
+      setTimeout(() => this.successMsg = '', 3000);
+    } catch (e: any) {
+      this.errorMsg = e?.message || 'Unassign failed.';
+    } finally {
+      this.isTransferring = false;
+    }
+  }
+
+  async removeFromClassCompletely(student: any): Promise<void> {
+    this.transferMenuStudentId = null;
+    this.isTransferring = true;
+    this.errorMsg = '';
+    try {
+      const userProfile = await firstValueFrom(this.auth.profile$);
+      const patch = { classId: null, className: null, groupId: null, groupName: null };
+      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+
+      for (const sId of ids) {
+        await this.repo.update('students', sId, patch, userProfile).catch(() => {});
+        await this.repo.update('users', sId, patch, userProfile).catch(() => {});
+      }
+
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
+
+      this.selectedStudents = this.selectedStudents.filter(s => this.getUserId(s) !== this.getUserId(student));
+      this.successMsg = `${student.name || student.displayName || 'Student'} removed from class completely.`;
+      setTimeout(() => this.successMsg = '', 3000);
+    } catch (e: any) {
+      this.errorMsg = e?.message || 'Remove failed.';
+    } finally {
+      this.isTransferring = false;
+    }
   }
 
   async transferStudent(student: any, targetGroup: any): Promise<void> {
@@ -265,22 +418,88 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       if (targetType === 'classGroup') {
         patch = {
           groupId: targetGroup.id,
-          groupName: targetGroup.name || '',
-          classId: targetGroup.classId || null,
-          className: targetGroup.className || null,
+          groupName: targetGroup.name || targetGroup.title || '',
+          classId: targetGroup.classId || targetGroup.parentClassId || null,
+          className: targetGroup.className || targetGroup.parentClassName || null,
+          courseId: targetGroup.courseId || targetGroup.parentCourseId || null,
+          courseName: targetGroup.courseName || targetGroup.parentCourseName || null,
+          madrasaId: targetGroup.madrasaId || null,
+          madrasaName: targetGroup.madrasaName || null,
         };
       } else {
         patch = {
           classId: targetGroup.id,
-          className: targetGroup.name || '',
+          className: targetGroup.name || targetGroup.title || '',
           groupId: null,
           groupName: null,
+          courseId: targetGroup.courseId || targetGroup.parentCourseId || null,
+          courseName: targetGroup.courseName || targetGroup.parentCourseName || null,
+          madrasaId: targetGroup.madrasaId || null,
+          madrasaName: targetGroup.madrasaName || null,
         };
       }
-      await this.repo.update('students', this.getUserId(student), patch, userProfile);
+
+      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+
+      for (const sId of ids) {
+        await this.repo.update('students', sId, patch, userProfile).catch(() => {});
+        await this.repo.update('users', sId, patch, userProfile).catch(() => {});
+      }
+
+      const studentId = String(student.id || student.uid || student.userId || '');
+      const sName = String(student.name || student.displayName || student['studentName'] || 'Student');
+      const targetName = targetGroup.name || targetGroup.title || 'target';
+
+      await this.repo.create('userLifecycleHistory', {
+        userId: studentId,
+        userName: sName,
+        personType: 'student',
+        lifecycleAction: 'Transferred',
+        actionType: 'Transfer',
+        reason: `Transferred to ${targetName} (${patch.className || ''} ${patch.groupName ? '- ' + patch.groupName : ''}) via Academic Tree`,
+        previousMadrasaId: student['madrasaId'] || '',
+        newMadrasaId: patch.madrasaId || student['madrasaId'] || '',
+        previousCourseId: student['courseId'] || '',
+        newCourseId: patch.courseId || student['courseId'] || '',
+        previousClassId: student['classId'] || '',
+        newClassId: patch.classId || student['classId'] || '',
+        previousGroupId: student['groupId'] || '',
+        newGroupId: patch.groupId || student['groupId'] || '',
+        effectiveDate: new Date().toISOString(),
+        effectiveDateMs: Date.now(),
+        performedBy: userProfile?.displayName || userProfile?.email || 'System',
+        actionPerformedByName: userProfile?.displayName || userProfile?.email || 'System',
+        organizationId: userProfile?.organizationId || student['organizationId'] || '',
+        madrasaId: patch.madrasaId || student['madrasaId'] || '',
+        status: 'active'
+      }, userProfile).catch(e => console.warn('Failed to log transfer to userLifecycleHistory', e));
+
+      await this.repo.create('studentTransfers', {
+        studentId: studentId,
+        studentName: sName,
+        previousMadrasaId: student['madrasaId'] || undefined,
+        previousCourseId: student['courseId'] || undefined,
+        previousClassId: student['classId'] || undefined,
+        previousGroupId: student['groupId'] || undefined,
+        newMadrasaId: patch.madrasaId || student['madrasaId'] || undefined,
+        newCourseId: patch.courseId || student['courseId'] || undefined,
+        newClassId: patch.classId || student['classId'] || undefined,
+        newGroupId: patch.groupId || student['groupId'] || undefined,
+        reason: `Transferred to ${targetName} via Academic Tree`,
+        actionDate: new Date().toISOString().substring(0, 10),
+        organizationId: userProfile?.organizationId || student['organizationId'] || undefined,
+        madrasaId: patch.madrasaId || student['madrasaId'] || undefined,
+      }, userProfile).catch(e => console.warn('Failed to log studentTransfers', e));
+
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
+      this.repo.clearCache('userLifecycleHistory');
+
       // Remove from selected list (they are now assigned elsewhere)
       this.selectedStudents = this.selectedStudents.filter(s => this.getUserId(s) !== this.getUserId(student));
-      this.successMsg = `${student.name || 'Student'} transferred to ${targetGroup.name || 'target'}.`;
+      this.successMsg = `${student.name || student.displayName || 'Student'} transferred to ${targetGroup.name || targetGroup.title || 'target'}.`;
       setTimeout(() => this.successMsg = '', 3000);
     } catch (e: any) {
       this.errorMsg = e?.message || 'Transfer failed.';
@@ -305,14 +524,36 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.errorMsg = '';
     const user = await firstValueFrom(this.auth.profile$);
 
-    const selectedIds = new Set(this.selectedStudents.map(student => this.getUserId(student)));
+    const selectedIds = new Set<string>();
+    this.selectedStudents.forEach(student => {
+      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+      ids.forEach(id => selectedIds.add(id));
+    });
 
-    const addedStudents = this.selectedStudents.filter(student => !this.originalSelectedIds.has(this.getUserId(student)));
-    
-    const allStudents = this.data?.allStudents || [];
-    const removedStudents = allStudents.filter((student: any) => {
-      const id = this.getUserId(student);
-      return this.originalSelectedIds.has(id) && !selectedIds.has(id);
+    const addedStudents = this.selectedStudents.filter(student => {
+      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+      return !ids.some(id => this.originalSelectedIds.has(id));
+    });
+
+    const removedStudents = (this.originalSelectedStudents || []).filter((student: any) => {
+      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+      return !ids.some(id => selectedIds.has(id));
+    });
+
+    console.log('[Assign Save Debug]', {
+      nodeId: this.node?.id,
+      nodeType: this.node?.type,
+      nodeTitle: this.node?.title || this.node?.name,
+      addedCount: addedStudents.length,
+      addedNames: addedStudents.map((s: any) => s.name || s.displayName),
+      removedCount: removedStudents.length,
+      removedNames: removedStudents.map((s: any) => s.name || s.displayName)
     });
 
     try {
@@ -321,14 +562,14 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         if (this.node.type === 'class') {
           patch = { 
             classId: this.node.id, 
-            className: this.node.title,
+            className: this.node.title || this.node.name,
             courseId: this.node.parentCourseId || null,
             courseName: this.node.parentCourseName || null
           };
         } else if (this.node.type === 'classGroup') {
           patch = {
-            groupId: this.node.id,
-            groupName: this.node.title,
+            groupId: this.node.isDefaultGroup ? null : this.node.id,
+            groupName: this.node.isDefaultGroup ? null : (this.node.title || this.node.name),
             classId: this.node.parentClassId || null,
             className: this.node.parentClassName || null,
             courseId: this.node.parentCourseId || null,
@@ -336,27 +577,39 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
           };
         }
         if (Object.keys(patch).length > 0) {
-          await this.repo.update('students', this.getUserId(student), patch, user);
+          const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+            .map(v => String(v || '').trim())
+            .filter(Boolean);
+
+          for (const studentId of ids) {
+            await this.repo.update('students', studentId, patch, user).catch(() => {});
+            await this.repo.update('users', studentId, patch, user).catch(() => {});
+          }
         }
       }
 
       for (const student of removedStudents) {
         let patch: any = {};
         if (this.node.type === 'class') {
-          if (student.classId === this.node.id) {
-            patch = { classId: null, className: null, groupId: null, groupName: null };
-            // Keeping courseId/courseName per user instruction
-          }
+          patch = { classId: null, className: null, groupId: null, groupName: null };
         } else if (this.node.type === 'classGroup') {
-          if (student.groupId === this.node.id) {
-            patch = { groupId: null, groupName: null };
-          }
+          patch = { groupId: null, groupName: null };
         }
         
         if (Object.keys(patch).length > 0) {
-          await this.repo.update('students', this.getUserId(student), patch, user);
+          const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+            .map(v => String(v || '').trim())
+            .filter(Boolean);
+
+          for (const studentId of ids) {
+            await this.repo.update('students', studentId, patch, user).catch(() => {});
+            await this.repo.update('users', studentId, patch, user).catch(() => {});
+          }
         }
       }
+
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
 
       this.dialogRef.close({ updated: true });
     } catch (error: any) {

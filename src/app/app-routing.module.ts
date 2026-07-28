@@ -38,6 +38,7 @@ import { AnnouncementsPage } from './pages/announcements/announcements.page';
 
 import { HelpSupportPage } from './pages/help-support/help-support.page';
 import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
+import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -45,6 +46,7 @@ const routes: Routes = [
   { path: 'continue', component: ContinueAccountPage },
   { path: 'dashboard', component: DashboardPage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewDashboard' } },
   { path: 'subscriptions', component: SubscriptionsPage, canActivate: [authGuard, permissionGuard], data: { roleRequired: 'superAdmin' } },
+  { path: 'duplicate-users', component: DuplicateUsersPage, canActivate: [authGuard, permissionGuard], data: { roleRequired: 'superAdmin' } },
   { path: 'quran', component: QuranPage, canActivate: [authGuard] },
   { path: 'my-assignments', component: MyAssignmentsPage, canActivate: [authGuard] },
   { path: 'announcements', component: AnnouncementsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewAnnouncements', 'manageAnnouncements'] } },

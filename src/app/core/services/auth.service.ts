@@ -23,6 +23,10 @@ import {
   setDoc,
   updateDoc,
   onSnapshot,
+  collection,
+  getDocs,
+  query,
+  where,
 } from 'firebase/firestore';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, from, map, shareReplay, switchMap, of, combineLatest, catchError, startWith, timeout } from 'rxjs';
@@ -297,6 +301,32 @@ export class AuthService {
           role: ROLE_LABELS[profile.role],
         }));
         return { ...profile, email: normalizedEmail, photoURL: profile.photoURL || firebaseUser.photoURL || '' };
+      }
+
+      // Check if an existing profile document was pre-created in Firestore under a different ID by email match
+      try {
+        const usersQuery = query(collection(this.firestore, 'users'), where('email', '==', normalizedEmail));
+        const querySnap = await getDocs(usersQuery);
+        if (!querySnap.empty) {
+          const existingDoc = querySnap.docs[0];
+          const existingData = existingDoc.data() as AppUser;
+          const linkedProfile: AppUser = {
+            ...existingData,
+            id: firebaseUser.uid,
+            uid: firebaseUser.uid,
+            email: normalizedEmail,
+            lastLoginAt: serverTimestamp(),
+          };
+          await setDoc(userRef, linkedProfile);
+          localStorage.setItem('deendesk.lastProfile', JSON.stringify({
+            displayName: linkedProfile.displayName,
+            email: linkedProfile.email,
+            role: ROLE_LABELS[linkedProfile.role],
+          }));
+          return linkedProfile;
+        }
+      } catch (e) {
+        console.warn('[Auth] Email-based profile lookup failed:', e);
       }
 
       if (normalizedEmail === SUPER_ADMIN_EMAIL) {

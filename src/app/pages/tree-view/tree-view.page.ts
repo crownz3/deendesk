@@ -151,6 +151,7 @@ export class TreeViewPage {
           academicStudents: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['student'] }) : of([]),
           studentsCollection: type === 'academic' ? this.repo.list<EntityRecord>('students', profile) : of([]),
           academicStaff: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin'] }) : of([]),
+          staffCollection: type === 'academic' ? this.repo.list<EntityRecord>('staff', profile) : of([]),
           academicAdmins: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['coordinator', 'madrasaIncharge'] }) : of([]),
         }).pipe(
           map((data) => {
@@ -220,7 +221,60 @@ export class TreeViewPage {
                  const details = studentsMap.get(user.uid || user.id) || {};
                  return { ...user, ...details, id: user.id || user.uid, userId: user.uid || user.id };
                });
-               staffUsers = this.uniqueUsers(rawStaffUsers.filter(user => this.isStaffUser(user)));
+               const staffMap = new Map<string, any>();
+               (data.staffCollection || []).forEach((s: any) => {
+                 const sId = String(s.id || s.uid || '').trim();
+                 if (sId) staffMap.set(sId, s);
+                 if (s['userId']) staffMap.set(String(s['userId']).trim(), s);
+               });
+
+               const mergedStaffList: any[] = [];
+               
+               // First, include all records from the 'staff' collection (they are 100% staff records)
+               (data.staffCollection || []).forEach((staffDoc: any) => {
+                 const docId = String(staffDoc.id || staffDoc.uid || '').trim();
+                 mergedStaffList.push({
+                   ...staffDoc,
+                   role: staffDoc.role || 'teacher',
+                   id: docId,
+                   entityId: docId,
+                   staffId: docId,
+                   docId: docId
+                 });
+               });
+
+               // Second, merge user account details from 'users' collection
+               (rawStaffUsers || []).forEach((user: any) => {
+                 const uId = String(user.id || user.uid || '').trim();
+                 const entityId = String(user['entityId'] || user['staffId'] || '').trim();
+                 
+                 const staffDetails = staffMap.get(uId) || staffMap.get(entityId) || {};
+                 const existingIndex = mergedStaffList.findIndex(s => 
+                   s.id === uId || s.entityId === uId || (entityId && (s.id === entityId || s.entityId === entityId))
+                 );
+
+                 if (existingIndex >= 0) {
+                   mergedStaffList[existingIndex] = {
+                     ...staffDetails,
+                     ...user,
+                     id: mergedStaffList[existingIndex].id || uId,
+                     entityId: entityId || mergedStaffList[existingIndex].entityId || uId,
+                     staffId: entityId || mergedStaffList[existingIndex].entityId || uId,
+                     userId: uId
+                   };
+                 } else if (this.isStaffUser(user)) {
+                   mergedStaffList.push({
+                     ...staffDetails,
+                     ...user,
+                     id: uId,
+                     entityId: entityId || uId,
+                     staffId: entityId || uId,
+                     userId: uId
+                   });
+                 }
+               });
+
+               staffUsers = this.uniqueUsers(mergedStaffList);
                
                console.log('[Academic Tree Role Filter Debug]', {
                  totalUsersLoadedForStudents: rawStudents?.length || 0,
@@ -429,8 +483,11 @@ export class TreeViewPage {
                       return false;
                     });
                     
-                    const cGroups = classGroups.filter(g => g['classId'] === cls.id);
-                    if (cGroups.length === 0) {
+                    const classStudents = students.filter(s => this.studentMatchesNode(s, { id: cls.id, type: 'class' } as any));
+                    const classStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any));
+
+                    const cGroups = [...classGroups.filter(g => g['classId'] === cls.id)];
+                    if (cGroups.length === 0 && (classStudents.length > 0 || classStaff.length > 0)) {
                       cGroups.push({
                         id: 'default_' + cls.id,
                         name: 'Section A',
@@ -440,26 +497,38 @@ export class TreeViewPage {
                       });
                     }
 
-                    const classStudents = students.filter(s => this.studentMatchesNode(s, { id: cls.id, type: 'class' } as any));
-                    const classStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any));
-
                     const cGroupNodes = cGroups.map(grp => {
-                       const groupStudents = classStudents.filter(s => s.groupId === grp.id || (grp.isDefault && !s.groupId));
-                       // Staff assigned to a class always appear under the group.
-                       // If there are no real groups (isDefault), ALL class staff go here.
-                       // If groups exist, staff with matching groupId go to that group;
-                       // staff with no groupId fall into the default group.
-                       let groupStaff: any[];
-                       if (cGroups.length === 1 && grp.isDefault) {
-                         // Only one default group — show all class staff here
-                         groupStaff = classStaff;
-                       } else {
-                         groupStaff = classStaff.filter(s =>
-                           s.groupId === grp.id ||
-                           (grp.isDefault && !s.groupId) ||
-                           (Array.isArray(grp.assignedStaffIds) && grp.assignedStaffIds.includes(s.id || s.uid))
-                         );
+                       const groupStudents = classStudents.filter(s => s.groupId === grp.id || (grp.isDefault && String(grp.id).startsWith('default_') && !s.groupId));
+                                               const groupAssignedIds = Array.isArray(grp.assignedStaffIds)
+                          ? grp.assignedStaffIds.map((v: any) => String(v || '').trim()).filter(Boolean)
+                          : [];
+
+                        const groupStaff = staffUsers.filter(s => {
+                          const possibleStaffIds = [s.id, s.uid, s.entityId, s['userId'], s['docId'], s['staffId'], s['entity_id']]
+                            .map(v => String(v || '').trim())
+                            .filter(Boolean);
+
+                          const inAssignedList = possibleStaffIds.some(id => groupAssignedIds.includes(id));
+                          const matchesDirectGroup = possibleStaffIds.some(id => s.groupId === grp.id || (Array.isArray(s.groupIds) && s.groupIds.includes(grp.id)));
+                          const matchesDefaultGroup = grp.isDefault && !s.groupId && this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any);
+
+                          return inAssignedList || matchesDirectGroup || matchesDefaultGroup;
+                        });
+                        // Group staff calculated using unified matching
+
+                       if (grp.assignedStaffIds?.length > 0) {
+                         console.log('[Academic Tree Group Staff Debug]', {
+                           groupId: grp.id,
+                           groupName: grp['name'],
+                           classId: cls.id,
+                           className: cls['name'],
+                           groupAssignedStaffIds: grp.assignedStaffIds,
+                           totalStaffUsersLoaded: staffUsers.length,
+                           matchedStaffCount: groupStaff.length,
+                           matchedStaffNames: groupStaff.map(s => s.displayName || s.name || s.email)
+                         });
                        }
+
                        const groupStaffNames = groupStaff.map(s => s.displayName || s.name || s.email).join(', ') || 'None';
                        
                        const mappedGroupStaff = groupStaff.map(s => ({
@@ -513,21 +582,30 @@ export class TreeViewPage {
                        return subNode;
                     });
 
-                    const classNode: AcademicTreeNode = {
-                      id: cls.id || '',
-                      title: String(cls['name'] || ''),
-                      name: String(cls['name'] || ''),
-                      type: 'class',
-                      parentCourseId: course.id,
-                      parentCourseName: String(course['name'] || ''),
-                      expanded: false,
-                      studentCount: classStudents.length,
-                      assignedStudents: classStudents,
-                      staffCount: classStaff.length,
-                      assignedStaff: classStaff,
-                      children: [...cGroupNodes, ...subNodes]
-                    };
-                    return classNode;
+                                         const aggregatedClassStaff = this.uniqueById([
+                       ...classStaff,
+                       ...cGroupNodes.flatMap(g => g.assignedStaff || [])
+                     ]);
+                     const aggregatedClassStudents = this.uniqueById([
+                       ...classStudents,
+                       ...cGroupNodes.flatMap(g => g.assignedStudents || [])
+                     ]);
+
+                     const classNode: AcademicTreeNode = {
+                       id: cls.id || '',
+                       title: String(cls['name'] || ''),
+                       name: String(cls['name'] || ''),
+                       type: 'class',
+                       parentCourseId: course.id,
+                       parentCourseName: String(course['name'] || ''),
+                       expanded: false,
+                       studentCount: aggregatedClassStudents.length,
+                       assignedStudents: aggregatedClassStudents,
+                       staffCount: aggregatedClassStaff.length,
+                       assignedStaff: aggregatedClassStaff,
+                       children: [...cGroupNodes, ...subNodes]
+                     };
+                     return classNode;
                  });
 
                  // Course level aggregation from child classes
@@ -608,8 +686,11 @@ export class TreeViewPage {
                       return false;
                     });
                     
-                    const cGroups = classGroups.filter(g => g['classId'] === cls.id);
-                    if (cGroups.length === 0) {
+                    const classStudents = students.filter(s => this.studentMatchesNode(s, { id: cls.id, type: 'class' } as any));
+                    const classStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any));
+
+                    const cGroups = [...classGroups.filter(g => g['classId'] === cls.id)];
+                    if (cGroups.length === 0 && (classStudents.length > 0 || classStaff.length > 0)) {
                       cGroups.push({
                         id: 'default_' + cls.id,
                         name: 'Section A',
@@ -619,22 +700,37 @@ export class TreeViewPage {
                       });
                     }
 
-                    const classStudents = students.filter(s => this.studentMatchesNode(s, { id: cls.id, type: 'class' } as any));
-                    const classStaff = staffUsers.filter(s => this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any));
-
                     const cGroupNodes = cGroups.map(grp => {
-                       const groupStudents = classStudents.filter(s => s.groupId === grp.id || (grp.isDefault && !s.groupId));
-                       // for staff, they might not have groupId. If default, map unassigned staff to it.
-                       let groupStaff: any[];
-                       if (cGroups.length === 1 && grp.isDefault) {
-                         groupStaff = classStaff;
-                       } else {
-                         groupStaff = classStaff.filter(s =>
-                           s.groupId === grp.id ||
-                           (grp.isDefault && !s.groupId) ||
-                           (Array.isArray(grp.assignedStaffIds) && grp.assignedStaffIds.includes(s.id || s.uid))
-                         );
+                       const groupStudents = classStudents.filter(s => s.groupId === grp.id || (grp.isDefault && String(grp.id).startsWith('default_') && !s.groupId));
+                                               const groupAssignedIds = Array.isArray(grp.assignedStaffIds)
+                          ? grp.assignedStaffIds.map((v: any) => String(v || '').trim()).filter(Boolean)
+                          : [];
+
+                        const groupStaff = staffUsers.filter(s => {
+                          const possibleStaffIds = [s.id, s.uid, s.entityId, s['userId'], s['docId'], s['staffId'], s['entity_id']]
+                            .map(v => String(v || '').trim())
+                            .filter(Boolean);
+
+                          const inAssignedList = possibleStaffIds.some(id => groupAssignedIds.includes(id));
+                          const matchesDirectGroup = possibleStaffIds.some(id => s.groupId === grp.id || (Array.isArray(s.groupIds) && s.groupIds.includes(grp.id)));
+                          const matchesDefaultGroup = grp.isDefault && !s.groupId && this.staffMatchesNode(s, { id: cls.id, type: 'class' } as any);
+
+                          return inAssignedList || matchesDirectGroup || matchesDefaultGroup;
+                        });
+
+                       if (grp.assignedStaffIds?.length > 0) {
+                         console.log('[Academic Tree Global Group Staff Debug]', {
+                           groupId: grp.id,
+                           groupName: grp['name'],
+                           classId: cls.id,
+                           className: cls['name'],
+                           groupAssignedStaffIds: grp.assignedStaffIds,
+                           totalStaffUsersLoaded: staffUsers.length,
+                           matchedStaffCount: groupStaff.length,
+                           matchedStaffNames: groupStaff.map(s => s.displayName || s.name || s.email)
+                         });
                        }
+
                        const groupStaffNames = groupStaff.map(s => s.displayName || s.name || s.email).join(', ') || 'None';
                        
                        const mappedGroupStaff = groupStaff.map(s => ({

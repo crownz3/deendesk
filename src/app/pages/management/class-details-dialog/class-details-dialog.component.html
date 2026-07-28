@@ -73,14 +73,54 @@
         </div>
 
         <div class="groups-list" *ngIf="groups.length">
-          <div class="group-card" *ngFor="let g of groups">
-            <div class="group-info">
-              <h4>{{ g.name }} <span class="default-badge" *ngIf="g.isDefault">Default</span></h4>
-              <p>Capacity: {{ g.capacity || 'Not set' }}</p>
+          <div class="group-card-container" *ngFor="let g of groups">
+            <div class="group-card">
+              <div class="group-info">
+                <h4>{{ g.name }} <span class="default-badge" *ngIf="g.isDefault">Default</span></h4>
+                <p>Capacity: {{ g.capacity || 'Not set' }}</p>
+              </div>
+              <div class="group-stats">
+                <span class="student-count">{{ g.groupStudents?.length || 0 }} Students</span>
+                <span class="staff-count">{{ g.groupStaff?.length || 0 }} Staff</span>
+                <app-status-badge [status]="g.status"></app-status-badge>
+              </div>
             </div>
-            <div class="group-stats">
-              <span class="student-count">{{ g.studentCount || 0 }} Students</span>
-              <app-status-badge [status]="g.status"></app-status-badge>
+
+            <!-- Group Members Detail Breakdown -->
+            <div class="group-members-section">
+              <div class="members-column">
+                <div class="column-title">
+                  <ion-icon name="person-outline"></ion-icon>
+                  <span>Assigned Students ({{ g.groupStudents?.length || 0 }})</span>
+                </div>
+                <div class="members-list" *ngIf="g.groupStudents?.length; else noStudents">
+                  <div class="member-item" *ngFor="let st of g.groupStudents">
+                    <span class="member-name">{{ st.displayName || st.name || st.email }}</span>
+                    <span class="member-sub" *ngIf="st.admissionNo || st.email">
+                      {{ st.admissionNo ? ('Adm: ' + st.admissionNo) : st.email }}
+                    </span>
+                  </div>
+                </div>
+                <ng-template #noStudents>
+                  <div class="empty-member-text">No students in this group</div>
+                </ng-template>
+              </div>
+
+              <div class="members-column">
+                <div class="column-title">
+                  <ion-icon name="briefcase-outline"></ion-icon>
+                  <span>Assigned Staff ({{ g.groupStaff?.length || 0 }})</span>
+                </div>
+                <div class="members-list" *ngIf="g.groupStaff?.length; else noStaff">
+                  <div class="member-item" *ngFor="let sf of g.groupStaff">
+                    <span class="member-name">{{ sf.displayName || sf.name || sf.email }}</span>
+                    <span class="member-sub">{{ sf.role | titlecase }}</span>
+                  </div>
+                </div>
+                <ng-template #noStaff>
+                  <div class="empty-member-text">No staff assigned to this group</div>
+                </ng-template>
+              </div>
             </div>
           </div>
         </div>

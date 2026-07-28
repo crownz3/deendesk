@@ -1,0 +1,144 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar color="white">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Duplicate Users Audit</ion-title>
+    <ion-buttons slot="end">
+      <button mat-icon-button (click)="refresh()" matTooltip="Refresh Audit Scan">
+        <ion-icon name="refresh-outline" style="font-size: 20px;"></ion-icon>
+      </button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding page-bg">
+  <div class="header-container">
+    <div class="title-section">
+      <h1>Duplicate Account Audit</h1>
+      <p>Scan and clean up user accounts with matching names, similar email addresses, or shared mobile numbers across your organization.</p>
+    </div>
+    
+    <div class="stats-bar">
+      <div class="stat-card">
+        <span class="stat-label">Total Users Scanned</span>
+        <span class="stat-value">{{ totalScannedUsers }}</span>
+      </div>
+      <div class="stat-card accent" *ngIf="duplicateGroups$ | async as groups">
+        <span class="stat-label">Duplicate Groups Found</span>
+        <span class="stat-value">{{ groups.length }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters-card">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search by Name or Email</mat-label>
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput [ngModel]="searchQuery$ | async" (ngModelChange)="searchQuery$.next($event)" placeholder="Type name or email...">
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="filter-field">
+      <mat-label>Match Reason</mat-label>
+      <mat-select [ngModel]="filterReason$ | async" (ngModelChange)="filterReason$.next($event)">
+        <mat-option value="all">All Match Reasons</mat-option>
+        <mat-option value="Similar Email">Similar Email</mat-option>
+        <mat-option value="Identical Name">Identical Name</mat-option>
+        <mat-option value="Same Phone Number">Same Phone Number</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div class="loading-state" *ngIf="loading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Scanning accounts for potential duplicates...</p>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <ng-container *ngIf="duplicateGroups$ | async as groups">
+      <div class="empty-state" *ngIf="groups.length === 0">
+        <ion-icon name="checkmark-circle-outline" class="empty-icon"></ion-icon>
+        <h3>No Duplicate Accounts Found</h3>
+        <p>All scanned accounts have unique names, emails, and mobile numbers.</p>
+      </div>
+
+      <div class="duplicates-list" *ngIf="groups.length > 0">
+        <div class="group-card" *ngFor="let group of groups; let i = index">
+          <div class="group-header">
+            <div class="reason-badge">
+              <ion-icon name="warning-outline"></ion-icon>
+              <span>{{ group.reason }} — {{ group.matchScore }}</span>
+            </div>
+            <span class="group-index">Group #{{ i + 1 }}</span>
+          </div>
+
+          <div class="comparison-grid">
+            <!-- Account A -->
+            <div class="account-card">
+              <div class="account-header">
+                <span class="account-badge main">Account A</span>
+                <span class="status-chip" [class]="group.primaryUser['status'] || 'active'">{{ group.primaryUser['status'] || 'active' | titlecase }}</span>
+              </div>
+              <h3 class="user-name">{{ group.primaryUser['displayName'] || group.primaryUser['name'] || 'N/A' }}</h3>
+              <div class="user-detail">
+                <ion-icon name="mail-outline"></ion-icon>
+                <span>{{ group.primaryUser['email'] || 'N/A' }}</span>
+              </div>
+              <div class="user-detail" *ngIf="group.primaryUser['mobileNumber'] || group.primaryUser['phone']">
+                <ion-icon name="call-outline"></ion-icon>
+                <span>{{ group.primaryUser['mobileNumber'] || group.primaryUser['phone'] }}</span>
+              </div>
+              <div class="user-detail">
+                <ion-icon name="shield-outline"></ion-icon>
+                <span>Role: {{ group.primaryUser['role'] || 'N/A' | titlecase }}</span>
+              </div>
+
+              <div class="account-actions">
+                <button mat-stroked-button color="warn" (click)="deactivateAccount(group.primaryUser)">
+                  <ion-icon name="pause-outline"></ion-icon> Deactivate
+                </button>
+                <button mat-flat-button color="warn" (click)="deleteAccount(group.primaryUser)">
+                  <ion-icon name="trash-outline"></ion-icon> Delete Account A
+                </button>
+              </div>
+            </div>
+
+            <div class="vs-divider">
+              <span>VS</span>
+            </div>
+
+            <!-- Account B -->
+            <div class="account-card">
+              <div class="account-header">
+                <span class="account-badge secondary">Account B</span>
+                <span class="status-chip" [class]="group.duplicateUser['status'] || 'active'">{{ group.duplicateUser['status'] || 'active' | titlecase }}</span>
+              </div>
+              <h3 class="user-name">{{ group.duplicateUser['displayName'] || group.duplicateUser['name'] || 'N/A' }}</h3>
+              <div class="user-detail">
+                <ion-icon name="mail-outline"></ion-icon>
+                <span>{{ group.duplicateUser['email'] || 'N/A' }}</span>
+              </div>
+              <div class="user-detail" *ngIf="group.duplicateUser['mobileNumber'] || group.duplicateUser['phone']">
+                <ion-icon name="call-outline"></ion-icon>
+                <span>{{ group.duplicateUser['mobileNumber'] || group.duplicateUser['phone'] }}</span>
+              </div>
+              <div class="user-detail">
+                <ion-icon name="shield-outline"></ion-icon>
+                <span>Role: {{ group.duplicateUser['role'] || 'N/A' | titlecase }}</span>
+              </div>
+
+              <div class="account-actions">
+                <button mat-stroked-button color="warn" (click)="deactivateAccount(group.duplicateUser)">
+                  <ion-icon name="pause-outline"></ion-icon> Deactivate
+                </button>
+                <button mat-flat-button color="warn" (click)="deleteAccount(group.duplicateUser)">
+                  <ion-icon name="trash-outline"></ion-icon> Delete Account B
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </ng-container>
+</ion-content>

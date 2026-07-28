@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Observable, of } from 'rxjs';
@@ -10,7 +10,7 @@ import { NameResolverService, ResolvableType } from '../../../core/services/name
   styleUrls: ['./name-with-copy.component.scss'],
   standalone: false,
 })
-export class NameWithCopyComponent implements OnInit {
+export class NameWithCopyComponent implements OnInit, OnChanges {
   @Input() id?: any;
   @Input() type!: ResolvableType;
   @Input() fallbackName?: any;
@@ -26,6 +26,16 @@ export class NameWithCopyComponent implements OnInit {
   ) {}
 
   ngOnInit() {
+    this.resolve();
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['id'] || changes['fallbackName'] || changes['type']) {
+      this.resolve();
+    }
+  }
+
+  private resolve() {
     if (this.fallbackName) {
       this.name$ = of(this.fallbackName);
     } else {

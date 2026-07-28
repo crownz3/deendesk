@@ -127,50 +127,128 @@
 .groups-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 20px;
 
-  .group-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px;
+  .group-card-container {
     background: var(--surface, #fff);
-    border: 1px solid var(--border-color, #eee);
-    border-radius: 8px;
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 
-    .group-info {
-      h4 {
-        margin: 0 0 4px;
-        font-size: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        
-        .default-badge {
-          font-size: 11px;
-          background: var(--primary-light, #e0f2fe);
-          color: var(--primary, #0284c7);
-          padding: 2px 6px;
-          border-radius: 4px;
-          font-weight: 500;
+    .group-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      background: var(--surface-variant, #f8fafc);
+      border-bottom: 1px solid var(--border-color, #e2e8f0);
+
+      .group-info {
+        h4 {
+          margin: 0 0 4px;
+          font-size: 16px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          
+          .default-badge {
+            font-size: 11px;
+            background: var(--primary-light, #e0f2fe);
+            color: var(--primary, #0284c7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+          }
+        }
+        p {
+          margin: 0;
+          font-size: 13px;
+          color: var(--text-secondary, #666);
         }
       }
-      p {
-        margin: 0;
-        font-size: 13px;
-        color: var(--text-secondary, #666);
+      
+      .group-stats {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+
+        .student-count, .staff-count {
+          font-size: 13px;
+          font-weight: 500;
+          color: var(--text-secondary, #475569);
+          background: rgba(0,0,0,0.04);
+          padding: 4px 10px;
+          border-radius: 20px;
+        }
       }
     }
-    
-    .group-stats {
-      display: flex;
-      align-items: center;
-      gap: 16px;
 
-      .student-count {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--text-secondary, #666);
+    .group-members-section {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 16px 20px;
+
+      @media (max-width: 640px) {
+        grid-template-columns: 1fr;
+      }
+
+      .members-column {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+
+        .column-title {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          font-weight: 600;
+          color: var(--text-secondary, #475569);
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+
+          ion-icon {
+            font-size: 16px;
+            color: var(--primary, #3b82f6);
+          }
+        }
+
+        .members-list {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          max-height: 180px;
+          overflow-y: auto;
+
+          .member-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: var(--surface-variant, #f8fafc);
+            border-radius: 6px;
+            font-size: 13px;
+
+            .member-name {
+              font-weight: 500;
+              color: var(--text-primary, #1e293b);
+            }
+
+            .member-sub {
+              font-size: 11px;
+              color: var(--text-secondary, #64748b);
+            }
+          }
+        }
+
+        .empty-member-text {
+          font-size: 13px;
+          color: var(--text-secondary, #94a3b8);
+          font-style: italic;
+          padding: 8px 0;
+        }
       }
     }
   }

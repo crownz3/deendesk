@@ -198,6 +198,18 @@ ion-menu ion-content {
         color: var(--app-primary, #0d9488);
       }
     }
+
+    &.customize-sidebar-btn {
+      margin-top: 4px;
+      .customize-icon {
+        background: rgba(124, 58, 237, 0.1);
+        color: #7c3aed;
+      }
+      &:hover .customize-icon {
+        background: #7c3aed;
+        color: #ffffff;
+      }
+    }
   }
 }
 
@@ -256,6 +268,58 @@ ion-menu ion-content {
 .menu-item ion-label {
   font-size: 16px;
   letter-spacing: -0.01em;
+}
+
+.menu-item-with-children {
+  margin-bottom: 2px;
+}
+
+.parent-menu-item {
+  .submenu-arrow-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    margin-right: 2px;
+    border-radius: 50%;
+    color: var(--app-text-muted);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    z-index: 5;
+
+    ion-icon {
+      font-size: 16px;
+      margin-right: 0;
+      color: inherit;
+    }
+
+    &:hover {
+      background: rgba(26, 115, 232, 0.12);
+      color: var(--app-primary);
+    }
+  }
+}
+
+.submenu-container {
+  padding-left: 18px;
+  margin-top: 2px;
+  margin-bottom: 6px;
+  display: flex;
+  flex-direction: column;
+
+  .child-menu-item {
+    --min-height: 42px;
+    margin: 3px 0;
+
+    ion-icon {
+      font-size: 18px;
+      margin-right: 10px;
+    }
+
+    ion-label {
+      font-size: 14px;
+    }
+  }
 }
 
 /* Scrollbar */
@@ -677,13 +741,15 @@ img.user-avatar-small {
 
 @media (max-width: 480px) {
   .header-title-text {
-    font-size: 15px;
+    font-size: 14px;
     white-space: nowrap;
-    overflow: visible;
-    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 110px;
+    flex-shrink: 1;
   }
 
   .settings-button {
-    display: none !important;
+    display: inline-flex !important;
   }
 }

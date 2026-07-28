@@ -53,11 +53,29 @@ export class ClassDetailsDialogComponent implements OnInit {
       ));
       this.studentsCount = students.length;
 
+      // Load staff data
+      const staffData = await this.repo.getAllOnce('users', profile, { roles: ['teacher', 'staff'] });
+
+      // Associate students and staff per group
+      this.groups.forEach((group: any) => {
+        group.groupStudents = students.filter((s: any) =>
+          s['groupId'] === group.id || (group.isDefault && !s['groupId'])
+        );
+
+        const assignedStaffIds = Array.isArray(group['assignedStaffIds'])
+          ? group['assignedStaffIds'].map(String)
+          : [];
+
+        group.groupStaff = staffData.filter((st: any) =>
+          assignedStaffIds.includes(String(st.id || st.uid)) ||
+          st['groupId'] === group.id ||
+          (Array.isArray(st['groupIds']) && st['groupIds'].includes(group.id))
+        );
+      });
+
       const staffIds = new Set<string>();
       this.groups.forEach((group: any) => {
-        if (Array.isArray(group['assignedStaffIds'])) {
-          group['assignedStaffIds'].forEach((id: unknown) => staffIds.add(String(id)));
-        }
+        (group.groupStaff || []).forEach((st: any) => staffIds.add(String(st.id || st.uid)));
       });
       this.staffCount = staffIds.size;
 

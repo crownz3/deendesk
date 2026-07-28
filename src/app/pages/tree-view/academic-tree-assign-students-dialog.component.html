@@ -113,21 +113,109 @@
               </div>
             </div>
             
-            <!-- Transfer dropdown -->
+            <!-- Movement / Transfer Options Dropdown -->
             <div class="transfer-dropdown" *ngIf="transferMenuStudentId === getUserId(student)">
               <div class="transfer-dropdown-header">
-                <span>Transfer to:</span>
-                <input type="text" placeholder="Search groups..." [(ngModel)]="transferSearch" (click)="$event.stopPropagation()">
-              </div>
-              <div class="transfer-dropdown-list">
-                <div *ngIf="filteredTransferGroups.length === 0" class="transfer-dropdown-empty">No groups found</div>
-                <div class="transfer-dropdown-item" *ngFor="let group of filteredTransferGroups" (click)="transferStudent(student, group)">
-                  <mat-icon>{{ group._type === 'classGroup' ? 'group' : 'class' }}</mat-icon>
-                  <div>
-                    <div class="group-name">{{ group.name }}</div>
-                    <div class="group-meta">{{ group._type === 'classGroup' ? 'Class Group' : 'Class' }}{{ group.className ? ' · ' + group.className : '' }}</div>
-                  </div>
+                <div class="transfer-header-title">
+                  <ion-icon name="swap-horizontal-outline"></ion-icon>
+                  <span>Student Movement Options</span>
                 </div>
+                <button class="close-dropdown-btn" (click)="toggleTransferMenu(getUserId(student))">
+                  <ion-icon name="close-circle-outline"></ion-icon>
+                </button>
+              </div>
+
+              <!-- Movement Scope Tabs -->
+              <div class="transfer-tabs">
+                <button type="button" class="tab-btn" [class.active]="activeTransferTab === 'sameClass'" (click)="activeTransferTab = 'sameClass'">
+                  Section
+                </button>
+                <button type="button" class="tab-btn" [class.active]="activeTransferTab === 'sameMadrasa'" (click)="activeTransferTab = 'sameMadrasa'">
+                  Class
+                </button>
+                <button type="button" class="tab-btn" [class.active]="activeTransferTab === 'otherMadrasa'" (click)="activeTransferTab = 'otherMadrasa'">
+                  Madrasa
+                </button>
+                <button type="button" class="tab-btn danger-tab" [class.active]="activeTransferTab === 'unassign'" (click)="activeTransferTab = 'unassign'">
+                  Unassign
+                </button>
+              </div>
+
+              <!-- Search Filter -->
+              <div class="transfer-search-wrap" *ngIf="activeTransferTab !== 'unassign'">
+                <input type="text" placeholder="Search target..." [(ngModel)]="transferSearch" (click)="$event.stopPropagation()">
+              </div>
+
+              <!-- Target List -->
+              <div class="transfer-dropdown-list">
+                <!-- Same Class Targets (Section tab) -->
+                <ng-container *ngIf="activeTransferTab === 'sameClass'">
+                  <div *ngIf="filteredSameClassTargets.length === 0" class="transfer-dropdown-empty">
+                    No other sections in this class
+                  </div>
+                  <div class="transfer-dropdown-item" *ngFor="let group of filteredSameClassTargets" (click)="transferStudent(student, group)">
+                    <mat-icon>group</mat-icon>
+                    <div>
+                      <div class="group-name">{{ group.name || group.title }}</div>
+                      <div class="group-meta">Section in current class</div>
+                    </div>
+                  </div>
+                </ng-container>
+
+                <!-- Same Madrasa Targets (Class tab) -->
+                <ng-container *ngIf="activeTransferTab === 'sameMadrasa'">
+                  <div *ngIf="filteredSameMadrasaTargets.length === 0" class="transfer-dropdown-empty">
+                    No other classes found in this madrasa
+                  </div>
+                  <div class="transfer-dropdown-item" *ngFor="let group of filteredSameMadrasaTargets" (click)="transferStudent(student, group)">
+                    <mat-icon>{{ group._type === 'classGroup' ? 'group' : 'class' }}</mat-icon>
+                    <div>
+                      <div class="group-name">
+                        {{ group._type === 'classGroup' ? (group.className ? group.className + ' (' + (group.name || group.title) + ')' : (group.name || group.title)) : (group.name || group.title) }}
+                      </div>
+                      <div class="group-meta">
+                        {{ group.madrasaName || 'Current Madrasa' }}{{ group.courseName ? ' · ' + group.courseName : '' }}
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+
+                <!-- Across Madrasas Targets (Madrasa tab) -->
+                <ng-container *ngIf="activeTransferTab === 'otherMadrasa'">
+                  <div *ngIf="filteredOtherMadrasaTargets.length === 0" class="transfer-dropdown-empty">
+                    No targets found in other madrasas
+                  </div>
+                  <div class="transfer-dropdown-item" *ngFor="let group of filteredOtherMadrasaTargets" (click)="transferStudent(student, group)">
+                    <mat-icon>domain</mat-icon>
+                    <div>
+                      <div class="group-name">
+                        {{ group.madrasaName || 'Other Madrasa' }}
+                      </div>
+                      <div class="group-meta">
+                        {{ group._type === 'classGroup' ? (group.className ? group.className + ' (' + (group.name || group.title) + ')' : (group.name || group.title)) : (group.name || group.title) }}{{ group.courseName ? ' · ' + group.courseName : '' }}
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+
+                <!-- Unassign Options -->
+                <ng-container *ngIf="activeTransferTab === 'unassign'">
+                  <div class="transfer-dropdown-item unassign-item" (click)="unassignFromGroupOnly(student)">
+                    <mat-icon class="warn-icon">label_off</mat-icon>
+                    <div>
+                      <div class="group-name">Unassign from Group Only</div>
+                      <div class="group-meta">Keeps student in class, removes section group</div>
+                    </div>
+                  </div>
+
+                  <div class="transfer-dropdown-item unassign-item danger-item" (click)="removeFromClassCompletely(student)">
+                    <mat-icon class="danger-icon">person_remove</mat-icon>
+                    <div>
+                      <div class="group-name">Remove from Class Completely</div>
+                      <div class="group-meta">Resets classId & groupId to null</div>
+                    </div>
+                  </div>
+                </ng-container>
               </div>
             </div>
           </div>
