@@ -315,7 +315,8 @@ export class AppComponent {
     this.dialog.open(BrandingMenuDialogComponent, {
       width: '720px',
       maxWidth: '96vw',
-      maxHeight: '92vh',
+      height: '90vh',
+      maxHeight: '90vh',
       panelClass: 'modern-dialog-container',
     });
   }
