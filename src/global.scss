@@ -743,3 +743,16 @@ table.responsive-table,
     }
   }
 }
+
+/* Elevate SnackBar notification position slightly above bottom edge */
+.cdk-overlay-container .mat-mdc-snack-bar-container,
+.cdk-overlay-container .mat-snack-bar-container {
+  margin-bottom: 28px !important;
+}
+
+@media (max-width: 768px) {
+  .cdk-overlay-container .mat-mdc-snack-bar-container,
+  .cdk-overlay-container .mat-snack-bar-container {
+    margin-bottom: 34px !important;
+  }
+}
