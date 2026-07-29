@@ -12,6 +12,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   teacher: 'Teacher / Staff',
   student: 'Student',
   parent: 'Parent',
+  qaTester: 'QA Tester',
 };
 
 export const ROLE_ORDER: UserRole[] = [
@@ -23,6 +24,7 @@ export const ROLE_ORDER: UserRole[] = [
   'teacher',
   'student',
   'parent',
+  'qaTester',
 ];
 
 export const ALL_PERMISSIONS: PermissionKey[] = [
@@ -110,6 +112,10 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'manageBrandingAndMenu',
   'manageBilling',
   'viewBilling',
+  'viewQaTesting',
+  'manageQaBugs',
+  'manageTestRuns',
+  'manageDailyQaReports',
 ];
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -198,6 +204,10 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   manageBrandingAndMenu: 'Manage organization app name, logo, and sidenav menu customization',
   manageBilling: 'Manage organization subscriptions, trial periods, and billing pricing',
   viewBilling: 'View organization subscription plan and billing breakdown',
+  viewQaTesting: 'Access QA Testing and Bug Tracker module',
+  manageQaBugs: 'Create, update, and manage bug reports',
+  manageTestRuns: 'Create and manage release test runs',
+  manageDailyQaReports: 'Submit and view daily QA testing reports',
 };
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
@@ -471,6 +481,17 @@ export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {
     'viewExams',
     'viewCompetitions',
     'viewAnnouncements',
+  ],
+  qaTester: [
+    'viewDashboard',
+    'viewQaTesting',
+    'manageQaBugs',
+    'manageTestRuns',
+    'manageDailyQaReports',
+    'reportIssues',
+    'viewIssues',
+    'viewAnnouncements',
+    'editProfile',
   ],
 };
 

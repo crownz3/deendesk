@@ -678,6 +678,7 @@ export class ManagementPage {
 
   private readonly config$ = this.route.data.pipe(
     map((data) => MANAGEMENT_CONFIGS[String(data['resource'])]),
+    tap(() => this.repo.clearCache())
   );
 
   orgSearch = '';
@@ -846,7 +847,11 @@ export class ManagementPage {
                }
 
                if (statusFilter !== 'all') {
-                 filteredRows = filteredRows.filter(r => (r['status'] || 'active') === statusFilter);
+                 const sf = statusFilter.toLowerCase();
+                 filteredRows = filteredRows.filter(r => {
+                   const rawStatus = r['status'] ? String(r['status']).toLowerCase() : 'active';
+                   return rawStatus === sf;
+                 });
                }
 
                if (genderFilter !== 'all') {

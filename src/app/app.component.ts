@@ -133,6 +133,7 @@ export class AppComponent {
         { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
         { label: 'CSV Imports', route: '/csv-imports', icon: 'cloud-upload-outline', permission: 'importCsv' },
         { label: 'Password Requests', route: '/password-requests', icon: 'lock-open-outline', permission: 'managePasswordRequests' },
+        { label: 'QA & Bug Tracker', route: '/qa-testing', icon: 'bug-outline', permissionsAny: ['viewQaTesting', 'manageQaBugs'], rolesAny: ['qaTester', 'superAdmin', 'organizationAdmin'] },
       ]
     },
     {

@@ -1,0 +1,175 @@
+<div class="dialog-header">
+  <h2 mat-dialog-title>
+    <ion-icon name="bug-outline" class="header-icon"></ion-icon>
+    {{ isEdit ? 'Edit Bug Report' : 'Report New Bug' }}
+  </h2>
+  <button mat-icon-button (click)="onCancel()">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-body" [formGroup]="form">
+  <!-- Title & Classification Header -->
+  <div class="form-row full-width">
+    <mat-form-field appearance="outline" class="w-full">
+      <mat-label>Bug Title</mat-label>
+      <input matInput formControlName="title" placeholder="Brief summary of the issue..." required />
+      <mat-error *ngIf="form.get('title')?.hasError('required')">Title is required</mat-error>
+    </mat-form-field>
+  </div>
+
+  <div class="form-grid grid-3">
+    <mat-form-field appearance="outline">
+      <mat-label>Module</mat-label>
+      <mat-select formControlName="module" required>
+        <mat-option *ngFor="let m of data.modules || defaultModules" [value]="m">{{ m }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Feature / Sub-module</mat-label>
+      <input matInput formControlName="feature" placeholder="e.g. Student List, Export CSV" required />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Screen / Page Route</mat-label>
+      <input matInput formControlName="screen" placeholder="e.g. /students, /attendance" />
+    </mat-form-field>
+  </div>
+
+  <div class="form-grid grid-3">
+    <mat-form-field appearance="outline">
+      <mat-label>Severity</mat-label>
+      <mat-select formControlName="severity" required>
+        <mat-option *ngFor="let s of severities" [value]="s">
+          <span class="badge-dot" [class]="'sev-' + s.toLowerCase()"></span> {{ s }}
+        </mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Priority</mat-label>
+      <mat-select formControlName="priority" required>
+        <mat-option *ngFor="let p of priorities" [value]="p">{{ p }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Bug Type</mat-label>
+      <mat-select formControlName="type" required>
+        <mat-option *ngFor="let t of types" [value]="t">{{ t }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <!-- Description & Reproduction -->
+  <mat-form-field appearance="outline" class="w-full">
+    <mat-label>Bug Description</mat-label>
+    <textarea matInput formControlName="description" rows="3" placeholder="Describe what went wrong..." required></textarea>
+  </mat-form-field>
+
+  <div class="form-grid grid-2">
+    <mat-form-field appearance="outline">
+      <mat-label>Steps to Reproduce</mat-label>
+      <textarea matInput formControlName="stepsToReproduce" rows="4" placeholder="1. Go to page...&#10;2. Click on..."></textarea>
+    </mat-form-field>
+
+    <div class="stacked-fields">
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Expected Result</mat-label>
+        <textarea matInput formControlName="expectedResult" rows="2" placeholder="What should happen..."></textarea>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="w-full">
+        <mat-label>Actual Result</mat-label>
+        <textarea matInput formControlName="actualResult" rows="2" placeholder="What actually happened..."></textarea>
+      </mat-form-field>
+    </div>
+  </div>
+
+  <!-- Environment & Developer Assignment -->
+  <div class="section-title">Environment & Assignment</div>
+  <div class="form-grid grid-4">
+    <mat-form-field appearance="outline">
+      <mat-label>Browser</mat-label>
+      <input matInput formControlName="browser" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Device</mat-label>
+      <input matInput formControlName="device" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>OS</mat-label>
+      <input matInput formControlName="os" />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Screen Resolution</mat-label>
+      <input matInput formControlName="screenResolution" />
+    </mat-form-field>
+  </div>
+
+  <div class="form-grid grid-2" *ngIf="data.developers && data.developers.length > 0">
+    <mat-form-field appearance="outline">
+      <mat-label>Assign Developer</mat-label>
+      <mat-select formControlName="assignedDeveloperId" (selectionChange)="onDeveloperChange($event.value)">
+        <mat-option value="">-- Unassigned --</mat-option>
+        <mat-option *ngFor="let dev of data.developers" [value]="dev.id">{{ dev.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Page URL</mat-label>
+      <input matInput formControlName="url" placeholder="https://..." />
+    </mat-form-field>
+  </div>
+
+  <!-- Attachments & Image Compression Upload -->
+  <div class="section-title">Attachments & Screenshots</div>
+  
+  <div class="attachment-upload-box">
+    <div class="upload-controls">
+      <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/*" multiple style="display: none;" />
+      <button mat-stroked-button color="primary" type="button" (click)="fileInput.click()" [disabled]="isUploading">
+        <ion-icon name="image-outline" style="margin-right: 6px;"></ion-icon>
+        {{ isUploading ? 'Compressing & Adding...' : 'Upload Image Screenshot' }}
+      </button>
+
+      <span class="or-text">or paste URL link:</span>
+
+      <mat-form-field appearance="outline" class="url-input-field">
+        <mat-label>Screenshot URL</mat-label>
+        <input matInput formControlName="attachmentUrlInput" placeholder="https://..." />
+      </mat-form-field>
+
+      <button mat-button color="accent" type="button" (click)="addUrlAttachment()">Add Link</button>
+    </div>
+
+    <!-- Thumbnail Grid -->
+    <div class="attachments-preview-grid" *ngIf="attachments.length > 0">
+      <div class="preview-card" *ngFor="let att of attachments; let i = index">
+        <img [src]="att" *ngIf="att.startsWith('data:image') || att.startsWith('http')" alt="Attachment" />
+        <a [href]="att" target="_blank" class="link-label" *ngIf="!att.startsWith('data:image')">Link #{{ i + 1 }}</a>
+        <button mat-icon-button color="warn" type="button" class="remove-btn" (click)="removeAttachment(i)" title="Remove Attachment">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Console Error Logs (Optional)</div>
+  <mat-form-field appearance="outline" class="w-full">
+    <mat-label>Paste JS console errors or network responses</mat-label>
+    <textarea matInput formControlName="consoleLog" rows="3" placeholder="Uncaught TypeError..."></textarea>
+  </mat-form-field>
+</mat-dialog-content>
+
+<div class="dialog-actions">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-raised-button color="primary" (click)="onSubmit()" [disabled]="isUploading">
+    <ion-icon name="save-outline" style="margin-right: 6px;"></ion-icon>
+    {{ isEdit ? 'Save Changes' : 'Submit Bug Report' }}
+  </button>
+</div>

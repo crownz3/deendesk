@@ -30,7 +30,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     label: 'Users & Access',
     icon: 'people-outline',
-    permissions: ['manageUsers', 'manageCoordinators', 'manageIncharges', 'manageStaff', 'manageStudents', 'manageParents', 'editProfile', 'managePasswordRequests'],
+    permissions: ['manageUsers', 'manageCoordinators', 'manageIncharges', 'manageStageHeads', 'manageStaff', 'manageStudents', 'manageParents', 'editProfile', 'managePasswordRequests'],
   },
   {
     label: 'Academic Structure',

@@ -154,22 +154,25 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
     const permissionsControl = this.form.get('permissions');
 
     if (roleControl && permissionsControl) {
-      // Check if we need to initialize default permissions for the current role
-      const currentRole = roleControl.value as UserRole;
-      const currentPermissions = permissionsControl.value;
-      if (currentRole && (!currentPermissions || currentPermissions.length === 0)) {
-        permissionsControl.setValue(this.rolePermissionsService.getPermissionsForRole(currentRole), { emitEvent: false });
-      }
+      // Load templates and initialize default permissions for the selected role
+      this.rolePermissionsService.loadTemplates().then(() => {
+        const currentRole = roleControl.value as UserRole;
+        const currentPermissions = permissionsControl.value;
+        if (currentRole && (!this.data.isEdit || !currentPermissions || currentPermissions.length === 0)) {
+          permissionsControl.setValue(this.rolePermissionsService.getPermissionsForRole(currentRole), { emitEvent: false });
+        }
+      });
 
       let previousRole = roleControl.value as UserRole;
 
       this.subscriptions.push(
-        roleControl.valueChanges.subscribe((newRole: UserRole) => {
+        roleControl.valueChanges.subscribe(async (newRole: UserRole) => {
           if (!newRole) return;
+          await this.rolePermissionsService.loadTemplates();
           const defaultPerms = this.rolePermissionsService.getPermissionsForRole(newRole);
           const existingPerms = permissionsControl.value || [];
-          
-          if (existingPerms.length === 0) {
+
+          if (!this.data.isEdit || existingPerms.length === 0) {
             permissionsControl.setValue(defaultPerms);
           } else {
             const previousDefaults = previousRole ? this.rolePermissionsService.getPermissionsForRole(previousRole) : [];
@@ -366,6 +369,19 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subscriptions.forEach(s => s.unsubscribe());
+  }
+
+  async loadRoleDefaultPermissions(): Promise<void> {
+    const roleControl = this.form.get('role');
+    const permissionsControl = this.form.get('permissions');
+    const role = (roleControl?.value || this.data.initialValue?.['role']) as string;
+
+    if (!role || !permissionsControl) return;
+
+    await this.rolePermissionsService.loadTemplates();
+    const defaultPerms = this.rolePermissionsService.getPermissionsForRole(role);
+    permissionsControl.setValue(defaultPerms);
+    permissionsControl.markAsDirty();
   }
 
   getFilteredOptions(field: any): any[] {

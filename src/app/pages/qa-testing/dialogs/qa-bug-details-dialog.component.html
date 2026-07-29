@@ -1,0 +1,178 @@
+<div class="dialog-header">
+  <div class="header-title">
+    <span class="bug-id-tag">{{ bug.bugId }}</span>
+    <h2>{{ bug.title }}</h2>
+  </div>
+  <button mat-icon-button (click)="close()">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-body">
+  <!-- Top Bar: Status Badges & Quick Action Transitions -->
+  <div class="status-workflow-bar">
+    <div class="badges">
+      <span class="badge status-badge" [class]="'st-' + bug.status.toLowerCase().replace(' ', '-')">{{ bug.status }}</span>
+      <span class="badge sev-badge" [class]="'sev-' + bug.severity.toLowerCase()">{{ bug.severity }} Severity</span>
+      <span class="badge prio-badge">{{ bug.priority }}</span>
+      <span class="badge type-badge">{{ bug.type }}</span>
+    </div>
+
+    <div class="status-actions">
+      <span class="action-label">Change Status:</span>
+      <button mat-stroked-button *ngIf="bug.status !== 'In Progress'" (click)="onStatusChange('In Progress')">
+        In Progress
+      </button>
+      <button mat-stroked-button color="accent" *ngIf="bug.status !== 'Fixed'" (click)="onStatusChange('Fixed')">
+        Mark Fixed
+      </button>
+      <button mat-raised-button color="primary" *ngIf="bug.status === 'Fixed' || bug.status === 'Ready for Testing'" (click)="onStatusChange('Verified')">
+        <ion-icon name="checkmark-circle-outline" style="margin-right: 4px;"></ion-icon> Verify Fix
+      </button>
+      <button mat-stroked-button color="warn" *ngIf="bug.status !== 'Closed'" (click)="onStatusChange('Closed')">
+        Close Bug
+      </button>
+      <button mat-button color="warn" *ngIf="bug.status !== 'Rejected'" (click)="onStatusChange('Rejected')">
+        Reject
+      </button>
+    </div>
+  </div>
+
+  <!-- Reason Prompt Modal for Reopen/Reject -->
+  <div class="reason-prompt" *ngIf="showReasonInput">
+    <mat-form-field appearance="outline" class="w-full">
+      <mat-label>Reason / Feedback for status: {{ targetStatus }}</mat-label>
+      <input matInput [(ngModel)]="statusReason" placeholder="Explain why..." />
+    </mat-form-field>
+    <div class="prompt-actions">
+      <button mat-button (click)="showReasonInput = false">Cancel</button>
+      <button mat-raised-button color="warn" (click)="confirmStatusChangeWithReason()">Confirm Change</button>
+    </div>
+  </div>
+
+  <!-- Main Grid Info -->
+  <div class="detail-grid">
+    <!-- Left Column: Description & Steps -->
+    <div class="detail-main">
+      <div class="info-card">
+        <h3>Description</h3>
+        <p class="text-content">{{ bug.description }}</p>
+      </div>
+
+      <div class="info-card" *ngIf="bug.stepsToReproduce">
+        <h3>Steps to Reproduce</h3>
+        <pre class="code-block">{{ bug.stepsToReproduce }}</pre>
+      </div>
+
+      <div class="info-card grid-2" *ngIf="bug.expectedResult || bug.actualResult">
+        <div>
+          <h3>Expected Result</h3>
+          <p class="text-content text-success">{{ bug.expectedResult || 'N/A' }}</p>
+        </div>
+        <div>
+          <h3>Actual Result</h3>
+          <p class="text-content text-danger">{{ bug.actualResult || 'N/A' }}</p>
+        </div>
+      </div>
+
+      <div class="info-card" *ngIf="bug.consoleLog">
+        <h3>Console & Network Error Log</h3>
+        <pre class="code-block error-log">{{ bug.consoleLog }}</pre>
+      </div>
+
+      <!-- Screenshot & Attachment Gallery -->
+      <div class="info-card" *ngIf="bug.attachments && bug.attachments.length > 0">
+        <h3>Attachments & Screenshots ({{ bug.attachments.length }})</h3>
+        <div class="attachment-gallery">
+          <div class="attachment-card" *ngFor="let url of bug.attachments; let i = index">
+            <a [href]="url" target="_blank" class="img-wrapper">
+              <img [src]="url" *ngIf="url.startsWith('data:image') || url.startsWith('http')" alt="Screenshot" />
+              <span class="fallback-link" *ngIf="!url.startsWith('data:image') && !url.startsWith('http')">Attachment #{{ i + 1 }}</span>
+            </a>
+            <div class="card-footer">
+              <a [href]="url" target="_blank" class="download-link">
+                <ion-icon name="open-outline"></ion-icon> View Full Image
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comment Thread -->
+      <div class="info-card comments-card">
+        <h3>Comments & Team Thread ({{ bug.comments?.length || 0 }})</h3>
+
+        <div class="comments-list">
+          <div class="comment-item" *ngFor="let c of bug.comments">
+            <div class="comment-header">
+              <strong>{{ c.userName }}</strong>
+              <span class="user-role-chip" *ngIf="c.userRole">{{ c.userRole }}</span>
+            </div>
+            <p class="comment-text">{{ c.text }}</p>
+          </div>
+
+          <p *ngIf="!bug.comments || bug.comments.length === 0" class="no-comments">No comments yet. Start the conversation below.</p>
+        </div>
+
+        <div class="comment-input-box">
+          <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Add a comment or update note...</mat-label>
+            <textarea matInput [(ngModel)]="newCommentText" rows="2"></textarea>
+          </mat-form-field>
+          <button mat-raised-button color="primary" [disabled]="!newCommentText.trim() || isSubmittingComment" (click)="onSubmitComment()">
+            Post Comment
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Sidebar Info -->
+    <div class="detail-sidebar">
+      <div class="sidebar-card">
+        <h3>Classification & Route</h3>
+        <div class="meta-row">
+          <span class="meta-label">Module:</span>
+          <span class="meta-value">{{ bug.module }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Feature:</span>
+          <span class="meta-value">{{ bug.feature }}</span>
+        </div>
+        <div class="meta-row" *ngIf="bug.screen">
+          <span class="meta-label">Screen/Page:</span>
+          <span class="meta-value"><code>{{ bug.screen }}</code></span>
+        </div>
+        <div class="meta-row" *ngIf="bug.assignedDeveloperName">
+          <span class="meta-label">Assigned Dev:</span>
+          <span class="meta-value font-semibold">{{ bug.assignedDeveloperName }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">Reported By:</span>
+          <span class="meta-value">{{ bug.reportedByName }}</span>
+        </div>
+      </div>
+
+      <div class="sidebar-card">
+        <h3>Environment Info</h3>
+        <div class="meta-row"><span class="meta-label">Browser:</span> <span class="meta-value">{{ bug.browser }}</span></div>
+        <div class="meta-row"><span class="meta-label">Device:</span> <span class="meta-value">{{ bug.device }}</span></div>
+        <div class="meta-row"><span class="meta-label">OS:</span> <span class="meta-value">{{ bug.os }}</span></div>
+        <div class="meta-row"><span class="meta-label">Resolution:</span> <span class="meta-value">{{ bug.screenResolution }}</span></div>
+      </div>
+
+      <!-- History / Timeline -->
+      <div class="sidebar-card history-card" *ngIf="bug.history && bug.history.length > 0">
+        <h3>Audit & Activity Trail</h3>
+        <div class="timeline">
+          <div class="timeline-item" *ngFor="let h of bug.history">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="action-text">{{ h.action }}</div>
+              <div class="user-text">by {{ h.userName }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</mat-dialog-content>

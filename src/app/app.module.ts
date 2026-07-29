@@ -169,6 +169,11 @@ import { CompetitionReportsDialogComponent } from './pages/competitions/competit
 
 import { AnnouncementsPage } from './pages/announcements/announcements.page';
 import { AnnouncementDialogComponent } from './pages/announcements/announcement-dialog.component';
+
+import { QaTestingPage } from './pages/qa-testing/qa-testing.page';
+import { QaBugFormDialogComponent } from './pages/qa-testing/dialogs/qa-bug-form-dialog.component';
+import { QaBugDetailsDialogComponent } from './pages/qa-testing/dialogs/qa-bug-details-dialog.component';
+import { QaTestRunDialogComponent } from './pages/qa-testing/dialogs/qa-test-run-dialog.component';
 import { AnnouncementDetailsDialogComponent } from './pages/announcements/announcement-details-dialog.component';
 
 import { HelpSupportPage } from './pages/help-support/help-support.page';
@@ -310,6 +315,10 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     AnnouncementsPage,
     AnnouncementDialogComponent,
     AnnouncementDetailsDialogComponent,
+    QaTestingPage,
+    QaBugFormDialogComponent,
+    QaBugDetailsDialogComponent,
+    QaTestRunDialogComponent,
     HelpSupportPage,
     SubmitTicketDialogComponent,
     TicketDetailDialogComponent,

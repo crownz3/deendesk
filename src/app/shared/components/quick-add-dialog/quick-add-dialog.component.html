@@ -117,6 +117,12 @@
         [attr.aria-label]="'Add ' + field.label" (click)="requestQuickAdd(field.quickAddResource!)">
         <ion-icon name="add-circle-outline"></ion-icon>
       </button>
+
+      <button *ngIf="field.key === 'permissions'" mat-stroked-button color="accent" type="button" class="load-defaults-btn"
+        title="Load default permissions matching this user's role" (click)="loadRoleDefaultPermissions()">
+        <ion-icon name="refresh-outline" style="margin-right: 4px; font-size: 16px;"></ion-icon>
+        Load Role Defaults
+      </button>
       </ng-container>
     </div>
   </mat-dialog-content>

@@ -39,6 +39,7 @@ import { AnnouncementsPage } from './pages/announcements/announcements.page';
 import { HelpSupportPage } from './pages/help-support/help-support.page';
 import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
 import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
+import { QaTestingPage } from './pages/qa-testing/qa-testing.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -91,6 +92,7 @@ const routes: Routes = [
   { path: 'password-requests', component: PasswordRequestsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'managePasswordRequests' } },
   { path: 'lifecycle', component: LifecyclePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] } },
   { path: 'firebase-usage', component: FirebaseUsagePage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewFirebaseUsage', roleRequired: 'superAdmin' } },
+  { path: 'qa-testing', component: QaTestingPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewQaTesting', 'manageQaBugs'], roleRequiredAny: ['qaTester', 'superAdmin', 'organizationAdmin'] } },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: 'dashboard' },
 ];

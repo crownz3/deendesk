@@ -168,7 +168,7 @@ export class RepositoryService {
           })
         );
       }),
-      shareReplay({ bufferSize: 1, refCount: false })
+      shareReplay({ bufferSize: 1, refCount: true })
     );
 
     if (user?.uid) {
@@ -613,13 +613,19 @@ export class RepositoryService {
     console.log('[CACHE CLEAR EXECUTED]', {
       collectionName,
       activeStreamKeys: Array.from(this.streamTriggerMap.keys()),
-      memoryCacheKeys: Array.from(this.memoryCache.keys())
+      memoryCacheKeys: Array.from(this.memoryCache.keys()),
+      streamCacheKeys: Array.from(this.streamCache.keys())
     });
 
     if (collectionName) {
       for (const key of Array.from(this.memoryCache.keys())) {
         if (key.startsWith(collectionName) || key.includes(`_${collectionName}_`)) {
           this.memoryCache.delete(key);
+        }
+      }
+      for (const key of Array.from(this.streamCache.keys())) {
+        if (key.startsWith(collectionName) || key.includes(`_${collectionName}_`)) {
+          this.streamCache.delete(key);
         }
       }
       for (const [key, trigger] of Array.from(this.streamTriggerMap.entries())) {
@@ -630,6 +636,7 @@ export class RepositoryService {
       }
     } else {
       this.memoryCache.clear();
+      this.streamCache.clear();
       for (const [key, trigger] of Array.from(this.streamTriggerMap.entries())) {
         console.log(`[STREAM RE-TRIGGERING ALL EMISSIONS] key=${key}`);
         trigger.next(Date.now());

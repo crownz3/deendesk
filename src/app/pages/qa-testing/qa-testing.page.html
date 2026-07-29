@@ -1,0 +1,443 @@
+<div class="page-container">
+  <!-- Page Top Bar Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h1>
+        <ion-icon name="bug-outline" class="title-icon"></ion-icon>
+        QA Testing & Bug Reporting
+      </h1>
+      <p class="subtitle">Manual QA dashboard, release test runs, daily testing logs, and bug tracking.</p>
+    </div>
+
+    <div class="header-actions">
+      <button mat-raised-button color="accent" (click)="openCreateTestRunDialog()">
+        <ion-icon name="rocket-outline" style="margin-right: 6px;"></ion-icon>
+        New Release Test Run
+      </button>
+
+      <button mat-raised-button color="primary" (click)="openReportBugDialog()">
+        <ion-icon name="add-circle-outline" style="margin-right: 6px;"></ion-icon>
+        Report Bug
+      </button>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <mat-tab-group [(selectedIndex)]="selectedTabIndex" class="qa-tab-group">
+    
+    <!-- TAB 1: QA DASHBOARD OVERVIEW -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="grid-outline" class="tab-icon"></ion-icon> Dashboard Overview
+      </ng-template>
+
+      <div class="tab-content">
+        <!-- Top Metrics Cards Grid -->
+        <div class="metrics-grid">
+          <div class="metric-card total">
+            <div class="card-icon"><ion-icon name="bug-outline"></ion-icon></div>
+            <div class="card-data">
+              <span class="value">{{ metrics.totalBugs }}</span>
+              <span class="label">Total Bugs Reported</span>
+            </div>
+          </div>
+
+          <div class="metric-card open">
+            <div class="card-icon"><ion-icon name="alert-circle-outline"></ion-icon></div>
+            <div class="card-data">
+              <span class="value">{{ metrics.openBugs }}</span>
+              <span class="label">Open Bugs</span>
+            </div>
+          </div>
+
+          <div class="metric-card fixed">
+            <div class="card-icon"><ion-icon name="construct-outline"></ion-icon></div>
+            <div class="card-data">
+              <span class="value">{{ metrics.fixedBugs }}</span>
+              <span class="label">Fixed / Ready to Test</span>
+            </div>
+          </div>
+
+          <div class="metric-card verified">
+            <div class="card-icon"><ion-icon name="checkmark-done-circle-outline"></ion-icon></div>
+            <div class="card-data">
+              <span class="value">{{ metrics.verifiedBugs }}</span>
+              <span class="label">Verified & Closed</span>
+            </div>
+          </div>
+
+          <div class="metric-card rejected">
+            <div class="card-icon"><ion-icon name="close-circle-outline"></ion-icon></div>
+            <div class="card-data">
+              <span class="value">{{ metrics.rejectedBugs }}</span>
+              <span class="label">Rejected Bugs</span>
+            </div>
+          </div>
+
+          <div class="metric-card today">
+            <div class="card-icon"><ion-icon name="today-outline"></ion-icon></div>
+            <div class="card-data">
+              <span class="value">{{ metrics.bugsToday }}</span>
+              <span class="label">Reported Today</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dashboard Breakdown Grid -->
+        <div class="dashboard-sections-grid">
+          <!-- Left: Severity & Priority Distribution -->
+          <div class="dashboard-panel">
+            <h2>Priority & Severity Distribution</h2>
+            <div class="distribution-list">
+              <div class="dist-item critical">
+                <span class="dist-label">Critical Severity:</span>
+                <span class="dist-count">{{ metrics.criticalBugs }}</span>
+              </div>
+              <div class="dist-item high">
+                <span class="dist-label">High Severity:</span>
+                <span class="dist-count">{{ metrics.highBugs }}</span>
+              </div>
+              <div class="dist-item p1">
+                <span class="dist-label">P1 Priority Blockers:</span>
+                <span class="dist-count">{{ metrics.p1Bugs }}</span>
+              </div>
+              <div class="dist-item week">
+                <span class="dist-label">Bugs Logged This Week:</span>
+                <span class="dist-count">{{ metrics.bugsThisWeek }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Active Release Test Run Summary -->
+          <div class="dashboard-panel">
+            <div class="panel-header">
+              <h2>Active Release Test Runs</h2>
+              <button mat-button color="primary" (click)="selectedTabIndex = 2">View All Test Runs</button>
+            </div>
+
+            <div class="test-runs-mini-list">
+              <div class="run-card" *ngFor="let run of testRuns.slice(0, 3)">
+                <div class="run-title">
+                  <strong>{{ run.title }}</strong>
+                  <span class="run-status-chip">{{ run.status }}</span>
+                </div>
+                <div class="run-meta">
+                  Target Release: {{ run.targetReleaseDate || 'N/A' }} | Created by {{ run.createdByName }}
+                </div>
+              </div>
+
+              <div *ngIf="testRuns.length === 0" class="empty-state">
+                <ion-icon name="rocket-outline"></ion-icon>
+                <p>No active test runs. Click "New Release Test Run" to start.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Bug Reporting CTA Bar -->
+        <div class="cta-banner">
+          <div class="cta-text">
+            <h3>Found a bug during testing?</h3>
+            <p>Log steps, expected vs actual behavior, and screenshots instantly.</p>
+          </div>
+          <button mat-raised-button color="primary" (click)="openReportBugDialog()">Report New Bug</button>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 2: BUGS MASTER TRACKER LIST -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="list-outline" class="tab-icon"></ion-icon> Bug List ({{ filteredBugs.length }})
+      </ng-template>
+
+      <div class="tab-content">
+        <!-- Filter Controls Bar -->
+        <div class="filter-card">
+          <div class="filter-row">
+            <!-- Search -->
+            <mat-form-field appearance="outline" class="search-field">
+              <mat-label>Search Bug ID, Title, Description</mat-label>
+              <input matInput [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" placeholder="Type to search..." />
+              <ion-icon name="search-outline" matSuffix></ion-icon>
+            </mat-form-field>
+
+            <!-- Module Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>Module</mat-label>
+              <mat-select [(ngModel)]="filterModule" (selectionChange)="applyFilters()">
+                <mat-option value="">All Modules</mat-option>
+                <mat-option *ngFor="let m of allModulesList" [value]="m">{{ m }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Status Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>Status</mat-label>
+              <mat-select [(ngModel)]="filterStatus" (selectionChange)="applyFilters()">
+                <mat-option value="">All Statuses</mat-option>
+                <mat-option *ngFor="let s of statusesList" [value]="s">{{ s }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Severity Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>Severity</mat-label>
+              <mat-select [(ngModel)]="filterSeverity" (selectionChange)="applyFilters()">
+                <mat-option value="">All Severities</mat-option>
+                <mat-option *ngFor="let s of severitiesList" [value]="s">{{ s }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Priority Filter -->
+            <mat-form-field appearance="outline">
+              <mat-label>Priority</mat-label>
+              <mat-select [(ngModel)]="filterPriority" (selectionChange)="applyFilters()">
+                <mat-option value="">All Priorities</mat-option>
+                <mat-option *ngFor="let p of prioritiesList" [value]="p">{{ p }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <!-- Export Button -->
+            <button mat-stroked-button color="primary" class="export-btn" (click)="exportBugsCsv()">
+              <ion-icon name="download-outline" style="margin-right: 4px;"></ion-icon> Export CSV
+            </button>
+          </div>
+        </div>
+
+        <!-- Bugs Table -->
+        <div class="table-container shadow-sm">
+          <table class="custom-data-table">
+            <thead>
+              <tr>
+                <th>Bug ID</th>
+                <th>Title</th>
+                <th>Module</th>
+                <th>Severity</th>
+                <th>Priority</th>
+                <th>Status</th>
+                <th>Reported By</th>
+                <th>Assigned Dev</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let bug of filteredBugs" class="clickable-row" (click)="openBugDetails(bug)">
+                <td><span class="bug-id-badge">{{ bug.bugId }}</span></td>
+                <td class="font-medium text-main">{{ bug.title }}</td>
+                <td><span class="module-chip">{{ bug.module }}</span></td>
+                <td>
+                  <span class="badge-chip" [class]="'sev-' + bug.severity.toLowerCase()">{{ bug.severity }}</span>
+                </td>
+                <td><span class="badge-chip prio">{{ bug.priority }}</span></td>
+                <td>
+                  <span class="badge-chip" [class]="'st-' + bug.status.toLowerCase().replace(' ', '-')">{{ bug.status }}</span>
+                </td>
+                <td class="text-subtle">{{ bug.reportedByName }}</td>
+                <td>{{ bug.assignedDeveloperName || 'Unassigned' }}</td>
+                <td (click)="$event.stopPropagation()">
+                  <button mat-icon-button color="primary" (click)="openBugDetails(bug)" title="View Details">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </button>
+                  <button mat-icon-button (click)="openEditBug(bug, $event)" title="Edit Bug">
+                    <ion-icon name="create-outline"></ion-icon>
+                  </button>
+                  <button mat-icon-button color="accent" *ngIf="bug.status !== 'Verified'" (click)="quickChangeStatus(bug, 'Verified', $event)" title="Verify & Close">
+                    <ion-icon name="checkmark-done-outline"></ion-icon>
+                  </button>
+                </td>
+              </tr>
+
+              <tr *ngIf="filteredBugs.length === 0">
+                <td colspan="9" class="empty-table-cell">
+                  <ion-icon name="checkmark-circle-outline" class="empty-icon"></ion-icon>
+                  <p>No bugs matching current filters.</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 3: TEST RUNS (RELEASE MANAGEMENT) -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="rocket-outline" class="tab-icon"></ion-icon> Release Test Runs ({{ testRuns.length }})
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="test-runs-list">
+          <div class="test-run-card" *ngFor="let run of testRuns">
+            <div class="run-header">
+              <div>
+                <h2>{{ run.title }}</h2>
+                <p class="run-desc">{{ run.description || 'Module Test Cycle' }}</p>
+              </div>
+              <div class="run-actions">
+                <span class="run-status-chip">{{ run.status }}</span>
+                <span class="release-date">Target: {{ run.targetReleaseDate }}</span>
+              </div>
+            </div>
+
+            <!-- Module Checklist Table inside Test Run -->
+            <div class="module-checklist-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Module Name</th>
+                    <th>Total Cases</th>
+                    <th>Passed</th>
+                    <th>Failed</th>
+                    <th>Status</th>
+                    <th>Update Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let mod of run.modules; let i = index">
+                    <td class="font-medium">{{ mod.moduleName }}</td>
+                    <td>{{ mod.totalCases }}</td>
+                    <td class="text-success font-semibold">{{ mod.passedCases }}</td>
+                    <td class="text-danger font-semibold">{{ mod.failedCases }}</td>
+                    <td>
+                      <span class="badge-chip" [class]="'mod-st-' + mod.status.toLowerCase().replace(' ', '-')">{{ mod.status }}</span>
+                    </td>
+                    <td>
+                      <button mat-stroked-button color="primary" class="sm-btn" (click)="toggleModuleStatusInTestRun(run, i, 'Passed')">
+                        Pass All
+                      </button>
+                      <button mat-stroked-button color="warn" class="sm-btn" (click)="toggleModuleStatusInTestRun(run, i, 'Failed')">
+                        Fail
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div *ngIf="testRuns.length === 0" class="empty-state">
+            <ion-icon name="rocket-outline"></ion-icon>
+            <h3>No Test Runs Launched Yet</h3>
+            <button mat-raised-button color="primary" (click)="openCreateTestRunDialog()">Create First Release Test Run</button>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 4: DAILY QA TESTING REPORTS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="document-text-outline" class="tab-icon"></ion-icon> Daily QA Log Reports
+      </ng-template>
+
+      <div class="tab-content">
+        <div class="daily-reports-grid">
+          <!-- Submit Daily Log Form -->
+          <div class="form-panel">
+            <h2>Log Daily Testing Activity</h2>
+            <p class="panel-subtitle">Submit your daily testing metrics for team visibility.</p>
+
+            <div class="form-grid grid-2">
+              <mat-form-field appearance="outline">
+                <mat-label>Date</mat-label>
+                <input matInput type="date" [(ngModel)]="dailyForm.date" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Testing Hours Spent</mat-label>
+                <input matInput type="number" [(ngModel)]="dailyForm.testingHours" />
+              </mat-form-field>
+            </div>
+
+            <div class="form-grid grid-3">
+              <mat-form-field appearance="outline">
+                <mat-label>Test Cases Executed</mat-label>
+                <input matInput type="number" [(ngModel)]="dailyForm.testCasesExecuted" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Passed Cases</mat-label>
+                <input matInput type="number" [(ngModel)]="dailyForm.passed" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Failed Cases</mat-label>
+                <input matInput type="number" [(ngModel)]="dailyForm.failed" />
+              </mat-form-field>
+            </div>
+
+            <div class="form-grid grid-3">
+              <mat-form-field appearance="outline">
+                <mat-label>Bugs Reported</mat-label>
+                <input matInput type="number" [(ngModel)]="dailyForm.bugsReported" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Bugs Verified</mat-label>
+                <input matInput type="number" [(ngModel)]="dailyForm.bugsVerified" />
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Pending Bugs</mat-label>
+                <input matInput type="number" [(ngModel)]="dailyForm.pendingBugs" />
+              </mat-form-field>
+            </div>
+
+            <!-- Modules Tested Checklist -->
+            <div class="modules-selector">
+              <label class="selector-label">Modules Tested Today:</label>
+              <div class="chips-grid">
+                <button
+                  type="button"
+                  *ngFor="let m of allModulesList"
+                  class="mod-chip-toggle"
+                  [class.selected]="dailyForm.modulesTested.includes(m)"
+                  (click)="toggleDailyModule(m)"
+                >
+                  {{ m }}
+                </button>
+              </div>
+            </div>
+
+            <mat-form-field appearance="outline" class="w-full">
+              <mat-label>Notes & Summary of Testing</mat-label>
+              <textarea matInput [(ngModel)]="dailyForm.notes" rows="3" placeholder="Key highlights, blocking issues, or notes..."></textarea>
+            </mat-form-field>
+
+            <button mat-raised-button color="primary" [disabled]="isSubmittingDaily" (click)="onSubmitDailyReport()">
+              Submit Daily Report
+            </button>
+          </div>
+
+          <!-- Submitted Log History -->
+          <div class="history-panel">
+            <h2>Submitted Daily Reports History ({{ dailyReports.length }})</h2>
+            <div class="history-cards-list">
+              <div class="daily-card" *ngFor="let r of dailyReports">
+                <div class="card-header">
+                  <strong>Date: {{ r.date }}</strong>
+                  <span class="hours-badge">{{ r.testingHours }} Hours</span>
+                </div>
+                <div class="card-body">
+                  <p class="tester-name">Tester: {{ r.testerName }}</p>
+                  <div class="counts-row">
+                    <span>Executed: <strong>{{ r.testCasesExecuted }}</strong></span>
+                    <span class="text-success">Passed: <strong>{{ r.passed }}</strong></span>
+                    <span class="text-danger">Failed: <strong>{{ r.failed }}</strong></span>
+                    <span>Bugs Reported: <strong>{{ r.bugsReported }}</strong></span>
+                  </div>
+                  <p class="notes-text" *ngIf="r.notes">"{{ r.notes }}"</p>
+                </div>
+              </div>
+
+              <div *ngIf="dailyReports.length === 0" class="empty-state">
+                <p>No daily reports logged yet.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

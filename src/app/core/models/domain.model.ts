@@ -8,7 +8,8 @@ export type UserRole =
   | 'stageHead'
   | 'teacher'
   | 'student'
-  | 'parent';
+  | 'parent'
+  | 'qaTester';
 
 export interface CourseStageAssignment {
   courseId: string;
@@ -104,7 +105,11 @@ export type PermissionKey =
   | 'viewAnnouncements'
   | 'manageBrandingAndMenu'
   | 'manageBilling'
-  | 'viewBilling';
+  | 'viewBilling'
+  | 'viewQaTesting'
+  | 'manageQaBugs'
+  | 'manageTestRuns'
+  | 'manageDailyQaReports';
 
 export type SubscriptionStatus = 'trial' | 'active' | 'past_due' | 'expired' | 'suspended';
 
@@ -1960,6 +1965,113 @@ export interface Announcement extends ScopedEntity {
   attachmentUrl?: string;
   pinned?: boolean;
 }
+
+// ==========================================
+// QA Testing & Bug Reporting Module
+// ==========================================
+export type BugSeverity = 'Critical' | 'High' | 'Medium' | 'Low';
+export type BugPriority = 'P1' | 'P2' | 'P3' | 'P4';
+export type BugType = 'UI' | 'Functional' | 'Validation' | 'Performance' | 'Security' | 'API' | 'Crash' | 'Enhancement';
+export type BugStatus = 'New' | 'In Progress' | 'Fixed' | 'Ready for Testing' | 'Verified' | 'Reopened' | 'Closed' | 'Rejected';
+
+export interface QaBugComment {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole?: string;
+  text: string;
+  attachmentUrl?: string;
+  createdAt: unknown;
+}
+
+export interface QaBugHistoryItem {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  fromStatus?: string;
+  toStatus?: string;
+  details?: string;
+  timestamp: unknown;
+}
+
+export interface QaBug extends ScopedEntity {
+  bugId: string; // Auto-generated e.g. "BUG-1001"
+  title: string;
+  description: string;
+  module: string;
+  feature: string;
+  screen?: string;
+  url?: string;
+  severity: BugSeverity;
+  priority: BugPriority;
+  type: BugType;
+  stepsToReproduce: string;
+  expectedResult: string;
+  actualResult: string;
+  browser?: string;
+  device?: string;
+  os?: string;
+  screenResolution?: string;
+  attachments?: string[];
+  consoleLog?: string;
+  status: BugStatus;
+  assignedDeveloperId?: string;
+  assignedDeveloperName?: string;
+  testRunId?: string;
+  testRunName?: string;
+  reportedById: string;
+  reportedByName: string;
+  reportedAt: unknown;
+  fixedAt?: unknown;
+  verifiedAt?: unknown;
+  comments?: QaBugComment[];
+  history?: QaBugHistoryItem[];
+}
+
+export interface QaDailyReport extends ScopedEntity {
+  date: string; // YYYY-MM-DD
+  testerId: string;
+  testerName: string;
+  modulesTested: string[];
+  featuresTested?: string[];
+  testCasesExecuted: number;
+  passed: number;
+  failed: number;
+  bugsReported: number;
+  bugsVerified: number;
+  pendingBugs: number;
+  testingHours: number;
+  notes?: string;
+  createdAt: unknown;
+}
+
+export type TestRunStatus = 'Draft' | 'Active' | 'Completed' | 'Archived';
+
+export interface QaTestRunModule {
+  moduleName: string;
+  totalCases: number;
+  passedCases: number;
+  failedCases: number;
+  status: 'Not Started' | 'In Progress' | 'Passed' | 'Failed';
+}
+
+export interface QaTestRun extends ScopedEntity {
+  title: string; // e.g. "Release v1.4.2"
+  description?: string;
+  status: TestRunStatus;
+  targetReleaseDate?: string;
+  assignedTesterIds?: string[];
+  assignedTesterNames?: string[];
+  modules: QaTestRunModule[];
+  linkedBugIds?: string[];
+  createdById: string;
+  createdByName: string;
+  createdAt: unknown;
+  completedAt?: unknown;
+  signOffNotes?: string;
+}
+
 
 
 

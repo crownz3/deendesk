@@ -1099,6 +1099,21 @@ service cloud.firestore {
       allow delete: if isSuper();
     }
 
+    // ==========================================
+    // QA Testing & Bug Reporting Module
+    // ==========================================
+    match /qaBugs/{id} {
+      allow read, create, update, delete: if signedIn();
+    }
+
+    match /qaTestRuns/{id} {
+      allow read, create, update, delete: if signedIn();
+    }
+
+    match /qaDailyReports/{id} {
+      allow read, create, update, delete: if signedIn();
+    }
+
     match /{document=**} {
       allow read, write: if isSuper();
     }

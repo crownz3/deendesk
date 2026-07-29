@@ -1,0 +1,50 @@
+<div class="dialog-header">
+  <h2 mat-dialog-title>
+    <ion-icon name="rocket-outline" class="header-icon"></ion-icon>
+    {{ isEdit ? 'Edit Release Test Run' : 'Create Release Test Run' }}
+  </h2>
+  <button mat-icon-button (click)="onCancel()">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-body" [formGroup]="form">
+  <mat-form-field appearance="outline" class="w-full">
+    <mat-label>Test Run Title</mat-label>
+    <input matInput formControlName="title" placeholder="e.g. Release v1.4.2 Regression Test" required />
+  </mat-form-field>
+
+  <mat-form-field appearance="outline" class="w-full">
+    <mat-label>Description & Objectives</mat-label>
+    <textarea matInput formControlName="description" rows="3" placeholder="Goals for this test run..."></textarea>
+  </mat-form-field>
+
+  <div class="form-grid grid-2">
+    <mat-form-field appearance="outline">
+      <mat-label>Target Release Date</mat-label>
+      <input matInput type="date" formControlName="targetReleaseDate" required />
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Status</mat-label>
+      <mat-select formControlName="status">
+        <mat-option value="Draft">Draft</mat-option>
+        <mat-option value="Active">Active</mat-option>
+        <mat-option value="Completed">Completed</mat-option>
+        <mat-option value="Archived">Archived</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  <div class="info-box">
+    <ion-icon name="information-circle-outline"></ion-icon>
+    <span>Creating a Test Run initializes test case tracking across all 11 core Deendesk modules automatically.</span>
+  </div>
+</mat-dialog-content>
+
+<div class="dialog-actions">
+  <button mat-button (click)="onCancel()">Cancel</button>
+  <button mat-raised-button color="primary" (click)="onSubmit()">
+    {{ isEdit ? 'Save Test Run' : 'Launch Test Run' }}
+  </button>
+</div>

@@ -4,6 +4,8 @@
   width: 100%;
   box-sizing: border-box;
   padding-top: 8px;
+  max-height: 75vh !important;
+  overflow-y: auto !important;
 }
 
 .field-row {
@@ -18,6 +20,13 @@
 
 .quick-add-button ion-icon {
   font-size: 22px;
+}
+
+.load-defaults-btn {
+  margin-bottom: 22px;
+  height: 48px;
+  white-space: nowrap;
+  align-self: center;
 }
 
 .field-button-toggle {
