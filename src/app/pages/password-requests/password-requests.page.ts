@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { combineLatest, Observable, of } from 'rxjs';
+import { combineLatest, Observable, of, from } from 'rxjs';
 import { catchError, map, startWith, switchMap } from 'rxjs/operators';
 import { AppUser, PasswordResetRequest, UserRole } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -35,43 +35,11 @@ export class PasswordRequestsPage {
       if (!profile) return of({ loading: false, error: 'Not authenticated' });
       
       return this.repo.list<PasswordResetRequest & EntityRecord>('passwordResetRequests', profile).pipe(
-        map(requests => {
-          // Client-side filter to only show assigned or org requests based on role
-          const filtered = requests.filter(req => {
-            if (profile.role === 'superAdmin') return true;
-
-            // Strict Organization Boundary: If request has an org ID and it does NOT match admin's org ID, hide it!
-            if (req.organizationId && profile.organizationId && req.organizationId !== profile.organizationId) {
-              return false;
-            }
-
-            // Same organization match
-            if (profile.organizationId && req.organizationId === profile.organizationId) {
-              // For madrasa-scoped roles (Incharge, Coordinator), verify madrasa scope if request specifies a madrasa
-              if (['madrasaIncharge', 'coordinator'].includes(profile.role) && req.madrasaId) {
-                const allowedMadrasas = new Set([profile.madrasaId, ...(profile.madrasaIds || [])].filter(Boolean));
-                return allowedMadrasas.has(req.madrasaId);
-              }
-              return true;
-            }
-
-            // Assigned directly to this admin
-            if (req.assignedToUid === profile.uid) return true;
-
-            // Madrasa match for requests without explicit organizationId
-            if (req.madrasaId) {
-              const allowedMadrasas = new Set([profile.madrasaId, ...(profile.madrasaIds || [])].filter(Boolean));
-              if (allowedMadrasas.has(req.madrasaId)) return true;
-            }
-
-            return false;
-          });
-          
-          return {
-            data: { profile, requests: filtered },
-            loading: false
-          };
-        })
+        switchMap(requests => from(this.enrichAndFilterRequests(requests, profile))),
+        map(filtered => ({
+          data: { profile, requests: filtered },
+          loading: false
+        }))
       );
     }),
     startWith({ loading: true }),
@@ -120,6 +88,15 @@ export class PasswordRequestsPage {
   }
   set searchTerm(val: string) {
     this._searchTerm = val;
+    this.currentPage = 1;
+  }
+
+  private _statusFilter: 'all' | 'pending' | 'completed' | 'rejected' = 'all';
+  get statusFilter(): 'all' | 'pending' | 'completed' | 'rejected' {
+    return this._statusFilter;
+  }
+  set statusFilter(val: 'all' | 'pending' | 'completed' | 'rejected') {
+    this._statusFilter = val;
     this.currentPage = 1;
   }
 
@@ -185,6 +162,19 @@ export class PasswordRequestsPage {
         const role = this.getRequesterRole(r).toLowerCase();
         const status = (r.status || '').toLowerCase();
         return email.includes(term) || name.includes(term) || role.includes(term) || status.includes(term);
+      });
+    }
+    if (this.statusFilter !== 'all') {
+      result = result.filter(r => {
+        const s = (r.status || 'pending').toLowerCase();
+        if (this.statusFilter === 'pending') {
+          return s === 'pending' || s === 'assigned';
+        } else if (this.statusFilter === 'completed') {
+          return s === 'completed';
+        } else if (this.statusFilter === 'rejected') {
+          return s === 'rejected' || s === 'expired';
+        }
+        return true;
       });
     }
 
@@ -333,7 +323,7 @@ export class PasswordRequestsPage {
 
             // Also mark request as COMPLETED in Firestore
             try {
-              const reqRef = doc(firestore, `passwordRequests/${request.id}`);
+              const reqRef = doc(firestore, `passwordResetRequests/${request.id}`);
               await updateDoc(reqRef, {
                 status: 'COMPLETED',
                 updatedAt: serverTimestamp(),
@@ -346,10 +336,97 @@ export class PasswordRequestsPage {
           request.status = 'COMPLETED';
         } catch (e: any) {
           console.error('[PasswordRequestsPage] Password reset failed:', e);
-          this.snackBar.open(e?.message || e?.error?.message || 'Failed to set temporary password.', 'Close', { duration: 5000 });
         }
       }
     });
+  }
+
+  private async enrichAndFilterRequests(
+    requests: (PasswordResetRequest & EntityRecord)[],
+    profile: AppUser
+  ): Promise<(PasswordResetRequest & EntityRecord)[]> {
+    if (profile.role === 'superAdmin') {
+      return requests;
+    }
+
+    if (!profile.organizationId) {
+      return [];
+    }
+
+    const firestore = getFirestore(getDeenDeskFirebaseApp());
+    const result: (PasswordResetRequest & EntityRecord)[] = [];
+
+    for (const req of requests) {
+      let reqOrg = (req.organizationId || '').trim();
+
+      // If missing organizationId, resolve it using admin's authenticated read access
+      if (!reqOrg) {
+        const reqEmail = (req.requesterEmail || (req as any)['email'] || '').trim().toLowerCase();
+        if (reqEmail) {
+          try {
+            // Check users collection
+            let uSnap = await getDocs(query(collection(firestore, 'users'), where('email', '==', reqEmail), limit(1)));
+            if (uSnap.empty) {
+              uSnap = await getDocs(query(collection(firestore, 'users'), where('generatedEmail', '==', reqEmail), limit(1)));
+            }
+            if (!uSnap.empty) {
+              reqOrg = uSnap.docs[0].data()['organizationId'] || '';
+            }
+
+            // Check staff collection
+            if (!reqOrg) {
+              let sSnap = await getDocs(query(collection(firestore, 'staff'), where('email', '==', reqEmail), limit(1)));
+              if (sSnap.empty) {
+                sSnap = await getDocs(query(collection(firestore, 'staff'), where('workEmail', '==', reqEmail), limit(1)));
+              }
+              if (!sSnap.empty) {
+                reqOrg = sSnap.docs[0].data()['organizationId'] || '';
+              }
+            }
+
+            // Check students collection
+            if (!reqOrg) {
+              let stSnap = await getDocs(query(collection(firestore, 'students'), where('email', '==', reqEmail), limit(1)));
+              if (stSnap.empty) {
+                stSnap = await getDocs(query(collection(firestore, 'students'), where('generatedEmail', '==', reqEmail), limit(1)));
+              }
+              if (!stSnap.empty) {
+                reqOrg = stSnap.docs[0].data()['organizationId'] || '';
+              }
+            }
+
+            // If found org, auto-tag the request in Firestore so future reads are instant
+            if (reqOrg && req.id) {
+              req.organizationId = reqOrg;
+              updateDoc(doc(firestore, `passwordResetRequests/${req.id}`), { organizationId: reqOrg }).catch(() => {});
+            }
+          } catch (e) {
+            console.warn('[PasswordRequestsPage] Org enrichment note:', e);
+          }
+        }
+      }
+
+      // Check organization boundary
+      if (reqOrg && reqOrg !== profile.organizationId) {
+        continue; // Hide requests belonging to other organizations
+      }
+
+      if (reqOrg && reqOrg === profile.organizationId) {
+        if (['madrasaIncharge', 'coordinator'].includes(profile.role) && req.madrasaId) {
+          const allowedMadrasas = new Set([profile.madrasaId, ...(profile.madrasaIds || [])].filter(Boolean));
+          if (!allowedMadrasas.has(req.madrasaId)) continue;
+        }
+        result.push(req);
+        continue;
+      }
+
+      if (req.assignedToUid === profile.uid) {
+        result.push(req);
+        continue;
+      }
+    }
+
+    return result;
   }
 
   async matchAndAssign(request: PasswordResetRequest & EntityRecord, currentUser: AppUser): Promise<void> {

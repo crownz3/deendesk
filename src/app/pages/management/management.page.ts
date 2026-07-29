@@ -3,7 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
 import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, BehaviorSubject, take, tap, scan } from 'rxjs';
-import { CollectionReference, DocumentData, collection, getFirestore, query, where, getDocs, limit } from 'firebase/firestore';
+import { CollectionReference, DocumentData, collection, getFirestore, query, where, getDocs, limit, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { DEFAULT_STAGES_BY_COURSE_TYPE, PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
@@ -2312,6 +2312,25 @@ export class ManagementPage {
 
         console.log(`[Cloud Function Call] name=resetUserTemporaryPassword, targetUid=${targetUid}`);
         await resetFn({ targetUid, newTemporaryPassword: password });
+
+        // Clean up pending requests in `passwordResetRequests` for this user's email
+        const userEmail = String(row['email'] || row['generatedEmail'] || row['workEmail'] || '').trim().toLowerCase();
+        if (userEmail) {
+          try {
+            const firestore = getFirestore(getDeenDeskFirebaseApp());
+            const reqRef = collection(firestore, 'passwordResetRequests');
+            const qPending = query(reqRef, where('email', '==', userEmail), where('status', 'in', ['PENDING', 'pending']));
+            const pendingSnap = await getDocs(qPending);
+            for (const pDoc of pendingSnap.docs) {
+              await updateDoc(doc(firestore, `passwordResetRequests/${pDoc.id}`), {
+                status: 'COMPLETED',
+                updatedAt: serverTimestamp(),
+              });
+            }
+          } catch (cleanErr) {
+            console.warn('[ManagementPage] Password request cleanup skipped:', cleanErr);
+          }
+        }
       });
       this.snackBar.open('Temporary password updated successfully. User must change it on next login.', 'Close', { duration: 5000 });
     } catch (e: any) {

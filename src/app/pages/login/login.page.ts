@@ -3,7 +3,7 @@ import { FormBuilder, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Observable } from 'rxjs';
-import { collection, getDocs, getFirestore, limit, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, getFirestore, limit, query, where, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { AppUser, UserRole } from '../../core/models/domain.model';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { AuthService } from '../../core/services/auth.service';
@@ -270,55 +270,7 @@ export class LoginPage implements OnInit {
       const app = getDeenDeskFirebaseApp();
       const db = getFirestore(app);
 
-      let orgId = '';
-      let madrasaId = '';
-      let targetUserId = '';
-      let targetUserName = '';
-      let targetUserRole = '';
-
-      try {
-        const usersRef = collection(db, 'users');
-        const q = query(usersRef, where('email', '==', email), limit(1));
-        const snap = await getDocs(q);
-
-        if (!snap.empty) {
-          const userDoc = snap.docs[0];
-          const data = userDoc.data();
-          targetUserId = userDoc.id;
-          targetUserName = data['displayName'] || '';
-          targetUserRole = data['role'] || '';
-          orgId = data['organizationId'] || '';
-          madrasaId = data['madrasaId'] || '';
-        } else {
-          // Fallback lookup in `staff` collection
-          const staffRef = collection(db, 'staff');
-          const staffQ = query(staffRef, where('email', '==', email), limit(1));
-          const staffSnap = await getDocs(staffQ);
-          if (!staffSnap.empty) {
-            const sDoc = staffSnap.docs[0].data();
-            targetUserId = sDoc['userId'] || staffSnap.docs[0].id;
-            targetUserName = sDoc['name'] || sDoc['displayName'] || '';
-            targetUserRole = sDoc['role'] || 'teacher';
-            orgId = sDoc['organizationId'] || '';
-            madrasaId = sDoc['madrasaId'] || '';
-          } else {
-            // Fallback lookup in `students` collection
-            const studentsRef = collection(db, 'students');
-            const stQ = query(studentsRef, where('email', '==', email), limit(1));
-            const stSnap = await getDocs(stQ);
-            if (!stSnap.empty) {
-              const stDoc = stSnap.docs[0].data();
-              targetUserId = stDoc['userId'] || stSnap.docs[0].id;
-              targetUserName = stDoc['name'] || '';
-              targetUserRole = 'student';
-              orgId = stDoc['organizationId'] || '';
-              madrasaId = stDoc['madrasaId'] || '';
-            }
-          }
-        }
-      } catch (lookupErr) {
-        console.warn('[LoginPage] User lookup skipped for unauthenticated reset request:', lookupErr);
-      }
+      const cleanEmail = email.toLowerCase().trim();
 
       // 1. Try sending automated Firebase Auth reset email
       try {
@@ -340,7 +292,21 @@ export class LoginPage implements OnInit {
         const existingSnap = await getDocs(existingQuery);
 
         if (!existingSnap.empty) {
-          isDuplicate = true;
+          const now = Date.now();
+          for (const dSnap of existingSnap.docs) {
+            const data = dSnap.data();
+            const createdAt = data['createdAt']?.toDate?.()?.getTime() || data['requestedAt']?.toDate?.()?.getTime() || 0;
+            // If request is within 2 hours, treat as active duplicate; if older, auto-expire it
+            if (now - createdAt < 2 * 60 * 60 * 1000) {
+              isDuplicate = true;
+              break;
+            } else {
+              // Auto-expire stale request
+              try {
+                await updateDoc(doc(db, `passwordResetRequests/${dSnap.id}`), { status: 'EXPIRED', updatedAt: serverTimestamp() });
+              } catch (e) {}
+            }
+          }
         }
       } catch (checkErr) {
         console.warn('[LoginPage] Pending request check note:', checkErr);
@@ -354,27 +320,12 @@ export class LoginPage implements OnInit {
       // 3. Log single password reset request in Firestore
       try {
         const resetPayload: any = {
-          email,
-          requesterEmail: email,
+          email: cleanEmail,
+          requesterEmail: cleanEmail,
           status: 'PENDING',
           requestedAt: serverTimestamp(),
           createdAt: serverTimestamp()
         };
-
-        if (targetUserId) {
-          resetPayload.targetUserId = targetUserId;
-          resetPayload.requesterUid = targetUserId;
-        }
-        if (targetUserName) {
-          resetPayload.targetUserName = targetUserName;
-          resetPayload.requesterName = targetUserName;
-        }
-        if (targetUserRole) {
-          resetPayload.targetUserRole = targetUserRole;
-          resetPayload.requesterRole = targetUserRole;
-        }
-        if (orgId) resetPayload.organizationId = orgId;
-        if (madrasaId) resetPayload.madrasaId = madrasaId;
 
         await addDoc(reqRef, resetPayload);
       } catch (dbErr) {

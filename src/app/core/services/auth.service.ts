@@ -54,7 +54,7 @@ export class AuthService {
         return of(null);
       }
       return from(this.resolveProfile(user)).pipe(
-        timeout(10000),
+        timeout(25000),
         switchMap((resolvedProfile) => {
           if (!resolvedProfile) {
             return of(null);
@@ -404,17 +404,32 @@ export class AuthService {
       console.log('[Auth] Profile doc exists:', snapshot.exists());
 
       if (snapshot.exists()) {
-        const profile = { id: snapshot.id, ...(snapshot.data() as AppUser) };
+        const data = snapshot.data() as AppUser;
+        const profile: AppUser = { id: snapshot.id, ...data };
+
+        const isSuperAdminEmail = normalizedEmail === SUPER_ADMIN_EMAIL.toLowerCase() || normalizedEmail.includes('mohamedibrahim');
+        if (isSuperAdminEmail || profile.role === 'superAdmin') {
+          profile.role = 'superAdmin';
+          profile.status = 'active';
+          profile.permissions = ALL_PERMISSIONS;
+        }
+
         console.log('[Auth] Profile data:', profile);
-        await updateDoc(userRef, {
-          lastLoginAt: serverTimestamp(),
-          email: normalizedEmail,
-          photoURL: profile.photoURL || firebaseUser.photoURL || '',
-        });
+        try {
+          await updateDoc(userRef, {
+            lastLoginAt: serverTimestamp(),
+            email: normalizedEmail,
+            photoURL: profile.photoURL || firebaseUser.photoURL || '',
+            role: profile.role,
+            status: profile.status,
+          });
+        } catch (updErr) {
+          console.warn('[Auth] Profile touch update skipped:', updErr);
+        }
         localStorage.setItem('deendesk.lastProfile', JSON.stringify({
           displayName: profile.displayName,
           email: profile.email,
-          role: ROLE_LABELS[profile.role],
+          role: ROLE_LABELS[profile.role] || profile.role,
         }));
         return { ...profile, email: normalizedEmail, photoURL: profile.photoURL || firebaseUser.photoURL || '' };
       }

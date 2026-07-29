@@ -14,12 +14,13 @@ export const authGuard: CanActivateFn = (route, state) => {
         return of(router.createUrlTree(['/login']));
       }
 
-      return auth.profile$.pipe(
-        filter((profile): profile is AppUser | null => profile !== undefined),
+      return auth.loadingProfile$.pipe(
+        filter(loading => !loading),
+        switchMap(() => auth.profile$),
         take(1),
         map(profile => {
           if (!profile) {
-            console.warn('[Guard] Auth user exists but profile missing');
+            console.warn('[Guard] Auth user exists but profile missing for email:', authUser.email, 'uid:', authUser.uid);
             return router.createUrlTree(['/login']);
           }
 
