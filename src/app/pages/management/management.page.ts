@@ -3,7 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
 import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, BehaviorSubject, take, tap, scan } from 'rxjs';
-import { CollectionReference, DocumentData, collection, getFirestore } from 'firebase/firestore';
+import { CollectionReference, DocumentData, collection, getFirestore, query, where, getDocs, limit } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { DEFAULT_STAGES_BY_COURSE_TYPE, PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
@@ -2304,7 +2304,7 @@ export class ManagementPage {
         const functions = getFunctions(getDeenDeskFirebaseApp());
         const resetFn = httpsCallable(functions, 'resetUserTemporaryPassword');
 
-        const targetUid = row['userId'] || row['primaryOrganizerId'] || row.id;
+        const targetUid = await this.resolveTargetUid(row);
 
         if (!targetUid) {
           throw new Error('User ID not found for this record.');
@@ -2315,8 +2315,55 @@ export class ManagementPage {
       });
       this.snackBar.open('Temporary password updated successfully. User must change it on next login.', 'Close', { duration: 5000 });
     } catch (e: any) {
+      console.error('[ResetTempPassword] Error:', e);
       this.snackBar.open(e.message || 'Failed to update temporary password.', 'Close', { duration: 4000 });
     }
+  }
+
+  private async resolveTargetUid(row: EntityRecord): Promise<string> {
+    let targetUid = String(row['userId'] || row['uid'] || row['primaryOrganizerId'] || row['userUid'] || '').trim();
+    const currentResource = this.route.snapshot.data['resource'] || '';
+
+    if (targetUid && targetUid !== row.id) {
+      return targetUid;
+    }
+
+    if (currentResource === 'users' && row.id) {
+      return row.id;
+    }
+
+    // Try finding by entityId in `users` collection
+    const firestore = getFirestore(getDeenDeskFirebaseApp());
+    const usersRef = collection(firestore, 'users');
+
+    if (row.id) {
+      const qByEntity = query(usersRef, where('entityId', '==', row.id), limit(1));
+      const snapByEntity = await getDocs(qByEntity);
+      if (!snapByEntity.empty) {
+        return snapByEntity.docs[0].id;
+      }
+    }
+
+    // Try finding by email
+    const email = String(row['email'] || row['generatedEmail'] || row['workEmail'] || row['parentEmail'] || '').trim().toLowerCase();
+    if (email) {
+      const qByEmail = query(usersRef, where('email', '==', email), limit(1));
+      const snapByEmail = await getDocs(qByEmail);
+      if (!snapByEmail.empty) {
+        return snapByEmail.docs[0].id;
+      }
+
+      const qByGen = query(usersRef, where('generatedEmail', '==', email), limit(1));
+      const snapByGen = await getDocs(qByGen);
+      if (!snapByGen.empty) {
+        return snapByGen.docs[0].id;
+      }
+    }
+
+    if (targetUid) return targetUid;
+    if (row.id) return row.id;
+
+    throw new Error('Could not find Auth User Account ID for this record.');
   }
 
   async promote(row: EntityRecord): Promise<void> {

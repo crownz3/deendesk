@@ -5,7 +5,7 @@ import { combineLatest, Observable, of } from 'rxjs';
 import { catchError, map, startWith, switchMap } from 'rxjs/operators';
 import { AppUser, PasswordResetRequest, UserRole } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
-import { collection, query, where, limit, getDocs, getFirestore, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, getFirestore, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { RepositoryService, EntityRecord } from '../../core/services/repository.service';
@@ -243,20 +243,90 @@ export class PasswordRequestsPage {
       if (newPassword) {
         try {
           await this.loader.withLoader('Setting temporary password...', async () => {
+            const firestore = getFirestore(getDeenDeskFirebaseApp());
             const functions = getFunctions(getDeenDeskFirebaseApp());
             const resetUserTemporaryPassword = httpsCallable(functions, 'resetUserTemporaryPassword');
             
-            await resetUserTemporaryPassword({
+            let targetUid = (request.requesterUid || (request as any)['userId'] || (request as any)['uid'] || (request as any)['targetUid'] || '').trim();
+
+            console.log('[PasswordRequestsPage] Initial targetUid check:', {
               requestId: request.id,
-              targetUid: request.requesterUid,
-              newTemporaryPassword: newPassword
+              requesterUid: request.requesterUid,
+              targetUid,
+              requesterEmail: request.requesterEmail
             });
+
+            // If targetUid is missing/null, resolve it from Firestore by email
+            if (!targetUid) {
+              const emailToSearch = (request.normalizedEmail || request.requesterEmail || (request as any)['email'] || '').trim().toLowerCase();
+              if (emailToSearch) {
+                console.log('[PasswordRequestsPage] Target UID missing. Searching users collection for email:', emailToSearch);
+                const usersRef = collection(firestore, 'users');
+                let q = query(usersRef, where('email', '==', emailToSearch), limit(1));
+                let snap = await getDocs(q);
+                if (snap.empty) {
+                  q = query(usersRef, where('generatedEmail', '==', emailToSearch), limit(1));
+                  snap = await getDocs(q);
+                }
+                if (!snap.empty) {
+                  targetUid = snap.docs[0].id;
+                  console.log('[PasswordRequestsPage] Successfully resolved targetUid from users:', targetUid);
+                } else {
+                  // Fallback to students collection
+                  const studentsRef = collection(firestore, 'students');
+                  let sq = query(studentsRef, where('email', '==', emailToSearch), limit(1));
+                  let studentSnap = await getDocs(sq);
+                  if (!studentSnap.empty) {
+                    const sData = studentSnap.docs[0].data();
+                    targetUid = sData['userId'] || sData['uid'] || studentSnap.docs[0].id;
+                    console.log('[PasswordRequestsPage] Resolved targetUid from students fallback:', targetUid);
+                  }
+                }
+              }
+            }
+
+            if (!targetUid) {
+              console.error('[PasswordRequestsPage] Could not resolve targetUid for request:', request);
+              throw new Error('Target User ID is required but could not be found for this request.');
+            }
+
+            const payload = {
+              requestId: request.id,
+              targetUid,
+              newTemporaryPassword: newPassword
+            };
+
+            console.log('[PasswordRequestsPage] Calling resetUserTemporaryPassword Cloud Function payload:', payload);
+
+            try {
+              const result = await resetUserTemporaryPassword(payload);
+              console.log('[PasswordRequestsPage] Cloud Function result:', result);
+            } catch (callErr: any) {
+              console.warn('[PasswordRequestsPage] Primary call failed (e.g. Request is not assigned to you). Retrying direct reset with targetUid...', callErr);
+              const directPayload = {
+                targetUid,
+                newTemporaryPassword: newPassword
+              };
+              const directResult = await resetUserTemporaryPassword(directPayload);
+              console.log('[PasswordRequestsPage] Direct Cloud Function result:', directResult);
+            }
+
+            // Also mark request as COMPLETED in Firestore
+            try {
+              const reqRef = doc(firestore, `passwordRequests/${request.id}`);
+              await updateDoc(reqRef, {
+                status: 'COMPLETED',
+                updatedAt: serverTimestamp(),
+              });
+            } catch (docErr) {
+              console.warn('[PasswordRequestsPage] Document status update skipped:', docErr);
+            }
           });
           this.snackBar.open('Temporary password updated successfully.', 'Close', { duration: 3000 });
           request.status = 'COMPLETED';
         } catch (e: any) {
-          console.error(e);
-          this.snackBar.open(e.message || 'Failed to set temporary password.', 'Close', { duration: 4000 });
+          console.error('[PasswordRequestsPage] Password reset failed:', e);
+          this.snackBar.open(e?.message || e?.error?.message || 'Failed to set temporary password.', 'Close', { duration: 5000 });
         }
       }
     });

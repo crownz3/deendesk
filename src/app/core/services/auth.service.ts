@@ -27,6 +27,7 @@ import {
   getDocs,
   query,
   where,
+  limit,
 } from 'firebase/firestore';
 import { Router } from '@angular/router';
 import { BehaviorSubject, Observable, from, map, shareReplay, switchMap, of, combineLatest, catchError, startWith, timeout } from 'rxjs';
@@ -126,8 +127,123 @@ export class AuthService {
     private readonly rolePermissionsService: RolePermissionsService
   ) { }
 
-  async loginWithEmail(email: string, password: string): Promise<void> {
-    await signInWithEmailAndPassword(this.auth, email.trim().toLowerCase(), password);
+  async loginWithEmail(inputEmail: string, password: string): Promise<void> {
+    const rawEmail = (inputEmail || '').trim();
+    const cleanEmail = rawEmail.toLowerCase();
+
+    // 1. Direct Attempt with input email using multi-strategy password matching (trim, mobile casing)
+    try {
+      const success = await this.attemptPasswordLogin(cleanEmail, password);
+      if (success) return;
+    } catch (firstErr: any) {
+      throw firstErr;
+    }
+
+    // 2. Resolved Auth Email Attempt from Firestore (`users` & `staff` & `students`)
+    try {
+      const resolvedAuthEmail = await this.resolveAuthEmailFromFirestore(rawEmail);
+      if (resolvedAuthEmail && resolvedAuthEmail.toLowerCase() !== cleanEmail) {
+        console.log('[AuthService] Trying resolved Auth email from Firestore:', resolvedAuthEmail);
+        const successResolved = await this.attemptPasswordLogin(resolvedAuthEmail, password);
+        if (successResolved) return;
+      }
+    } catch (resolveErr) {
+      console.warn('[AuthService] Firestore email resolution error:', resolveErr);
+    }
+
+    // Final direct call to preserve exact error throwing for LoginPage
+    await signInWithEmailAndPassword(this.auth, cleanEmail, password);
+  }
+
+  private async attemptPasswordLogin(email: string, rawPassword: string): Promise<boolean> {
+    const targetEmail = email.trim().toLowerCase();
+    const passwordsToTry = new Set<string>();
+    
+    const p1 = rawPassword;
+    const p2 = rawPassword.trim();
+    passwordsToTry.add(p1);
+    passwordsToTry.add(p2);
+
+    // Mobile auto-capitalization variation (Toggle first letter casing)
+    if (p2.length > 0) {
+      const firstChar = p2.charAt(0);
+      const isUpper = firstChar === firstChar.toUpperCase() && firstChar !== firstChar.toLowerCase();
+      const toggledFirst = isUpper 
+        ? firstChar.toLowerCase() + p2.slice(1)
+        : firstChar.toUpperCase() + p2.slice(1);
+      passwordsToTry.add(toggledFirst);
+    }
+
+    for (const pwd of passwordsToTry) {
+      try {
+        await signInWithEmailAndPassword(this.auth, targetEmail, pwd);
+        return true;
+      } catch (err: any) {
+        if (err?.code === 'auth/too-many-requests' || err?.code === 'auth/user-disabled') {
+          throw err;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  private async resolveAuthEmailFromFirestore(identifier: string): Promise<string | null> {
+    if (!identifier) return null;
+    const searchStr = identifier.trim();
+    const searchLower = searchStr.toLowerCase();
+
+    const firestore = getFirestore(this.firebaseApp);
+    const usersRef = collection(firestore, 'users');
+
+    // Query 1: search users by email (exact & lower)
+    let q = query(usersRef, where('email', '==', searchStr), limit(1));
+    let snap = await getDocs(q);
+    if (snap.empty) {
+      q = query(usersRef, where('email', '==', searchLower), limit(1));
+      snap = await getDocs(q);
+    }
+
+    // Query 2: search users by generatedEmail / customEmail / parentEmail
+    if (snap.empty) {
+      q = query(usersRef, where('generatedEmail', '==', searchLower), limit(1));
+      snap = await getDocs(q);
+    }
+    if (snap.empty) {
+      q = query(usersRef, where('parentEmail', '==', searchLower), limit(1));
+      snap = await getDocs(q);
+    }
+    if (snap.empty) {
+      q = query(usersRef, where('parentGeneratedEmail', '==', searchLower), limit(1));
+      snap = await getDocs(q);
+    }
+
+    if (!snap.empty) {
+      const docData = snap.docs[0].data();
+      const resolved = docData['generatedEmail'] || docData['email'] || docData['authEmail'] || docData['studentEmail'] || docData['parentGeneratedEmail'] || null;
+      if (resolved) return String(resolved).trim();
+    }
+
+    // Query 3: search `students` collection fallback
+    const studentsRef = collection(firestore, 'students');
+    let sq = query(studentsRef, where('email', '==', searchLower), limit(1));
+    let studentSnap = await getDocs(sq);
+    if (studentSnap.empty) {
+      sq = query(studentsRef, where('generatedEmail', '==', searchLower), limit(1));
+      studentSnap = await getDocs(sq);
+    }
+    if (studentSnap.empty) {
+      sq = query(studentsRef, where('parentEmail', '==', searchLower), limit(1));
+      studentSnap = await getDocs(sq);
+    }
+
+    if (!studentSnap.empty) {
+      const sData = studentSnap.docs[0].data();
+      const resolved = sData['generatedEmail'] || sData['email'] || sData['studentEmail'] || sData['parentGeneratedEmail'] || null;
+      if (resolved) return String(resolved).trim();
+    }
+
+    return null;
   }
 
   async loginWithGoogle(): Promise<void> {
@@ -303,7 +419,55 @@ export class AuthService {
         return { ...profile, email: normalizedEmail, photoURL: profile.photoURL || firebaseUser.photoURL || '' };
       }
 
-      // Check if an existing profile document was pre-created in Firestore under a different ID by email match
+      // 1. Check if an existing staff record was created for this user (by userId, uid, or email)
+      try {
+        const staffRef = collection(this.firestore, 'staff');
+        let staffQ = query(staffRef, where('userId', '==', firebaseUser.uid), limit(1));
+        let staffSnap = await getDocs(staffQ);
+        if (staffSnap.empty) {
+          staffQ = query(staffRef, where('uid', '==', firebaseUser.uid), limit(1));
+          staffSnap = await getDocs(staffQ);
+        }
+        if (staffSnap.empty) {
+          staffQ = query(staffRef, where('email', '==', normalizedEmail), limit(1));
+          staffSnap = await getDocs(staffQ);
+        }
+
+        if (!staffSnap.empty) {
+          const staffDoc = staffSnap.docs[0];
+          const staffData = staffDoc.data();
+          const staffRole = (staffData['role'] as UserRole) || 'teacher';
+
+          const linkedStaffProfile: AppUser = {
+            id: firebaseUser.uid,
+            uid: firebaseUser.uid,
+            email: normalizedEmail,
+            displayName: staffData['name'] || staffData['displayName'] || firebaseUser.displayName || normalizedEmail.split('@')[0],
+            role: staffRole,
+            permissions: this.rolePermissionsService.getPermissionsForRole(staffRole),
+            status: staffData['status'] || 'active',
+            organizationId: staffData['organizationId'] || '',
+            madrasaId: staffData['madrasaId'] || '',
+            madrasaIds: staffData['madrasaIds'] || [],
+            entityId: staffDoc.id,
+            entityType: 'staff',
+            authProvider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'password',
+            lastLoginAt: serverTimestamp(),
+          };
+
+          await setDoc(userRef, linkedStaffProfile, { merge: true });
+          localStorage.setItem('deendesk.lastProfile', JSON.stringify({
+            displayName: linkedStaffProfile.displayName,
+            email: linkedStaffProfile.email,
+            role: ROLE_LABELS[linkedStaffProfile.role],
+          }));
+          return linkedStaffProfile;
+        }
+      } catch (e) {
+        console.warn('[Auth] Staff profile lookup failed:', e);
+      }
+
+      // 2. Check if an existing profile document was pre-created in Firestore under a different ID by email match
       try {
         const usersQuery = query(collection(this.firestore, 'users'), where('email', '==', normalizedEmail));
         const querySnap = await getDocs(usersQuery);
@@ -315,9 +479,10 @@ export class AuthService {
             id: firebaseUser.uid,
             uid: firebaseUser.uid,
             email: normalizedEmail,
+            status: existingData.status || 'active',
             lastLoginAt: serverTimestamp(),
           };
-          await setDoc(userRef, linkedProfile);
+          await setDoc(userRef, linkedProfile, { merge: true });
           localStorage.setItem('deendesk.lastProfile', JSON.stringify({
             displayName: linkedProfile.displayName,
             email: linkedProfile.email,
