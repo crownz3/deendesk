@@ -459,7 +459,36 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
           { label: 'Aalim', value: 'aalim' },
           { label: 'Hifz', value: 'hifz' },
           { label: 'Muballigh', value: 'muballigh' },
+          { label: 'Muallim', value: 'muallim' },
           { label: 'Custom', value: 'custom' },
+        ]
+      },
+      {
+        key: 'courseDurationYears', label: 'Course Duration (Years)', type: 'select', options: [
+          { label: '1 Year', value: 1 as any },
+          { label: '2 Years', value: 2 as any },
+          { label: '3 Years', value: 3 as any },
+          { label: '4 Years', value: 4 as any },
+          { label: '5 Years', value: 5 as any },
+          { label: '6 Years', value: 6 as any },
+          { label: '7 Years', value: 7 as any },
+          { label: '8 Years', value: 8 as any },
+          { label: '9 Years', value: 9 as any },
+          { label: '10 Years', value: 10 as any },
+        ]
+      },
+      {
+        key: 'promotionRule', label: 'Promotion Exam Rule', type: 'select', options: [
+          { label: 'Mandatory Exam Pass', value: 'exam_mandatory' },
+          { label: 'Optional Exam / Manual Teacher Override', value: 'exam_optional_manual' },
+          { label: 'Daur Count Completion', value: 'daur_count_required' },
+        ]
+      },
+      {
+        key: 'evaluationMode', label: 'Daily Evaluation Mode', type: 'select', options: [
+          { label: 'Portion-Based (Sabaq / Sabqi / Manzil / Daur)', value: 'portion_based' },
+          { label: 'Subject-Based (Kitabs / Books)', value: 'subject_based' },
+          { label: 'Hybrid (Both Portion & Subject Evaluation)', value: 'hybrid' },
         ]
       },
       {
@@ -468,7 +497,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
           { label: 'No - Single Subject / General Course', value: false as any }
         ]
       },
-      { key: 'levels', label: 'Levels (comma separated)', type: 'text' },
+      { key: 'levels', label: 'Custom Stages / Levels (comma separated)', type: 'text', placeholder: 'e.g. Sabaq, Sabqi, Manzil, Daur OR Year 1, Year 2, Year 3' },
       { key: 'description', label: 'Description', type: 'textarea' },
       baseStatusField,
     ],
@@ -599,6 +628,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'name', label: 'Subject' },
       { key: 'code', label: 'Code' },
       { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
+      { key: 'assignedStaffIds', label: 'Assigned Teachers', type: 'idRef', referenceType: 'staff' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -608,6 +638,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'classId', label: 'Class', type: 'select', quickAddResource: 'classes' },
       { key: 'name', label: 'Subject name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'assignedStaffIds', label: 'Assigned Staff / Teachers', type: 'multiselect', quickAddResource: 'staff' },
       baseStatusField,
     ],
   },
@@ -711,6 +742,11 @@ export class ManagementPage {
     combineLatest([this.courseFilter$, this.classFilter$, this.stageFilter$, this.statusFilter$])
   ]).pipe(
     switchMap(([_, config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, stageFilter, statusFilter]]) => {
+      if (!profile) {
+        return of({
+          loading: true,
+        } as PageState<ManagementVm>);
+      }
       return combineLatest([
         this.rowsForConfig(config, profile, madrasaFilter, roleFilter),
         this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([]))),
@@ -2502,6 +2538,7 @@ export class ManagementPage {
         title: `${initial ? 'Edit' : 'Add'} ${config.title}`,
         fields,
         initialValue: this.initialDialogValue(config, initial),
+        isEdit: !!initial,
         submitLabel: initial ? 'Update' : 'Create',
         saveFn: async (rawValue: Record<string, unknown>) => {
           const initialPassword = rawValue['password'] ? String(rawValue['password']).trim() : undefined;

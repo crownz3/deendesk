@@ -108,10 +108,16 @@ export class PromoteDemoteDialogComponent implements OnInit {
   private extractStages(course: EntityRecord) {
     let stages: string[] = [];
     const rawStages = course['stages'];
+    const duration = Number(course['courseDurationYears'] || 0);
+
     if (Array.isArray(rawStages) && rawStages.length) {
       stages = rawStages.map(s => String(s).trim()).filter(Boolean);
     } else if (typeof rawStages === 'string' && rawStages.trim()) {
       stages = rawStages.split(',').map(s => s.trim()).filter(Boolean);
+    } else if (duration > 0) {
+      for (let i = 1; i <= duration; i++) {
+        stages.push(`Year ${i}`);
+      }
     } else {
       const type = String(course['type'] || course['courseType'] || '').toLowerCase();
       stages = [...(DEFAULT_STAGES_BY_COURSE_TYPE[type] || [])];

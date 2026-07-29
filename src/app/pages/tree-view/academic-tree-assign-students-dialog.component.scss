@@ -528,7 +528,120 @@ mat-dialog-content {
   }
 }
 
-/* Mobile Responsiveness */
+/* Mobile Responsiveness & Touch Optimizations */
+.mobile-segmented-tabs {
+  display: flex;
+  background: #e2e8f0;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 12px;
+
+  @media (min-width: 768px) {
+    display: none;
+  }
+
+  .mobile-tab-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    ion-icon {
+      font-size: 16px;
+    }
+
+    &.active {
+      background: #ffffff;
+      color: #0f172a;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+
+      &.primary {
+        color: #0284c7;
+      }
+    }
+  }
+}
+
+.drag-handle {
+  font-size: 20px;
+  color: #94a3b8;
+  cursor: grab;
+  padding: 4px 6px 4px 2px;
+  flex-shrink: 0;
+  touch-action: none;
+
+  &:hover {
+    color: #0284c7;
+  }
+
+  &:active {
+    cursor: grabbing;
+  }
+}
+
+.touch-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  .action-icon {
+    font-size: 18px;
+    padding: 0;
+  }
+
+  &.add-btn {
+    color: #0284c7;
+    background: #f0f9ff;
+    border-color: #bae6fd;
+    &:hover {
+      background: #e0f2fe;
+    }
+  }
+
+  &.remove-btn {
+    color: #dc2626;
+    background: #fef2f2;
+    border-color: #fecaca;
+    &:hover {
+      background: #fee2e2;
+    }
+  }
+}
+
+@media (max-width: 767px) {
+  .transfer-panel.mobile-hidden {
+    display: none !important;
+  }
+
+  .transfer-panel {
+    min-height: 320px;
+    max-height: calc(85vh - 140px);
+  }
+
+  .transfer-list {
+    max-height: calc(85vh - 200px);
+  }
+}
+
 @media (max-width: 600px) {
   .assign-dialog-header {
     padding: 14px 16px 12px;
@@ -564,16 +677,6 @@ mat-dialog-content {
 
   mat-dialog-content {
     padding: 10px !important;
-  }
-
-  .transfer-panel {
-    min-height: 180px;
-    max-height: 260px;
-
-    .panel-header {
-      padding: 8px 12px;
-      h3 { font-size: 13px; }
-    }
   }
 
   .dialog-footer {

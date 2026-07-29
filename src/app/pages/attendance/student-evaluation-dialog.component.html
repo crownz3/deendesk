@@ -83,6 +83,34 @@
           </mat-form-field>
         </div>
       </div>
+
+      <div class="section-card daur-card">
+        <h3 class="section-title">
+          <mat-icon>workspace_premium</mat-icon> Daur (Final Revision Round)
+        </h3>
+        <div class="form-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Daur Round #</mat-label>
+            <input matInput type="number" formControlName="daurRoundNumber" min="1" placeholder="e.g. 1, 2, 3" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Juz From</mat-label>
+            <input matInput type="number" formControlName="daurJuzFrom" min="1" max="30" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Juz To</mat-label>
+            <input matInput type="number" formControlName="daurJuzTo" min="1" max="30" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Daur Mistakes</mat-label>
+            <input matInput type="number" formControlName="daurMistakes" min="0" />
+            <span matSuffix class="field-unit">mistakes</span>
+          </mat-form-field>
+        </div>
+      </div>
     </ng-container>
 
     <!-- MAKTAB COURSE FORM -->

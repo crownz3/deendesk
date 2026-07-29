@@ -34,10 +34,22 @@
       <mat-icon>check_circle</mat-icon> {{ successMsg }}
     </div>
 
+    <!-- Mobile Segmented Tab Switcher (Visible on Mobile) -->
+    <div class="mobile-segmented-tabs">
+      <button type="button" class="mobile-tab-btn" [class.active]="mobileTab === 'available'" (click)="mobileTab = 'available'">
+        <ion-icon name="people-outline"></ion-icon>
+        <span>Available ({{ filteredAvailableStudents.length }})</span>
+      </button>
+      <button type="button" class="mobile-tab-btn primary" [class.active]="mobileTab === 'assigned'" (click)="mobileTab = 'assigned'">
+        <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+        <span>Assigned ({{ filteredSelectedStudents.length }})</span>
+      </button>
+    </div>
+
     <div class="transfer-layout" cdkDropListGroup>
       
       <!-- Unassigned / Available Panel -->
-      <div class="transfer-panel">
+      <div class="transfer-panel" [class.mobile-hidden]="mobileTab !== 'available'">
         <div class="panel-header">
           <div class="panel-title">
             <h3>Available Students</h3>
@@ -60,12 +72,16 @@
           </div>
           
           <div class="transfer-item" *ngFor="let student of filteredAvailableStudents" cdkDrag>
+            <ion-icon name="reorder-two-outline" class="drag-handle" cdkDragHandle title="Drag handle"></ion-icon>
             <div class="item-avatar">{{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}</div>
             <div class="item-info">
               <h4>{{ student.name || student.displayName || 'N/A' }}</h4>
               <p>{{ student.email || student.parentName || 'No details' }}</p>
             </div>
-            <ion-icon name="add-circle-outline" class="action-icon add-icon" (click)="addStudent(student)"></ion-icon>
+            <button type="button" class="touch-action-btn add-btn" (click)="addStudent(student); $event.stopPropagation()" title="Assign student">
+              <ion-icon name="add-circle-outline" class="action-icon add-icon"></ion-icon>
+              <span class="btn-label">Add</span>
+            </button>
           </div>
         </div>
       </div>
@@ -78,7 +94,7 @@
       </div>
 
       <!-- Selected / Assigned Panel -->
-      <div class="transfer-panel">
+      <div class="transfer-panel" [class.mobile-hidden]="mobileTab !== 'assigned'">
         <div class="panel-header">
           <div class="panel-title">
             <h3>Assigned Students</h3>
@@ -102,13 +118,17 @@
           
           <div class="transfer-item-wrapper" *ngFor="let student of filteredSelectedStudents">
             <div class="transfer-item" cdkDrag>
+              <ion-icon name="reorder-two-outline" class="drag-handle" cdkDragHandle title="Drag handle"></ion-icon>
               <div class="item-avatar assigned">{{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}</div>
               <div class="item-info">
                 <h4>{{ student.name || student.displayName || 'N/A' }}</h4>
                 <p>{{ student.email || student.parentName || 'No details' }}</p>
               </div>
               <div class="item-actions">
-                <ion-icon name="remove-circle-outline" class="action-icon remove-icon" title="Unassign" (click)="removeStudent(student)"></ion-icon>
+                <button type="button" class="touch-action-btn remove-btn" (click)="removeStudent(student); $event.stopPropagation()" title="Unassign student">
+                  <ion-icon name="remove-circle-outline" class="action-icon remove-icon"></ion-icon>
+                  <span class="btn-label">Remove</span>
+                </button>
                 <ion-icon name="swap-horizontal-outline" class="action-icon transfer-icon" title="Transfer to another group" (click)="toggleTransferMenu(getUserId(student))"></ion-icon>
               </div>
             </div>

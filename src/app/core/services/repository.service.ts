@@ -101,7 +101,7 @@ export class RepositoryService {
     const rolesKey = options?.roles ? options.roles.slice().sort().join(',') : '';
     const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${user?.role || ''}_${rolesKey}_${this.stringifyConstraints(extra)}`;
 
-    if (this.streamCache.has(cacheKey)) {
+    if (user?.uid && this.streamCache.has(cacheKey)) {
       return this.streamCache.get(cacheKey)! as Observable<T[]>;
     }
 
@@ -171,7 +171,9 @@ export class RepositoryService {
       shareReplay({ bufferSize: 1, refCount: false })
     );
 
-    this.streamCache.set(cacheKey, obs$);
+    if (user?.uid) {
+      this.streamCache.set(cacheKey, obs$);
+    }
     return obs$;
   }
 

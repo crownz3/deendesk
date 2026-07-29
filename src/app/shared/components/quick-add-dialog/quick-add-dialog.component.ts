@@ -17,6 +17,7 @@ export interface QuickAddDialogData {
   initialValue?: Record<string, unknown>;
   submitLabel?: string;
   saveFn?: (payload: Record<string, unknown>) => Promise<void>;
+  isEdit?: boolean;
 }
 
 export interface QuickAddResult {
@@ -67,7 +68,7 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       });
     }
 
-    const isEditMode = !!data.initialValue;
+    const isEditMode = data.isEdit ?? !!(data.initialValue && (data.initialValue['id'] || data.initialValue['uid'] || data.initialValue['userId'] || data.initialValue['entityId']));
     const controls = data.fields.reduce<Record<string, unknown[]>>((group, field) => {
       if (field.type === 'password') {
         this.hidePasswords[field.key] = true;

@@ -71,6 +71,10 @@ export class StudentEvaluationDialogComponent implements OnInit {
       sabqiMistakes: [exist?.sabqiMistakes || 0, [Validators.min(0)]],
       manzilJuz: [exist?.manzilJuz || 'Para 1'],
       manzilMistakes: [exist?.manzilMistakes || 0, [Validators.min(0)]],
+      daurJuzFrom: [exist?.daurJuzFrom || 1],
+      daurJuzTo: [exist?.daurJuzTo || 5],
+      daurRoundNumber: [exist?.daurRoundNumber || 1],
+      daurMistakes: [exist?.daurMistakes || 0, [Validators.min(0)]],
 
       // Maktab Fields
       maktabSubject: [exist?.maktabSubject || 'Nurani Qaida'],
@@ -128,6 +132,10 @@ export class StudentEvaluationDialogComponent implements OnInit {
         sabqiMistakes: Number(val.sabqiMistakes || 0),
         manzilJuz: val.manzilJuz,
         manzilMistakes: Number(val.manzilMistakes || 0),
+        daurJuzFrom: val.daurJuzFrom,
+        daurJuzTo: val.daurJuzTo,
+        daurRoundNumber: Number(val.daurRoundNumber || 1),
+        daurMistakes: Number(val.daurMistakes || 0),
 
         maktabSubject: val.maktabSubject,
         maktabPageNo: val.maktabPageNo,

@@ -33,6 +33,7 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   successMsg = '';
   availableSearch = '';
   assignedSearch = '';
+  mobileTab: 'available' | 'assigned' = 'available';
 
   isSaving = false;
   errorMsg = '';

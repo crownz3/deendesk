@@ -38,6 +38,7 @@ export class ClassPlanFormComponent implements OnInit {
     groupIds: [[] as string[]],
     academicPlanId: [''],
     subjectId: [''],
+    subjectIds: [[] as string[]],
     courseType: ['aalim'],
     scheduleType: ['weekly', Validators.required],
     weekDays: [['monday']],
@@ -139,10 +140,14 @@ export class ClassPlanFormComponent implements OnInit {
       const initialGroupIds = Array.isArray(this._plan.groupIds) && this._plan.groupIds.length > 0
         ? this._plan.groupIds
         : (this._plan.groupId ? [this._plan.groupId] : []);
+      const initialSubjectIds = Array.isArray(this._plan.subjectIds) && this._plan.subjectIds.length > 0
+        ? this._plan.subjectIds
+        : (this._plan.subjectId ? [this._plan.subjectId] : []);
 
       this.form.patchValue({
         ...this._plan,
         groupIds: initialGroupIds,
+        subjectIds: initialSubjectIds,
         courseType: (this._plan.courseType || selectedCourse?.['type'] || 'aalim') as any,
         startDate: this.formatDateForInput(this._plan.startDate),
         endDate: this.formatDateForInput(this._plan.endDate),
@@ -238,8 +243,20 @@ export class ClassPlanFormComponent implements OnInit {
       return;
     }
 
-    if (this.isSubjectRequired && !this.form.value.subjectId) {
-      this.snackBar.open('This Course has subjects enabled. Please select a Subject.', 'Close', { duration: 3000 });
+    const val = this.form.getRawValue();
+    const selectedSubjectIds: string[] = Array.isArray(val.subjectIds) && val.subjectIds.length > 0
+      ? val.subjectIds.map(String).filter(Boolean)
+      : (val.subjectId ? [String(val.subjectId)] : []);
+    const selectedSubjectNames = selectedSubjectIds
+      .map(id => this.subjects.find(s => s.id === id)?.['name'])
+      .filter(Boolean)
+      .map(String);
+
+    const primarySubjId = selectedSubjectIds.length > 0 ? selectedSubjectIds[0] : (val.subjectId || '');
+    const primarySubjName = selectedSubjectNames.length > 0 ? selectedSubjectNames.join(', ') : '';
+
+    if (this.isSubjectRequired && selectedSubjectIds.length === 0) {
+      this.snackBar.open('This Course has subjects enabled. Please select at least one Subject.', 'Close', { duration: 3000 });
       return;
     }
 
@@ -249,7 +266,6 @@ export class ClassPlanFormComponent implements OnInit {
     }
     
     const profile = await firstValueFrom(this.auth.profile$);
-    const val = this.form.getRawValue();
     const courseName = this.courses.find(c => c.id === val.courseId)?.['name'] || '';
     const className = this.classes.find(c => c.id === val.classId)?.['name'] || '';
 
@@ -262,7 +278,6 @@ export class ClassPlanFormComponent implements OnInit {
     const primaryGroupId = selectedGroupIds.length > 0 ? selectedGroupIds[0] : (val.groupId || '');
     const primaryGroupName = selectedGroupNames.length > 0 ? selectedGroupNames.join(', ') : '';
 
-    const subjectName = this.subjects.find(s => s.id === val.subjectId)?.['name'] || '';
     const academicPlanName = this.academicPlans.find(p => p.id === val.academicPlanId)?.['name'] || '';
 
     const startDateIso = this.safeIsoDate(val.startDate) || new Date().toISOString();
@@ -280,8 +295,10 @@ export class ClassPlanFormComponent implements OnInit {
       groupName: primaryGroupName,
       groupIds: selectedGroupIds,
       groupNames: selectedGroupNames,
-      subjectId: val.subjectId || '',
-      subjectName: val.subjectId ? String(subjectName) : '',
+      subjectId: primarySubjId,
+      subjectName: primarySubjName,
+      subjectIds: selectedSubjectIds,
+      subjectNames: selectedSubjectNames,
       academicPlanId: val.academicPlanId || '',
       academicPlanName: val.academicPlanId ? String(academicPlanName) : '',
       scheduleType: val.scheduleType,

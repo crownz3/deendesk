@@ -253,11 +253,18 @@ export interface Madrasa extends ScopedEntity {
 export interface Course extends ScopedEntity {
   name: string;
   code: string;
-  type: 'maktab' | 'hifz' | 'aalim' | 'muballigh' | 'custom';
+  type: 'maktab' | 'hifz' | 'aalim' | 'muballigh' | 'muallim' | 'custom';
   hasSubjects?: boolean;
   stages: string[];
   levels: string[];
   description?: string;
+  courseDurationYears?: number; // 1 to 10 Years
+  promotionRule?: 'exam_mandatory' | 'exam_optional_manual' | 'daur_count_required';
+  evaluationMode?: 'portion_based' | 'subject_based' | 'hybrid';
+  hifzSettings?: {
+    requiredDaurCount: number;
+    autoGrantHafizTitle: boolean;
+  };
 }
 
 export interface AcademicClass extends ScopedEntity {
@@ -285,6 +292,7 @@ export interface Subject extends ScopedEntity {
   code: string;
   courseId?: string;
   classId?: string;
+  assignedStaffIds?: string[];
 }
 
 export interface Student extends ScopedEntity {
@@ -360,6 +368,10 @@ export interface StudentDailyProgress extends ScopedEntity {
   sabqiMistakes?: number;
   manzilJuz?: string;
   manzilMistakes?: number;
+  daurJuzFrom?: number | string;
+  daurJuzTo?: number | string;
+  daurRoundNumber?: number;
+  daurMistakes?: number;
 
   // Maktab Fields
   maktabSubject?: string;
@@ -546,6 +558,8 @@ export interface ClassPlan extends ScopedEntity {
   courseType?: 'hifz' | 'aalim' | 'maktab' | 'muallim' | 'muballigh' | 'custom';
   subjectId?: string;
   subjectName?: string;
+  subjectIds?: string[];
+  subjectNames?: string[];
   academicPlanId?: string;
   academicPlanName?: string;
   classId: string;

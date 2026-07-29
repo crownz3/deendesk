@@ -34,6 +34,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   transferSearch = '';
   availableSearch = '';
   assignedSearch = '';
+  mobileTab: 'available' | 'assigned' = 'available';
 
   isSaving = false;
   errorMsg = '';

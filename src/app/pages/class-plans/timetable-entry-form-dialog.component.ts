@@ -116,15 +116,30 @@ export class TimetableEntryFormDialogComponent implements OnInit {
       }
       
       this.subjects = await this.repo.getAllOnce('subjects', profile);
-      if (this.data.plan.courseId) {
-         this.subjects = this.subjects.filter(s => s['courseId'] === this.data.plan.courseId);
+      const planSubjIds = Array.isArray(this.data.plan?.subjectIds) && this.data.plan.subjectIds.length > 0
+        ? this.data.plan.subjectIds
+        : (this.data.plan?.subjectId ? [this.data.plan.subjectId] : []);
+
+      if (planSubjIds.length > 0) {
+        this.subjects = this.subjects.filter(s => planSubjIds.includes(String(s.id)));
+      } else if (this.data.plan?.courseId) {
+        this.subjects = this.subjects.filter(s => s['courseId'] === this.data.plan.courseId);
       }
     }
 
     if (this.data.entry) {
       this.form.patchValue(this.data.entry);
-    } else if (this.data.dayOfWeek) {
-      this.form.patchValue({ dayOfWeek: this.data.dayOfWeek });
+    } else {
+      const patch: any = {};
+      if (this.data.dayOfWeek) patch.dayOfWeek = this.data.dayOfWeek;
+      if (this.data.plan?.subjectId) patch.subjectId = this.data.plan.subjectId;
+      const matchingSubj = this.subjects.find(s => s.id === this.data.plan?.subjectId);
+      if (matchingSubj?.['name']) {
+        patch.activityName = String(matchingSubj['name']);
+      } else if (this.data.plan?.title) {
+        patch.activityName = this.data.plan.title;
+      }
+      this.form.patchValue(patch);
     }
 
     // Subscribe to time changes to check for overlaps

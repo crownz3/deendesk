@@ -24,6 +24,7 @@ interface ClassPlansVm {
   courses: EntityRecord[];
   classes: EntityRecord[];
   classGroups: EntityRecord[];
+  subjects: EntityRecord[];
   exceptions: (EntityRecord & ClassPlanException)[];
   staffDocs: EntityRecord[];
   usersDocs: EntityRecord[];
@@ -53,7 +54,7 @@ export class ClassPlansPage {
   ) {
     this.vm$ = this.auth.profile$.pipe(
       switchMap((profile) => {
-        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], classGroups: [], exceptions: [], staffDocs: [], usersDocs: [] } });
+        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], classGroups: [], subjects: [], exceptions: [], staffDocs: [], usersDocs: [] } });
         
         return combineLatest({
           classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile),
@@ -61,6 +62,7 @@ export class ClassPlansPage {
           courses: this.repo.list<EntityRecord>('courses', profile),
           classes: this.repo.list<EntityRecord>('classes', profile),
           classGroups: this.repo.list<EntityRecord>('classGroups', profile),
+          subjects: this.repo.list<EntityRecord>('subjects', profile),
           exceptions: this.repo.list<EntityRecord & ClassPlanException>('classPlanExceptions', profile),
           staffDocs: this.repo.list<EntityRecord>('staff', profile),
           usersDocs: this.repo.list<EntityRecord>('users', profile),
@@ -239,6 +241,26 @@ export class ClassPlansPage {
       }
     });
 
+    // 3. If no group staff found, check assigned teachers on plan subjects
+    if (matchedStaffNames.size === 0) {
+      const planSubjIds = Array.isArray(plan.subjectIds) && plan.subjectIds.length > 0
+        ? plan.subjectIds
+        : (plan.subjectId ? [plan.subjectId] : []);
+
+      (vm.subjects || []).forEach(subj => {
+        if (planSubjIds.includes(String(subj.id))) {
+          const teacherIds = extractIds(subj['assignedStaffIds']);
+          teacherIds.forEach(id => {
+            const found = staffByIdentity.get(id);
+            if (found) {
+              const name = getDocName(found);
+              if (name) matchedStaffNames.add(name);
+            }
+          });
+        }
+      });
+    }
+
     const finalNames = Array.from(matchedStaffNames);
 
     console.log('[ClassPlan Staff Debug Console]', {
@@ -263,6 +285,14 @@ export class ClassPlansPage {
     });
 
     return finalNames.length > 0 ? finalNames.join(', ') : 'No Class Staff';
+  }
+
+  getPlanSubjects(plan: ClassPlan | undefined): string {
+    if (!plan) return '';
+    if (Array.isArray(plan.subjectNames) && plan.subjectNames.length > 0) {
+      return plan.subjectNames.join(', ');
+    }
+    return plan.subjectName || '';
   }
 
   getPlanExceptions(planId: string | undefined, exceptions: (EntityRecord & ClassPlanException)[] | undefined): (EntityRecord & ClassPlanException)[] {

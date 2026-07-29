@@ -45,12 +45,12 @@
         <mat-hint>Select one or more sections (e.g. Section A & Section B). Leave empty for All Sections.</mat-hint>
       </mat-form-field>
 
-      <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;" *ngIf="isSubjectRequired">
-        <mat-label>Subject *</mat-label>
-        <mat-select formControlName="subjectId">
-          <mat-option value="">All Subjects / General</mat-option>
+      <mat-form-field appearance="outline" style="flex: 1; min-width: 220px;" *ngIf="isSubjectRequired">
+        <mat-label>Subject(s) *</mat-label>
+        <mat-select formControlName="subjectIds" multiple placeholder="Select Subject(s)">
           <mat-option *ngFor="let s of filteredSubjects" [value]="s.id">{{ s['name'] }}</mat-option>
         </mat-select>
+        <mat-hint>Select one or multiple subjects to schedule in your timetable.</mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline" style="flex: 1; min-width: 200px;" *ngIf="academicPlans.length > 0">
