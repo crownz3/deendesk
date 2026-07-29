@@ -39,11 +39,31 @@ export class PasswordRequestsPage {
           // Client-side filter to only show assigned or org requests based on role
           const filtered = requests.filter(req => {
             if (profile.role === 'superAdmin') return true;
-            if (profile.organizationId && req.organizationId === profile.organizationId) return true;
-            if (!req.organizationId) return true; // Show unassigned requests so admin/incharge can process
+
+            // Strict Organization Boundary: If request has an org ID and it does NOT match admin's org ID, hide it!
+            if (req.organizationId && profile.organizationId && req.organizationId !== profile.organizationId) {
+              return false;
+            }
+
+            // Same organization match
+            if (profile.organizationId && req.organizationId === profile.organizationId) {
+              // For madrasa-scoped roles (Incharge, Coordinator), verify madrasa scope if request specifies a madrasa
+              if (['madrasaIncharge', 'coordinator'].includes(profile.role) && req.madrasaId) {
+                const allowedMadrasas = new Set([profile.madrasaId, ...(profile.madrasaIds || [])].filter(Boolean));
+                return allowedMadrasas.has(req.madrasaId);
+              }
+              return true;
+            }
+
+            // Assigned directly to this admin
             if (req.assignedToUid === profile.uid) return true;
-            if (profile.madrasaId && req.madrasaId === profile.madrasaId) return true;
-            if (Array.isArray(profile.madrasaIds) && req.madrasaId && profile.madrasaIds.includes(req.madrasaId)) return true;
+
+            // Madrasa match for requests without explicit organizationId
+            if (req.madrasaId) {
+              const allowedMadrasas = new Set([profile.madrasaId, ...(profile.madrasaIds || [])].filter(Boolean));
+              if (allowedMadrasas.has(req.madrasaId)) return true;
+            }
+
             return false;
           });
           

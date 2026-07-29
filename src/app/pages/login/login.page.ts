@@ -289,6 +289,32 @@ export class LoginPage implements OnInit {
           targetUserRole = data['role'] || '';
           orgId = data['organizationId'] || '';
           madrasaId = data['madrasaId'] || '';
+        } else {
+          // Fallback lookup in `staff` collection
+          const staffRef = collection(db, 'staff');
+          const staffQ = query(staffRef, where('email', '==', email), limit(1));
+          const staffSnap = await getDocs(staffQ);
+          if (!staffSnap.empty) {
+            const sDoc = staffSnap.docs[0].data();
+            targetUserId = sDoc['userId'] || staffSnap.docs[0].id;
+            targetUserName = sDoc['name'] || sDoc['displayName'] || '';
+            targetUserRole = sDoc['role'] || 'teacher';
+            orgId = sDoc['organizationId'] || '';
+            madrasaId = sDoc['madrasaId'] || '';
+          } else {
+            // Fallback lookup in `students` collection
+            const studentsRef = collection(db, 'students');
+            const stQ = query(studentsRef, where('email', '==', email), limit(1));
+            const stSnap = await getDocs(stQ);
+            if (!stSnap.empty) {
+              const stDoc = stSnap.docs[0].data();
+              targetUserId = stDoc['userId'] || stSnap.docs[0].id;
+              targetUserName = stDoc['name'] || '';
+              targetUserRole = 'student';
+              orgId = stDoc['organizationId'] || '';
+              madrasaId = stDoc['madrasaId'] || '';
+            }
+          }
         }
       } catch (lookupErr) {
         console.warn('[LoginPage] User lookup skipped for unauthenticated reset request:', lookupErr);
