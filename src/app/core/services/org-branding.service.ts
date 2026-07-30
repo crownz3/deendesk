@@ -20,10 +20,10 @@ export class OrgBrandingService {
   readonly activeOrgData$: Observable<{ branding?: OrganizationBranding; customMenu?: CustomMenuItemConfig[] } | null> =
     this.auth.profile$.pipe(
       switchMap((profile) => {
-        if (!profile || !profile.organizationId) {
+        const orgId = typeof profile?.organizationId === 'string' ? profile.organizationId.trim() : '';
+        if (!orgId) {
           return of(null);
         }
-        const orgId = profile.organizationId;
         const orgRef = doc(this.db, `organizations/${orgId}`);
 
         return new Observable<{ branding?: OrganizationBranding; customMenu?: CustomMenuItemConfig[] } | null>((subscriber) => {

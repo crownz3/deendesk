@@ -12,6 +12,7 @@ import { ReportExportWizardComponent } from './components/report-export-wizard.c
 import { AddCustomColumnDialogComponent } from './components/add-custom-column-dialog.component';
 import { AddUserInputColumnDialogComponent } from './components/add-user-input-column-dialog.component';
 import { SaveReportDialogComponent } from './components/save-report-dialog.component';
+import { ManageReportsDialogComponent } from './components/manage-reports-dialog.component';
 import { RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -46,46 +47,58 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     return this._reportSearch;
   }
   
-  set reportSearch(value: string) {
-    this._reportSearch = value;
-    this.updateFilteredGroups();
+  set reportSearch(val: string) {
+    this._reportSearch = val;
+    this.filterReports();
   }
 
-  private updateFilteredGroups() {
-    if (!this._reportSearch) {
+  public filterReports() {
+    const q = (this._reportSearch || '').toLowerCase().trim();
+    if (!q) {
       this.filteredReportGroups = this.reportGroups;
-      this.filteredSavedReports = this.savedReports;
+      this.filteredSavedReports = [...this.savedReports];
       return;
     }
-    const q = this._reportSearch.toLowerCase();
-    
-    this.filteredReportGroups = this.reportGroups.map(group => {
-      // If group name matches, return all configs in it
-      if (group.name.toLowerCase().includes(q)) {
-        return group;
-      }
-      // Otherwise filter the configs
-      const filteredConfigs = group.configs.filter(c => c.name.toLowerCase().includes(q));
-      return { ...group, configs: filteredConfigs };
-    }).filter(group => group.configs.length > 0);
 
-    this.filteredSavedReports = this.savedReports.filter(r => r.name.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q));
+    this.filteredSavedReports = this.savedReports.filter(r => 
+      (r.name && r.name.toLowerCase().includes(q)) || 
+      (r.description && r.description.toLowerCase().includes(q))
+    );
+
+    this.filteredReportGroups = this.reportGroups.map(group => {
+      const matchingConfigs = group.configs.filter(c => 
+        (c.name && c.name.toLowerCase().includes(q)) || 
+        ((c as any).description && (c as any).description.toLowerCase().includes(q))
+      );
+      return {
+        ...group,
+        configs: matchingConfigs
+      };
+    }).filter(group => group.configs.length > 0);
   }
 
   public availableFields: ReportFieldMetadata[] = [];
   public selectedColumns: ReportFieldMetadata[] = [];
-  public displayColumns: string[] = []; // Just keys for mat-table
+  public displayColumns: string[] = [];
+  get displayedColumnKeys(): string[] { return this.displayColumns; }
+  set displayedColumnKeys(val: string[]) { this.displayColumns = val; }
   
   public dataSource = new MatTableDataSource<any>([]);
-  public state!: ReportState;
+  public state?: ReportState;
   
   public rightSidebarTab: 'columns' | 'filters' | 'sorting' | 'grouping' | 'export' = 'columns';
-  public visualizationMode: 'table' | 'bar' | 'pie' | 'line' = 'table';
+  public visualizationMode: 'table' | 'bar' = 'table';
   
   public isLeftSidebarVisible = true;
   public isRightSidebarVisible = true;
   
-  @ViewChild(MatPaginator) paginator!: MatPaginator;
+  private _paginator!: MatPaginator;
+  @ViewChild(MatPaginator) set paginator(paginator: MatPaginator) {
+    if (paginator) {
+      this._paginator = paginator;
+      this.dataSource.paginator = paginator;
+    }
+  }
 
   private sub = new Subscription();
 
@@ -105,7 +118,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   get allFilterableFields(): ReportFieldMetadata[] {
-    if (!this.state.baseDefinition) return [];
+    if (!this.state || !this.state.baseDefinition) return [];
     
     const all = [...this.state.baseDefinition.columns];
     const baseKeys = new Set(all.map(c => c.key));
@@ -131,21 +144,29 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     this.sub.add(
       this.builder.state$.subscribe(state => {
         this.state = state;
-        this.dataSource.data = state.data;
-        this.selectedColumns = [...state.columns];
-        this.displayColumns = state.columns.map(c => c.key);
-        this.updateAvailableFields();
+        
+        if (state.baseDefinition) {
+          if (this.selectedColumns.length === 0) {
+            this.selectedColumns = [...state.columns];
+          }
+          this.updateAvailableFields();
+        }
+
+        this.dataSource.data = state.data || [];
+        this.displayColumns = this.selectedColumns.map(c => c.key);
+        if (this._paginator) {
+          this.dataSource.paginator = this._paginator;
+        }
       })
     );
 
     this.loadSavedReports();
-
-    // Load default report on init
-    this.builder.loadReportDefinition('student-list');
   }
 
   ngAfterViewInit() {
-    this.dataSource.paginator = this.paginator;
+    if (this._paginator) {
+      this.dataSource.paginator = this._paginator;
+    }
   }
 
   ngOnDestroy() {
@@ -155,19 +176,46 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   async loadSavedReports() {
     const profile = await firstValueFrom(this.auth.profile$);
     if (!profile) return;
-    this.savedReports = await this.repo.getAllOnce<SavedReportTemplate & Record<string, any>>('reports', profile) as SavedReportTemplate[];
+    const allTemplates = await this.repo.getAllOnce<SavedReportTemplate & Record<string, any>>('reports', profile) as SavedReportTemplate[];
+    
+    const userOrgId = profile.organizationId;
+    const userUid = profile.uid;
+
+    this.savedReports = allTemplates.filter(r => {
+      if (profile.role === 'superAdmin') return true;
+      if (r.organizationId) {
+        return r.organizationId === userOrgId;
+      }
+      return r.createdBy === userUid || !userOrgId;
+    });
     this.filteredSavedReports = [...this.savedReports];
   }
 
   public selectReport(reportId: string) {
+    // Clear previous report columns and data immediately
+    this.selectedColumns = [];
+    this.displayColumns = [];
+    this.availableFields = [];
+    this.dataSource.data = [];
+
+    if (this.state) {
+      this.state.loading = true;
+      this.state.data = [];
+    }
+
     const saved = this.savedReports.find(r => r.id === reportId);
     if (saved) {
       this.builder.loadReportDefinition(saved.baseReportId);
-      // Wait for base to load, then apply saved state
+      // Wait for base to load, then apply saved custom configuration
       setTimeout(() => {
-        this.builder.updateColumns(saved.columns);
-        this.builder.updateFilters(saved.filters || []);
-      }, 50);
+        if (saved.columns && saved.columns.length > 0) {
+          this.selectedColumns = [...saved.columns];
+          this.builder.updateColumns(saved.columns);
+        }
+        if (saved.filters) {
+          this.builder.updateFilters(saved.filters);
+        }
+      }, 100);
     } else {
       this.builder.loadReportDefinition(reportId);
     }
@@ -183,7 +231,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
         const profile = await firstValueFrom(this.auth.profile$);
         if (!profile) return;
         
-        if (!this.state.baseDefinition) {
+        if (!this.state || !this.state.baseDefinition) {
           this.snackBar.open('Cannot save report without a base definition.', 'Close', {duration: 3000});
           return;
         }
@@ -194,21 +242,16 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
           baseReportId: this.state.baseDefinition.id,
           category: this.state.baseDefinition.category,
           columns: this.selectedColumns,
-          filters: this.state.filters,
-          sorting: [], // To be implemented if sorting is added to UI
-          grouping: [], // To be implemented
+          filters: this.state.filters || [],
+          sorting: [],
+          grouping: [],
           aggregations: {},
           exportSettings: {},
           appearance: {},
-          pageSize: 50
+          pageSize: 50,
+          organizationId: profile.organizationId || '',
+          madrasaId: profile.madrasaId || ''
         };
-
-        if (profile.madrasaId) {
-          template.madrasaId = profile.madrasaId;
-        }
-        if (profile.organizationId) {
-          template.organizationId = profile.organizationId;
-        }
 
         try {
           await this.repo.create('reports', template, profile);
@@ -221,7 +264,64 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  public openManageReportsDialog() {
+    const dialogRef = this.dialog.open(ManageReportsDialogComponent, {
+      width: '600px',
+      data: {
+        reports: this.savedReports
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (!result) return;
+      const profile = await firstValueFrom(this.auth.profile$);
+      if (!profile) return;
+
+      if (result.action === 'rename' && result.newName) {
+        try {
+          await this.repo.update('reports', result.reportId, { name: result.newName }, profile);
+          this.snackBar.open('Report renamed successfully.', 'Close', { duration: 3000 });
+          this.loadSavedReports();
+        } catch (err: any) {
+          this.snackBar.open('Error renaming report: ' + err.message, 'Close', { duration: 3000 });
+        }
+      } else if (result.action === 'update') {
+        try {
+          await this.repo.update('reports', result.reportId, {
+            columns: this.selectedColumns,
+            filters: this.state?.filters || []
+          }, profile);
+          this.snackBar.open('Report configuration updated successfully.', 'Close', { duration: 3000 });
+          this.loadSavedReports();
+        } catch (err: any) {
+          this.snackBar.open('Error updating report: ' + err.message, 'Close', { duration: 3000 });
+        }
+      } else if (result.action === 'delete') {
+        try {
+          await this.repo.remove('reports', result.reportId);
+          this.snackBar.open('Custom report deleted.', 'Close', { duration: 3000 });
+          this.loadSavedReports();
+        } catch (err: any) {
+          this.snackBar.open('Error deleting report: ' + err.message, 'Close', { duration: 3000 });
+        }
+      }
+    });
+  }
+
   // --- Drag and Drop Logic ---
+
+  public updateAvailableFields() {
+    if (!this.state || !this.state.baseDefinition) return;
+
+    // Collect all known fields from base definition + current available + selected
+    const knownFieldsMap = new Map<string, ReportFieldMetadata>();
+    this.state.baseDefinition.columns.forEach(c => knownFieldsMap.set(c.key, c));
+    this.availableFields.forEach(c => knownFieldsMap.set(c.key, c));
+    this.selectedColumns.forEach(c => knownFieldsMap.set(c.key, c));
+
+    const activeSelectedKeys = new Set(this.selectedColumns.map(c => c.key));
+    this.availableFields = Array.from(knownFieldsMap.values()).filter(c => !activeSelectedKeys.has(c.key) && !c.hidden);
+  }
 
   public drop(event: CdkDragDrop<ReportFieldMetadata[]>) {
     if (event.previousContainer === event.container) {
@@ -237,8 +337,9 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
       );
     }
     
-    // IMMEDIATELY sync displayColumns so mat-table doesn't crash if a column def is removed
+    // IMMEDIATELY sync displayColumns and availableFields
     this.displayColumns = this.selectedColumns.map(c => c.key);
+    this.updateAvailableFields();
 
     if (event.container.id === 'selectedColumnsList' || event.previousContainer.id === 'selectedColumnsList') {
        // Update state if selected columns changed
@@ -248,14 +349,18 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   public removeColumn(index: number) {
-    this.selectedColumns.splice(index, 1);
+    const removed = this.selectedColumns.splice(index, 1);
     this.displayColumns = this.selectedColumns.map(c => c.key);
+    this.updateAvailableFields();
     this.builder.updateColumns([...this.selectedColumns]);
   }
 
   public addColumn(field: ReportFieldMetadata) {
-    this.selectedColumns.push(field);
+    if (!this.selectedColumns.some(c => c.key === field.key)) {
+      this.selectedColumns.push(field);
+    }
     this.displayColumns = this.selectedColumns.map(c => c.key);
+    this.updateAvailableFields();
     this.builder.updateColumns([...this.selectedColumns]);
   }
 
@@ -306,20 +411,13 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
-  private updateAvailableFields() {
-    // In a fully dynamic system, this would come from a schema definition.
-    // For now, we extract all possible fields from the base definition columns 
-    // that are not currently selected.
-    if (this.state.baseDefinition) {
-      const allPossible = this.state.baseDefinition.columns;
-      const selectedKeys = this.selectedColumns.map(c => c.key);
-      this.availableFields = allPossible.filter((c: ReportFieldMetadata) => !selectedKeys.includes(c.key) && !c.hidden);
-    }
-  }
-
   public guessTypeForKey(key: string, value?: any): any {
     if (!key) return null;
     let lower = key.toLowerCase().trim();
+
+    if (lower === 'org' || lower === 'orgname' || lower.includes('organization') || lower.includes('org')) {
+      return 'organization';
+    }
     
     const validTypes = ['organization', 'madrasa', 'user', 'course', 'class', 'subject', 'student', 'parent', 'staff', 'teacher', 'coordinator', 'incharge'];
     
@@ -355,6 +453,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   // --- Export Logic ---
 
   public exportPdf() {
+    const reportTitle = this.state?.baseDefinition?.name || 'Report';
     const opts: PdfExportOptions = {
       orientation: 'landscape',
       pageSize: 'A4',
@@ -362,32 +461,43 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
       showLogo: true,
       showPageNumbers: true,
       repeatHeader: true,
-      organizationName: 'DeenDesk' // Should come from context
+      organizationName: 'DeenDesk',
+      headerTitle: reportTitle,
+      headerColor: '#3f51b5',
+      alignColumns: 'center',
+      highlightRows: true
     };
-    this.exportService.exportToPdf(this.state.data, this.selectedColumns, this.state.baseDefinition?.name || 'Report', opts);
+    this.exportService.exportToPdf(this.state?.data || [], this.selectedColumns, reportTitle, opts);
   }
 
   public exportExcel() {
-    this.exportService.exportToExcel(this.state.data, this.selectedColumns, this.state.baseDefinition?.name || 'Report');
+    this.exportService.exportToExcel(this.state?.data || [], this.selectedColumns, this.state?.baseDefinition?.name || 'Report');
   }
 
   public openExportWizard() {
+    const reportTitle = this.state?.baseDefinition?.name || 'Report';
     const dialogRef = this.dialog.open(ReportExportWizardComponent, {
-      width: '600px',
+      width: '90vw',
+      maxWidth: '1200px',
+      maxHeight: '90vh',
       data: {
-        availableColumns: this.state.baseDefinition?.columns || [],
-        selectedColumns: this.selectedColumns
+        availableColumns: this.state?.baseDefinition?.columns || [],
+        selectedColumns: this.selectedColumns,
+        reportTitle: reportTitle,
+        appName: 'DeenDesk'
       }
     });
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
+        const data = this.state?.data || [];
+        const baseTitle = this.state?.baseDefinition?.name || 'Report';
         if (result.format === 'pdf') {
-          this.exportService.exportToPdf(this.state.data, result.columns, this.state.baseDefinition?.name || 'Report', result.pdfOptions);
+          this.exportService.exportToPdf(data, result.columns, baseTitle, result.pdfOptions);
         } else if (result.format === 'excel') {
-          this.exportService.exportToExcel(this.state.data, result.columns, this.state.baseDefinition?.name || 'Report');
+          this.exportService.exportToExcel(data, result.columns, baseTitle);
         } else if (result.format === 'csv') {
-          this.exportService.exportToCsv(this.state.data, result.columns, this.state.baseDefinition?.name || 'Report');
+          this.exportService.exportToCsv(data, result.columns, baseTitle);
         }
       }
     });

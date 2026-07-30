@@ -3,44 +3,65 @@
     
     <!-- Header -->
     <header class="report-header">
-      <div class="header-title">
-        <h1>Report Builder</h1>
-        <mat-form-field appearance="outline" class="report-selector" style="background-color: transparent;">
-          <mat-select [value]="state.activeReportId" (selectionChange)="selectReport($event.value)">
-            <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
-              <input type="text" matInput placeholder="Search Reports..." [(ngModel)]="reportSearch" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
-            </div>
-            <mat-optgroup *ngIf="filteredSavedReports && filteredSavedReports.length > 0" label="Saved Reports">
-              <mat-option *ngFor="let saved of filteredSavedReports" [value]="saved.id">
-                <div style="display: flex; flex-direction: column; line-height: normal; padding: 4px 0;">
-                  <span style="font-weight: 500;">{{ saved.name }}</span>
-                  <span style="font-size: 11px; color: #777;" *ngIf="saved.description">{{ saved.description }}</span>
-                </div>
-              </mat-option>
-            </mat-optgroup>
-            
-            <mat-optgroup *ngFor="let group of filteredReportGroups" [label]="group.name">
-              <mat-option *ngFor="let config of group.configs" [value]="config.id">{{ config.name }}</mat-option>
-            </mat-optgroup>
-          </mat-select>
-        </mat-form-field>
+      <!-- Left: Title & Report Selector -->
+      <div class="header-left">
+        <div class="brand-title">
+          <mat-icon color="primary" class="header-brand-icon">analytics</mat-icon>
+          <span class="title-text">Report Builder</span>
+        </div>
+
+        <div class="selector-wrapper">
+          <mat-form-field appearance="outline" class="report-selector-field" subscriptSizing="dynamic">
+            <mat-select [value]="state?.activeReportId" (selectionChange)="selectReport($event.value)" placeholder="Select Report Template">
+              <div class="search-box-sticky">
+                <mat-icon matPrefix class="search-icon">search</mat-icon>
+                <input type="text" matInput placeholder="Search Reports..." [(ngModel)]="reportSearch" (keydown)="$event.stopPropagation()">
+              </div>
+              <mat-optgroup *ngIf="filteredSavedReports && filteredSavedReports.length > 0" label="Saved Custom Reports">
+                <mat-option *ngFor="let saved of filteredSavedReports" [value]="saved.id">
+                  <div class="saved-option-item">
+                    <span class="saved-name">{{ saved.name }}</span>
+                    <span class="saved-desc" *ngIf="saved.description">{{ saved.description }}</span>
+                  </div>
+                </mat-option>
+              </mat-optgroup>
+              
+              <mat-optgroup *ngFor="let group of filteredReportGroups" [label]="group.name">
+                <mat-option *ngFor="let config of group.configs" [value]="config.id">{{ config.name }}</mat-option>
+              </mat-optgroup>
+            </mat-select>
+          </mat-form-field>
+        </div>
       </div>
-      <div class="header-actions">
-        <button mat-button (click)="isLeftSidebarVisible = !isLeftSidebarVisible" [color]="isLeftSidebarVisible ? 'primary' : ''" matTooltip="Toggle Fields Sidebar">
-          <mat-icon>{{ isLeftSidebarVisible ? 'view_sidebar' : 'visibility_off' }}</mat-icon> Fields
+
+      <!-- Center: View Control Pills -->
+      <div class="header-center">
+        <!-- Sidebar Controls -->
+        <div class="pill-group">
+          <button mat-button class="pill-btn" [class.active]="isLeftSidebarVisible" (click)="isLeftSidebarVisible = !isLeftSidebarVisible" matTooltip="Toggle Fields Sidebar">
+            <mat-icon>{{ isLeftSidebarVisible ? 'view_sidebar' : 'visibility_off' }}</mat-icon>
+            <span>Fields</span>
+          </button>
+          <button mat-button class="pill-btn" [class.active]="isRightSidebarVisible" (click)="isRightSidebarVisible = !isRightSidebarVisible" matTooltip="Toggle Settings Sidebar">
+            <mat-icon>{{ isRightSidebarVisible ? 'settings' : 'settings_applications' }}</mat-icon>
+            <span>Settings</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Right: Action Buttons -->
+      <div class="header-right">
+        <button mat-flat-button color="primary" class="action-save-btn" (click)="openSaveReportDialog()">
+          <mat-icon>save</mat-icon> Save Report
         </button>
-        <button mat-button (click)="isRightSidebarVisible = !isRightSidebarVisible" [color]="isRightSidebarVisible ? 'primary' : ''" matTooltip="Toggle Settings Sidebar">
-          <mat-icon>{{ isRightSidebarVisible ? 'settings' : 'settings_applications' }}</mat-icon> Settings
+
+        <button mat-stroked-button class="action-manage-btn" (click)="openManageReportsDialog()" *ngIf="savedReports && savedReports.length > 0" matTooltip="Manage Saved Custom Reports">
+          <mat-icon color="primary">folder_special</mat-icon>
+          <span class="manage-text">Manage</span>
         </button>
-        <button mat-button (click)="visualizationMode = 'table'" [color]="visualizationMode === 'table' ? 'primary' : ''">
-          <mat-icon>table_chart</mat-icon> Table
-        </button>
-        <button mat-button (click)="visualizationMode = 'bar'" [color]="visualizationMode === 'bar' ? 'primary' : ''">
-          <mat-icon>bar_chart</mat-icon> Chart
-        </button>
-        <button mat-flat-button color="primary" (click)="openSaveReportDialog()">Save Report</button>
-        <button mat-stroked-button color="primary" type="button" (click)="refreshData()">
-          <mat-icon>refresh</mat-icon> Refresh
+
+        <button mat-icon-button color="primary" class="action-refresh-btn" type="button" (click)="refreshData()" matTooltip="Refresh Data">
+          <mat-icon>refresh</mat-icon>
         </button>
       </div>
     </header>
@@ -87,7 +108,14 @@
 
       <!-- Center Panel: Preview -->
       <main class="center-panel">
-        <div class="preview-container mat-elevation-z1" *ngIf="visualizationMode === 'table'">
+        <!-- Initial Select State -->
+        <div class="initial-select-state" *ngIf="!state?.baseDefinition || !state?.activeReportId">
+          <mat-icon class="initial-icon">analytics</mat-icon>
+          <h2>Select a Report to Get Started</h2>
+          <p>Choose a standard or saved custom report from the template selector above to view and custom-build your dataset.</p>
+        </div>
+
+        <div class="preview-container mat-elevation-z1" *ngIf="state?.baseDefinition && state?.activeReportId">
           
           <ng-container *ngIf="state?.loading">
              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -131,12 +159,12 @@
               </tr>
             </table>
           </div>
-          <mat-paginator [pageSizeOptions]="[20, 50, 100]" showFirstLastButtons></mat-paginator>
+          <mat-paginator [pageSize]="20" [pageSizeOptions]="[10, 20, 50, 100]" showFirstLastButtons></mat-paginator>
         </div>
 
         <div class="chart-container mat-elevation-z1" *ngIf="visualizationMode !== 'table'">
            <app-report-chart-view 
-              [data]="state.data || []" 
+              [data]="state?.data || []" 
               [chartType]="visualizationMode === 'bar' ? 'bar' : visualizationMode === 'pie' ? 'pie' : 'line'"
               labelsKey="studentNameDisplay"
               valuesKey="count">
@@ -203,7 +231,7 @@
               <h4>Filters</h4>
               <app-report-filter-builder 
                  [availableFields]="allFilterableFields"
-                 [currentFilters]="state.filters"
+                 [currentFilters]="state?.filters || []"
                  (filtersApplied)="builder.updateFilters($event)">
               </app-report-filter-builder>
             </div>

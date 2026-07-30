@@ -77,9 +77,10 @@ export class AuthService {
             return unsubscribe;
           }).pipe(
             switchMap(baseProfile => {
-              if (baseProfile?.entityType && baseProfile?.entityId) {
+              const cleanEntityId = typeof baseProfile?.entityId === 'string' ? baseProfile.entityId.trim() : '';
+              if (baseProfile?.entityType && cleanEntityId) {
                  const collectionName = baseProfile.entityType === 'staff' ? 'staff' : baseProfile.entityType === 'student' ? 'students' : 'parents';
-                 const entityRef = doc(this.firestore, `${collectionName}/${baseProfile.entityId}`);
+                 const entityRef = doc(this.firestore, `${collectionName}/${cleanEntityId}`);
                  return new Observable<AppUser>((entitySub) => {
                     const unsubEntity = onSnapshot(entityRef, (entitySnap) => {
                        if (entitySnap.exists()) {
@@ -353,8 +354,9 @@ export class AuthService {
 
     if (snap.exists()) {
       const data = snap.data();
-      if (data['organizationId']) {
-        const orgRef = doc(this.firestore, `organizations/${data['organizationId']}`);
+      const orgId = typeof data['organizationId'] === 'string' ? data['organizationId'].trim() : '';
+      if (orgId) {
+        const orgRef = doc(this.firestore, `organizations/${orgId}`);
         await updateDoc(orgRef, { organizerPassword: deleteField() }).catch(() => { });
       }
     }

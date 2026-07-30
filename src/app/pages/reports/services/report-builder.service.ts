@@ -19,6 +19,7 @@ export interface ReportState {
   loading: boolean;
   error: string | null;
   references: {
+    organizations: Map<string, any>;
     madrasas: Map<string, any>;
     courses: Map<string, any>;
     classes: Map<string, any>;
@@ -43,6 +44,7 @@ export class ReportBuilderService {
     loading: false,
     error: null,
     references: {
+      organizations: new Map(),
       madrasas: new Map(),
       courses: new Map(),
       classes: new Map(),
@@ -157,14 +159,16 @@ export class ReportBuilderService {
       if (!profile) return;
       
       // Fetch references for display names
-      const [madrasas, courses, classes, users] = await Promise.all([
-        this.repo.getAllOnce<any>('madrasas', profile),
-        this.repo.getAllOnce<any>('courses', profile),
-        this.repo.getAllOnce<any>('classes', profile),
-        this.repo.getAllOnce<any>('users', profile)
+      const [organizations, madrasas, courses, classes, users] = await Promise.all([
+        this.repo.getAllOnce<any>('organizations', profile).catch(() => []),
+        this.repo.getAllOnce<any>('madrasas', profile).catch(() => []),
+        this.repo.getAllOnce<any>('courses', profile).catch(() => []),
+        this.repo.getAllOnce<any>('classes', profile).catch(() => []),
+        this.repo.getAllOnce<any>('users', profile).catch(() => [])
       ]);
 
       const refs = {
+        organizations: new Map(organizations.map(o => [o.id, o])),
         madrasas: new Map(madrasas.map(m => [m.id, m])),
         courses: new Map(courses.map(c => [c.id, c])),
         classes: new Map(classes.map(c => [c.id, c])),
@@ -222,9 +226,21 @@ export class ReportBuilderService {
       return filters.every(f => {
         if (!f.fieldKey) return true;
         
-        const rowValue = row[f.fieldKey];
+        let rowValue = row[f.fieldKey];
         const val1 = f.value1;
         const val2 = f.value2;
+
+        // Smart reference resolution: If filtering on an ID or reference column, include display names in string comparison
+        if (f.fieldKey === 'organizationId' || f.fieldKey === 'organization' || f.fieldKey === 'ORG') {
+          const orgName = row['organizationNameDisplay'] || row['organizationName'] || row['orgName'] || row['organization'] || row['name'];
+          rowValue = [rowValue, orgName].filter(Boolean).join(' ');
+        } else if (typeof f.fieldKey === 'string' && f.fieldKey.endsWith('Id') && f.fieldKey.length > 2) {
+          const prefix = f.fieldKey.slice(0, -2);
+          const displayKey = `${prefix}NameDisplay`;
+          if (row[displayKey]) {
+            rowValue = `${rowValue} ${row[displayKey]}`;
+          }
+        }
 
         const isEmpty = rowValue === undefined || rowValue === null || String(rowValue).trim() === '';
 
@@ -257,23 +273,27 @@ export class ReportBuilderService {
     const refs = this.state.value.references;
     return data.map(row => {
       const studentId = row.studentId || row.userId || row.id;
-      const user = refs.users.get(studentId) || row;
+      const user = refs.users?.get(studentId) || row;
+      const organizationId = row.organizationId || user.organizationId;
       const madrasaId = row.madrasaId || user.madrasaId;
       const courseId = row.courseId || user.courseId;
       const classId = row.classId || user.classId;
       const parentId = row.parentId || user.parentId;
       
-      const madrasa = refs.madrasas.get(madrasaId) || {};
-      const course = refs.courses.get(courseId) || {};
-      const cls = refs.classes.get(classId) || {};
-      const parent = refs.users.get(parentId) || {};
+      const organization = refs.organizations?.get(organizationId) || {};
+      const madrasa = refs.madrasas?.get(madrasaId) || {};
+      const course = refs.courses?.get(courseId) || {};
+      const cls = refs.classes?.get(classId) || {};
+      const parent = refs.users?.get(parentId) || {};
 
       const merged = {
+        ...organization,
         ...madrasa,
         ...course,
         ...cls,
         ...user,
         ...row,
+        organizationNameDisplay: row.organizationName || organization?.name || organization?.displayName || '-',
         studentNameDisplay: row.studentName || row.name || user.name || user.displayName || '-',
         fatherNameDisplay: row.fatherName || user.fatherName || '-',
         parentNameDisplay: row.parentName || parent?.name || parent?.displayName || '-',
@@ -282,7 +302,7 @@ export class ReportBuilderService {
         courseNameDisplay: row.courseName || course?.name || '-',
         classNameDisplay: row.className || cls?.name || '-',
         stageDisplay: row.stageLevel || row.stage || user.stageLevel || user.stage || '-',
-        assignedStaffNamesDisplay: row.assignedStaffNames || '-' // Simplified for now
+        assignedStaffNamesDisplay: row.assignedStaffNames || '-'
       };
 
       // Automatically resolve any other *Id fields into *NameDisplay
@@ -292,7 +312,7 @@ export class ReportBuilderService {
           const displayKey = `${prefix}NameDisplay`;
           if (!merged[displayKey]) {
             const id = merged[key];
-            const refObj = refs.users.get(id) || refs.madrasas.get(id) || refs.courses.get(id) || refs.classes.get(id);
+            const refObj = refs.users?.get(id) || refs.madrasas?.get(id) || refs.courses?.get(id) || refs.classes?.get(id) || refs.organizations?.get(id);
             if (refObj) {
               merged[displayKey] = refObj.name || refObj.displayName || refObj.title || '-';
             }

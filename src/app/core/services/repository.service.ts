@@ -21,7 +21,7 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { Observable, combineLatest, of, BehaviorSubject } from 'rxjs';
+import { Observable, combineLatest, of, BehaviorSubject, throwError } from 'rxjs';
 import { map, shareReplay, switchMap } from 'rxjs/operators';
 import { AppUser, AppModuleId, ScopedEntity } from '../models/domain.model';
 import { getDeenDeskFirebaseApp } from './firebase-app';
@@ -378,13 +378,17 @@ export class RepositoryService {
   }
 
   get<T extends EntityRecord = EntityRecord>(collectionName: string, id: string): Observable<T> {
-    const docRef = doc(this.firestore, `${collectionName}/${id}`);
+    if (!id || typeof id !== 'string' || !id.trim()) {
+      return throwError(() => new Error(`Invalid document ID for ${collectionName}: "${id}"`));
+    }
+    const cleanId = id.trim();
+    const docRef = doc(this.firestore, `${collectionName}/${cleanId}`);
     return new Observable<T>((subscriber) => {
       return onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
           subscriber.next({ id: snapshot.id, ...snapshot.data() } as T);
         } else {
-          subscriber.error(new Error(`Document not found: ${collectionName}/${id}`));
+          subscriber.error(new Error(`Document not found: ${collectionName}/${cleanId}`));
         }
       }, (error) => {
         subscriber.error(error);
@@ -393,7 +397,12 @@ export class RepositoryService {
   }
 
   async update<T extends EntityRecord = EntityRecord>(collectionName: string, id: string, data: Partial<T> | Record<string, any>, currentUser: AppUser | null, skipAudit?: boolean): Promise<void> {
-    console.log(`[Firestore Write - UPDATE] userUid=${currentUser?.uid}, role=${currentUser?.role}, collection=${collectionName}, targetId=${id}, payload=`, data);
+    if (!id || typeof id !== 'string' || !id.trim()) {
+      console.warn(`[Repository Update Skipped] Invalid target id for ${collectionName}: "${id}"`);
+      return;
+    }
+    const cleanId = id.trim();
+    console.log(`[Firestore Write - UPDATE] userUid=${currentUser?.uid}, role=${currentUser?.role}, collection=${collectionName}, targetId=${cleanId}, payload=`, data);
     
     const normalizedData = this.stripDirectStaffAssignmentFields(
       collectionName,
@@ -409,7 +418,7 @@ export class RepositoryService {
         limit(2)
       );
       const snap = await getDocs(q);
-      const otherGroup = snap.docs.find(doc => doc.id !== id);
+      const otherGroup = snap.docs.find(doc => doc.id !== cleanId);
       if (otherGroup) {
         throw new Error(`A group with the name "${normalizedData['name']}" already exists for this class.`);
       }
@@ -418,7 +427,7 @@ export class RepositoryService {
     let originalData: any = null;
     if (!skipAudit) {
       try {
-        const docRef = doc(this.firestore, `${collectionName}/${id}`);
+        const docRef = doc(this.firestore, `${collectionName}/${cleanId}`);
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           originalData = snap.data();
@@ -442,7 +451,7 @@ export class RepositoryService {
       updatedBy: currentUser?.uid ?? 'system',
     });
     
-    await setDoc(doc(this.firestore, `${collectionName}/${id}`), updatePayload, { merge: true });
+    await setDoc(doc(this.firestore, `${collectionName}/${cleanId}`), updatePayload, { merge: true });
     this.usageTracker.recordWrite(this.mapCollectionToModule(collectionName), currentUser?.organizationId, 1);
 
     if (!skipAudit) {
@@ -454,7 +463,7 @@ export class RepositoryService {
       this.auditLogService.logAction({
         module: collectionName,
         action: data['status'] === 'disabled' ? 'Deactivate' : 'Update',
-        targetId: id,
+        targetId: cleanId,
         targetName: String(data['name'] || data['displayName'] || data['email'] || originalData?.['name'] || originalData?.['displayName'] || originalData?.['email'] || ''),
         status: 'success',
         message: message || undefined
@@ -464,11 +473,16 @@ export class RepositoryService {
   }
 
   async remove(collectionName: string, id: string): Promise<void> {
-    console.log(`[Firestore Write - DELETE] collection=${collectionName}, targetId=${id}`);
+    if (!id || typeof id !== 'string' || !id.trim()) {
+      console.warn(`[Repository Remove Skipped] Invalid target id for ${collectionName}: "${id}"`);
+      return;
+    }
+    const cleanId = id.trim();
+    console.log(`[Firestore Write - DELETE] collection=${collectionName}, targetId=${cleanId}`);
     
     let targetName = '';
     try {
-      const docRef = doc(this.firestore, `${collectionName}/${id}`);
+      const docRef = doc(this.firestore, `${collectionName}/${cleanId}`);
       const snap = await getDoc(docRef);
       if (snap.exists()) {
         const data = snap.data();
@@ -539,14 +553,14 @@ export class RepositoryService {
       }
     }
     
-    await deleteDoc(doc(this.firestore, `${collectionName}/${id}`));
+    await deleteDoc(doc(this.firestore, `${collectionName}/${cleanId}`));
     this.usageTracker.recordDelete(this.mapCollectionToModule(collectionName), undefined, 1);
     this.clearCache(collectionName);
 
     this.auditLogService.logAction({
       module: collectionName,
       action: 'Delete',
-      targetId: id,
+      targetId: cleanId,
       targetName: targetName || undefined,
       status: 'success'
     });

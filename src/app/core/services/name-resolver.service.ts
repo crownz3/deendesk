@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
-import { Observable, from, map, shareReplay, of, catchError } from 'rxjs';
+import { Observable, from, map, shareReplay, of, catchError, combineLatest } from 'rxjs';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 
 export type ResolvableType =
@@ -31,20 +31,36 @@ export class NameResolverService {
     }
   }
 
-  resolveName(id: string | undefined | null, type: ResolvableType): Observable<string> {
+  resolveName(id: string | string[] | undefined | null, type: ResolvableType): Observable<string> {
     if (!id) {
       return of('N/A');
     }
 
-    const cacheKey = `${type}_${id}`;
+    if (Array.isArray(id)) {
+      const validIds = id.filter(i => i && typeof i === 'string' && i.trim() && i !== 'undefined' && i !== 'null');
+      if (validIds.length === 0) return of('N/A');
+      return combineLatest(validIds.map(singleId => this.resolveName(singleId, type))).pipe(
+        map(names => names.filter(n => n && n !== 'N/A' && n !== 'Unknown').join(', ') || 'N/A')
+      );
+    }
+
+    const cleanId = String(id).trim();
+    if (!cleanId || cleanId === 'undefined' || cleanId === 'null' || cleanId === 'N/A' || cleanId === '[object Object]') {
+      return of('N/A');
+    }
+
+    const cacheKey = `${type}_${cleanId}`;
     if (this.cache.has(cacheKey)) {
       return this.cache.get(cacheKey)!;
     }
 
     const collectionName = this.getCollectionName(type);
-    
+    if (!collectionName || !collectionName.trim()) {
+      return of('Unknown');
+    }
+
     // Some types like "createdBy" / "user" might map to users.
-    const request$ = from(getDoc(doc(this.firestore, `${collectionName}/${id}`))).pipe(
+    const request$ = from(getDoc(doc(this.firestore, `${collectionName}/${cleanId}`))).pipe(
       map(snapshot => {
         if (!snapshot.exists()) {
           return 'Unknown';

@@ -11,6 +11,12 @@ export interface PdfExportOptions {
   showPageNumbers: boolean;
   repeatHeader: boolean;
   organizationName?: string;
+  headerTitle?: string;
+  headerColor?: string;
+  alignColumns?: 'center' | 'left' | 'right';
+  highlightRows?: boolean;
+  highlightColor?: string;
+  maxRows?: number | 'all';
 }
 
 @Injectable({
@@ -38,25 +44,32 @@ export class ReportExportService {
       const doc = new jsPDF(options.orientation, 'mm', options.pageSize);
       
       let startY = 25;
-      
+      const appName = options.organizationName?.trim() || 'DeenDesk';
+      const docTitle = options.headerTitle?.trim() || title;
+
       if (options.showLogo && logoBase64) {
         doc.addImage(logoBase64, 'PNG', 14, 10, 15, 15);
         doc.setFontSize(18);
-        doc.text(options.organizationName || 'Organization', 32, 17);
+        doc.text(appName, 32, 17);
         doc.setFontSize(12);
-        doc.text(title, 32, 23);
+        doc.text(docTitle, 32, 23);
         startY = 35;
       } else {
         doc.setFontSize(18);
-        doc.text(options.organizationName || 'Organization', 14, 15);
+        doc.text(appName, 14, 15);
         doc.setFontSize(14);
-        doc.text(title, 14, 22);
+        doc.text(docTitle, 14, 22);
+      }
+
+      let exportData = data;
+      if (options.maxRows && options.maxRows !== 'all') {
+        exportData = data.slice(0, Number(options.maxRows));
       }
 
       const headers = columns.map(c => c.label);
       const keys = columns.map(c => c.key);
 
-      const tableData = data.map(row => {
+      const tableData = exportData.map(row => {
         return keys.map(key => {
           let val = row[key];
           if (val && typeof val === 'object' && 'toDate' in val) {
@@ -68,17 +81,45 @@ export class ReportExportService {
         });
       });
 
+      // Parse custom hex header color (default: #3f51b5)
+      const hexColor = (options.headerColor || '#3f51b5').replace('#', '');
+      const r = parseInt(hexColor.substring(0, 2), 16) || 63;
+      const g = parseInt(hexColor.substring(2, 4), 16) || 81;
+      const b = parseInt(hexColor.substring(4, 6), 16) || 181;
+      const headerRgb: [number, number, number] = [r, g, b];
+
+      // Parse custom hex row highlight color (default: #f8fafc)
+      const altHexColor = (options.highlightColor || '#f8fafc').replace('#', '');
+      const altR = parseInt(altHexColor.substring(0, 2), 16) || 248;
+      const altG = parseInt(altHexColor.substring(2, 4), 16) || 250;
+      const altB = parseInt(altHexColor.substring(4, 6), 16) || 252;
+      const altRgb: [number, number, number] = [altR, altG, altB];
+
+      const alignment = options.alignColumns || 'center';
+
       autoTable(doc, {
         head: [headers],
         body: tableData,
         startY: startY,
-        theme: options.theme,
-        headStyles: { fillColor: [63, 81, 181] },
-        styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
-        showHead: options.repeatHeader ? 'everyPage' : 'firstPage',
+        theme: options.theme || 'striped',
+        headStyles: {
+          fillColor: headerRgb,
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: alignment
+        },
+        styles: {
+          fontSize: 8,
+          cellPadding: 2.5,
+          overflow: 'linebreak',
+          halign: alignment
+        },
+        alternateRowStyles: options.highlightRows !== false ? {
+          fillColor: altRgb
+        } : undefined,
+        showHead: options.repeatHeader !== false ? 'everyPage' : 'firstPage',
         didDrawPage: (data: any) => {
-          if (options.showPageNumbers) {
-            const pageCount = doc.getNumberOfPages();
+          if (options.showPageNumbers !== false) {
             doc.setFontSize(8);
             doc.text(
               `Page ${data.pageNumber}`,
@@ -89,7 +130,7 @@ export class ReportExportService {
         }
       });
 
-      doc.save(`${title.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
+      doc.save(`${docTitle.replace(/\s+/g, '_')}_${new Date().getTime()}.pdf`);
     } catch (err) {
       console.error('Failed to generate PDF', err);
       this.snackBar.open('Error generating PDF.', 'Close', { duration: 3000 });
