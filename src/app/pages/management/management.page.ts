@@ -3005,6 +3005,8 @@ export class ManagementPage {
             courseId: payload['courseId'],
             classId: payload['classId'],
             classIds: payload['classId'] ? [payload['classId']] : [],
+            groupId: payload['groupId'],
+            groupIds: payload['groupId'] ? [payload['groupId']] : [],
             subjectIds: payload['subjectIds'] || [],
             stage: payload['stage'],
             level: payload['level'],

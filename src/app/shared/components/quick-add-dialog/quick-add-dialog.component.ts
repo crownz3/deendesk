@@ -583,7 +583,7 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       return !this.shouldShowStageSelect();
     }
     if (field.key === 'groupId' || field.key === 'groupIds') {
-      return this.getFilteredOptions(field).length > 1;
+      return this.getFilteredOptions(field).length > 0;
     }
     return true;
   }
