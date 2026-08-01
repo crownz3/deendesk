@@ -570,12 +570,142 @@
             color: #fff;
         }
 
-        /* ── LANGUAGE TOGGLE ── */
-        .header-actions-wrap { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
-        .lang-toggle-wrap { display: flex; align-items: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 100px; padding: 3px; gap: 2px; flex-shrink: 0; }
-        .lang-btn { padding: 6px 16px; border-radius: 100px; font-size: 12px; font-weight: 700; color: var(--text-muted); transition: all 0.22s ease; border: none; background: transparent; cursor: pointer; font-family: inherit; letter-spacing: 0.2px; line-height: 1; }
-        .lang-btn.active { background: var(--emerald-main); color: #fff; box-shadow: 0 2px 12px var(--emerald-glow); }
-        .lang-btn:hover:not(.active) { background: rgba(255,255,255,0.09); color: #fff; }
+        .print-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #FFFFFF;
+            background: var(--emerald-main);
+            border: 1px solid var(--emerald-light);
+            cursor: pointer;
+            transition: all 0.22s ease;
+            font-family: inherit;
+        }
+        .print-btn:hover {
+            background: var(--emerald-light);
+            box-shadow: 0 4px 15px var(--emerald-glow);
+        }
+
+        /* ── PRINT & HARDCOPY BROCHURE OPTIMIZATIONS ── */
+        @media print {
+            @page {
+                size: A4 portrait;
+                margin: 12mm 15mm;
+            }
+            body {
+                background: #ffffff !important;
+                color: #0F172A !important;
+                font-size: 11pt;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+            }
+            header, .header-actions-wrap, .carousel-arrow, .carousel-dots, .view-switcher-standalone, .category-tabs-wrap, .billing-toggle-wrap, .hero-floating-card, .btn-plan, footer {
+                display: none !important;
+            }
+            .hero {
+                padding: 15px 0 !important;
+                text-align: center;
+            }
+            .hero h1 {
+                color: #0F172A !important;
+                font-size: 22pt !important;
+            }
+            .hero h1 span {
+                color: #059669 !important;
+                background: none !important;
+                -webkit-text-fill-color: #059669 !important;
+            }
+            .hero p {
+                color: #334155 !important;
+                font-size: 11pt !important;
+            }
+            .carousel-outer-box {
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+            .pricing-carousel-wrap {
+                overflow: visible !important;
+            }
+            .pricing-carousel-track {
+                transform: none !important;
+                display: grid !important;
+                grid-template-columns: repeat(3, 1fr) !important;
+                gap: 14px !important;
+            }
+            .pricing-card.clone {
+                display: none !important;
+            }
+            .pricing-card {
+                background: #FFFFFF !important;
+                border: 1px solid #CBD5E1 !important;
+                color: #0F172A !important;
+                box-shadow: none !important;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .pricing-card.popular {
+                border: 2px solid #059669 !important;
+                background: #F0FDF4 !important;
+            }
+            .pricing-card .plan-name { color: #0F172A !important; }
+            .pricing-card .price-val { color: #059669 !important; }
+            .pricing-card .price-unit { color: #475569 !important; }
+            .capacity-highlight-box {
+                background: #F8FAFC !important;
+                border: 1px solid #E2E8F0 !important;
+            }
+            .cap-range-label, .cap-unit { color: #047857 !important; }
+            .cap-range-val { color: #065F46 !important; }
+            .initial-fee-box {
+                background: #FFFBEB !important;
+                border: 1px dashed #FDE68A !important;
+            }
+            .fee-label { color: #B45309 !important; }
+            .fee-amount { color: #0F172A !important; }
+            .common-free-month-bar {
+                background: #ECFDF5 !important;
+                border: 2px solid #059669 !important;
+                color: #0F172A !important;
+            }
+            .common-free-month-bar .free-text { color: #0F172A !important; }
+            .common-free-month-bar .free-text strong { color: #B45309 !important; }
+            .features-grid {
+                display: grid !important;
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 14px !important;
+                page-break-before: always;
+            }
+            .feature-card {
+                background: #FFFFFF !important;
+                border: 1px solid #CBD5E1 !important;
+                color: #0F172A !important;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .feature-card h3 { color: #0F172A !important; }
+            .feature-card p { color: #475569 !important; }
+            .feature-card ul li { color: #334155 !important; }
+            table {
+                background: #FFFFFF !important;
+                color: #0F172A !important;
+                page-break-before: always;
+            }
+            th { background: #F1F5F9 !important; color: #0F172A !important; }
+            td { color: #334155 !important; }
+            .comp-card {
+                background: #FFFFFF !important;
+                border: 1px solid #CBD5E1 !important;
+                color: #0F172A !important;
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+            .comp-card h3 { color: #0F172A !important; }
+            .comp-card p, .comp-card .comp-sub { color: #475569 !important; }
+        }
 
         /* Common Free Month Offer Bar */
         .common-free-month-bar {
@@ -1699,6 +1829,9 @@
                 <li><a href="#contact" data-i18n="nav-contact">Contact Sales</a></li>
             </ul>
             <div class="header-actions-wrap">
+                <button class="print-btn" onclick="window.print()" data-i18n="btn-print" title="Print Brochure / Save as PDF">
+                    🖨️ Print / Save PDF
+                </button>
                 <div class="lang-toggle-wrap">
                     <button class="lang-btn active" id="btn-en" onclick="setLanguage('en')">EN</button>
                     <button class="lang-btn" id="btn-tam" onclick="setLanguage('tam')">தமிழ்</button>
@@ -3388,6 +3521,7 @@
                 'btn-pro': 'Get Pro',
                 'btn-jamia': 'Choose Jamia',
                 'btn-megajamia': 'Contact Sales',
+                'btn-print': '🖨️ Print / Save PDF',
                 'sec-comparison-h2': 'Deen Desk vs The Rest',
                 'sec-clients-h2': 'Trusted by Renowned Jamias & Institutions',
                 'staff-free': '🎁 UNLIMITED Staff & Ustads (0 ₹ Extra)',
@@ -3559,6 +3693,7 @@
                 'btn-pro': 'ப்ரோ திட்டம்',
                 'btn-jamia': 'ஜாமிஆ திட்டம்',
                 'btn-megajamia': 'மேகா ஜாமிஆ திட்டம்',
+                'btn-print': '🖨️ பிரிண்ட் / PDF சேமிக்க',
                 'sec-comparison-h2': 'தீன் டெஸ்க் VS பிற மென்பொருட்கள்',
                 'sec-clients-h2': 'முன்னணி நிறுவனங்களின் தேர்வாக தீன் டெஸ்க்',
                 'staff-free': '🎁 வரம்பற்ற ஆசிரியர்கள் & ஊழியர்கள் (கூடுதல் கட்டணம் ₹ 0)',
