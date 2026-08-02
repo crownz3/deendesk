@@ -8,6 +8,7 @@ import { ClassPlan, TimetableEntry } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { ClassPlanTimetableCopyDialogComponent } from './class-plan-timetable-copy-dialog.component';
+import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-timetable-entry-form-dialog',
@@ -18,6 +19,7 @@ import { ClassPlanTimetableCopyDialogComponent } from './class-plan-timetable-co
 export class TimetableEntryFormDialogComponent implements OnInit {
   form = this.fb.nonNullable.group({
     activityName: ['', Validators.required],
+    hifzSessionType: ['sabak' as 'sabak' | 'sabki' | 'manzil' | 'custom'],
     dayOfWeek: ['Monday', Validators.required],
     startTime: ['09:00'],
     endTime: ['10:00'],
@@ -34,19 +36,41 @@ export class TimetableEntryFormDialogComponent implements OnInit {
     status: ['active']
   });
 
-  readonly daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  isHifzCourse = false;
+
+  daysOfWeek: string[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   
-  readonly activitySuggestions = [
-    { icon: 'menu_book', name: 'Quran' },
-    { icon: 'local_library', name: 'Tafseer' },
-    { icon: 'language', name: 'Arabic' },
-    { icon: 'groups', name: 'Tarbiyah' },
-    { icon: 'cleaning_services', name: 'Cleaning' },
-    { icon: 'restaurant', name: 'Lunch' },
-    { icon: 'mosque', name: 'Prayer' },
-    { icon: 'campaign', name: 'Assembly' },
-    { icon: 'directions_bus', name: 'Field Trip' }
-  ];
+  get activitySuggestions(): { icon: string; name: string }[] {
+    if (this.isHifzCourse) {
+      return [
+        { icon: 'menu_book', name: 'Sabak (New Lesson)' },
+        { icon: 'history_edu', name: 'Sabki (Recent Revision)' },
+        { icon: 'auto_stories', name: 'Manzil (Old Revision)' },
+        { icon: 'record_voice_over', name: 'Tajweed & Qira\'at' },
+        { icon: 'local_library', name: 'Tafseer' },
+        { icon: 'groups', name: 'Tarbiyah & Etiquette' },
+        { icon: 'cleaning_services', name: 'Cleaning & Hygiene' },
+        { icon: 'restaurant', name: 'Lunch & Break' },
+        { icon: 'mosque', name: 'Prayer / Namaz' },
+        { icon: 'campaign', name: 'Assembly' }
+      ];
+    }
+    return [
+      { icon: 'menu_book', name: 'Quran Recitation' },
+      { icon: 'local_library', name: 'Tafseer' },
+      { icon: 'gavel', name: 'Fiqh & Islamic Law' },
+      { icon: 'book', name: 'Hadith' },
+      { icon: 'language', name: 'Arabic Language' },
+      { icon: 'history', name: 'Seerah & Islamic History' },
+      { icon: 'groups', name: 'Tarbiyah & Character' },
+      { icon: 'cleaning_services', name: 'Cleaning & Hygiene' },
+      { icon: 'restaurant', name: 'Lunch & Break' },
+      { icon: 'mosque', name: 'Prayer / Namaz' },
+      { icon: 'campaign', name: 'Assembly' }
+    ];
+  }
+
+
 
   staff: EntityRecord[] = [];
   subjects: EntityRecord[] = [];
@@ -102,13 +126,186 @@ export class TimetableEntryFormDialogComponent implements OnInit {
   }
 
   hasSubjects = false;
+  selectedDays: string[] = ['Monday'];
+
+  isDaySelected(day: string): boolean {
+    return this.selectedDays.includes(day);
+  }
+
+  isDayDisabled(day: string): boolean {
+    const val = this.form.getRawValue();
+    if (this.data.scheduleType === 'fullDay') {
+      const hasExistingFullDay = this.existingEntries.some(e => e.dayOfWeek === day && e.id !== this.data.entry?.id);
+      const hasPendingFullDay = this.pendingEntries.some((e, idx) => e.dayOfWeek === day && idx !== this.editingPendingIndex);
+      return hasExistingFullDay || hasPendingFullDay;
+    }
+
+    const activityNameLower = String(val.activityName || '').trim().toLowerCase();
+    const hifzType = val.hifzSessionType;
+
+    // 1. Disable day if the SAME period/activity name or Hifz session type is already added on this day
+    const hasSameActivityInExisting = this.existingEntries.some(e => {
+      if (e.dayOfWeek !== day) return false;
+      if (e.id && e.id === this.data.entry?.id) return false;
+      
+      const existingName = String(e.activityName || '').trim().toLowerCase();
+      if (activityNameLower && existingName === activityNameLower) return true;
+      if (hifzType && this.isHifzCourse && e.hifzSessionType === hifzType) return true;
+      return false;
+    });
+
+    if (hasSameActivityInExisting) return true;
+
+    const hasSameActivityInPending = this.pendingEntries.some((e, idx) => {
+      if (idx === this.editingPendingIndex) return false;
+      if (e.dayOfWeek !== day) return false;
+
+      const existingName = String(e.activityName || '').trim().toLowerCase();
+      if (activityNameLower && existingName === activityNameLower) return true;
+      if (hifzType && this.isHifzCourse && e.hifzSessionType === hifzType) return true;
+      return false;
+    });
+
+    if (hasSameActivityInPending) return true;
+
+    // 2. Disable day if there is a strict time slot overlap
+    if (val.startTime && val.endTime && val.startTime < val.endTime) {
+      const isOverlappingInExisting = this.existingEntries.some(e => {
+        if (e.dayOfWeek !== day) return false;
+        if (e.id && e.id === this.data.entry?.id) return false;
+        if (!e.startTime || !e.endTime) return false;
+        return (val.startTime < e.endTime && val.endTime > e.startTime);
+      });
+
+      if (isOverlappingInExisting) return true;
+
+      const isOverlappingInPending = this.pendingEntries.some((e, idx) => {
+        if (idx === this.editingPendingIndex) return false;
+        if (e.dayOfWeek !== day) return false;
+        if (!e.startTime || !e.endTime) return false;
+        return (val.startTime < e.endTime && val.endTime > e.startTime);
+      });
+
+      if (isOverlappingInPending) return true;
+    }
+
+    return false;
+  }
+
+  getDayDisabledReason(day: string): string {
+    const val = this.form.getRawValue();
+    const activityNameLower = String(val.activityName || '').trim().toLowerCase();
+    const hifzType = val.hifzSessionType;
+
+    const existingSameName = [...this.existingEntries, ...this.pendingEntries].find(e => {
+      if (e.dayOfWeek !== day) return false;
+      if (e.id && e.id === this.data.entry?.id) return false;
+      const existingName = String(e.activityName || '').trim().toLowerCase();
+      if (activityNameLower && existingName === activityNameLower) return true;
+      if (hifzType && this.isHifzCourse && e.hifzSessionType === hifzType) return true;
+      return false;
+    });
+
+    if (existingSameName) {
+      return `${day} already has "${existingSameName.activityName}" scheduled.`;
+    }
+
+    if (val.startTime && val.endTime && val.startTime < val.endTime) {
+      const overlapping = [...this.existingEntries, ...this.pendingEntries].find(e => {
+        if (e.dayOfWeek !== day) return false;
+        if (e.id && e.id === this.data.entry?.id) return false;
+        if (!e.startTime || !e.endTime) return false;
+        return (val.startTime < e.endTime && val.endTime > e.startTime);
+      });
+
+      if (overlapping) {
+        return `${day} already has an activity (${overlapping.activityName}) at ${overlapping.startTime} - ${overlapping.endTime}.`;
+      }
+    }
+
+    return `${day} is unavailable.`;
+  }
+
+  get disabledDaysCount(): number {
+    return this.daysOfWeek.filter(d => this.isDayDisabled(d)).length;
+  }
+
+  toggleDaySelection(day: string): void {
+    if (this.isDayDisabled(day)) return;
+    if (this.selectedDays.includes(day)) {
+      if (this.selectedDays.length > 1) {
+        this.selectedDays = this.selectedDays.filter(d => d !== day);
+      }
+    } else {
+      this.selectedDays = [...this.selectedDays, day];
+    }
+    if (this.selectedDays.length > 0) {
+      this.form.patchValue({ dayOfWeek: this.selectedDays[0] });
+    }
+  }
+
+  selectAllDays(type: 'weekdays' | 'sixDays' | 'all' | 'none'): void {
+    let candidateDays: string[] = [];
+    if (type === 'weekdays') {
+      const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+      candidateDays = this.daysOfWeek.filter(d => weekdays.includes(d));
+    } else if (type === 'sixDays') {
+      const sixDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      candidateDays = this.daysOfWeek.filter(d => sixDays.includes(d));
+    } else if (type === 'all') {
+      candidateDays = [...this.daysOfWeek];
+    } else {
+      candidateDays = this.daysOfWeek.length > 0 ? [this.daysOfWeek[0]] : ['Monday'];
+    }
+
+    this.selectedDays = candidateDays.filter(d => !this.isDayDisabled(d));
+
+    if (this.selectedDays.length === 0) {
+      const available = this.daysOfWeek.filter(d => !this.isDayDisabled(d));
+      if (available.length > 0) {
+        this.selectedDays = [available[0]];
+      }
+    }
+
+    if (this.selectedDays.length > 0) {
+      this.form.patchValue({ dayOfWeek: this.selectedDays[0] });
+    }
+  }
 
   async ngOnInit() {
+    const plan = this.data.plan;
+    const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    if (plan) {
+      if (plan.scheduleType === 'weekly' && Array.isArray(plan.weekDays) && plan.weekDays.length > 0) {
+        const activePlanDays = plan.weekDays.map(d => String(d).toLowerCase());
+        this.daysOfWeek = allDays.filter(day => activePlanDays.includes(day.toLowerCase()));
+      } else if (plan.scheduleType === 'oneTime' && plan.startDate) {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        try {
+          const date = new Date(plan.startDate);
+          this.daysOfWeek = [dayNames[date.getDay()]];
+        } catch {
+          this.daysOfWeek = [...allDays];
+        }
+      } else {
+        this.daysOfWeek = [...allDays];
+      }
+    }
+    if (this.daysOfWeek.length === 0) {
+      this.daysOfWeek = [...allDays];
+    }
+
     const profile = await firstValueFrom(this.auth.profile$);
     if (profile) {
       const courses = await this.repo.getAllOnce('courses', profile);
       const planCourse = courses.find(c => c.id === this.data.plan?.courseId);
       this.hasSubjects = !!planCourse && (planCourse['hasSubjects'] === true || planCourse['hasSubjects'] === 'true' || planCourse['hasSubjects'] === 1);
+
+      const courseType = String(this.data.plan?.courseType || planCourse?.['type'] || '').toLowerCase();
+      const planTitle = String(this.data.plan?.title || '').toLowerCase();
+      const courseName = String(planCourse?.['name'] || '').toLowerCase();
+
+      this.isHifzCourse = courseType === 'hifz' || planTitle.includes('hifz') || courseName.includes('hifz');
 
       this.staff = await this.repo.getAllOnce('staff', profile);
       if (this.data.plan.madrasaId) {
@@ -129,15 +326,30 @@ export class TimetableEntryFormDialogComponent implements OnInit {
 
     if (this.data.entry) {
       this.form.patchValue(this.data.entry);
+      this.selectedDays = [this.data.entry.dayOfWeek || this.daysOfWeek[0] || 'Monday'];
     } else {
       const patch: any = {};
-      if (this.data.dayOfWeek) patch.dayOfWeek = this.data.dayOfWeek;
+      if (this.data.dayOfWeek && this.daysOfWeek.includes(this.data.dayOfWeek)) {
+        patch.dayOfWeek = this.data.dayOfWeek;
+        this.selectedDays = [this.data.dayOfWeek];
+      } else {
+        this.selectedDays = [...this.daysOfWeek];
+        if (this.selectedDays.length > 0) {
+          patch.dayOfWeek = this.selectedDays[0];
+        }
+      }
       if (this.data.plan?.subjectId) patch.subjectId = this.data.plan.subjectId;
-      const matchingSubj = this.subjects.find(s => s.id === this.data.plan?.subjectId);
-      if (matchingSubj?.['name']) {
-        patch.activityName = String(matchingSubj['name']);
-      } else if (this.data.plan?.title) {
-        patch.activityName = this.data.plan.title;
+
+      if (this.isHifzCourse) {
+        patch.hifzSessionType = 'sabak';
+        patch.activityName = 'Sabak (New Lesson)';
+      } else {
+        const matchingSubj = this.subjects.find(s => s.id === this.data.plan?.subjectId);
+        if (matchingSubj?.['name']) {
+          patch.activityName = String(matchingSubj['name']);
+        } else if (this.data.plan?.title) {
+          patch.activityName = this.data.plan.title;
+        }
       }
       this.form.patchValue(patch);
     }
@@ -149,9 +361,43 @@ export class TimetableEntryFormDialogComponent implements OnInit {
     this.checkOverlap();
   }
 
+  onHifzSessionTypeChange(type: string): void {
+    if (type === 'sabak') {
+      this.form.patchValue({ activityName: 'Sabak (New Lesson)' });
+    } else if (type === 'sabki') {
+      this.form.patchValue({ activityName: 'Sabki (Recent Revision)' });
+    } else if (type === 'manzil') {
+      this.form.patchValue({ activityName: 'Manzil (Old Revision)' });
+    } else if (type === 'custom') {
+      this.form.patchValue({ activityName: '' });
+    }
+  }
+
   setActivityName(name: string) {
     this.form.patchValue({ activityName: name });
     this.form.get('activityName')?.markAsTouched();
+  }
+
+  applyDuration(minutes: number): void {
+    const startTimeStr = this.form.value.startTime || '09:00';
+    const [hh, mm] = startTimeStr.split(':').map(Number);
+    if (isNaN(hh) || isNaN(mm)) return;
+
+    const startTotalMin = hh * 60 + mm;
+    const endTotalMin = (startTotalMin + minutes) % (24 * 60);
+
+    const endHh = String(Math.floor(endTotalMin / 60)).padStart(2, '0');
+    const endMm = String(endTotalMin % 60).padStart(2, '0');
+
+    this.form.patchValue({
+      startTime: startTimeStr,
+      endTime: `${endHh}:${endMm}`
+    });
+  }
+
+  setQuickStartTime(timeStr: string, defaultDurationMin = 60): void {
+    this.form.patchValue({ startTime: timeStr });
+    this.applyDuration(defaultDurationMin);
   }
 
   getInitials(name: unknown): string {
@@ -196,7 +442,6 @@ export class TimetableEntryFormDialogComponent implements OnInit {
   onTimeChange(control: 'startTime' | 'endTime', event: any) {
     const val = event.detail.value;
     if (val) {
-      // Extract HH:mm
       let timePart = val;
       if (val.includes('T')) {
         timePart = val.split('T')[1];
@@ -218,24 +463,11 @@ export class TimetableEntryFormDialogComponent implements OnInit {
     }
 
     let overlapping = this.existingEntries.find(e => {
-      if (this.data.entry && e.id === this.data.entry.id) return false;
-      if (e.dayOfWeek === val.dayOfWeek) {
-        if (!e.startTime || !e.endTime) return false;
-        return (val.startTime < e.endTime && val.endTime > e.startTime);
-      }
-      return false;
+      if (e.dayOfWeek !== val.dayOfWeek) return false;
+      if (e.id && e.id === this.data.entry?.id) return false;
+      if (!e.startTime || !e.endTime) return false;
+      return (val.startTime < e.endTime && val.endTime > e.startTime);
     });
-
-    if (!overlapping) {
-      overlapping = this.pendingEntries.find((e, idx) => {
-        if (idx === this.editingPendingIndex) return false;
-        if (e.dayOfWeek === val.dayOfWeek) {
-          if (!e.startTime || !e.endTime) return false;
-          return (val.startTime < e.endTime && val.endTime > e.startTime);
-        }
-        return false;
-      }) as any;
-    }
 
     if (overlapping) {
       this.overlapWarning = `Time overlaps with: ${overlapping.activityName} (${overlapping.startTime} - ${overlapping.endTime})`;
@@ -257,30 +489,48 @@ export class TimetableEntryFormDialogComponent implements OnInit {
       return false;
     }
 
-    const teacher = this.staff.find(s => s.id === val.teacherId);
+    const teacher = this.staff.find(s => s.id === val.teacherId || s['userId'] === val.teacherId);
     const subject = this.subjects.find(s => s.id === val.subjectId);
 
-    const payload: Partial<TimetableEntry> & { teacherName?: string, subjectName?: string } = {
-      ...val,
-      classPlanId: this.data.plan.id!,
-      organizationId: this.data.plan.organizationId,
-      madrasaId: this.data.plan.madrasaId,
-      dayOfWeek: val.dayOfWeek as any,
-      status: val.status as any,
-      scheduleType: this.data.scheduleType || 'period',
-      teacherName: teacher ? (teacher['name'] as string) : undefined,
-      subjectName: subject ? (subject['name'] as string) : undefined
-    };
+    if (this.editingPendingIndex !== null || this.data.entry?.id) {
+      const payload: Partial<TimetableEntry> & { teacherName?: string, subjectName?: string } = {
+        ...val,
+        classPlanId: this.data.plan.id!,
+        organizationId: this.data.plan.organizationId,
+        madrasaId: this.data.plan.madrasaId,
+        dayOfWeek: val.dayOfWeek as any,
+        status: val.status as any,
+        scheduleType: this.data.scheduleType || 'period',
+        teacherName: teacher ? (teacher['displayName'] as string || teacher['name'] as string) : undefined,
+        subjectName: subject ? (subject['name'] as string) : undefined
+      };
 
-    if (this.data.entry?.id) {
-      payload.id = this.data.entry.id;
-    }
+      if (this.data.entry?.id) {
+        payload.id = this.data.entry.id;
+      }
 
-    if (this.editingPendingIndex !== null) {
-      this.pendingEntries[this.editingPendingIndex] = payload;
-      this.editingPendingIndex = null;
+      if (this.editingPendingIndex !== null) {
+        this.pendingEntries[this.editingPendingIndex] = payload;
+        this.editingPendingIndex = null;
+      } else {
+        this.pendingEntries.push(payload);
+      }
     } else {
-      this.pendingEntries.push(payload);
+      const targetDays = this.selectedDays.length > 0 ? this.selectedDays : [val.dayOfWeek || 'Monday'];
+      for (const day of targetDays) {
+        const payload: Partial<TimetableEntry> & { teacherName?: string, subjectName?: string } = {
+          ...val,
+          classPlanId: this.data.plan.id!,
+          organizationId: this.data.plan.organizationId,
+          madrasaId: this.data.plan.madrasaId,
+          dayOfWeek: day as any,
+          status: val.status as any,
+          scheduleType: this.data.scheduleType || 'period',
+          teacherName: teacher ? (teacher['displayName'] as string || teacher['name'] as string) : undefined,
+          subjectName: subject ? (subject['name'] as string) : undefined
+        };
+        this.pendingEntries.push(payload);
+      }
     }
     
     // Clear form for next entry
@@ -297,14 +547,36 @@ export class TimetableEntryFormDialogComponent implements OnInit {
   }
 
   deletePendingEntry(index: number) {
-    this.pendingEntries.splice(index, 1);
-    if (this.editingPendingIndex === index) {
-      this.editingPendingIndex = null;
-      this.form.reset({ dayOfWeek: this.form.get('dayOfWeek')?.value, status: 'active', startTime: '09:00', endTime: '10:00' });
-    } else if (this.editingPendingIndex !== null && this.editingPendingIndex > index) {
-      this.editingPendingIndex--;
-    }
-    this.checkOverlap();
+    const entry = this.pendingEntries[index];
+    const activityName = entry?.activityName || 'this period';
+    const day = entry?.dayOfWeek || '';
+
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Delete Period Activity?',
+        message: `Are you sure you want to delete "${activityName}"${day ? ' from ' + day : ''}?`,
+        confirmLabel: 'Delete Period',
+        confirmColor: 'warn'
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(confirmed => {
+      if (confirmed) {
+        const removed = this.pendingEntries.splice(index, 1)[0];
+        if (removed?.id) {
+          this.entriesToDelete.push(removed.id);
+        }
+        if (this.editingPendingIndex === index) {
+          this.editingPendingIndex = null;
+          this.form.reset({ dayOfWeek: this.form.get('dayOfWeek')?.value, status: 'active', startTime: '09:00', endTime: '10:00' });
+        } else if (this.editingPendingIndex !== null && this.editingPendingIndex > index) {
+          this.editingPendingIndex--;
+        }
+        this.checkOverlap();
+        this.snackBar.open('Period removed.', 'Close', { duration: 2500 });
+      }
+    });
   }
 
   editPendingEntry(index: number) {

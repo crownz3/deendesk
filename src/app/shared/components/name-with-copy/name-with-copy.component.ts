@@ -2,6 +2,7 @@ import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/cor
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Observable, of } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { NameResolverService, ResolvableType } from '../../../core/services/name-resolver.service';
 
 @Component({
@@ -36,10 +37,20 @@ export class NameWithCopyComponent implements OnInit, OnChanges {
   }
 
   private resolve() {
-    if (this.fallbackName) {
-      this.name$ = of(this.fallbackName);
+    const validFallback = this.fallbackName && this.fallbackName !== '-' && this.fallbackName !== 'Unknown' && this.fallbackName !== 'N/A' ? String(this.fallbackName).trim() : null;
+    if (validFallback) {
+      this.name$ = of(validFallback);
     } else {
-      this.name$ = this.nameResolver.resolveName(this.id, this.type);
+      this.name$ = this.nameResolver.resolveName(this.id, this.type).pipe(
+        map(res => {
+          if (!res || res === 'Unknown' || res === 'N/A') {
+            if (validFallback) return validFallback;
+            if (this.id && typeof this.id === 'string' && this.id.length < 15 && this.id !== '-') return this.id;
+            return '-';
+          }
+          return res;
+        })
+      );
     }
   }
 

@@ -183,13 +183,13 @@
                 <ng-container *ngIf="isArray(value(row, column.key)); else singleIdRef">
                   <span class="id-list">
                     <ng-container *ngFor="let id of asArray(value(row, column.key)); let last = last">
-                      <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)"></app-name-with-copy>
+                      <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
                       <span *ngIf="!last">, </span>
                     </ng-container>
                   </span>
                 </ng-container>
                 <ng-template #singleIdRef>
-                  <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)"></app-name-with-copy>
+                  <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
                 </ng-template>
               </span>
               <ng-container *ngSwitchDefault>
@@ -209,7 +209,7 @@
                     <span class="staff-chip-name">{{ text(row, column.key) }}</span>
                   </div>
                   <ng-template #justText>
-                    <span>{{ text(row, column.key) }}</span>
+                    <span>{{ getTableCellValue(row, column) }}</span>
                   </ng-template>
                 </ng-template>
               </ng-container>
@@ -428,13 +428,13 @@
               <ng-container *ngIf="isArray(value(row, column.key)); else singleIdRefCard">
                 <span class="id-list">
                   <ng-container *ngFor="let id of asArray(value(row, column.key)); let last = last">
-                    <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)"></app-name-with-copy>
+                    <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
                     <span *ngIf="!last">, </span>
                   </ng-container>
                 </span>
               </ng-container>
               <ng-template #singleIdRefCard>
-                <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)"></app-name-with-copy>
+                <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
               </ng-template>
             </span>
 

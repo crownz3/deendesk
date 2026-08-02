@@ -1,5 +1,36 @@
 import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+
+export function studentDobValidator(control: AbstractControl): ValidationErrors | null {
+  const value = control.value;
+  if (!value) return null;
+
+  let dob: Date | null = null;
+  if (value instanceof Date) {
+    dob = value;
+  } else if (typeof value === 'string') {
+    dob = new Date(value);
+  } else if (value && typeof (value as any).toDate === 'function') {
+    dob = (value as any).toDate();
+  }
+
+  if (!dob || isNaN(dob.getTime())) return null;
+
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
+  if (dob > today) {
+    return { futureDate: true };
+  }
+
+  const minAgeDate = new Date(today.getFullYear() - 3, today.getMonth(), today.getDate(), 23, 59, 59, 999);
+
+  if (dob > minAgeDate) {
+    return { underThreeYears: true };
+  }
+
+  return null;
+}
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { QuickAddField, PermissionKey, AppUser, UserRole } from '../../../core/models/domain.model';
 import { DEFAULT_STAGES_BY_COURSE_TYPE } from '../../../core/constants/defaults';
@@ -90,6 +121,9 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         validators.push(Validators.minLength(10));
         validators.push(Validators.maxLength(10));
       }
+      if (field.key === 'dateOfBirth') {
+        validators.push(studentDobValidator);
+      }
 
       const isDisabled = field.type === 'info' || (isEditMode && field.key === 'email');
 
@@ -114,6 +148,14 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         formAdmissionDate: this.form.get('admissionDate')?.value,
       });
     }
+  }
+
+  getMaxDate(fieldKey: string): Date | null {
+    if (fieldKey === 'dateOfBirth') {
+      const today = new Date();
+      return new Date(today.getFullYear() - 3, today.getMonth(), today.getDate());
+    }
+    return null;
   }
 
   private toDateValue(value: any): Date | null {

@@ -48,6 +48,12 @@
         <app-stats-card label="Errors" [value]="validation.errors.length" icon="warning-outline" tone="danger"></app-stats-card>
       </div>
 
+      <div class="login-option" *ngIf="validation && activeModule().key === 'students'" style="margin: 16px 0;">
+        <mat-checkbox [(ngModel)]="createLoginsForStudents" [disabled]="importing">
+          Create user login accounts for students and parents
+        </mat-checkbox>
+      </div>
+
       <div class="actions" *ngIf="validation">
         <button mat-flat-button color="primary" type="button" (click)="importRows()" [disabled]="importing || validation.validRows.length === 0 || validation.errors.length > 0">
           Import valid rows

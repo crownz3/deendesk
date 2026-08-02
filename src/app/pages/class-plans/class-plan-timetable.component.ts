@@ -10,6 +10,8 @@ import { TimetableEntryFormDialogComponent } from './timetable-entry-form-dialog
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { NameResolverService } from '../../core/services/name-resolver.service';
 
+import { ClassPlanAttendanceService } from '../../core/services/class-plan-attendance.service';
+
 @Component({
   selector: 'app-class-plan-timetable',
   templateUrl: './class-plan-timetable.component.html',
@@ -42,7 +44,8 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
     private readonly snackBar: MatSnackBar,
     private readonly loader: LoaderService,
     private readonly dialog: MatDialog,
-    public readonly resolver: NameResolverService
+    public readonly resolver: NameResolverService,
+    private readonly attendanceService: ClassPlanAttendanceService,
   ) {}
 
   async ngOnInit() {
@@ -173,6 +176,9 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
         this.loadEntries();
+        if (this.plan?.id && this.profile) {
+          this.attendanceService.resetPlanAttendanceStatus(this.plan.id, this.profile);
+        }
       }
     });
   }
@@ -189,11 +195,25 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
   async deleteEntry(entry: TimetableEntry) {
     if (!this.profile || !entry.id) return;
     
-    if (confirm('Are you sure you want to delete this activity?')) {
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Delete Activity / Period?',
+        message: `Are you sure you want to delete "${entry.activityName}" from ${entry.dayOfWeek}? This action cannot be undone.`,
+        confirmLabel: 'Delete Period',
+        confirmColor: 'warn'
+      }
+    });
+
+    const confirmed = await firstValueFrom(dialogRef.afterClosed());
+    if (confirmed) {
       await this.loader.withLoader('Deleting...', async () => {
         await this.repo.remove('timetableEntries', entry.id!);
         await this.loadEntries();
-        this.snackBar.open('Activity deleted.', 'Close', { duration: 3000 });
+        if (this.plan?.id && this.profile) {
+          await this.attendanceService.resetPlanAttendanceStatus(this.plan.id, this.profile);
+        }
+        this.snackBar.open('Activity deleted successfully.', 'Close', { duration: 3000 });
       });
     }
   }

@@ -21,14 +21,15 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
-import { Observable, combineLatest, of, BehaviorSubject, throwError } from 'rxjs';
-import { map, shareReplay, switchMap } from 'rxjs/operators';
+import { Observable, combineLatest, of, BehaviorSubject, throwError, from } from 'rxjs';
+import { map, shareReplay, switchMap, take, catchError, filter } from 'rxjs/operators';
 import { AppUser, AppModuleId, ScopedEntity } from '../models/domain.model';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 import { FirebaseUsageTrackerService } from './firebase-usage-tracker.service';
-import { NameResolverService } from './name-resolver.service';
+import { NameResolverService, ResolvableType } from './name-resolver.service';
+import { AuthService } from './auth.service';
 
 export type EntityRecord = ScopedEntity & Record<string, any>;
 
@@ -39,8 +40,70 @@ export class RepositoryService {
   constructor(
     private auditLogService: AuditLogService,
     private usageTracker: FirebaseUsageTrackerService,
-    private nameResolver: NameResolverService
-  ) {}
+    private nameResolver: NameResolverService,
+    private auth: AuthService
+  ) {
+    this.nameResolver.registerAsyncResolver((type, id) => this.resolveNameViaRepo(type, id));
+  }
+
+  resolveNameViaRepo(type: ResolvableType, id: string): Observable<string> {
+    const collectionName = this.mapTypeToCollection(type);
+    if (!collectionName || !id) return of('N/A');
+    const cleanId = String(id).trim();
+
+    const cachedName = this.getCachedItemName(collectionName, cleanId);
+    if (cachedName) return of(cachedName);
+
+    return this.auth.profile$.pipe(
+      filter(profile => !!profile),
+      take(1),
+      switchMap(profile => from(this.getAllOnce(collectionName, profile))),
+      map(items => {
+        const match = (items || []).find(item => String(item.id || item['id'] || '').trim() === cleanId);
+        if (match) {
+          return (match['name'] || match['displayName'] || match['title'] || match['courseName'] || match['code'] || 'Unnamed') as string;
+        }
+        return 'Unknown';
+      }),
+      catchError(() => of('Unknown')),
+      shareReplay(1)
+    );
+  }
+
+  private mapTypeToCollection(type: ResolvableType): string {
+    switch (type) {
+      case 'organization': return 'organizations';
+      case 'madrasa': return 'madrasas';
+      case 'user':
+      case 'coordinator':
+      case 'incharge':
+      case 'parent':
+        return 'users';
+      case 'staff':
+      case 'teacher':
+        return 'staff';
+      case 'course': return 'courses';
+      case 'class': return 'classes';
+      case 'classGroup': return 'classGroups';
+      case 'subject': return 'subjects';
+      case 'student': return 'students';
+      default: return `${type}s`;
+    }
+  }
+
+  getCachedItemName(collectionName: string, id: string): string | undefined {
+    if (!id) return undefined;
+    const cleanId = String(id).trim();
+    for (const cached of this.memoryCache.values()) {
+      if (Array.isArray(cached.data)) {
+        const match = cached.data.find(item => String(item.id || item['id'] || '').trim() === cleanId);
+        if (match) {
+          return match['name'] || match['displayName'] || match['title'] || match['courseName'] || match['code'];
+        }
+      }
+    }
+    return undefined;
+  }
 
   private mapCollectionToModule(collectionName: string): AppModuleId {
     switch (collectionName) {
@@ -490,7 +553,7 @@ export class RepositoryService {
         targetName = String(data['name'] || data['displayName'] || data['email'] || '');
       }
     } catch (e) {
-      console.error('Failed to fetch doc for delete audit log', e);
+      console.warn('[Audit] Pre-fetch skipped for delete:', e);
     }
     
     if (collectionName === 'classGroups') {
@@ -553,7 +616,60 @@ export class RepositoryService {
          throw new Error('Cannot delete this organization because it has active madrasas.');
       }
     }
-    
+
+    if (collectionName === 'classPlans') {
+      // Cascade-delete all timetable entries linked to this plan
+      const entriesQ = query(collection(this.firestore, 'timetableEntries'), where('classPlanId', '==', cleanId));
+      const entriesSnap = await getDocs(entriesQ);
+      for (const entryDoc of entriesSnap.docs) {
+        await deleteDoc(doc(this.firestore, `timetableEntries/${entryDoc.id}`)).catch(e =>
+          console.warn(`[Cascade] Failed to delete timetableEntry ${entryDoc.id}:`, e)
+        );
+      }
+      if (entriesSnap.size > 0) {
+        console.log(`[Cascade] Deleted ${entriesSnap.size} timetableEntry doc(s) for classPlan ${cleanId}`);
+        this.clearCache('timetableEntries');
+      }
+
+      // Cascade-delete all attendance records linked to this plan (both 'attendance' and subcollections)
+      const attQ = query(collection(this.firestore, 'attendance'), where('classPlanId', '==', cleanId));
+      const attSnap = await getDocs(attQ);
+      for (const attDoc of attSnap.docs) {
+        await deleteDoc(doc(this.firestore, `attendance/${attDoc.id}`)).catch(e =>
+          console.warn(`[Cascade] Failed to delete attendance ${attDoc.id}:`, e)
+        );
+      }
+
+      // Cascade-delete days subcollection under attendance/{cleanId}/days
+      try {
+        const subdaysRef = collection(this.firestore, 'attendance', cleanId, 'days');
+        const subdaysSnap = await getDocs(subdaysRef);
+        for (const dDoc of subdaysSnap.docs) {
+          await deleteDoc(doc(this.firestore, 'attendance', cleanId, 'days', dDoc.id)).catch(e =>
+            console.warn(`[Cascade] Failed to delete attendance subday ${dDoc.id}:`, e)
+          );
+        }
+        await deleteDoc(doc(this.firestore, 'attendance', cleanId)).catch(() => {});
+      } catch (e) {
+        console.warn(`[Cascade] Failed deleting attendance subcollection for ${cleanId}:`, e);
+      }
+      this.clearCache('attendance');
+
+
+      // Cascade-delete all exceptions linked to this plan
+      const exceptionsQ = query(collection(this.firestore, 'classPlanExceptions'), where('classPlanId', '==', cleanId));
+      const exceptionsSnap = await getDocs(exceptionsQ);
+      for (const exDoc of exceptionsSnap.docs) {
+        await deleteDoc(doc(this.firestore, `classPlanExceptions/${exDoc.id}`)).catch(e =>
+          console.warn(`[Cascade] Failed to delete classPlanException ${exDoc.id}:`, e)
+        );
+      }
+      if (exceptionsSnap.size > 0) {
+        console.log(`[Cascade] Deleted ${exceptionsSnap.size} classPlanException doc(s) for classPlan ${cleanId}`);
+        this.clearCache('classPlanExceptions');
+      }
+    }
+
     if (['users', 'students', 'parents', 'staff'].includes(collectionName)) {
       await this.deleteAuthAccount(cleanId);
     }
@@ -702,7 +818,7 @@ export class RepositoryService {
     
     snapshots.forEach(snapshot => {
       snapshot.docs.forEach(row => {
-        const item = { id: row.id, ...row.data() } as T;
+        const item = { ...row.data(), id: row.id } as T;
         if (item.id && !uniqueMap.has(item.id)) {
           uniqueMap.set(item.id, item);
         }
@@ -716,10 +832,16 @@ export class RepositoryService {
 
   private inMemoryFilter<T extends EntityRecord>(collectionName: string, docs: T[], user: AppUser | null): T[] {
     if (!user) return docs;
+    const role = user.role?.toLowerCase() || '';
+    const orgId = user.organizationId;
+
+    if (role !== 'superadmin' && orgId && !['organizations', 'supportTickets', 'supportTicketMessages'].includes(collectionName)) {
+      docs = docs.filter(doc => !doc['organizationId'] || doc['organizationId'] === orgId);
+    }
+
     if (['organizations', 'supportTickets', 'supportTicketMessages', 'passwordResetRequests', 'notifications'].includes(collectionName)) {
       return docs;
     }
-    const role = user.role?.toLowerCase() || '';
 
     if (role === 'superadmin' || role === 'organizationadmin') {
       return docs;

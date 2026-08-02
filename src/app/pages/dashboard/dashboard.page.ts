@@ -136,12 +136,10 @@ export class DashboardPage {
     if (!vm) return 0;
     const rawData = vm._rawData || {};
     const students = Array.isArray(rawData['students']) ? rawData['students'] : [];
-    const users = Array.isArray(rawData['users']) ? rawData['users'] : [];
-    const allRecords = [...students, ...users];
 
-    if (filter === 'all') return allRecords.length;
-    if (filter === 'active') return allRecords.filter(r => this.isEntityActive(r)).length;
-    return allRecords.filter(r => !this.isEntityActive(r)).length;
+    if (filter === 'all') return students.length;
+    if (filter === 'active') return students.filter(r => this.isEntityActive(r)).length;
+    return students.filter(r => !this.isEntityActive(r)).length;
   }
 
   toggleMadrasaDetails(): void {
@@ -164,6 +162,7 @@ export class DashboardPage {
         organizations: this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         madrasas: this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         users: this.repo.list<EntityRecord>('users', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        students: this.repo.list<EntityRecord>('students', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         courses: this.repo.list<EntityRecord>('courses', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         classes: this.repo.list<EntityRecord>('classes', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         classGroups: this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
@@ -266,14 +265,28 @@ export class DashboardPage {
   }
 
   private buildDashboardVm(profile: AppUser, rawData: Record<string, any[]>): DashboardVm {
-    const users = rawData['users'] || [];
+    const allUsers = rawData['users'] || [];
+    const studentCollection = rawData['students'] || [];
+
+    // System/staff users (exclude student login accounts so students are not double-counted under Users)
+    const nonStudentUsers = allUsers.filter(u => u['role'] !== 'student');
+
+    console.log('[Dashboard Counts Debug Console]', {
+      userRole: profile.role,
+      userOrgId: profile.organizationId,
+      studentsCount: studentCollection.length,
+      rawUsersCount: allUsers.length,
+      usersCount_non_students: nonStudentUsers.length,
+    });
+
     const data: Record<string, any[]> = {
       ...rawData,
-      coordinators: users.filter(u => u['role'] === 'coordinator'),
-      incharges: users.filter(u => u['role'] === 'madrasaIncharge'),
-      staff: users.filter(u => u['role'] === 'teacher' || u['role'] === 'staff'),
-      students: rawData['students'] || users.filter(u => u['role'] === 'student'),
-      parents: users.filter(u => u['role'] === 'parent'),
+      users: nonStudentUsers,
+      coordinators: allUsers.filter(u => u['role'] === 'coordinator'),
+      incharges: allUsers.filter(u => u['role'] === 'madrasaIncharge'),
+      staff: allUsers.filter(u => u['role'] === 'teacher' || u['role'] === 'staff'),
+      students: studentCollection,
+      parents: allUsers.filter(u => u['role'] === 'parent'),
     };
     const stats = this.statsForRole(profile.role, data);
     const attendance = this.attendanceSummary(data['attendance'] || []);

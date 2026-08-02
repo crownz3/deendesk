@@ -1,13 +1,33 @@
+:host {
+  display: block;
+}
+
+.dialog-header-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  padding: 16px 24px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
+
+  mat-icon {
+    color: #2563eb;
+  }
+}
+
 .history-content {
   width: 100%;
   max-width: 600px;
-  min-width: 500px;
   max-height: 70vh;
-  padding: 24px;
+  padding: 20px 24px !important;
+  box-sizing: border-box;
+  overflow-x: hidden;
 
   @media (max-width: 600px) {
-    min-width: unset;
-    padding: 16px;
+    padding: 16px !important;
   }
 }
 
@@ -43,16 +63,17 @@
 }
 
 .record-card {
-  background: var(--app-surface, #ffffff);
-  border: 1px solid #dde8e3;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  box-sizing: border-box;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
   }
 }
 
@@ -60,43 +81,102 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px dashed #dde8e3;
+  border-bottom: 1px dashed #e2e8f0;
 
   .date-info {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--app-text-main);
-    
+    white-space: nowrap;
+    font-weight: 700;
+    font-size: 14px;
+    color: #1e293b;
+
     ion-icon {
-      color: #667872;
+      font-size: 18px;
+      color: #2563eb;
+    }
+
+    .date-text {
+      white-space: nowrap;
     }
   }
-}
 
-.attendance-actions {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
+  .attendance-actions {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    max-width: 100%;
+  }
 }
 
 .modern-toggle {
   border-radius: 8px;
-  border: 1px solid #dde8e3;
-  background: white;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  overflow: hidden;
+  display: inline-flex;
 
   mat-button-toggle {
-    font-size: 13px;
-    padding: 0 8px;
-  }
+    font-size: 12px;
+    font-weight: 600;
 
-  ion-icon {
-    font-size: 16px;
-    margin-right: 4px;
-    vertical-align: text-bottom;
+    ::ng-deep .mat-button-toggle-button {
+      padding: 0 10px;
+      height: 34px;
+    }
+
+    ::ng-deep .mat-button-toggle-label-content {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      line-height: 34px;
+    }
+
+    ion-icon {
+      font-size: 15px;
+    }
+
+    &.mat-button-toggle-checked {
+      &.status-toggle-present { background: #dcfce7 !important; color: #15803d !important; }
+      &.status-toggle-absent { background: #fee2e2 !important; color: #b91c1c !important; }
+      &.status-toggle-late { background: #fef3c7 !important; color: #b45309 !important; }
+      &.status-toggle-leave { background: #e0f2fe !important; color: #0369a1 !important; }
+    }
+  }
+}
+
+@media (max-width: 580px) {
+  .record-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+
+    .attendance-actions {
+      width: 100%;
+
+      .modern-toggle {
+        width: 100%;
+        display: flex;
+
+        mat-button-toggle {
+          flex: 1;
+
+          ::ng-deep .mat-button-toggle-button {
+            padding: 0 4px;
+            justify-content: center;
+          }
+
+          .toggle-text {
+            font-size: 11px;
+          }
+        }
+      }
+    }
   }
 }
 
@@ -110,18 +190,18 @@
     font-size: 13px;
 
     .label {
-      color: #667872;
-      width: 80px;
+      color: #64748b;
+      width: 90px;
       flex-shrink: 0;
     }
     
     .value {
-      color: var(--app-text-main);
+      color: #1e293b;
       font-weight: 500;
       
       &.notes {
         font-style: italic;
-        color: #4a5c56;
+        color: #475569;
       }
     }
   }

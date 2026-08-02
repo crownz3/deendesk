@@ -669,10 +669,24 @@ service cloud.firestore {
       allow update, delete: if canWriteScopedModule(resource.data, 'manageParents');
     }
 
+    // Old flat attendance collection (kept for backward compatibility)
     match /attendance/{id} {
       allow read: if canReadScopedModule(resource.data, 'viewAttendance') || canReadScopedModule(resource.data, 'viewDashboard');
       allow create: if canWriteScopedModule(request.resource.data, 'takeAttendance');
       allow update, delete: if canWriteScopedModule(resource.data, 'takeAttendance');
+    }
+
+    // New subcollection structure: attendance/{classPlanId} parent doc + days subcollection
+    match /attendance/{classPlanId} {
+      allow read: if isActive() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('viewAttendance') || hasPermission('takeAttendance'));
+      allow create, update: if isActive() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('takeAttendance'));
+      allow delete: if isActive() && (isSuper() || isOrgAdmin() || hasPermission('takeAttendance'));
+
+      match /days/{dayId} {
+        allow read: if isActive() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('viewAttendance') || hasPermission('takeAttendance'));
+        allow create, update: if isActive() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('takeAttendance'));
+        allow delete: if isActive() && (isSuper() || isOrgAdmin() || hasPermission('takeAttendance'));
+      }
     }
 
     match /promotionHistory/{id} {
@@ -1111,6 +1125,26 @@ service cloud.firestore {
 
     match /qaDailyReports/{id} {
       allow read, create, update, delete: if signedIn();
+    }
+
+    // ==========================================
+    // Class Plans & Timetable Module
+    // ==========================================
+    match /classPlans/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewClassPlans') || hasPermission('manageClassPlans') || hasPermission('viewTimetable') || hasPermission('manageTimetable'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('manageClassPlans') || hasPermission('manageTimetable'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('manageClassPlans') || hasPermission('manageTimetable'))));
+    }
+
+    match /timetableEntries/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewTimetable') || hasPermission('manageTimetable') || hasPermission('viewClassPlans') || hasPermission('manageClassPlans'));
+      allow create: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('manageTimetable') || hasPermission('manageClassPlans'));
+      allow update, delete: if signedIn() && (isSuper() || (sameOrg(resource.data) && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('manageTimetable') || hasPermission('manageClassPlans'))));
+    }
+
+    match /classPlanExceptions/{id} {
+      allow read: if signedIn() && (isSuper() || sameOrg(resource.data) || hasPermission('viewClassPlans') || hasPermission('manageClassPlans') || hasPermission('manageTimetable'));
+      allow create, update, delete: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('manageClassPlans') || hasPermission('manageTimetable'));
     }
 
     match /{document=**} {

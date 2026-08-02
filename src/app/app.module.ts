@@ -18,6 +18,7 @@ import { CdkMenuModule } from '@angular/cdk/menu';
 import { MatListModule } from '@angular/material/list';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
+import { PlanStudentsDialogComponent } from './pages/class-plans/plan-students-dialog.component';
 import { MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -81,6 +82,7 @@ import { ClassPlansPage } from './pages/class-plans/class-plans.page';
 import { ClassPlanFormComponent } from './pages/class-plans/class-plan-form.component';
 import { ClassPlanExceptionDialogComponent } from './pages/class-plans/class-plan-exception-dialog.component';
 import { AttendanceHistoryDialogComponent } from './shared/components/attendance-history-dialog/attendance-history-dialog.component';
+import { AttendanceGenerationProgressDialogComponent } from './shared/components/attendance-generation-progress-dialog/attendance-generation-progress-dialog.component';
 import { StudentEvaluationDialogComponent } from './pages/attendance/student-evaluation-dialog.component';
 import { ClassPlanTimetableComponent } from './pages/class-plans/class-plan-timetable.component';
 import { ClassPlanTimetableCopyDialogComponent } from './pages/class-plans/class-plan-timetable-copy-dialog.component';
@@ -243,10 +245,12 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     ClassPlanFormComponent,
     ClassPlanExceptionDialogComponent,
     AttendanceHistoryDialogComponent,
+    AttendanceGenerationProgressDialogComponent,
     StudentEvaluationDialogComponent,
     ClassPlanTimetableComponent,
     ClassPlanTimetableCopyDialogComponent,
     TimetableEntryFormDialogComponent,
+    PlanStudentsDialogComponent,
     ScheduleTypesHelpDialogComponent,
     BulkDeleteConfirmDialogComponent,
     BulkDeleteProgressDialogComponent,

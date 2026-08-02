@@ -14,6 +14,7 @@ import { AppSettingsDialogComponent } from './shared/components/app-settings-dia
 import { AuditLogService } from './core/services/audit-log.service';
 import { OrgBrandingService } from './core/services/org-branding.service';
 import { BrandingMenuDialogComponent } from './shared/components/branding-menu-dialog/branding-menu-dialog.component';
+import { ClassPlanAttendanceService } from './core/services/class-plan-attendance.service';
 
 interface NavItem {
   label: string;
@@ -218,9 +219,15 @@ export class AppComponent {
     private readonly auditLogService: AuditLogService,
     public readonly orgBranding: OrgBrandingService,
     private readonly location: Location,
-    private readonly snackBar: MatSnackBar
+    private readonly snackBar: MatSnackBar,
+    private readonly attendanceService: ClassPlanAttendanceService
   ) {
     this.initBackButtonHandler();
+    this.auth.profile$.subscribe((profile) => {
+      if (profile) {
+        this.attendanceService.resumeIncompleteJobs(profile);
+      }
+    });
   }
 
   private initBackButtonHandler(): void {

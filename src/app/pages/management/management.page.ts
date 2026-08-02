@@ -384,6 +384,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'admissionDate', label: 'Admission date', type: 'date' },
       joinTypeField,
       genderField,
+      { key: 'createStudentLogin', label: 'Create Login for Student?', type: 'boolean' },
+      { key: 'createParentLogin', label: 'Create Login for Parent?', type: 'boolean' },
       { key: 'email', label: 'Student email (optional)', type: 'email' },
       { key: 'mobileNumber', label: 'Mobile Number', type: 'mobileNumber', required: true },
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
@@ -798,14 +800,18 @@ export class ManagementPage {
            let displayMadrasas = madrasas;
            let displayClasses = classes;
 
-           // For non-admin users, only show courses linked to their madrasa
+           // For non-admin users, include courses linked to their madrasa, master courses, or courses referenced by students
            const _isOrgAdmin = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin';
            const _myMadrasaId = (profile as any)?.madrasaId || (profile as any)?.primaryMadrasaId || '';
+           const studentCourseIds = new Set(students.map(s => String(s['courseId'] || '')).filter(Boolean));
+
            let displayCourses = (_isOrgAdmin || !_myMadrasaId)
              ? courses
              : courses.filter(c =>
+                 !c['madrasaId'] ||
                  c['madrasaId'] === _myMadrasaId ||
-                 (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(_myMadrasaId))
+                 (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(_myMadrasaId)) ||
+                 studentCourseIds.has(String(c.id))
                );
 
            if (profile?.role === 'superAdmin' && organizationFilter !== 'all') {
@@ -815,11 +821,11 @@ export class ManagementPage {
              displayClasses = classes.filter(c => c['organizationId'] === organizationFilter);
            }
 
-           // Deduplicate displayCourses by course code/name so dropdown selectors show unique course options
+           // Deduplicate displayCourses by unique course ID so no courses are lost due to matching names/codes
            const courseMap = new Map<string, EntityRecord>();
            displayCourses.forEach(c => {
-             const key = String(c['code'] || c['name'] || c.id).toLowerCase().trim();
-             if (!courseMap.has(key)) {
+             const key = String(c.id || c['uid'] || c['docId'] || c['name']);
+             if (key && !courseMap.has(key)) {
                courseMap.set(key, c);
              }
            });
@@ -952,22 +958,37 @@ export class ManagementPage {
              }
 
              if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents', 'classGroups', 'classes', 'courses'].includes(config.resource)) {
-                if (madrasaFilter !== 'all') {
-                  const selectedMadrasa = madrasas.find(m => m.id === madrasaFilter);
-                  const madrasaInchargeIds: string[] = Array.isArray(selectedMadrasa?.['inchargeIds']) ? selectedMadrasa!['inchargeIds'].map(String) : [];
-                  const madrasaCoordinatorIds: string[] = Array.isArray(selectedMadrasa?.['coordinatorIds']) ? selectedMadrasa!['coordinatorIds'].map(String) : [];
+                 if (madrasaFilter !== 'all') {
+                   const selectedMadrasa = madrasas.find(m => m.id === madrasaFilter);
+                   const madrasaInchargeIds: string[] = Array.isArray(selectedMadrasa?.['inchargeIds']) ? selectedMadrasa!['inchargeIds'].map(String) : [];
+                   const madrasaCoordinatorIds: string[] = Array.isArray(selectedMadrasa?.['coordinatorIds']) ? selectedMadrasa!['coordinatorIds'].map(String) : [];
 
-                  displayCourses = displayCourses.filter(c => c['madrasaId'] === madrasaFilter || (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(madrasaFilter)));
-                  displayClasses = displayClasses.filter(c => c['madrasaId'] === madrasaFilter || (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(madrasaFilter)));
+                   const madrasaClasses = classes.filter(cls => cls['madrasaId'] === madrasaFilter || (Array.isArray(cls['madrasaIds']) && cls['madrasaIds'].includes(madrasaFilter)));
+                   const madrasaClassCourseIds = new Set(madrasaClasses.map(cls => String(cls['courseId'] || '')).filter(Boolean));
 
-                  filteredRows = filteredRows.filter(r => {
-                    const userId = String(r['uid'] || r.id || '');
-                    const ownLink = r['madrasaId'] === madrasaFilter ||
-                      (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter));
-                    const madrasaLink = (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
-                    return ownLink || madrasaLink;
-                  });
-                }
+                   const madrasaStudents = students.filter(s => s['madrasaId'] === madrasaFilter || (Array.isArray(s['madrasaIds']) && s['madrasaIds'].includes(madrasaFilter)));
+                   const madrasaStudentCourseIds = new Set(madrasaStudents.map(s => String(s['courseId'] || '')).filter(Boolean));
+
+                   displayCourses = displayCourses.filter(c => {
+                     const cId = String(c.id);
+                     if (!c['madrasaId']) return true;
+                     if (c['madrasaId'] === madrasaFilter) return true;
+                     if (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(madrasaFilter)) return true;
+                     if (madrasaClassCourseIds.has(cId)) return true;
+                     if (madrasaStudentCourseIds.has(cId)) return true;
+                     return false;
+                   });
+
+                   displayClasses = madrasaClasses;
+
+                   filteredRows = filteredRows.filter(r => {
+                     const userId = String(r['uid'] || r.id || '');
+                     const ownLink = r['madrasaId'] === madrasaFilter ||
+                       (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter));
+                     const madrasaLink = (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
+                     return ownLink || madrasaLink;
+                   });
+                 }
 
                 if (config.resource === 'users' && roleFilter !== 'all') {
                   filteredRows = filteredRows.filter(r => this.getEffectiveRoles(r).includes(roleFilter));
@@ -3433,6 +3454,63 @@ export class ManagementPage {
     const madrasas = await firstValueFrom(this.repo.list('madrasas', profile).pipe(take(1)));
     const madrasaCode = (madrasas.find((m: any) => m.id === madrasaId)?.['code'] as string) || undefined;
 
+    let dob: Date | null = null;
+    const rawDob = payload['dateOfBirth'];
+    if (rawDob instanceof Date) {
+      dob = rawDob;
+    } else if (typeof rawDob === 'string') {
+      dob = new Date(rawDob);
+    } else if (rawDob && (rawDob as any).toDate) {
+      dob = (rawDob as any).toDate();
+    }
+
+    if (dob && !isNaN(dob.getTime())) {
+      const today = new Date();
+      if (dob > today) {
+        this.snackBar.open('Date of birth cannot be in the future.', 'Close', { duration: 5000 });
+        throw new Error('Date of birth cannot be in the future.');
+      }
+      const minAgeDate = new Date(today.getFullYear() - 3, today.getMonth(), today.getDate());
+      if (dob > minAgeDate) {
+        this.snackBar.open('Student must be at least 3 years old.', 'Close', { duration: 5000 });
+        throw new Error('Student must be at least 3 years old.');
+      }
+    }
+
+    const createStudentLogin = payload['createStudentLogin'] === true || payload['createStudentLogin'] === 'true';
+    const createParentLogin = payload['createParentLogin'] === true || payload['createParentLogin'] === 'true';
+
+    // 1. If NO logins requested, create student record directly in 'students' collection
+    if (!createStudentLogin && !createParentLogin) {
+      const studentId = await this.repo.create('students', {
+        ...payload,
+        status: payload.status ?? 'active',
+        credentialStatus: 'NO_LOGIN',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }, profile);
+
+      const joinMethod = String(payload['joinType'] || 'new').toLowerCase();
+      const isRejoin = joinMethod === 'rejoin';
+
+      await this.repo.create('userLifecycleHistory', {
+        userId: studentId,
+        userName: String(payload['name'] || 'Student'),
+        personType: 'student',
+        lifecycleAction: isRejoin ? 'Rejoined' : 'Joined',
+        actionType: isRejoin ? 'Rejoin' : 'Enrollment',
+        reason: isRejoin ? 'Rejoined / Re-enrolled student account' : 'Newly enrolled student account',
+        effectiveDate: new Date().toISOString(),
+        effectiveDateMs: Date.now(),
+        performedBy: profile?.displayName || profile?.email || 'System',
+        organizationId: profile?.organizationId || payload['organizationId'] || '',
+        madrasaId,
+      }, profile).catch(e => console.warn('[createStudent] lifecycle log skipped:', e));
+
+      this.snackBar.open('Student record created successfully without login accounts.', 'Close', { duration: 5000 });
+      return;
+    }
+
     let formattedDob = '';
     const dobValue = payload['dateOfBirth'];
     if (dobValue instanceof Date) {
@@ -3457,93 +3535,94 @@ export class ManagementPage {
 
     try {
       console.log('[Create Student Payload]', payload);
-
       const createUserWithTemporaryPassword = httpsCallable<any, any>(this.functions, 'createUserWithTemporaryPassword');
 
-      let studentEmail = String(payload['email'] || generated.studentEmail);
-      let isStudentEmailGenerated = !payload['email'];
-      let parentEmail = generated.parentEmail;
-      const parentDisplayName = String(payload['parentName'] || `${payload['fatherName']} Parent`);
-      let studentResult;
-      let counter = 0;
+      if (createStudentLogin) {
+        let studentEmail = String(payload['email'] || generated.studentEmail);
+        let isStudentEmailGenerated = !payload['email'];
+        let studentResult;
+        let counter = 0;
 
-      while (!studentResult) {
-        try {
-          studentResult = await createUserWithTemporaryPassword({
-            displayName: String(payload['name']),
-            fatherName: payload['fatherName'],
-            parentName: payload['parentName'],
-            parentEmail,
-            parentGeneratedEmail: parentEmail,
-            courseId: payload['courseId'],
-            classId: payload['classId'],
-            classIds: payload['classId'] ? [payload['classId']] : [],
-            groupId: payload['groupId'],
-            groupIds: payload['groupId'] ? [payload['groupId']] : [],
-            subjectIds: payload['subjectIds'] || [],
-            stage: payload['stage'],
-            level: payload['level'],
-            email: studentEmail,
-            password,
-            role: 'student',
-            organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
-            madrasaId,
-            madrasaIds: [madrasaId],
-          });
-        } catch (error: any) {
-          if (error?.code === 'functions/already-exists' && isStudentEmailGenerated) {
-            counter++;
-            studentEmail = this.credentialService.getShortLoginEmail(generated.base, 'student', counter);
-          } else {
-            throw error;
+        while (!studentResult) {
+          try {
+            studentResult = await createUserWithTemporaryPassword({
+              displayName: String(payload['name']),
+              fatherName: payload['fatherName'],
+              parentName: payload['parentName'],
+              courseId: payload['courseId'],
+              classId: payload['classId'],
+              classIds: payload['classId'] ? [payload['classId']] : [],
+              groupId: payload['groupId'],
+              groupIds: payload['groupId'] ? [payload['groupId']] : [],
+              subjectIds: payload['subjectIds'] || [],
+              stage: payload['stage'],
+              level: payload['level'],
+              email: studentEmail,
+              password,
+              role: 'student',
+              organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
+              madrasaId,
+              madrasaIds: [madrasaId],
+            });
+          } catch (error: any) {
+            if (error?.code === 'functions/already-exists' && isStudentEmailGenerated) {
+              counter++;
+              studentEmail = this.credentialService.getShortLoginEmail(generated.base, 'student', counter);
+            } else {
+              throw error;
+            }
           }
         }
+
+        studentCredential = {
+          uid: studentResult.data.uid,
+          label: String(payload['name']),
+          email: studentResult.data.email,
+          password,
+          role: 'student' as UserRole
+        };
       }
 
-      studentCredential = {
-        uid: studentResult.data.uid,
-        label: String(payload['name']),
-        email: studentResult.data.email,
-        password,
-        role: 'student' as UserRole
-      };
+      if (createParentLogin) {
+        let parentEmail = generated.parentEmail;
+        const parentDisplayName = String(payload['parentName'] || `${payload['fatherName']} Parent`);
+        let parentResult;
+        let parentCounter = 0;
 
-      let parentResult;
-      let parentCounter = 0;
-
-      while (!parentResult) {
-        try {
-          parentResult = await createUserWithTemporaryPassword({
-            displayName: parentDisplayName,
-            email: parentEmail,
-            password,
-            role: 'parent',
-            organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
-            madrasaId,
-            madrasaIds: [madrasaId],
-            linkedStudentIds: [],
-          });
-        } catch (error: any) {
-          if (error?.code === 'functions/already-exists') {
-            parentCounter++;
-            parentEmail = this.credentialService.getShortLoginEmail(generated.base, 'parent', parentCounter);
-          } else {
-            throw error;
+        while (!parentResult) {
+          try {
+            parentResult = await createUserWithTemporaryPassword({
+              displayName: parentDisplayName,
+              email: parentEmail,
+              password,
+              role: 'parent',
+              organizationId: String(payload['organizationId'] || profile?.organizationId || ''),
+              madrasaId,
+              madrasaIds: [madrasaId],
+              linkedStudentIds: [],
+            });
+          } catch (error: any) {
+            if (error?.code === 'functions/already-exists') {
+              parentCounter++;
+              parentEmail = this.credentialService.getShortLoginEmail(generated.base, 'parent', parentCounter);
+            } else {
+              throw error;
+            }
           }
         }
-      }
 
-      parentCredential = {
-        uid: parentResult.data.uid,
-        label: parentDisplayName,
-        email: parentResult.data.email,
-        password,
-        role: 'parent' as UserRole
-      };
+        parentCredential = {
+          uid: parentResult.data.uid,
+          label: parentDisplayName,
+          email: parentResult.data.email,
+          password,
+          role: 'parent' as UserRole
+        };
+      }
 
     } catch (error: any) {
       console.error('Failed to create student/parent access:', error);
-      let message = 'Failed to create student/parent.';
+      let message = 'Failed to create student/parent access.';
       if (error?.code === 'functions/already-exists') {
         message = 'The email is already in use by another account.';
       } else if (error?.message) {
@@ -3553,10 +3632,9 @@ export class ManagementPage {
       throw error;
     }
 
-    this.snackBar.open('Student and parent credentials created. Save them before leaving this page.', 'Close', { duration: 7000 });
-
-    try {
-      const parentId = await this.repo.create('parents', {
+    let parentId = '';
+    if (parentCredential) {
+      parentId = await this.repo.create('parents', {
         name: parentCredential.label,
         email: parentCredential.email,
         generatedEmail: parentCredential.email,
@@ -3566,67 +3644,48 @@ export class ManagementPage {
         madrasaId,
         status: 'active',
       }, profile);
+    }
 
-      const studentId = await this.repo.create('students', {
-        ...payload,
-        userId: studentCredential.uid,
+    const studentId = await this.repo.create('students', {
+      ...payload,
+      userId: studentCredential?.uid || '',
+      parentId: parentId || '',
+      parentUserId: parentCredential?.uid || '',
+      parentName: parentCredential?.label || payload['parentName'] || `${payload['fatherName']} Parent`,
+      parentEmail: parentCredential?.email || '',
+      email: studentCredential?.email || payload['email'] || '',
+      status: payload.status ?? 'active',
+      credentialStatus: studentCredential ? 'TEMP_PASSWORD_PENDING' : 'NO_LOGIN',
+    }, profile);
 
-        // Parent metadata doc id
-        parentId,
-
-        // Parent Auth/User id
-        parentUserId: parentCredential.uid,
-
-        // Parent metadata and Auth/User references
-        parentName: parentCredential.label,
-        parentEmail: parentCredential.email,
-        parentGeneratedEmail: parentCredential.email,
-
-        email: studentCredential.email,
-        generatedEmail: payload['email'] ? '' : studentCredential.email,
-        status: payload.status ?? 'active',
-      }, profile);
-
+    if (parentId && parentCredential) {
       await this.repo.update('parents', parentId, { linkedStudentIds: [studentId] }, profile);
       if (parentCredential.uid) {
         await this.repo.update('users', parentCredential.uid, {
           entityId: parentId,
           entityType: 'parent',
           linkedStudentIds: [studentId],
-          linkedStudentUserIds: [studentCredential.uid],
           studentIds: [studentId],
           updatedAt: new Date(),
-        }, profile, true).catch(e => console.warn('[createStudent] parent users update skipped:', e));
+        }, profile, true).catch(() => {});
       }
-      if (studentCredential.uid) {
-        await this.repo.update('users', studentCredential.uid, {
-          entityId: studentId,
-          entityType: 'student',
-          studentIds: [studentId],
+    }
 
-          // Parent Auth/User reference
-          parentUserId: parentCredential.uid,
-
-          // Parent metadata document reference
-          parentDocId: parentId,
-
-          // Keep parentId as Auth/User uid for backward compatibility with table resolver
-          parentId: parentCredential.uid,
-
-          parentName: parentCredential.label,
-          parentEmail: parentCredential.email,
-          parentGeneratedEmail: parentCredential.email,
-
-          updatedAt: new Date(),
-        }, profile, true).catch(e => console.warn('[createStudent] student users update skipped:', e));
-      }
+    if (studentCredential?.uid) {
+      await this.repo.update('users', studentCredential.uid, {
+        entityId: studentId,
+        entityType: 'student',
+        studentIds: [studentId],
+        updatedAt: new Date(),
+      }, profile, true).catch(() => {});
+    }
 
       const joinMethod = String(payload['joinType'] || 'new').toLowerCase();
       const isRejoin = joinMethod === 'rejoin';
 
       await this.repo.create('userLifecycleHistory', {
         userId: studentId,
-        userName: studentCredential.label || 'Student',
+        userName: studentCredential?.label || String(payload['name'] || 'Student'),
         personType: 'student',
         lifecycleAction: isRejoin ? 'Rejoined' : 'Joined',
         actionType: isRejoin ? 'Rejoin' : 'Enrollment',
@@ -3639,13 +3698,11 @@ export class ManagementPage {
         status: 'active'
       }, profile).catch(e => console.warn('Failed to log student lifecycle join history', e));
 
-    } catch (metadataError: any) {
-      this.credentials.splice(0, this.credentials.length, studentCredential, parentCredential);
-      console.warn('[Students] Created successfully but metadata/reload failed:', metadataError);
-      this.snackBar.open('Student created, but table refresh failed. Please refresh the page.', 'Close', { duration: 7000 });
-    }
-
-    this.credentials.splice(0, this.credentials.length, studentCredential, parentCredential);
+      const creds = [studentCredential, parentCredential].filter(Boolean);
+      if (creds.length > 0) {
+        this.credentials.splice(0, this.credentials.length, ...creds);
+        this.snackBar.open('Student login credentials created. Save them before leaving this page.', 'Close', { duration: 7000 });
+      }
   }
 
   private async buildFields(config: ManagementConfig, initial?: EntityRecord): Promise<QuickAddField[]> {
@@ -3881,11 +3938,35 @@ export class ManagementPage {
   }
 
   private toOptions(rows: EntityRecord[], labelKey: string): SelectOption[] {
-    return rows.map((row) => ({
-      label: String(row[labelKey] || row['displayName'] || row['email'] || row.id),
-      value: String(row.id || row['uid'] || row['email']),
-      data: row
-    }));
+    const uniqueMap = new Map<string, EntityRecord>();
+    for (const row of rows) {
+      const key = String(row.id || row['uid'] || row['docId'] || row['email']);
+      if (key && !uniqueMap.has(key)) {
+        uniqueMap.set(key, row);
+      }
+    }
+    const uniqueRows = Array.from(uniqueMap.values());
+
+    const labelCounts = new Map<string, number>();
+    for (const row of uniqueRows) {
+      const lbl = String(row[labelKey] || row['displayName'] || row['name'] || row['email'] || row.id).trim();
+      labelCounts.set(lbl, (labelCounts.get(lbl) || 0) + 1);
+    }
+
+    return uniqueRows.map((row) => {
+      const baseLabel = String(row[labelKey] || row['displayName'] || row['name'] || row['email'] || row.id).trim();
+      const isDuplicate = (labelCounts.get(baseLabel) || 0) > 1;
+      let finalLabel = baseLabel;
+      if (isDuplicate) {
+        const extra = row['code'] || row['madrasaName'] || row['type'] || row.id;
+        finalLabel = `${baseLabel} (${extra})`;
+      }
+      return {
+        label: finalLabel,
+        value: String(row.id || row['uid'] || row['email']),
+        data: row
+      };
+    });
   }
 
   private asStringArray(value: unknown): string[] {

@@ -6,6 +6,7 @@ import { AppUser, ClassPlan } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { NotificationDispatcherService } from '../../core/services/notification-dispatcher.service';
+import { ClassPlanAttendanceService } from '../../core/services/class-plan-attendance.service';
 
 @Component({
   selector: 'app-class-plan-form',
@@ -33,7 +34,8 @@ export class ClassPlanFormComponent implements OnInit {
     title: ['', Validators.required],
     madrasaId: ['', Validators.required],
     courseId: ['', Validators.required],
-    classId: ['', Validators.required],
+    classId: [''],
+    classIds: [[] as string[]],
     groupId: [''],
     groupIds: [[] as string[]],
     academicPlanId: [''],
@@ -105,7 +107,8 @@ export class ClassPlanFormComponent implements OnInit {
     private readonly repo: RepositoryService,
     private readonly auth: AuthService,
     private readonly snackBar: MatSnackBar,
-    private readonly notifier: NotificationDispatcherService
+    private readonly notifier: NotificationDispatcherService,
+    private readonly attendanceService: ClassPlanAttendanceService,
   ) {}
 
   async ngOnInit() {
@@ -121,6 +124,8 @@ export class ClassPlanFormComponent implements OnInit {
     this.academicPlans = await this.repo.getAllOnce('academicPlans', profile);
 
     this.initForm();
+    this.updateFilteredOptions();
+    this.form.valueChanges.subscribe(() => this.updateFilteredOptions());
   }
 
   private formatDateForInput(d: any): string {
@@ -137,6 +142,9 @@ export class ClassPlanFormComponent implements OnInit {
   initForm() {
     if (this._plan) {
       const selectedCourse = this.courses.find(c => c.id === this._plan?.courseId);
+      const initialClassIds = Array.isArray(this._plan.classIds) && this._plan.classIds.length > 0
+        ? this._plan.classIds
+        : (this._plan.classId ? [this._plan.classId] : []);
       const initialGroupIds = Array.isArray(this._plan.groupIds) && this._plan.groupIds.length > 0
         ? this._plan.groupIds
         : (this._plan.groupId ? [this._plan.groupId] : []);
@@ -146,6 +154,7 @@ export class ClassPlanFormComponent implements OnInit {
 
       this.form.patchValue({
         ...this._plan,
+        classIds: initialClassIds,
         groupIds: initialGroupIds,
         subjectIds: initialSubjectIds,
         courseType: (this._plan.courseType || selectedCourse?.['type'] || 'aalim') as any,
@@ -191,24 +200,70 @@ export class ClassPlanFormComponent implements OnInit {
     return course['hasSubjects'] === true || course['hasSubjects'] === 'true' || course['hasSubjects'] === 1;
   }
 
-  get filteredCourses() {
+  filteredCourses: (EntityRecord & { displayName: string })[] = [];
+  filteredClasses: EntityRecord[] = [];
+  filteredGroups: EntityRecord[] = [];
+  filteredSubjects: EntityRecord[] = [];
+
+  updateFilteredOptions(): void {
     const mId = this.form.value.madrasaId;
-    return this.courses.filter(c => !mId || c.madrasaId === mId || !c.madrasaId);
-  }
+    const list = this.courses.filter(c => !mId || c.madrasaId === mId || !c.madrasaId);
 
-  get filteredClasses() {
+    const uniqueMap = new Map<string, EntityRecord>();
+    for (const c of list) {
+      const idKey = String(c.id || c['uid'] || c['docId']);
+      if (idKey && !uniqueMap.has(idKey)) {
+        uniqueMap.set(idKey, c);
+      }
+    }
+    const uniqueList = Array.from(uniqueMap.values());
+
+    const nameCounts = new Map<string, number>();
+    for (const c of uniqueList) {
+      const name = String(c['name'] || c['title'] || '').trim();
+      nameCounts.set(name, (nameCounts.get(name) || 0) + 1);
+    }
+
+    this.filteredCourses = uniqueList.map(c => {
+      const name = String(c['name'] || c['title'] || '').trim();
+      const isDuplicateName = (nameCounts.get(name) || 0) > 1;
+      let displayName = name;
+      if (isDuplicateName) {
+        const extra = c['code'] || c['madrasaName'] || c['type'] || c.id;
+        displayName = `${name} (${extra})`;
+      }
+      return {
+        ...c,
+        displayName
+      } as EntityRecord & { displayName: string };
+    });
+
     const cId = this.form.value.courseId;
-    return this.classes.filter(c => !cId || c['courseId'] === cId);
-  }
+    this.filteredClasses = this.classes.filter(c => !cId || c['courseId'] === cId);
 
-  get filteredGroups() {
-    const classId = this.form.value.classId;
-    return this.groups.filter(g => !classId || g['classId'] === classId);
-  }
+    const selectedClassIds: string[] = Array.isArray(this.form.value.classIds) && this.form.value.classIds.length > 0
+      ? this.form.value.classIds
+      : (this.form.value.classId ? [this.form.value.classId] : []);
 
-  get filteredSubjects() {
-    const cId = this.form.value.courseId;
-    return this.subjects.filter(s => !cId || s['courseId'] === cId);
+    const targetGroups = this.groups.filter(g => {
+      if (selectedClassIds.length === 0) return true;
+      return selectedClassIds.includes(g['classId']);
+    });
+
+    const isMultiClass = selectedClassIds.length > 1;
+
+    this.filteredGroups = targetGroups.map(g => {
+      const cls = this.classes.find(c => c.id === g['classId']);
+      const clsName = cls ? (cls['name'] as string) : '';
+      const groupName = String(g['name'] || '').trim();
+      const displayName = isMultiClass && clsName ? `${groupName} (${clsName})` : groupName;
+      return {
+        ...g,
+        displayName
+      } as EntityRecord & { displayName: string };
+    });
+
+    this.filteredSubjects = this.subjects.filter(s => !cId || s['courseId'] === cId);
   }
 
   onCourseSelectionChange(courseId: string): void {
@@ -267,7 +322,22 @@ export class ClassPlanFormComponent implements OnInit {
     
     const profile = await firstValueFrom(this.auth.profile$);
     const courseName = this.courses.find(c => c.id === val.courseId)?.['name'] || '';
-    const className = this.classes.find(c => c.id === val.classId)?.['name'] || '';
+
+    const selectedClassIds: string[] = Array.isArray(val.classIds) && val.classIds.length > 0
+      ? val.classIds.map(String).filter(Boolean)
+      : (val.classId ? [String(val.classId)] : []);
+    const selectedClassNames = selectedClassIds
+      .map(id => this.classes.find(c => c.id === id)?.['name'])
+      .filter(Boolean)
+      .map(String);
+
+    const primaryClassId = selectedClassIds.length > 0 ? selectedClassIds[0] : (val.classId || '');
+    const primaryClassName = selectedClassNames.length > 0 ? selectedClassNames.join(', ') : (this.classes.find(c => c.id === val.classId)?.['name'] || '');
+
+    if (selectedClassIds.length === 0) {
+      this.snackBar.open('Please select at least one Class.', 'Close', { duration: 3000 });
+      return;
+    }
 
     const selectedGroupIds: string[] = Array.isArray(val.groupIds) ? val.groupIds.map(String).filter(Boolean) : (val.groupId ? [String(val.groupId)] : []);
     const selectedGroupNames = selectedGroupIds
@@ -289,8 +359,10 @@ export class ClassPlanFormComponent implements OnInit {
       courseId: val.courseId,
       courseName: String(courseName),
       courseType: val.courseType,
-      classId: val.classId,
-      className: String(className),
+      classId: primaryClassId,
+      className: String(primaryClassName),
+      classIds: selectedClassIds,
+      classNames: selectedClassNames,
       groupId: primaryGroupId,
       groupName: primaryGroupName,
       groupIds: selectedGroupIds,
@@ -322,10 +394,12 @@ export class ClassPlanFormComponent implements OnInit {
     try {
       let savedPlan: ClassPlan;
       if (this._plan?.id) {
+        rawPayload['attendanceGenerated'] = false;
         await this.repo.update('classPlans', this._plan.id, rawPayload, profile);
         savedPlan = { ...this._plan, ...rawPayload } as ClassPlan;
       } else {
         rawPayload['status'] = 'active';
+        rawPayload['attendanceGenerated'] = false;
         const docRef = await this.repo.create('classPlans', rawPayload, profile);
         savedPlan = { id: docRef, ...rawPayload } as ClassPlan;
       }
@@ -344,6 +418,14 @@ export class ClassPlanFormComponent implements OnInit {
 
       this.snackBar.open('Class Plan saved successfully.', 'Close', { duration: 3000 });
       this.saveCompleted.emit(savedPlan);
+
+      // Generate attendance docs for all scheduled days (background — non-blocking)
+      if (savedPlan.id && profile) {
+        this.attendanceService
+          .generateAttendanceForAllDays(savedPlan as ClassPlan & { id: string }, profile as AppUser)
+          .then(() => console.log('[ClassPlan] Attendance docs generated for all days.'))
+          .catch(err => console.error('[ClassPlan] Attendance generation error:', err));
+      }
     } catch (e: any) {
       console.error('[ClassPlan Save Error]', e);
       this.snackBar.open(`Error saving Class Plan: ${e?.message || e}`, 'Close', { duration: 5000 });

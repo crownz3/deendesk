@@ -68,6 +68,16 @@ export class CsvReferenceIdsDialogComponent implements OnInit {
     return this.classMap.get(String(classId || '')) || '-';
   }
 
+  getCourseStages(course: EntityRecord): string {
+    const rawStages = course['stages'];
+    if (Array.isArray(rawStages) && rawStages.length > 0) {
+      return rawStages.map(s => String(s).trim()).filter(Boolean).join(', ');
+    } else if (typeof rawStages === 'string' && rawStages.trim()) {
+      return rawStages;
+    }
+    return '-';
+  }
+
   copy(value: string): void {
     if (!value) return;
     this.clipboard.copy(value);

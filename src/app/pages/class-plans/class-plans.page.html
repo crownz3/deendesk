@@ -48,7 +48,15 @@
             >
               <div class="item-main">
                 <span class="plan-title">{{ plan.title || 'Untitled Plan' }}</span>
-                <span class="plan-subtitle">{{ plan.courseName }} &bull; {{ plan.className }} &bull; {{ getGroupName(plan, vm.data) }}</span>
+                <span class="plan-subtitle">{{ plan.courseName }} &bull; {{ getClassName(plan, vm.data) }} &bull; {{ getGroupName(plan, vm.data) }}</span>
+                <div style="margin-top: 6px;">
+                  <button type="button" mat-stroked-button color="primary" 
+                    (click)="$event.stopPropagation(); openPlanStudentsDialog(plan, vm.data)" 
+                    style="height: 24px; line-height: 24px; font-size: 11px; padding: 0 8px; border-radius: 12px;">
+                    <mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 4px;">people</mat-icon>
+                    {{ getPlanStudentCount(plan, vm.data?.students) }} Enrolled Student{{ getPlanStudentCount(plan, vm.data?.students) === 1 ? '' : 's' }}
+                  </button>
+                </div>
               </div>
               <app-status-badge [status]="plan.status"></app-status-badge>
             </div>
@@ -104,6 +112,13 @@
                       <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">menu_book</mat-icon>
                       Subjects: {{ getPlanSubjects(selectedPlan) }}
                     </span>
+                    <button type="button" class="plan-badge" 
+                      (click)="openPlanStudentsDialog(selectedPlan, vm.data)"
+                      title="Click to view enrolled students"
+                      style="background: #e3f2fd; color: #1565c0; border: 1px solid #bbdefb; padding: 4px 12px; border-radius: 16px; font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center;">
+                      <mat-icon style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;">people</mat-icon>
+                      {{ getPlanStudentCount(selectedPlan, vm.data?.students) }} Enrolled Students
+                    </button>
                   </div>
                 </div>
                 <button mat-flat-button color="primary" (click)="isEditingPlan = true" *ngIf="canManage(vm.data?.profile)">
@@ -142,9 +157,13 @@
           </div>
 
           <!-- Quick Actions (if editing an existing plan) -->
-          <div class="plan-actions" *ngIf="selectedPlan && !isCreating && canManage(vm.data?.profile)" style="padding: 0 24px; margin-bottom: 16px;">
-            <button mat-stroked-button (click)="generateAttendance(selectedPlan, vm.data!.profile!)">
-              <mat-icon>build</mat-icon> Generate Missing Attendance
+          <div class="plan-actions" *ngIf="selectedPlan && !isCreating && canManage(vm.data?.profile)" style="padding: 0 24px; margin-bottom: 16px; display:flex; flex-wrap:wrap; gap:8px;">
+            <button mat-stroked-button (click)="generateAttendance(selectedPlan, vm.data!.profile!)" [disabled]="!!selectedPlan.attendanceGenerated">
+              <mat-icon>{{ selectedPlan.attendanceGenerated ? 'check_circle' : 'build' }}</mat-icon>
+              {{ selectedPlan.attendanceGenerated ? 'Attendance Generated' : 'Generate Missing Attendance' }}
+            </button>
+            <button mat-stroked-button color="warn" (click)="deleteAttendance(selectedPlan, vm.data!.profile!)" *ngIf="selectedPlan.attendanceGenerated">
+              <mat-icon>delete_sweep</mat-icon> Delete Attendance
             </button>
             <button mat-flat-button color="primary" [routerLink]="['/attendance']" [queryParams]="{ classPlanId: selectedPlan.id }">
               <mat-icon>how_to_reg</mat-icon> Mark Attendance

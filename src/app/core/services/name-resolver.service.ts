@@ -22,6 +22,11 @@ export type ResolvableType =
 export class NameResolverService {
   private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
   private cache = new Map<string, Observable<string>>();
+  private asyncResolver?: (type: ResolvableType, id: string) => Observable<string>;
+
+  registerAsyncResolver(resolver: (type: ResolvableType, id: string) => Observable<string>): void {
+    this.asyncResolver = resolver;
+  }
 
   clearCache(type?: ResolvableType, id?: string): void {
     if (type && id) {
@@ -59,21 +64,30 @@ export class NameResolverService {
       return of('Unknown');
     }
 
-    // Some types like "createdBy" / "user" might map to users.
+    if (this.asyncResolver) {
+      const obs$ = this.asyncResolver(type, cleanId).pipe(
+        map(res => {
+          if (res === 'Unknown') {
+            this.cache.delete(cacheKey);
+          }
+          return res;
+        })
+      );
+      this.cache.set(cacheKey, obs$);
+      return obs$;
+    }
+
+    // Direct Firestore getDoc fallback
     const request$ = from(getDoc(doc(this.firestore, `${collectionName}/${cleanId}`))).pipe(
       map(snapshot => {
         if (!snapshot.exists()) {
           return 'Unknown';
         }
         const data = snapshot.data();
-        
-        // Try to construct a readable name based on common fields
         let name = data['name'] || data['displayName'] || data['title'];
-        
         if (!name && collectionName === 'users') {
            name = data['email'];
         }
-
         return name || 'Unnamed';
       }),
       catchError(() => of('Unknown')),

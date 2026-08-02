@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Observable, Subscription, catchError, combineLatest, map, of, shareReplay, startWith, switchMap, firstValueFrom } from 'rxjs';
+import { Observable, Subject, Subscription, catchError, combineLatest, map, of, shareReplay, startWith, switchMap, firstValueFrom } from 'rxjs';
 import { AppUser, ClassPlan, ClassPlanAttendance, ClassPlanException } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
@@ -10,6 +10,8 @@ import { ClassPlanAttendanceService } from '../../core/services/class-plan-atten
 import { ClassPlanExceptionDialogComponent } from './class-plan-exception-dialog.component';
 import { ScheduleTypesHelpDialogComponent } from './schedule-types-help-dialog.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
+import { PlanStudentsDialogComponent } from './plan-students-dialog.component';
+import { AttendanceGenerationProgressDialogComponent, AttendanceProgressState } from '../../shared/components/attendance-generation-progress-dialog/attendance-generation-progress-dialog.component';
 
 export interface PageState<T> {
   data?: T;
@@ -28,6 +30,7 @@ interface ClassPlansVm {
   exceptions: (EntityRecord & ClassPlanException)[];
   staffDocs: EntityRecord[];
   usersDocs: EntityRecord[];
+  students: EntityRecord[];
 }
 
 @Component({
@@ -54,7 +57,7 @@ export class ClassPlansPage {
   ) {
     this.vm$ = this.auth.profile$.pipe(
       switchMap((profile) => {
-        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], classGroups: [], subjects: [], exceptions: [], staffDocs: [], usersDocs: [] } });
+        if (!profile) return of({ loading: false, data: { profile: null, classPlans: [], madrasas: [], courses: [], classes: [], classGroups: [], subjects: [], exceptions: [], staffDocs: [], usersDocs: [], students: [] } });
         
         return combineLatest({
           classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile),
@@ -66,11 +69,20 @@ export class ClassPlansPage {
           exceptions: this.repo.list<EntityRecord & ClassPlanException>('classPlanExceptions', profile),
           staffDocs: this.repo.list<EntityRecord>('staff', profile),
           usersDocs: this.repo.list<EntityRecord>('users', profile),
+          students: this.repo.list<EntityRecord>('students', profile),
         }).pipe(
-          map((data): PageState<ClassPlansVm> => ({
-            data: { profile, ...data },
-            loading: false,
-          })),
+          map((data): PageState<ClassPlansVm> => {
+            const orgId = profile.organizationId;
+            const isSuperAdmin = profile.role === 'superAdmin' || (profile.role as string) === 'superadmin';
+            let classPlans = data.classPlans || [];
+            if (!isSuperAdmin && orgId) {
+              classPlans = classPlans.filter(p => !p.organizationId || p.organizationId === orgId);
+            }
+            return {
+              data: { profile, ...data, classPlans },
+              loading: false,
+            };
+          }),
           startWith({ loading: true } as PageState<ClassPlansVm>),
           catchError((err) => {
             console.error(err);
@@ -91,6 +103,65 @@ export class ClassPlansPage {
       width: '760px',
       maxWidth: '95vw',
       panelClass: 'schedule-types-help-dialog-panel',
+    });
+  }
+
+  getPlanStudents(plan?: ClassPlan, students: EntityRecord[] = []): EntityRecord[] {
+    if (!plan || !students || !students.length) return [];
+
+    const targetClassIds = new Set<string>();
+    if (plan.classId) targetClassIds.add(String(plan.classId));
+    if (Array.isArray(plan.classIds)) {
+      plan.classIds.forEach(id => targetClassIds.add(String(id)));
+    }
+
+    const targetGroupIds = new Set<string>();
+    if (plan.groupId) targetGroupIds.add(String(plan.groupId));
+    if (Array.isArray(plan.groupIds)) {
+      plan.groupIds.forEach(id => targetGroupIds.add(String(id)));
+    }
+
+    return students.filter(student => {
+      if (student['status'] === 'inactive') return false;
+
+      // Match course
+      if (plan.courseId && student['courseId'] && String(student['courseId']) !== String(plan.courseId)) {
+        return false;
+      }
+
+      // Match class
+      const studentClassId = String(student['classId'] || '');
+      if (targetClassIds.size > 0 && !targetClassIds.has(studentClassId)) {
+        return false;
+      }
+
+      // Match group/section (if defined on plan)
+      const studentGroupId = String(student['groupId'] || '');
+      if (targetGroupIds.size > 0 && studentGroupId && !targetGroupIds.has(studentGroupId)) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  getPlanStudentCount(plan?: ClassPlan, students: EntityRecord[] = []): number {
+    return this.getPlanStudents(plan, students).length;
+  }
+
+  openPlanStudentsDialog(plan?: ClassPlan, vm?: ClassPlansVm): void {
+    if (!plan || !vm) return;
+    this.dialog.open(PlanStudentsDialogComponent, {
+      width: '640px',
+      maxWidth: '95vw',
+      data: {
+        plan,
+        students: vm.students || [],
+        classes: vm.classes || [],
+        classGroups: vm.classGroups || [],
+        className: this.getClassName(plan, vm),
+        groupName: this.getGroupName(plan, vm),
+      }
     });
   }
 
@@ -132,9 +203,37 @@ export class ClassPlansPage {
     return String(group?.['name'] || plan.groupId);
   }
 
-  getClassTeachers(plan: ClassPlan, vm: ClassPlansVm | undefined | null): string {
-    if (!vm) return 'No Class Staff';
+  getClassName(plan: ClassPlan, vm: ClassPlansVm | undefined | null): string {
+    if (Array.isArray(plan.classNames) && plan.classNames.length > 0) {
+      return plan.classNames.join(', ');
+    }
+    if (Array.isArray(plan.classIds) && plan.classIds.length > 0 && vm?.classes) {
+      const names = plan.classIds
+        .map(id => vm.classes.find(c => c.id === id)?.['name'])
+        .filter(Boolean)
+        .map(String);
+      if (names.length > 0) return names.join(', ');
+    }
+    if (!plan.classId) return 'All Classes';
+    if (!vm?.classes) return plan.className || plan.classId;
+    return this.nameOf(vm.classes, plan.classId);
+  }
 
+  private teacherNamesCache = new Map<string, string>();
+
+  getClassTeachers(plan: ClassPlan, vm: ClassPlansVm | undefined | null): string {
+    if (!vm || !plan) return 'No Class Staff';
+    const cacheKey = `${plan.id}_${plan.classId}_${plan.groupId}_${vm.staffDocs?.length || 0}_${vm.usersDocs?.length || 0}`;
+    if (this.teacherNamesCache.has(cacheKey)) {
+      return this.teacherNamesCache.get(cacheKey)!;
+    }
+
+    const result = this.computeClassTeachers(plan, vm);
+    this.teacherNamesCache.set(cacheKey, result);
+    return result;
+  }
+
+  private computeClassTeachers(plan: ClassPlan, vm: ClassPlansVm): string {
     const staffCollectionDocs = vm.staffDocs || [];
     const usersCollectionDocs = vm.usersDocs || [];
     const rawDocs = [...staffCollectionDocs, ...usersCollectionDocs];
@@ -183,7 +282,6 @@ export class ClassPlansPage {
 
     const matchedStaffNames = new Set<string>();
 
-    // 1. Check all Class Groups belonging to targetGroupId OR targetClassId
     const classGroupsForPlan = (vm.classGroups || []).filter(g => 
       (targetGroupId && String(g.id || '').trim() === targetGroupId) || 
       (targetClassId && String(g['classId'] || '').trim() === targetClassId)
@@ -206,7 +304,6 @@ export class ClassPlansPage {
       });
     });
 
-    // 2. Check staff profiles matched by groupId or classId
     rawDocs.forEach(s => {
       const role = String(s['role'] || '').toLowerCase();
       const roles: string[] = Array.isArray(s['roles']) ? s['roles'].map(r => String(r).toLowerCase()) : (role ? [role] : []);
@@ -241,7 +338,6 @@ export class ClassPlansPage {
       }
     });
 
-    // 3. If no group staff found, check assigned teachers on plan subjects
     if (matchedStaffNames.size === 0) {
       const planSubjIds = Array.isArray(plan.subjectIds) && plan.subjectIds.length > 0
         ? plan.subjectIds
@@ -262,28 +358,6 @@ export class ClassPlansPage {
     }
 
     const finalNames = Array.from(matchedStaffNames);
-
-    console.log('[ClassPlan Staff Debug Console]', {
-      planTitle: plan.title,
-      targetGroupId,
-      targetClassId,
-      classGroupsForPlan: classGroupsForPlan.map(g => ({
-        id: g.id,
-        name: g['name'],
-        assignedStaffIds: g['assignedStaffIds']
-      })),
-      matchedStaffNames: finalNames,
-      allStaffDocsSummary: rawDocs.map(d => ({
-        id: d.id,
-        uid: d['uid'],
-        name: d['displayName'] || d['name'] || d['email'],
-        role: d['role'],
-        groupId: d['groupId'],
-        assignedGroupIds: d['assignedGroupIds'],
-        classId: d['classId']
-      }))
-    });
-
     return finalNames.length > 0 ? finalNames.join(', ') : 'No Class Staff';
   }
 
@@ -331,15 +405,65 @@ export class ClassPlansPage {
   }
 
   async generateAttendance(plan: ClassPlan, profile: AppUser): Promise<void> {
-    await this.loader.withLoader('Generating attendance...', async () => {
-      try {
-        const today = new Date();
-        await this.attendanceService.generateAttendanceForPlanDate(plan, today, profile);
-        this.snackBar.open('Attendance generation triggered.', 'Close', { duration: 3000 });
-      } catch (err) {
-        this.snackBar.open('Error generating attendance.', 'Close', { duration: 3000 });
-      }
+    if (!plan.id) return;
+
+    // Create a live progress Subject
+    const progress$ = new Subject<AttendanceProgressState>();
+
+    // Open progress dialog (non-blocking)
+    this.dialog.open(AttendanceGenerationProgressDialogComponent, {
+      width: '480px',
+      disableClose: false,
+      data: {
+        classPlanTitle: plan.title || plan.className || 'Class Plan',
+        progress$: progress$.asObservable(),
+      },
     });
+
+    // Emit initial state
+    const allDates = this.attendanceService.getAllScheduledDates(plan);
+    progress$.next({ done: 0, total: allDates.length, currentDate: '', status: 'running' });
+
+    try {
+      await this.attendanceService.generateAttendanceForAllDays(
+        plan as ClassPlan & { id: string },
+        profile,
+        (state) => progress$.next(state)
+      );
+      plan.attendanceGenerated = true;
+      plan.attendanceGeneratedAt = new Date().toISOString();
+      progress$.complete();
+    } catch (err) {
+      console.error('[GenerateAttendance] Error:', err);
+      progress$.next({ done: 0, total: allDates.length, currentDate: '', status: 'error', errorMessage: 'Error generating attendance. Please try again.' });
+      progress$.complete();
+    }
+  }
+
+  async deleteAttendance(plan: ClassPlan, profile: AppUser): Promise<void> {
+    if (!plan.id) return;
+
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      width: '420px',
+      data: {
+        title: 'Delete Attendance',
+        message: `Are you sure you want to delete all generated attendance for "${plan.title || plan.className}"? This will delete all attendance documents for this plan.`
+      }
+    }).afterClosed());
+
+    if (confirmed) {
+      await this.loader.withLoader('Deleting attendance...', async () => {
+        try {
+          await this.attendanceService.deleteAttendanceForPlan(plan.id!, profile);
+          plan.attendanceGenerated = false;
+          plan.attendanceGeneratedAt = null;
+          this.snackBar.open('Attendance deleted successfully.', 'Close', { duration: 3000 });
+        } catch (err) {
+          console.error('[DeleteAttendance] Error:', err);
+          this.snackBar.open('Error deleting attendance.', 'Close', { duration: 3000 });
+        }
+      });
+    }
   }
 
   async toggleStatus(plan: ClassPlan, profile: AppUser): Promise<void> {

@@ -1,0 +1,72 @@
+<div style="display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid #eee; background: var(--ion-color-light, #f8f9fa);">
+  <div>
+    <h2 style="margin: 0; font-size: 18px; font-weight: 700; color: var(--ion-color-dark, #111); display: flex; align-items: center; gap: 8px;">
+      <mat-icon color="primary">people</mat-icon>
+      Enrolled Students ({{ planStudents.length }})
+    </h2>
+    <div style="font-size: 12px; color: #666; margin-top: 2px;">
+      Plan: <strong>{{ data.plan.title }}</strong> &bull; {{ data.plan.courseName }} &bull; {{ data.className }}
+    </div>
+  </div>
+  <button mat-icon-button (click)="close()">
+    <mat-icon>close</mat-icon>
+  </button>
+</div>
+
+<div style="padding: 16px 24px 24px 24px; max-height: 65vh; overflow-y: auto;">
+  <!-- Search Input -->
+  <mat-form-field appearance="outline" style="width: 100%; margin-bottom: 12px;">
+    <mat-label>Search Enrolled Students</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput [(ngModel)]="searchQuery" (ngModelChange)="filterStudents()" placeholder="Filter by name, roll number, or phone...">
+  </mat-form-field>
+
+  <!-- Empty state -->
+  <div *ngIf="filteredStudents.length === 0" style="text-align: center; padding: 32px 16px; color: #777;">
+    <mat-icon style="font-size: 48px; width: 48px; height: 48px; opacity: 0.5;">person_off</mat-icon>
+    <p style="margin-top: 8px; font-weight: 500;">
+      {{ searchQuery ? 'No students match your search.' : 'No active students currently enrolled in this class plan.' }}
+    </p>
+  </div>
+
+  <!-- Student List Cards -->
+  <div *ngIf="filteredStudents.length > 0" style="display: flex; flex-direction: column; gap: 10px;">
+    <div *ngFor="let student of filteredStudents" 
+      style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: 8px; border: 1px solid #e0e0e0; background: #fff;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <div style="width: 40px; height: 40px; border-radius: 50%; background: #e3f2fd; color: #1976d2; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 15px;">
+          {{ (student['displayName'] || student['name'] || 'S').slice(0, 1).toUpperCase() }}
+        </div>
+        <div>
+          <div style="font-weight: 600; font-size: 14px; color: #222;">
+            {{ student['displayName'] || student['name'] }}
+          </div>
+          <div style="font-size: 12px; color: #666; display: flex; gap: 12px; flex-wrap: wrap;">
+            <span *ngIf="student['studentId'] || student['rollNo'] || student['code']">
+              🆔 Roll: {{ student['studentId'] || student['rollNo'] || student['code'] }}
+            </span>
+            <span>
+              🏫 {{ getClassName(student['classId']) }} <ng-container *ngIf="getGroupName(student['groupId'])">({{ getGroupName(student['groupId']) }})</ng-container>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align: right;">
+        <span style="background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600;">
+          Active
+        </span>
+        <div *ngIf="student['parentPhone'] || student['phone']" style="font-size: 11px; color: #666; margin-top: 4px;">
+          📞 {{ student['parentPhone'] || student['phone'] }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div style="padding: 12px 24px; border-top: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; background: #fafafa;">
+  <span style="font-size: 13px; color: #666;">
+    Total Enrolled: <strong>{{ planStudents.length }}</strong> student(s)
+  </span>
+  <button mat-button color="primary" (click)="close()">Close</button>
+</div>

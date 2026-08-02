@@ -22,48 +22,59 @@
           <mat-card-header>
             <mat-card-title>
               <mat-icon>schedule</mat-icon>
-              Section 1 &mdash; Schedule
+              Section 1 &mdash; Time & Schedule
             </mat-card-title>
           </mat-card-header>
 
           <mat-card-content>
-            <div class="time-row">
+            <div style="display: flex; gap: 16px; align-items: center; margin-bottom: 12px; flex-wrap: wrap;">
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 140px;">
+                <mat-label>Start Time</mat-label>
+                <mat-icon matPrefix style="margin-right: 8px; color: var(--app-text-muted, #666);">schedule</mat-icon>
+                <input matInput type="time" formControlName="startTime">
+              </mat-form-field>
 
-              <ion-item class="time-field" button [matMenuTriggerFor]="startMenu" detail="false">
-                <ion-icon name="time-outline" slot="start"></ion-icon>
-                <ion-label>Start Time</ion-label>
-                <div slot="end" class="time-display">{{ form.value.startTime }}</div>
-              </ion-item>
+              <div style="font-weight: 700; color: var(--app-text-muted, #777); font-size: 13px;">TO</div>
 
-              <mat-menu #startMenu="matMenu" class="datetime-menu" xPosition="after">
-                <div (click)="$event.stopPropagation()" class="datetime-wrapper">
-                  <ion-datetime presentation="time" [value]="getIsoTime(form.get('startTime')?.value)"
-                    (ionChange)="onTimeChange('startTime', $event)">
-                  </ion-datetime>
-                </div>
-              </mat-menu>
-
-              <div class="time-arrow">
-                <mat-icon>arrow_forward</mat-icon>
-              </div>
-
-              <ion-item class="time-field" button [matMenuTriggerFor]="endMenu" detail="false">
-                <ion-icon name="time-outline" slot="start"></ion-icon>
-                <ion-label>End Time</ion-label>
-                <div slot="end" class="time-display">{{ form.value.endTime }}</div>
-              </ion-item>
-
-              <mat-menu #endMenu="matMenu" class="datetime-menu" xPosition="after">
-                <div (click)="$event.stopPropagation()" class="datetime-wrapper">
-                  <ion-datetime presentation="time" [value]="getIsoTime(form.get('endTime')?.value)"
-                    (ionChange)="onTimeChange('endTime', $event)">
-                  </ion-datetime>
-                </div>
-              </mat-menu>
-
+              <mat-form-field appearance="outline" style="flex: 1; min-width: 140px;">
+                <mat-label>End Time</mat-label>
+                <mat-icon matPrefix style="margin-right: 8px; color: var(--app-text-muted, #666);">schedule</mat-icon>
+                <input matInput type="time" formControlName="endTime">
+              </mat-form-field>
             </div>
 
-            <div class="overlap-warning" *ngIf="overlapWarning">
+            <!-- Quick Start Time Chips -->
+            <div style="margin-bottom: 12px; background: var(--ion-color-step-50, #f8f9fa); padding: 10px 12px; border-radius: 8px;">
+              <label style="display: block; font-size: 11px; font-weight: 700; color: var(--app-text-muted, #555); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                ⚡ Quick Start Time Presets (1-Click)
+              </label>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('06:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">06:00 AM</button>
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('07:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">07:00 AM</button>
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('08:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">08:00 AM</button>
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('09:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">09:00 AM</button>
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('10:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">10:00 AM</button>
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('16:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">04:00 PM</button>
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('17:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">05:00 PM</button>
+                <button type="button" mat-stroked-button (click)="setQuickStartTime('18:00')" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 10px; border-radius: 15px;">06:00 PM</button>
+              </div>
+            </div>
+
+            <!-- Quick Duration Presets -->
+            <div style="background: var(--ion-color-step-50, #f8f9fa); padding: 10px 12px; border-radius: 8px;">
+              <label style="display: block; font-size: 11px; font-weight: 700; color: var(--app-text-muted, #555); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
+                ⏱️ Quick Duration Presets (Auto-calculates End Time)
+              </label>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button type="button" mat-flat-button color="primary" (click)="applyDuration(30)" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 12px; border-radius: 15px;">+30 mins</button>
+                <button type="button" mat-flat-button color="primary" (click)="applyDuration(45)" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 12px; border-radius: 15px;">+45 mins</button>
+                <button type="button" mat-flat-button color="primary" (click)="applyDuration(60)" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 12px; border-radius: 15px;">+1 Hour</button>
+                <button type="button" mat-flat-button color="primary" (click)="applyDuration(90)" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 12px; border-radius: 15px;">+1.5 Hours</button>
+                <button type="button" mat-flat-button color="primary" (click)="applyDuration(120)" style="height: 30px; line-height: 30px; font-size: 12px; padding: 0 12px; border-radius: 15px;">+2 Hours</button>
+              </div>
+            </div>
+
+            <div class="overlap-warning" *ngIf="overlapWarning" style="margin-top: 12px;">
               <mat-icon>warning</mat-icon>
               <span>{{ overlapWarning }}</span>
             </div>
@@ -79,31 +90,72 @@
             </mat-card-title>
           </mat-card-header>
           <mat-card-content>
+
+            <!-- Hifz Session Category Selector (Only for Hifz Courses) -->
+            <div class="hifz-session-selector" *ngIf="isHifzCourse" style="margin-bottom: 16px; background: rgba(46, 125, 50, 0.08); padding: 14px; border-radius: 8px; border: 1px solid rgba(46, 125, 50, 0.25);">
+              <label style="display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; color: #1b5e20; margin-bottom: 8px;">
+                <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #2e7d32;">menu_book</mat-icon>
+                Select Hifz Session Type *
+              </label>
+              
+              <mat-button-toggle-group formControlName="hifzSessionType" (change)="onHifzSessionTypeChange($event.value)" style="width: 100%; display: flex; flex-wrap: wrap; border-radius: 6px;">
+                <mat-button-toggle value="sabak" style="flex: 1; min-width: 90px; font-weight: 600;">Sabak (New)</mat-button-toggle>
+                <mat-button-toggle value="sabki" style="flex: 1; min-width: 90px; font-weight: 600;">Sabki (Recent)</mat-button-toggle>
+                <mat-button-toggle value="manzil" style="flex: 1; min-width: 90px; font-weight: 600;">Manzil (Old)</mat-button-toggle>
+                <mat-button-toggle value="custom" style="flex: 1; min-width: 90px; font-weight: 600;">Custom</mat-button-toggle>
+              </mat-button-toggle-group>
+            </div>
+
             <mat-form-field appearance="outline" class="full-width highlight-field">
               <mat-label>Activity Name</mat-label>
-              <input matInput formControlName="activityName" placeholder="e.g. Quran Class, Lunch Break">
+              <input matInput formControlName="activityName" placeholder="e.g. Sabak (New Lesson), Sabki, Manzil">
               <mat-error *ngIf="form.get('activityName')?.hasError('required')">Activity Name is required.</mat-error>
             </mat-form-field>
 
-            <div class="activity-suggestions">
-              <div class="chip" *ngFor="let chip of activitySuggestions" (click)="setActivityName(chip.name)">
-                <span class="chip-icon"><mat-icon>{{ chip.icon }}</mat-icon></span>
-                <span class="chip-label">{{ chip.name }}</span>
+            <div class="activity-suggestions" *ngIf="activitySuggestions.length > 0" style="display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 16px 0;">
+              <div class="chip" *ngFor="let chip of activitySuggestions" (click)="setActivityName(chip.name)" style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; background: rgba(33, 150, 243, 0.08); border: 1px solid rgba(33, 150, 243, 0.2); border-radius: 16px; font-size: 12px; color: #1976d2; font-weight: 500;">
+                <mat-icon style="font-size: 15px; width: 15px; height: 15px;">{{ chip.icon }}</mat-icon>
+                <span>{{ chip.name }}</span>
               </div>
             </div>
 
-            <!-- Day of Week -->
-            <mat-form-field appearance="outline" class="full-width"
-              *ngIf="data.scheduleType === 'fullDay' || !data.dayOfWeek">
-              <mat-label>Day of Week</mat-label>
-              <mat-icon matPrefix>calendar_today</mat-icon>
 
-              <mat-select formControlName="dayOfWeek">
-                <mat-option *ngFor="let day of daysOfWeek" [value]="day">
-                  {{ day }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
+
+            <!-- Multi-Day Selection Section -->
+            <div style="margin-top: 16px; margin-bottom: 16px; background: rgba(33, 150, 243, 0.06); padding: 14px; border-radius: 8px; border: 1px solid rgba(33, 150, 243, 0.25);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+                <label style="font-weight: 700; font-size: 13px; color: var(--ion-color-primary, #1976d2); display: flex; align-items: center; gap: 6px;">
+                  <mat-icon style="font-size: 18px; width: 18px; height: 18px;">calendar_month</mat-icon>
+                  Apply To Days (Multi-Select) *
+                </label>
+                <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                  <button type="button" mat-stroked-button color="primary" (click)="selectAllDays('weekdays')" style="font-size: 11px; height: 26px; line-height: 26px; padding: 0 8px; border-radius: 13px;">Mon-Fri</button>
+                  <button type="button" mat-stroked-button color="primary" (click)="selectAllDays('sixDays')" style="font-size: 11px; height: 26px; line-height: 26px; padding: 0 8px; border-radius: 13px;">Mon-Sat</button>
+                  <button type="button" mat-stroked-button color="primary" (click)="selectAllDays('all')" style="font-size: 11px; height: 26px; line-height: 26px; padding: 0 8px; border-radius: 13px;">All 7 Days</button>
+                </div>
+              </div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                <button type="button" *ngFor="let day of daysOfWeek" 
+                  mat-flat-button
+                  [color]="isDaySelected(day) && !isDayDisabled(day) ? 'primary' : 'basic'"
+                  [disabled]="isDayDisabled(day)"
+                  [style.opacity]="isDayDisabled(day) ? '0.35' : (isDaySelected(day) ? '1' : '0.6')"
+                  (click)="toggleDaySelection(day)"
+                  [title]="isDayDisabled(day) ? getDayDisabledReason(day) : day"
+                  style="height: 32px; line-height: 32px; font-size: 12px; padding: 0 12px; border-radius: 16px; font-weight: 600;">
+                  <mat-icon *ngIf="isDaySelected(day) && !isDayDisabled(day)" style="font-size: 14px; width: 14px; height: 14px; margin-right: 4px;">check</mat-icon>
+                  <mat-icon *ngIf="isDayDisabled(day)" style="font-size: 14px; width: 14px; height: 14px; margin-right: 4px;">block</mat-icon>
+                  {{ day.slice(0, 3) }}
+                </button>
+              </div>
+              <div style="margin-top: 6px; font-size: 11px; color: var(--app-text-muted, #666);">
+                Selected: <strong>{{ selectedDays.join(', ') }}</strong> (Creates {{ selectedDays.length }} entry slot{{ selectedDays.length > 1 ? 's' : '' }})
+                <span *ngIf="disabledDaysCount > 0" style="color: #d32f2f; font-weight: 600; margin-left: 6px;">
+                  🚫 {{ disabledDaysCount }} day(s) disabled (already scheduled at this time)
+                </span>
+              </div>
+            </div>
 
             <!-- Teacher -->
             <mat-form-field appearance="outline" class="full-width">

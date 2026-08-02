@@ -1,6 +1,13 @@
 <div class="timetable-container" *ngIf="plan">
-  <div class="title-section" style="margin-bottom: 16px;">
-    <h3>Timetable</h3>
+  <div class="title-section" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+    <h3 style="margin: 0;">Timetable</h3>
+
+    <div class="timetable-top-actions" *ngIf="canManage" style="display: flex; gap: 8px; flex-wrap: wrap;">
+      <button mat-flat-button color="primary" (click)="openEntryForm(undefined, undefined, 'period')" style="font-weight: 600;">
+        <mat-icon style="margin-right: 6px;">calendar_month</mat-icon>
+        + Add Period to Multiple Days
+      </button>
+    </div>
   </div>
 
   <app-global-loader *ngIf="loading"></app-global-loader>

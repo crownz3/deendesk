@@ -106,7 +106,7 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
 
     const defaultPriorityKeys = [
       'displayName', 'name', 'title', 'role', 'mobileNumber', 'phone', 'mobile', 
-      'gender', 'madrasaId', 'madrasas', 'madrasaCount', 'classGroup', 'stage', 
+      'gender', 'courseId', 'classId', 'groupId', 'madrasaId', 'madrasas', 'madrasaCount', 'classGroup', 'stage', 
       'status', 'credentialStatus', 'studentCount'
     ];
     
@@ -119,6 +119,9 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
         k.toLowerCase().includes('mobile') || 
         k.toLowerCase().includes('role') || 
         k.toLowerCase().includes('gender') || 
+        k.toLowerCase().includes('course') || 
+        k.toLowerCase().includes('class') || 
+        k.toLowerCase().includes('group') || 
         k.toLowerCase().includes('stage')
       );
 
@@ -187,22 +190,51 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
     return str;
   }
 
+  getTableCellValue(row: EntityRecord, column: TableColumn): string {
+    const key = column.key;
+    const cardVal = this.getCardFieldValue(row, key);
+    if (cardVal && cardVal !== 'N/A' && cardVal !== '-' && cardVal !== String(row[key])) {
+      return cardVal;
+    }
+    return this.text(row, key);
+  }
+
+  getFallbackName(row: EntityRecord, key: string): string | undefined {
+    const val = this.getCardFieldValue(row, key);
+    if (val && val !== 'N/A' && val !== '-' && val !== String(row[key]) && val !== String(this.value(row, key))) {
+      return val;
+    }
+    return undefined;
+  }
+
   getCardFieldValue(row: EntityRecord, key: string): string {
     if (key === 'madrasaId' || key === 'madrasaIds') {
-      if (row['madrasaNames'] && row['madrasaNames'] !== '-') return String(row['madrasaNames']);
-      if (row['madrasaName']) return String(row['madrasaName']);
+      const val = row['madrasaNames'] || row['madrasaName'] || row['madrasa'];
+      if (val && val !== '-') return String(val);
     }
     if (key === 'organizationId') {
-      if (row['organizationName'] && row['organizationName'] !== '-') return String(row['organizationName']);
+      const val = row['organizationName'] || row['orgName'] || row['organization'];
+      if (val && val !== '-') return String(val);
     }
     if (key === 'courseId') {
-      if (row['courseName'] && row['courseName'] !== '-') return String(row['courseName']);
+      const val = row['courseName'] || row['courseTitle'] || row['course'];
+      if (val && val !== '-') return String(val);
     }
     if (key === 'classId') {
-      if (row['className'] && row['className'] !== '-') return String(row['className']);
+      const val = row['className'] || row['classTitle'] || row['class'];
+      if (val && val !== '-') return String(val);
+    }
+    if (key === 'groupId') {
+      const val = row['groupName'] || row['sectionName'] || row['group'] || row['section'] || row['classGroupName'];
+      if (val && val !== '-') return String(val);
     }
     if (key === 'linkedStudentIds' || key === 'studentId') {
-      if (row['studentNames'] && row['studentNames'] !== '-') return String(row['studentNames']);
+      const val = row['studentNames'] || row['studentName'];
+      if (val && val !== '-') return String(val);
+    }
+    if (key === 'teacherId' || key === 'assignedStaffIds') {
+      const val = row['teacherName'] || row['staffName'] || row['staffNames'];
+      if (val && val !== '-') return String(val);
     }
     if (key === 'stage' || key === 'currentStage' || key === 'stageName' || key === 'targetStage') {
       return this.formatStageDisplay(this.text(row, key));
@@ -235,6 +267,7 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   hasMadrasasButton(row: EntityRecord): boolean {
+    if (this.resourceKey === 'students' || this.resourceKey === 'student') return false;
     return Boolean(row['madrasaCount'] || row['madrasaId'] || row['madrasaIds'] || row['madrasas']);
   }
 
@@ -245,6 +278,7 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   hasAcademicButton(row: EntityRecord): boolean {
+    if (this.resourceKey === 'students' || this.resourceKey === 'student') return false;
     return Boolean(row['classId'] || row['className'] || row['stage'] || row['groupId'] || row['classGroup']);
   }
 

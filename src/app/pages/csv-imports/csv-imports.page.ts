@@ -34,7 +34,7 @@ export class CsvImportsPage implements OnInit {
     // { key: 'coordinators', label: 'Coordinators', collection: 'users', required: ['displayName', 'email', 'organizationId'], template: { displayName: 'Coordinator Name', email: 'coordinator@example.com', organizationId: 'organization-id', role: 'coordinator', status: 'pending' } },
     // { key: 'incharges', label: 'Madrasa Incharges', collection: 'users', required: ['displayName', 'email', 'organizationId'], template: { displayName: 'Incharge Name', email: 'incharge@example.com', organizationId: 'organization-id', role: 'madrasaIncharge', status: 'pending' } },
     { key: 'staff', label: 'Staff / Teachers', collection: 'staff', required: ['name', 'email', 'mobileNumber', 'organizationId'], template: { name: 'Teacher Name', email: 'teacher@example.com', mobileNumber: '1234567890', password: 'Welcome@123', role: 'teacher', organizationId: 'organization-id', madrasaId: 'madrasa-id', status: 'active' } },
-    { key: 'students', label: 'Students', collection: 'students', required: ['name', 'fatherName', 'dateOfBirth', 'mobileNumber', 'organizationId', 'madrasaId'], template: { name: 'Student Name', fatherName: 'Father Name', mobileNumber: '1234567890', parentEmail: 'parent@example.com', dateOfBirth: '2015-01-01', admissionDate: '2026-06-20', email: 'student@example.com', organizationId: 'organization-id', madrasaId: 'madrasa-id', courseId: 'course-id', classId: 'class-id', groupId: 'group-id', stage: 'Stage 1', status: 'active' } },
+    { key: 'students', label: 'Students', collection: 'students', required: ['name', 'fatherName', 'dateOfBirth', 'mobileNumber', 'organizationId', 'madrasaId'], template: { name: 'Student Name', fatherName: 'Father Name', parentName: 'Parent Name', mobileNumber: '1234567890', parentEmail: 'parent@example.com', dateOfBirth: '2015-01-01', admissionDate: '2026-06-20', gender: 'male', email: 'student@example.com', organizationId: 'organization-id', madrasaId: 'madrasa-id', courseId: 'course-id', classId: 'class-id', groupId: 'group-id', stage: 'Miftah', subStage: 'Stage 1', status: 'active' } },
     // { key: 'parents', label: 'Parents', collection: 'parents', required: ['name', 'organizationId', 'madrasaId'], template: { name: 'Parent Name', email: 'parent@example.com', organizationId: 'organization-id', madrasaId: 'madrasa-id', linkedStudentIds: 'student-id', status: 'active' } },
     { key: 'courses', label: 'Courses', collection: 'courses', required: ['name', 'code', 'type'], template: { name: 'Maktab', code: 'MAKTAB', type: 'maktab', organizationId: 'organization-id', madrasaId: 'madrasa-id', status: 'active' } },
     { key: 'classes', label: 'Classes', collection: 'classes', required: ['name', 'courseId', 'organizationId', 'madrasaId'], template: { name: 'Miftah A', courseId: 'course-id', organizationId: 'organization-id', madrasaId: 'madrasa-id', stage: 'Miftah', status: 'active' } },
@@ -49,6 +49,7 @@ export class CsvImportsPage implements OnInit {
   validation: CsvValidationResult | null = null;
   importing = false;
   isDragging = false;
+  createLoginsForStudents = false;
 
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
 
@@ -75,34 +76,42 @@ export class CsvImportsPage implements OnInit {
     this.loadReferenceData();
   }
 
-  async loadReferenceData(): Promise<void> {
+  async loadReferenceData(forceRefresh = true): Promise<void> {
     try {
       this.currentUserProfile = await firstValueFrom(this.auth.profile$);
+      const orgId = this.currentUserProfile?.organizationId || '';
+      const isSuperAdmin = this.currentUserProfile?.role === 'superAdmin';
 
+      // Load reference data from Firestore
       const [madrasas, courses, classes, classGroups] = await Promise.all([
-        this.repo.getAllOnce('madrasas', this.currentUserProfile),
-        this.repo.getAllOnce('courses', this.currentUserProfile),
-        this.repo.getAllOnce('classes', this.currentUserProfile),
-        this.repo.getAllOnce('classGroups', this.currentUserProfile)
+        this.repo.getAllOnce('madrasas', this.currentUserProfile, { forceRefresh }),
+        this.repo.getAllOnce('courses', this.currentUserProfile, { forceRefresh }),
+        this.repo.getAllOnce('classes', this.currentUserProfile, { forceRefresh }),
+        this.repo.getAllOnce('classGroups', this.currentUserProfile, { forceRefresh })
       ]);
 
-      this.madrasas = madrasas || [];
-      this.courses = courses || [];
-      this.classes = classes || [];
-      this.classGroups = classGroups || [];
+      const filterByOrg = (list: EntityRecord[]) =>
+        isSuperAdmin || !orgId ? list : list.filter(item => !item['organizationId'] || item['organizationId'] === orgId);
+
+      this.madrasas = filterByOrg(madrasas || []);
+      this.courses = filterByOrg(courses || []);
+      this.classes = filterByOrg(classes || []);
+      this.classGroups = filterByOrg(classGroups || []);
 
       console.log('[CSV Import Reference IDs Debug]', {
-        organizationId: this.currentUserProfile?.organizationId,
+        organizationId: orgId,
         madrasasCount: this.madrasas.length,
         coursesCount: this.courses.length,
         classesCount: this.classes.length,
+        classGroupsCount: this.classGroups.length,
       });
     } catch (error) {
       console.error('[CSV Import] Failed to load reference data', error);
     }
   }
 
-  openReferenceIdsDialog(): void {
+  async openReferenceIdsDialog(): Promise<void> {
+    await this.loadReferenceData(true);
     this.dialog.open(CsvReferenceIdsDialogComponent, {
       data: {
         organizationId: this.currentUserProfile?.organizationId,
@@ -111,7 +120,8 @@ export class CsvImportsPage implements OnInit {
         classes: this.classes,
         classGroups: this.classGroups,
       },
-      width: '800px',
+      width: '90vw',
+      maxWidth: '90vw',
       maxHeight: '90vh'
     });
   }
@@ -186,8 +196,10 @@ export class CsvImportsPage implements OnInit {
     }
   }
 
-  private processFile(file: File): void {
+  private async processFile(file: File): Promise<void> {
     this.fileName = file.name;
+    await this.loadReferenceData(true);
+
     const reader = new FileReader();
     reader.onload = () => {
       this.parsedRows = this.csv.parse(String(reader.result ?? ''));
@@ -199,28 +211,81 @@ export class CsvImportsPage implements OnInit {
         let isValid = true;
         const identifier = row['name'] || row['displayName'] || 'Unknown';
 
-        if (row['mobileNumber'] && !/^[0-9]{10}$/.test(row['mobileNumber'])) {
+        const cleanMobile = String(row['mobileNumber'] || '').trim();
+        if (cleanMobile && !/^[0-9]{10}$/.test(cleanMobile)) {
           this.validation.errors.push(`Row "${identifier}" has an invalid mobile number (must be 10 digits): ${row['mobileNumber']}`);
           isValid = false;
         }
 
-        if (row['madrasaId'] && !this.madrasas.some((m: any) => m.id === row['madrasaId'])) {
-          this.validation.errors.push(`Row "${identifier}" has an invalid madrasaId: ${row['madrasaId']}`);
-          isValid = false;
+        if (this.activeModule().key === 'students') {
+          const cleanDob = String(row['dateOfBirth'] || row['dob'] || '').trim();
+          if (cleanDob) {
+            const dobDate = new Date(cleanDob);
+            if (isNaN(dobDate.getTime())) {
+              this.validation.errors.push(`Row "${identifier}" has an invalid dateOfBirth format: ${cleanDob}`);
+              isValid = false;
+            } else {
+              const today = new Date();
+              if (dobDate > today) {
+                this.validation.errors.push(`Row "${identifier}" dateOfBirth (${cleanDob}) cannot be in the future.`);
+                isValid = false;
+              } else {
+                const minAgeDate = new Date(today.getFullYear() - 3, today.getMonth(), today.getDate());
+                if (dobDate > minAgeDate) {
+                  this.validation.errors.push(`Row "${identifier}" student must be at least 3 years old (dateOfBirth: ${cleanDob}).`);
+                  isValid = false;
+                }
+              }
+            }
+          }
         }
-        if (row['courseId'] && !this.courses.some((c: any) => c.id === row['courseId'])) {
-          this.validation.errors.push(`Row "${identifier}" has an invalid courseId: ${row['courseId']}`);
-          isValid = false;
+
+        const cleanMadrasaId = String(row['madrasaId'] || '').trim();
+        if (cleanMadrasaId && this.madrasas.length > 0) {
+          const match = this.madrasas.some((m: any) => 
+            [m.id, m['id'], m['docId'], m['code']].filter(Boolean).map(s => String(s).trim()).includes(cleanMadrasaId)
+          );
+          if (!match && cleanMadrasaId.length < 10) {
+            this.validation.errors.push(`Row "${identifier}" has an invalid madrasaId: ${row['madrasaId']}`);
+            isValid = false;
+          }
         }
-        if (row['classId'] && !this.classes.some((c: any) => c.id === row['classId'])) {
-          this.validation.errors.push(`Row "${identifier}" has an invalid classId: ${row['classId']}`);
-          isValid = false;
+
+        const cleanCourseId = String(row['courseId'] || '').trim();
+        if (cleanCourseId && this.courses.length > 0) {
+          const match = this.courses.some((c: any) => 
+            [c.id, c['id'], c['docId'], c['code']].filter(Boolean).map(s => String(s).trim()).includes(cleanCourseId)
+          );
+          if (!match && cleanCourseId.length < 10) {
+            this.validation.errors.push(`Row "${identifier}" has an invalid courseId: ${row['courseId']}`);
+            isValid = false;
+          }
         }
-        if (row['groupId'] && !this.classGroups.some((c: any) => c.id === row['groupId'])) {
-          this.validation.errors.push(`Row "${identifier}" has an invalid groupId: ${row['groupId']}`);
-          isValid = false;
+
+        const cleanClassId = String(row['classId'] || '').trim();
+        if (cleanClassId && this.classes.length > 0) {
+          const match = this.classes.some((c: any) => 
+            [c.id, c['id'], c['docId'], c['name']].filter(Boolean).map(s => String(s).trim()).includes(cleanClassId)
+          );
+          if (!match && cleanClassId.length < 10) {
+            this.validation.errors.push(`Row "${identifier}" has an invalid classId: ${row['classId']}`);
+            isValid = false;
+          }
         }
-        if (row['organizationId'] && this.currentUserProfile?.role !== 'superAdmin' && row['organizationId'] !== this.currentUserProfile?.organizationId) {
+
+        const cleanGroupId = String(row['groupId'] || '').trim();
+        if (cleanGroupId && this.classGroups.length > 0) {
+          const match = this.classGroups.some((g: any) => 
+            [g.id, g['id'], g['docId'], g['name']].filter(Boolean).map(s => String(s).trim()).includes(cleanGroupId)
+          );
+          if (!match && cleanGroupId.length < 10) {
+            this.validation.errors.push(`Row "${identifier}" has an invalid groupId: ${row['groupId']}`);
+            isValid = false;
+          }
+        }
+
+        const cleanOrgId = String(row['organizationId'] || '').trim();
+        if (cleanOrgId && this.currentUserProfile?.role !== 'superAdmin' && cleanOrgId !== String(this.currentUserProfile?.organizationId || '').trim()) {
           this.validation.errors.push(`Row "${identifier}" has an invalid organizationId: ${row['organizationId']}`);
           isValid = false;
         }
@@ -253,6 +318,54 @@ export class CsvImportsPage implements OnInit {
       await this.loader.withLoader('Importing valid records...', async () => {
         
         if (active.key === 'students') {
+          if (!this.createLoginsForStudents) {
+            let successCount = 0;
+            let failCount = 0;
+
+            for (let i = 0; i < rows.length; i++) {
+              const row = rows[i];
+              this.loader.setMessage(`Importing student ${i + 1} of ${rows.length}...`);
+              try {
+                const rawStage = String(row['stage'] || row['Stage'] || '').trim();
+                const rawSubStage = String(row['subStage'] || row['substage'] || row['sub_stage'] || row['SubStage'] || row['level'] || '').trim();
+
+                let fullStage = rawStage;
+                if (rawSubStage) {
+                  if (!rawStage) fullStage = rawSubStage;
+                  else if (!rawStage.toLowerCase().includes(rawSubStage.toLowerCase())) fullStage = `${rawStage} - ${rawSubStage}`;
+                }
+
+                const studentPayload = {
+                  ...row,
+                  stage: fullStage,
+                  subStage: rawSubStage,
+                  level: rawSubStage || row['level'] || '',
+                  gender: row['gender'] || 'male',
+                  status: row['status'] || 'active',
+                  credentialStatus: 'NO_LOGIN',
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                };
+
+                await this.repo.create('students', studentPayload, profile, undefined, true);
+                successCount++;
+              } catch (err: any) {
+                console.error('Failed to import student row:', err);
+                failCount++;
+                this.validation!.errors.push(`Failed to import student ${row['name']}: ${err?.message || 'Unknown error'}`);
+              }
+            }
+
+            this.repo.clearCache('students');
+            if (successCount > 0) {
+              this.snackBar.open(`Successfully imported ${successCount} student(s) directly into collection.`, 'Close', { duration: 5000 });
+            }
+            if (failCount > 0) {
+              this.snackBar.open(`Import completed with ${failCount} error(s).`, 'Close', { duration: 5000 });
+            }
+            return;
+          }
+
           // Custom student import to automatically create parents and logins
           const createUserWithTemporaryPassword = httpsCallable<any, any>(this.functions, 'createUserWithTemporaryPassword');
           let successCount = 0;
@@ -271,6 +384,18 @@ export class CsvImportsPage implements OnInit {
               madrasaCode
             );
             
+            const rawStage = String(row['stage'] || row['Stage'] || '').trim();
+            const rawSubStage = String(row['subStage'] || row['substage'] || row['sub_stage'] || row['SubStage'] || row['level'] || '').trim();
+
+            let fullStage = rawStage;
+            if (rawSubStage) {
+              if (!rawStage) {
+                fullStage = rawSubStage;
+              } else if (!rawStage.toLowerCase().includes(rawSubStage.toLowerCase())) {
+                fullStage = `${rawStage} - ${rawSubStage}`;
+              }
+            }
+
             let studentEmail = String(row['email'] || generated.studentEmail);
             let parentEmail = String(row['parentEmail'] || generated.parentEmail);
             let counter = 0;
@@ -289,8 +414,10 @@ export class CsvImportsPage implements OnInit {
                   classId: row['classId'],
                   classIds: row['classId'] ? [row['classId']] : [],
                   subjectIds: row['subjectIds'] ? String(row['subjectIds']).split(',') : [],
-                  stage: row['stage'],
-                  level: row['level'],
+                  stage: fullStage,
+                  subStage: rawSubStage,
+                  level: rawSubStage || row['level'] || '',
+                  gender: row['gender'] || 'male',
                   email: studentEmail,
                   password: generated.password,
                   role: 'student',
@@ -357,6 +484,10 @@ export class CsvImportsPage implements OnInit {
 
               const studentDocId = await this.repo.create('students', {
                 ...row,
+                stage: fullStage,
+                subStage: rawSubStage,
+                level: rawSubStage || row['level'] || '',
+                gender: row['gender'] || 'male',
                 userId: studentResult.data.uid,
                 parentId: parentDocId,
                 parentUserId: parentResult.data.uid,
@@ -388,6 +519,10 @@ export class CsvImportsPage implements OnInit {
                   parentName: parentDisplayName,
                   parentEmail: parentResult.data.email,
                   parentGeneratedEmail: parentResult.data.email,
+                  stage: fullStage,
+                  subStage: rawSubStage,
+                  level: rawSubStage || row['level'] || '',
+                  gender: row['gender'] || 'male',
                   updatedAt: new Date(),
                 }, profile, true).catch(e => console.warn(e));
               }

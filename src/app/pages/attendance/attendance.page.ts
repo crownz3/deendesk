@@ -10,6 +10,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
 import { LoaderService } from '../../core/services/loader.service';
 import { MatDialog } from '@angular/material/dialog';
+import { AttendanceFirestoreService } from '../../core/services/attendance-firestore.service';
 import { AttendanceHistoryDialogComponent } from '../../shared/components/attendance-history-dialog/attendance-history-dialog.component';
 import { StudentEvaluationDialogComponent } from './student-evaluation-dialog.component';
 import { QuickAddDialogComponent } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
@@ -176,7 +177,8 @@ export class AttendancePage implements OnInit, OnDestroy {
     private readonly snackBar: MatSnackBar,
     private readonly loader: LoaderService,
     private readonly dialog: MatDialog,
-    private readonly route: ActivatedRoute
+    private readonly route: ActivatedRoute,
+    private readonly attendanceFs: AttendanceFirestoreService
   ) {}
 
   refreshData(): void {
@@ -331,55 +333,83 @@ export class AttendancePage implements OnInit, OnDestroy {
     if (!profile) return;
 
     try {
-      // 1. Load activities for this date
-      const dateObj = this.form.get('date')?.value;
-      if (dateObj) {
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const todayDayName = days[new Date(dateObj).getDay()];
-        const allEntries = await this.repo.getAllOnce<EntityRecord & TimetableEntry>('timetableEntries', profile, undefined, [
-          where('classPlanId', '==', filter.classPlanId)
-        ]);
-        this.activitiesForDate = allEntries
-          .filter(e => e.dayOfWeek === todayDayName)
-          .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
-      }
-
-      // 2. Load attendance records
-      const existing = await this.repo.getAllOnce<EntityRecord & any>('attendance', profile, undefined, [
-        where('classPlanId', '==', filter.classPlanId),
-        where('date', '==', dateStr)
+      // 1. Load timetable entries for this date's day-of-week
+      const parts = dateStr.split('-').map(Number);
+      const dateObj = (parts.length === 3 && !isNaN(parts[0]))
+        ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(dateStr);
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const todayDayName = days[dateObj.getDay()];
+      const allEntries = await this.repo.getAllOnce<EntityRecord & TimetableEntry>('timetableEntries', profile, undefined, [
+        where('classPlanId', '==', filter.classPlanId)
       ]);
+      this.activitiesForDate = allEntries
+        .filter(e => String(e.dayOfWeek || '').trim().toLowerCase() === todayDayName.toLowerCase())
+        .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''));
 
-      // Filter locally by timetableEntryId
-      const filteredExisting = existing.filter(record => {
-        if (filter.timetableEntryId === 'ALL') {
-          return !record.timetableEntryId; // Only show records that don't have a specific activity
-        }
-        return record.timetableEntryId === filter.timetableEntryId;
-      });
-
+      const timetableEntryId = filter.timetableEntryId !== 'ALL' ? filter.timetableEntryId : null;
       const newSelections: Record<string, AttendanceStatus> = {};
       const newDetails: Record<string, any> = {};
 
-      for (const record of filteredExisting) {
-        if (record.type === 'class' && record.students) {
-          for (const s of record.students) {
+      // 2. Load from new subcollection: attendance/{classPlanId}/days/{date}
+      const subcollDoc = await this.attendanceFs.getDay(filter.classPlanId, dateStr, timetableEntryId);
+
+      if (subcollDoc) {
+        if (Array.isArray(subcollDoc.students)) {
+          for (const s of subcollDoc.students) {
             if (s.studentId) {
               newSelections[s.studentId] = s.status;
               newDetails[s.studentId] = s;
             }
           }
-          if (record.staff) {
-            for (const st of record.staff) {
+        }
+        if (Array.isArray(subcollDoc.staff)) {
+          for (const st of subcollDoc.staff) {
+            if (st.staffId) {
+              newSelections[st.staffId] = st.status;
+              newDetails[st.staffId] = st;
+            }
+          }
+        }
+      } else {
+        // Fallback: check legacy top-level 'attendance' collection
+        const existing = await this.repo.getAllOnce<EntityRecord & any>('attendance', profile, undefined, [
+          where('classPlanId', '==', filter.classPlanId),
+          where('date', '==', dateStr)
+        ]);
+        const matchingDoc = existing.find((doc: any) => {
+          if (timetableEntryId) return doc.timetableEntryId === timetableEntryId;
+          return !doc.timetableEntryId;
+        });
+
+        if (matchingDoc) {
+          if (Array.isArray(matchingDoc.students)) {
+            for (const s of matchingDoc.students) {
+              if (s.studentId) {
+                newSelections[s.studentId] = s.status;
+                newDetails[s.studentId] = s;
+              }
+            }
+          }
+          if (Array.isArray(matchingDoc.staff)) {
+            for (const st of matchingDoc.staff) {
               if (st.staffId) {
                 newSelections[st.staffId] = st.status;
                 newDetails[st.staffId] = st;
               }
             }
           }
-        } else if (record.studentId) {
-          newSelections[record.studentId] = record.status;
-          newDetails[record.studentId] = record;
+        } else {
+          // Backward compat: old flat per-student records
+          const flatDocs = existing.filter((doc: any) => doc.studentId && !Array.isArray(doc.students));
+          for (const doc of flatDocs) {
+            const matches = timetableEntryId
+              ? doc.timetableEntryId === timetableEntryId
+              : !doc.timetableEntryId;
+            if (matches) {
+              newSelections[doc.studentId] = doc.status;
+              newDetails[doc.studentId] = doc;
+            }
+          }
         }
       }
 
@@ -873,6 +903,20 @@ export class AttendancePage implements OnInit, OnDestroy {
     };
   }
 
+  getActivityLabel(activity: (EntityRecord & TimetableEntry) | undefined | null): string {
+    if (!activity) return '';
+    if (activity.hifzSessionType) {
+      const labels: Record<string, string> = {
+        sabak: 'Sabak (New Lesson)',
+        sabki: 'Sabki (Recent Revision)',
+        manzil: 'Manzil (Old Revision)',
+        custom: activity.activityName || 'Custom Session'
+      };
+      if (labels[activity.hifzSessionType]) return labels[activity.hifzSessionType];
+    }
+    return activity.activityName || activity.subjectName || 'Period Activity';
+  }
+
   getCurrentSession(vm: AttendanceVm): (EntityRecord & TimetableEntry) | undefined {
     const filter = this.form.getRawValue();
     if (!filter.classPlanId || !filter.date) return undefined;
@@ -977,7 +1021,8 @@ export class AttendancePage implements OnInit, OnDestroy {
 
   viewHistory(student: EntityRecord): void {
     this.dialog.open(AttendanceHistoryDialogComponent, {
-      width: '500px',
+      width: '640px',
+      maxWidth: '95vw',
       data: {
         title: `Attendance History for ${student['displayName'] || student['name'] || 'Student'}`,
         studentId: String(student.id)
@@ -1054,52 +1099,119 @@ export class AttendancePage implements OnInit, OnDestroy {
     const filter = this.form.getRawValue();
     const students = this.filteredStudents(vm);
     const staff = this.filteredStaff(vm);
-    const allParticipants = [...staff, ...students];
 
-    if (allParticipants.length === 0) {
+    if (students.length === 0 && staff.length === 0) {
       this.snackBar.open('No participants found for the selected filter.', 'Close', { duration: 3000 });
       return;
     }
 
     const selectedPlan = vm.classPlans.find(p => p.id === filter.classPlanId);
+    if (!selectedPlan) {
+      this.snackBar.open('Class plan not found.', 'Close', { duration: 3000 });
+      return;
+    }
+
     const dateStr = this.getFormattedDate();
+
+    let timetableEntryId: string | undefined = undefined;
+    let activityName: string | undefined = undefined;
+    if (filter.timetableEntryId && filter.timetableEntryId !== 'ALL') {
+      timetableEntryId = filter.timetableEntryId;
+      const activity = this.activitiesForDate.find(a => a.id === timetableEntryId);
+      if (activity) activityName = activity.activityName;
+    }
 
     try {
       await this.loader.withLoader('Saving attendance...', async () => {
-        await this.repo.batchCreate('attendance', allParticipants.map((participant) => {
-          const details = this.attendanceDetails[String(participant.id)] || {};
-          
-          let timetableEntryId: string | undefined = undefined;
-          let activityName: string | undefined = undefined;
-          
-          if (filter.timetableEntryId && filter.timetableEntryId !== 'ALL') {
-            timetableEntryId = filter.timetableEntryId;
-            const activity = this.activitiesForDate.find(a => a.id === timetableEntryId);
-            if (activity) {
-              activityName = activity.activityName;
-            }
-          }
-
+        // Build students[] array — one entry per student with their status
+        const studentsArray = students.map(student => {
+          const pid = String(student.id);
+          const details = this.attendanceDetails[pid] || {};
+          // Remove doc-level fields that shouldn't be in the student entry
+          const { date, classPlanId, classId, courseId, madrasaId, organizationId, teacherId, notes, autoGenerated, timetableEntryId: _te, activityName: _an, ...cleanDetails } = details as any;
           return {
-            date: dateStr,
-            organizationId: participant.organizationId || selectedPlan?.organizationId,
-            madrasaId: String(participant.madrasaId || selectedPlan?.madrasaId || ''),
-            courseId: String(participant['courseId'] || selectedPlan?.courseId || ''),
-            classId: String(participant['classId'] || selectedPlan?.classId || ''),
-            classPlanId: filter.classPlanId,
-            timetableEntryId,
-            activityName,
-            studentId: String(participant.id),
-            teacherId: profile?.uid,
-            status: this.selections[String(participant.id)] || 'present',
-            notes: filter.notes,
-            ...details
+            studentId: pid,
+            studentName: String(student['displayName'] || student['name'] || 'Unknown'),
+            status: this.selections[pid] || 'present',
+            markedBy: profile?.uid ?? 'system',
+            markedAt: new Date().toISOString(),
+            ...cleanDetails
           };
-        }), profile ?? null);
+        });
+
+        // Build staff[] array
+        const staffArray = staff.map(s => {
+          const pid = String(s.id);
+          const details = this.attendanceDetails[pid] || {};
+          const { date: _d, classPlanId: _cp, ...cleanDetails } = details as any;
+          return {
+            staffId: pid,
+            staffName: String(s['displayName'] || s['name'] || 'Unknown'),
+            role: String(s['role'] || 'teacher'),
+            status: this.selections[pid] || 'present',
+            markedBy: profile?.uid ?? 'system',
+            markedAt: new Date().toISOString(),
+            ...cleanDetails
+          };
+        });
+
+        // Write day record to subcollection: attendance/{classPlanId}/days/{date}
+        const exception = this.getExceptionForSelectedDate(vm);
+        const dayRecord: any = {
+          date: dateStr,
+          classPlanId: filter.classPlanId,
+          classId: String(selectedPlan.classId || ''),
+          courseId: String(selectedPlan.courseId || ''),
+          madrasaId: String(selectedPlan.madrasaId || ''),
+          organizationId: String(selectedPlan.organizationId || ''),
+          timetableEntryId: timetableEntryId || null,
+          activityName: activityName || null,
+          status: 'confirmed',
+          autoGenerated: false,
+          students: studentsArray,
+          staff: staffArray,
+          notes: filter.notes || null,
+          teacherId: profile?.uid || null,
+          exception: exception ? {
+            type: exception.type,
+            reason: exception.reason || null,
+            customTypeName: exception.customTypeName || null,
+          } : null,
+        };
+
+        // 1. Save to subcollection
+        await this.attendanceFs.setDay(filter.classPlanId, dayRecord);
+
+        // 2. Also save to top-level collection for legacy/backward compat if matching doc exists
+        const constraints: any[] = [
+          where('classPlanId', '==', filter.classPlanId),
+          where('date', '==', dateStr),
+        ];
+        if (timetableEntryId) constraints.push(where('timetableEntryId', '==', timetableEntryId));
+        const existingDocs = await this.repo.getAllOnce<EntityRecord & any>('attendance', profile, undefined, constraints);
+        const matchingDoc = existingDocs.find((doc: any) => {
+          if (timetableEntryId) return doc.timetableEntryId === timetableEntryId;
+          return !doc.timetableEntryId;
+        });
+
+        const legacyPayload = {
+          ...dayRecord,
+          dateKey: dateStr,
+          type: 'class',
+          attendanceStatus: 'confirmed',
+          studentIds: studentsArray.map(s => s.studentId),
+          staffIds: staffArray.map(s => s.staffId),
+        };
+        if (matchingDoc?.id) {
+          await this.repo.update('attendance', String(matchingDoc.id), legacyPayload, profile);
+        } else {
+          await this.repo.create('attendance', legacyPayload, profile);
+        }
       });
 
       this.snackBar.open('Attendance saved.', 'Close', { duration: 3000 });
-    } catch (e) {
+    } catch (e: any) {
+      console.error('[AttendancePage] Save failed:', e?.message || e);
       this.snackBar.open('Unable to save attendance. Please try again.', 'Close', { duration: 4000 });
     }
   }

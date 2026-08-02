@@ -195,8 +195,9 @@
                           (click)="form.patchValue({timetableEntryId: activity.id})">
                     <div class="chip-icon"><mat-icon>schedule</mat-icon></div>
                     <div class="chip-content">
-                      <span class="chip-title">{{ activity.activityName }}</span>
-                      <span class="chip-subtitle" *ngIf="currentPlan?.scheduleType !== 'oneTime'">
+                      <span class="chip-title">{{ getActivityLabel(activity) }}</span>
+                      <span class="chip-subtitle">
+                        <ng-container *ngIf="activity.subjectName && activity.subjectName !== getActivityLabel(activity)">{{ activity.subjectName }} &bull; </ng-container>
                         <ng-container *ngIf="activity.scheduleType !== 'fullDay'">{{ activity.startTime || '00:00' }} - {{ activity.endTime || '00:00' }}</ng-container>
                         <ng-container *ngIf="activity.scheduleType === 'fullDay'">Full-Day Activity</ng-container>
                       </span>
@@ -236,18 +237,18 @@
                       <button mat-icon-button class="history-btn" matTooltip="History" (click)="viewHistory(staff)" type="button">
                         <mat-icon>history</mat-icon>
                       </button>
-                    </div>
-                    <!-- Detail chips for absent/late/leave -->
-                    <div class="attendance-detail-chips" *ngIf="attendanceDetails[staff.id || ''] as detail">
-                      <span class="detail-chip informed-chip" *ngIf="detail['informed']">
-                        <mat-icon>notifications</mat-icon> Informed: {{ detail['informed'] }}
-                      </span>
-                      <span class="detail-chip late-chip" *ngIf="detail['lateTime']">
-                        <mat-icon>schedule</mat-icon> Late by: {{ detail['lateTime'] }}
-                      </span>
-                      <span class="detail-chip reason-chip" *ngIf="detail['reason']">
-                        <mat-icon>notes</mat-icon> {{ detail['reason'] }}
-                      </span>
+                      <!-- Detail chips for absent/late/leave -->
+                      <div class="attendance-detail-chips" *ngIf="attendanceDetails[staff.id || ''] as detail">
+                        <span class="detail-chip informed-chip" [class.informed-yes]="detail['informed'] === 'Yes'" [class.informed-no]="detail['informed'] === 'No'" *ngIf="detail['informed']">
+                          <mat-icon>notifications</mat-icon> Informed: {{ detail['informed'] }}
+                        </span>
+                        <span class="detail-chip late-chip" *ngIf="detail['lateTime']">
+                          <mat-icon>schedule</mat-icon> Late: {{ detail['lateTime'] }}
+                        </span>
+                        <span class="detail-chip reason-chip" *ngIf="detail['reason']" [matTooltip]="detail['reason']">
+                          <mat-icon>notes</mat-icon> {{ detail['reason'] }}
+                        </span>
+                      </div>
                     </div>
                   </article>
                 </div>
@@ -318,25 +319,25 @@
                         </mat-button-toggle>
                       </mat-button-toggle-group>
                       <div class="row-action-buttons">
-                        <button mat-flat-button color="accent" class="evaluate-btn mobile-eval-btn" (click)="openEvaluationDialog(student, vm)" type="button" title="Log Progress & Evaluation">
+                        <button mat-flat-button color="accent" class="evaluate-btn mobile-eval-btn" (click)="openEvaluationDialog(student, vm)" type="button" title="Log Progress & Evaluation" [disabled]="selections[student.id || ''] === 'absent' || selections[student.id || ''] === 'leave'">
                           <mat-icon>assignment_turned_in</mat-icon> <span class="eval-btn-label">Progress</span>
                         </button>
                         <button mat-icon-button class="history-btn" matTooltip="History" (click)="viewHistory(student)" type="button">
                           <mat-icon>history</mat-icon>
                         </button>
                       </div>
-                    </div>
-                    <!-- Detail chips for absent/late/leave -->
-                    <div class="attendance-detail-chips" *ngIf="attendanceDetails[student.id || ''] as detail">
-                      <span class="detail-chip informed-chip" *ngIf="detail['informed']">
-                        <mat-icon>notifications</mat-icon> Informed: {{ detail['informed'] }}
-                      </span>
-                      <span class="detail-chip late-chip" *ngIf="detail['lateTime']">
-                        <mat-icon>schedule</mat-icon> Late by: {{ detail['lateTime'] }}
-                      </span>
-                      <span class="detail-chip reason-chip" *ngIf="detail['reason']">
-                        <mat-icon>notes</mat-icon> {{ detail['reason'] }}
-                      </span>
+                      <!-- Detail chips for absent/late/leave -->
+                      <div class="attendance-detail-chips" *ngIf="attendanceDetails[student.id || ''] as detail">
+                        <span class="detail-chip informed-chip" [class.informed-yes]="detail['informed'] === 'Yes'" [class.informed-no]="detail['informed'] === 'No'" *ngIf="detail['informed']">
+                          <mat-icon>notifications</mat-icon> Informed: {{ detail['informed'] }}
+                        </span>
+                        <span class="detail-chip late-chip" *ngIf="detail['lateTime']">
+                          <mat-icon>schedule</mat-icon> Late: {{ detail['lateTime'] }}
+                        </span>
+                        <span class="detail-chip reason-chip" *ngIf="detail['reason']" [matTooltip]="detail['reason']">
+                          <mat-icon>notes</mat-icon> {{ detail['reason'] }}
+                        </span>
+                      </div>
                     </div>
                   </article>
 
