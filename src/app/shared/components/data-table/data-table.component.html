@@ -1,5 +1,45 @@
 <ng-container *ngIf="rows.length > 0; else empty">
-  <div class="table-wrap">
+  <!-- Toolbar Header: View Mode Switcher & Card Fields Configurator -->
+  <div class="data-table-toolbar">
+    <div class="toolbar-info">
+      <span class="total-count-badge">{{ rows.length }} Record(s)</span>
+      <span class="selected-count-badge" *ngIf="selection.hasValue()">({{ selection.selected.length }} selected)</span>
+    </div>
+
+    <div class="toolbar-actions">
+      <!-- Card Fields Selection Menu -->
+      <button mat-stroked-button type="button" class="customize-fields-btn" [matMenuTriggerFor]="cardFieldsMenu" *ngIf="viewMode === 'card'">
+        <ion-icon name="options-outline"></ion-icon>
+        <span>Card Fields</span>
+      </button>
+
+      <mat-menu #cardFieldsMenu="matMenu" class="card-fields-menu-panel">
+        <div class="menu-title-bar" (click)="$event.stopPropagation()">
+          <strong>Display Fields on Card</strong>
+          <button mat-button color="primary" class="reset-btn" (click)="resetDefaultCardFields(true)">Reset Default</button>
+        </div>
+        <mat-divider></mat-divider>
+        <div class="menu-item-check" *ngFor="let col of columns" (click)="$event.stopPropagation()">
+          <mat-checkbox [checked]="isCardFieldVisible(col.key)" (change)="toggleCardField(col.key)" color="primary">
+            {{ col.label }}
+          </mat-checkbox>
+        </div>
+      </mat-menu>
+
+      <!-- View Mode Toggle -->
+      <mat-button-toggle-group [value]="viewMode" (change)="onViewModeChange($event.value)" class="view-toggle-group" aria-label="View Mode">
+        <mat-button-toggle value="table" matTooltip="Table View">
+          <ion-icon name="reorder-two-outline"></ion-icon> Table
+        </mat-button-toggle>
+        <mat-button-toggle value="card" matTooltip="Card Grid View">
+          <ion-icon name="grid-outline"></ion-icon> Cards
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+  </div>
+
+  <!-- TABLE VIEW MODE -->
+  <div class="table-wrap" *ngIf="viewMode === 'table'">
     <table mat-table [dataSource]="dataSource" matSort class="data-table" [trackBy]="trackByRow">
 
       <!-- Checkbox Column -->
@@ -83,8 +123,30 @@
                 <ion-icon [name]="row[column.key] ? 'checkmark-circle' : 'close-circle'" 
                           [color]="row[column.key] ? 'success' : 'medium'"></ion-icon>
               </span>
+              <span *ngSwitchCase="'studentCount'" class="student-count-cell">
+                <button type="button"
+                        class="student-count-chip-btn"
+                        [class.has-students]="$any(row['studentCount'] || 0) > 0"
+                        (click)="viewStudents.emit(row); $event.stopPropagation()"
+                        [disabled]="!row['studentCount'] || row['studentCount'] === 0"
+                        matTooltip="Click to view assigned students">
+                  <ion-icon name="people-outline"></ion-icon>
+                  <span>{{ row['studentCount'] || 0 }} Students</span>
+                </button>
+              </span>
+              <span *ngSwitchCase="'madrasaCount'" class="student-count-cell">
+                <button type="button"
+                        class="student-count-chip-btn"
+                        [class.has-students]="$any(row['madrasaCount'] || 0) > 0"
+                        (click)="viewMadrasas.emit(row); $event.stopPropagation()"
+                        [disabled]="!row['madrasaCount'] || row['madrasaCount'] === 0"
+                        matTooltip="Click to view madrasas assigned to this course">
+                  <ion-icon name="business-outline"></ion-icon>
+                  <span>{{ row['madrasaCount'] || 0 }} Madrasa(s)</span>
+                </button>
+              </span>
               <span *ngSwitchCase="'date'" class="date-cell">
-                {{ (getDate(row, column.key) | date:'mediumDate') || 'N/A' }}
+                {{ (getDate(row, column.key) | date:'MMM d, yyyy, h:mm a') || 'N/A' }}
               </span>
               <span *ngSwitchCase="'staffChips'" class="staff-chip-list" [matTooltip]="staffTooltip(row, column.key)" matTooltipClass="multiline-tooltip">
                 <ng-container *ngIf="staffPeople(row, column.key).length; else noStaffAssigned">
@@ -101,6 +163,20 @@
                 </ng-container>
                 <ng-template #noStaffAssigned>
                   <span class="muted-text">No staff</span>
+                </ng-template>
+              </span>
+              <span *ngSwitchCase="'stageChips'" class="stage-chip-list" [matTooltip]="getStagesList(row, column.key).join('\n')" matTooltipClass="multiline-tooltip">
+                <ng-container *ngIf="getStagesList(row, column.key).length; else noStagesAssigned">
+                  <span class="stage-chip" *ngFor="let stage of getVisibleStages(row, column.key)">
+                    <ion-icon name="layers-outline" class="stage-icon"></ion-icon>
+                    <span class="stage-name">{{ stage }}</span>
+                  </span>
+                  <span class="stage-chip more" *ngIf="getHiddenStagesCount(row, column.key) > 0">
+                    +{{ getHiddenStagesCount(row, column.key) }} more
+                  </span>
+                </ng-container>
+                <ng-template #noStagesAssigned>
+                  <span class="muted-text">No stages</span>
                 </ng-template>
               </span>
               <span *ngSwitchCase="'idRef'">
@@ -212,6 +288,187 @@
       <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
       <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
     </table>
+  </div>
+
+  <!-- CARD GRID VIEW MODE -->
+  <div class="data-card-grid" *ngIf="viewMode === 'card'">
+    <mat-card class="data-card" *ngFor="let row of pagedRows; trackBy: trackByRow" [class.selected]="selection.isSelected(row)">
+      <!-- Card Header -->
+      <div class="card-header-bar">
+        <div class="card-header-main">
+          <mat-checkbox (change)="$event ? selection.toggle(row) : null"
+                        [checked]="selection.isSelected(row)"
+                        [aria-label]="checkboxLabel(row)"
+                        color="primary"
+                        class="card-select-check">
+          </mat-checkbox>
+
+          <div class="card-avatar-wrapper">
+            <img *ngIf="getCardAvatar(row); else avatarInitials" [src]="getCardAvatar(row)" alt="" class="card-avatar-img" />
+            <ng-template #avatarInitials>
+              <div class="card-avatar-initials">{{ getCardInitials(row) }}</div>
+            </ng-template>
+          </div>
+
+          <div class="card-title-box">
+            <h3 class="card-title">{{ getCardTitle(row) }}</h3>
+            <span class="card-subtitle" *ngIf="getCardSubtitle(row)">{{ getCardSubtitle(row) }}</span>
+          </div>
+        </div>
+
+        <!-- Row Actions Menu button -->
+        <button mat-icon-button type="button" [matMenuTriggerFor]="rowCardMenu" class="card-menu-btn" aria-label="Actions">
+          <ion-icon name="ellipsis-vertical"></ion-icon>
+        </button>
+
+        <mat-menu #rowCardMenu="matMenu">
+          <button *ngIf="allowDetails" mat-menu-item type="button" (click)="viewDetails.emit(row)">
+            <ion-icon name="eye-outline"></ion-icon>
+            <span>View details</span>
+          </button>
+          <button mat-menu-item type="button" (click)="edit.emit(row)">
+            <ion-icon name="create-outline"></ion-icon>
+            <span>Edit</span>
+          </button>
+          <button *ngIf="allowImpersonate" mat-menu-item type="button" (click)="impersonate.emit(row)">
+            <ion-icon name="log-in-outline"></ion-icon>
+            <span>Login As User</span>
+          </button>
+          <button *ngIf="allowCredentials" mat-menu-item type="button" (click)="resetPassword.emit(row)">
+            <ion-icon name="key-outline"></ion-icon>
+            <span>Set temporary password</span>
+          </button>
+          <button *ngIf="allowPromotion" mat-menu-item type="button" (click)="promote.emit(row)">
+            <ion-icon name="trending-up-outline"></ion-icon>
+            <span>Promote / demote</span>
+          </button>
+          <button *ngIf="allowAssignStudents" mat-menu-item type="button" (click)="assignStudents.emit(row)">
+            <ion-icon name="people-outline"></ion-icon>
+            <span>Assign Students</span>
+          </button>
+          <button *ngIf="allowAssignStaff" mat-menu-item type="button" (click)="assignStaff.emit(row)">
+            <ion-icon name="person-add-outline"></ion-icon>
+            <span>Assign Staff</span>
+          </button>
+          <button *ngIf="allowTransfer" mat-menu-item type="button" (click)="transfer.emit(row)">
+            <ion-icon name="swap-horizontal-outline"></ion-icon>
+            <span>Transfer</span>
+          </button>
+          <button *ngIf="allowSwap" mat-menu-item type="button" (click)="swap.emit(row)">
+            <ion-icon name="people-circle-outline"></ion-icon>
+            <span>Swap Users</span>
+          </button>
+          <ng-container *ngIf="row['status'] !== 'inactive'; else activateCardBtn">
+            <button mat-menu-item type="button" class="danger-item" 
+                    [disabled]="isSelf(row)"
+                    [attr.title]="isSelf(row) ? 'You cannot deactivate your own profile.' : null"
+                    (click)="remove.emit(row)">
+              <ion-icon name="ban-outline"></ion-icon>
+              <span>Deactivate</span>
+            </button>
+          </ng-container>
+          <ng-template #activateCardBtn>
+            <button mat-menu-item type="button" class="success-item" (click)="activate.emit(row)">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              <span>Activate</span>
+            </button>
+          </ng-template>
+          <button *ngIf="allowDelete" mat-menu-item type="button" class="danger-item" (click)="permanentlyDelete.emit(row)">
+            <ion-icon name="trash-outline"></ion-icon>
+            <span>Permanently Delete</span>
+          </button>
+        </mat-menu>
+      </div>
+
+      <mat-divider></mat-divider>
+
+      <!-- Card Content: Custom Selected Fields -->
+      <mat-card-content class="card-body">
+        <div class="card-field-row" *ngFor="let column of visibleCardColumns; trackBy: trackByColumn">
+          <span class="field-label">{{ column.label }}:</span>
+          <div class="field-value">
+            <!-- Status Badge -->
+            <app-status-badge *ngIf="column.type === 'status'" [status]="text(row, column.key)"></app-status-badge>
+
+            <!-- Role Badge -->
+            <app-role-badge *ngIf="column.type === 'role'" [role]="text(row, column.key)"></app-role-badge>
+
+            <!-- Temporary Password / Credentials -->
+            <ng-container *ngIf="column.type === 'temporaryPassword' || column.type === 'credentialStatus'">
+              <span class="status-chip warning" *ngIf="row['credentialStatus'] === 'TEMP_PASSWORD_PENDING'">
+                {{ row['temporaryPasswordDisplay'] || 'Pending' }}
+              </span>
+              <span class="status-chip success" *ngIf="row['credentialStatus'] === 'PASSWORD_CHANGED'">Changed</span>
+              <span class="status-chip danger" *ngIf="!row['credentialStatus'] || row['credentialStatus'] === 'LOGIN_NOT_CREATED'">No Login</span>
+            </ng-container>
+
+            <!-- Date -->
+            <span *ngIf="column.type === 'date'">{{ (getDate(row, column.key) | date:'MMM d, yyyy, h:mm a') || 'N/A' }}</span>
+
+            <!-- Boolean -->
+            <ion-icon *ngIf="column.type === 'boolean'" [name]="row[column.key] ? 'checkmark-circle' : 'close-circle'" [color]="row[column.key] ? 'success' : 'medium'"></ion-icon>
+
+            <!-- Staff Chips -->
+            <span *ngIf="column.type === 'staffChips'" class="staff-chip-list">
+              <span class="staff-chip" *ngFor="let person of visibleStaffPeople(row, column.key)">
+                <span class="staff-chip-name">{{ person.name || person.displayName || person.email || person.id }}</span>
+              </span>
+            </span>
+
+            <!-- Stage Chips -->
+            <span *ngIf="column.type === 'stageChips'" class="stage-chip-list">
+              <span class="stage-chip" *ngFor="let stage of getVisibleStages(row, column.key)">
+                <ion-icon name="layers-outline" class="stage-icon"></ion-icon>
+                <span>{{ stage }}</span>
+              </span>
+            </span>
+
+            <!-- ID Reference with Name Resolver -->
+            <span *ngIf="column.type === 'idRef'">
+              <ng-container *ngIf="isArray(value(row, column.key)); else singleIdRefCard">
+                <span class="id-list">
+                  <ng-container *ngFor="let id of asArray(value(row, column.key)); let last = last">
+                    <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)"></app-name-with-copy>
+                    <span *ngIf="!last">, </span>
+                  </ng-container>
+                </span>
+              </ng-container>
+              <ng-template #singleIdRefCard>
+                <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)"></app-name-with-copy>
+              </ng-template>
+            </span>
+
+            <!-- Plain Text / Default (with Name Fallback) -->
+            <span *ngIf="!['status', 'role', 'temporaryPassword', 'credentialStatus', 'date', 'boolean', 'staffChips', 'stageChips', 'idRef'].includes(column.type || '')">
+              {{ getCardFieldValue(row, column.key) }}
+            </span>
+          </div>
+        </div>
+      </mat-card-content>
+
+      <mat-divider *ngIf="hasMadrasasButton(row) || hasStudentsButton(row) || hasAcademicButton(row)"></mat-divider>
+
+      <!-- Card Action Buttons Bar -->
+      <div class="card-footer-actions" *ngIf="hasMadrasasButton(row) || hasStudentsButton(row) || hasAcademicButton(row)">
+        <!-- Madrasas Button -->
+        <button type="button" class="card-action-btn" (click)="viewMadrasas.emit(row); $event.stopPropagation()" *ngIf="hasMadrasasButton(row)">
+          <ion-icon name="business-outline"></ion-icon>
+          <span>{{ row['madrasaCount'] || 1 }} Madrasa(s)</span>
+        </button>
+
+        <!-- Academic Details Button -->
+        <button type="button" class="card-action-btn accent" (click)="viewDetails.emit(row); $event.stopPropagation()" *ngIf="hasAcademicButton(row)">
+          <ion-icon name="school-outline"></ion-icon>
+          <span>Academic</span>
+        </button>
+
+        <!-- Students Count Button -->
+        <button type="button" class="card-action-btn primary" (click)="viewStudents.emit(row); $event.stopPropagation()" *ngIf="hasStudentsButton(row)">
+          <ion-icon name="people-outline"></ion-icon>
+          <span>{{ row['studentCount'] || 0 }} Students</span>
+        </button>
+      </div>
+    </mat-card>
   </div>
 </ng-container>
 

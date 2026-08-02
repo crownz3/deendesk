@@ -24,6 +24,7 @@ import {
 import { Observable, combineLatest, of, BehaviorSubject, throwError } from 'rxjs';
 import { map, shareReplay, switchMap } from 'rxjs/operators';
 import { AppUser, AppModuleId, ScopedEntity } from '../models/domain.model';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 import { FirebaseUsageTrackerService } from './firebase-usage-tracker.service';
@@ -553,6 +554,10 @@ export class RepositoryService {
       }
     }
     
+    if (['users', 'students', 'parents', 'staff'].includes(collectionName)) {
+      await this.deleteAuthAccount(cleanId);
+    }
+    
     await deleteDoc(doc(this.firestore, `${collectionName}/${cleanId}`));
     this.usageTracker.recordDelete(this.mapCollectionToModule(collectionName), undefined, 1);
     this.clearCache(collectionName);
@@ -564,6 +569,18 @@ export class RepositoryService {
       targetName: targetName || undefined,
       status: 'success'
     });
+  }
+
+  private async deleteAuthAccount(uid: string): Promise<void> {
+    if (!uid || typeof uid !== 'string' || !uid.trim()) return;
+    try {
+      const fn = getFunctions(getDeenDeskFirebaseApp());
+      const deleteCallable = httpsCallable<{ targetUid: string }, { success: boolean }>(fn, 'deleteUserAuthAccount');
+      await deleteCallable({ targetUid: uid.trim() });
+      console.log(`[Auth Delete] Deleted Auth account for ${uid}`);
+    } catch (err) {
+      console.warn(`[Auth Delete Warning] Could not delete Auth account for ${uid}:`, err);
+    }
   }
 
   async batchCreate(collectionName: string, rows: EntityRecord[], currentUser: AppUser | null): Promise<number> {

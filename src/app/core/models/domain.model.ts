@@ -514,7 +514,7 @@ export interface CsvImportLog extends ScopedEntity {
 export interface TableColumn {
   key: string;
   label: string;
-  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef' | 'staffChips';
+  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef' | 'staffChips' | 'studentCount' | 'madrasaCount' | 'stageChips';
   referenceType?: 'organization' | 'madrasa' | 'user' | 'course' | 'class' | 'classGroup' | 'subject' | 'student' | 'parent' | 'staff' | 'teacher' | 'coordinator' | 'incharge';
 }
 
@@ -646,6 +646,26 @@ export interface TimetableEntry extends ScopedEntity {
   endPage?: number | null;
   dailyTargetPages?: number | null;
   unitType?: 'pages' | 'hadith' | 'lessons' | 'paras' | 'chapters';
+}
+
+export interface StageCatalogItem extends ScopedEntity {
+  courseId?: string;
+  courseTypeId?: string;
+  name: string;
+  code?: string;
+  sequenceNumber: number;
+  parentStageId?: string;
+  isParentStage?: boolean;
+  levelDepth?: number;
+  description?: string;
+}
+
+export interface AcademicNamingPattern {
+  classNamePattern?: string;
+  groupNamePattern?: string;
+  standardShifts?: string[];
+  standardClassPresets?: string[];
+  standardGroupPresets?: string[];
 }
 
 export interface ClassPlanAttendance extends ScopedEntity {

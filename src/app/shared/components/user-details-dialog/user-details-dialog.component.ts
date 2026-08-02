@@ -22,6 +22,14 @@ export interface UserDetailsDialogData {
 export class UserDetailsDialogComponent implements OnInit {
   user: EntityRecord;
   currentUserRole?: string;
+  activeTab: 'minimal' | 'more' | 'students' = 'minimal';
+
+  courseNames: string[] = [];
+  classNames: string[] = [];
+  groupNames: string[] = [];
+  assignedStudents: EntityRecord[] = [];
+  assignedGroups: EntityRecord[] = [];
+  loadingStudents = false;
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: UserDetailsDialogData,
@@ -34,10 +42,6 @@ export class UserDetailsDialogComponent implements OnInit {
     this.user = data.user;
   }
 
-  assignedStudents: EntityRecord[] = [];
-  assignedGroups: EntityRecord[] = [];
-  loadingStudents = false;
-
   ngOnInit() {
     this.auth.profile$.subscribe(profile => {
       if (profile) {
@@ -45,54 +49,111 @@ export class UserDetailsDialogComponent implements OnInit {
       }
     });
 
-    if (this.user['role'] === 'staff' || this.user['role'] === 'teacher') {
-      this.loadAssignedStudents();
-    }
+    this.loadAcademicDetails();
   }
 
-  async loadAssignedStudents() {
-    const staffIds = [this.user.id, this.user['uid'], this.user['userId'], this.user['entityId'], this.user['email']]
-      .map(value => String(value || '').trim())
-      .filter(Boolean);
-    
-    if (!staffIds.length) {
-      return;
-    }
-    
+  get userPhone(): string {
+    const p = this.user['phone'] || this.user['mobileNumber'] || this.user['phoneNumber'] || this.user['mobile'];
+    return p ? String(p) : '-';
+  }
+
+  async loadAcademicDetails() {
     this.loadingStudents = true;
     try {
       const firestore = getFirestore(getDeenDeskFirebaseApp());
       const usersRef = collection(firestore, 'users');
-      const groupsSnap = await getDocs(collection(firestore, 'classGroups'));
-      this.assignedGroups = groupsSnap.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord))
-        .filter(group =>
-          Array.isArray(group['assignedStaffIds']) &&
-          staffIds.some(id => (group['assignedStaffIds'] as unknown[]).map(String).includes(id))
-        );
-
-      const studentPromises: Promise<EntityRecord[]>[] = [];
       
-      for (const group of this.assignedGroups) {
-        if (!group.id) continue;
-        const q = query(usersRef, where('role', '==', 'student'), where('groupId', '==', group.id));
-        studentPromises.push(getDocs(q).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord))));
+      const [groupsSnap, classesSnap, coursesSnap] = await Promise.all([
+        getDocs(collection(firestore, 'classGroups')),
+        getDocs(collection(firestore, 'classes')),
+        getDocs(collection(firestore, 'courses'))
+      ]);
+
+      const allGroups = groupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
+      const allClasses = classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
+      const allCourses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
+
+      const courseMap = new Map<string, string>();
+      allCourses.forEach(c => { if (c.id) courseMap.set(c.id, String(c['name'] || c['title'] || c.id)); });
+
+      const classMap = new Map<string, string>();
+      allClasses.forEach(c => { if (c.id) classMap.set(c.id, String(c['name'] || c['title'] || c.id)); });
+
+      const groupMap = new Map<string, string>();
+      allGroups.forEach(g => { if (g.id) groupMap.set(g.id, String(g['name'] || g['title'] || g.id)); });
+
+      const userStaffIds = [this.user.id, this.user['uid'], this.user['userId'], this.user['entityId'], this.user['email']]
+        .map(value => String(value || '').trim())
+        .filter(Boolean);
+
+      // 1. Find assigned class groups
+      let matchedGroups: EntityRecord[] = [];
+      if (['staff', 'teacher', 'madrasaIncharge', 'coordinator'].includes(String(this.user['role']))) {
+        matchedGroups = allGroups.filter(g =>
+          Array.isArray(g['assignedStaffIds']) &&
+          userStaffIds.some(id => (g['assignedStaffIds'] as unknown[]).map(String).includes(id))
+        );
+      }
+      
+      if (this.user['groupId']) {
+        const found = allGroups.find(g => g.id === this.user['groupId']);
+        if (found && !matchedGroups.some(mg => mg.id === found.id)) {
+          matchedGroups.push(found);
+        }
       }
 
-      const results = await Promise.all(studentPromises);
-      const allStudents = results.reduce((acc, val) => acc.concat(val), []);
-      const unique = new Map<string, EntityRecord>();
-      for (const s of allStudents) {
-         if (s.id) {
-           unique.set(s.id, s);
-         }
+      this.assignedGroups = matchedGroups;
+
+      // Extract unique names
+      const cNamesSet = new Set<string>();
+      const clNamesSet = new Set<string>();
+      const gNamesSet = new Set<string>();
+
+      matchedGroups.forEach(g => {
+        if (g['name']) gNamesSet.add(String(g['name']));
+        if (g['courseId'] && courseMap.has(g['courseId'])) cNamesSet.add(courseMap.get(g['courseId'])!);
+        if (g['classId'] && classMap.has(g['classId'])) clNamesSet.add(classMap.get(g['classId'])!);
+      });
+
+      // Check direct user references
+      if (this.user['courseId'] && courseMap.has(this.user['courseId'])) cNamesSet.add(courseMap.get(this.user['courseId'])!);
+      if (this.user['classId'] && classMap.has(this.user['classId'])) clNamesSet.add(classMap.get(this.user['classId'])!);
+
+      this.courseNames = Array.from(cNamesSet);
+      this.classNames = Array.from(clNamesSet);
+      this.groupNames = Array.from(gNamesSet);
+
+      // Load students in assigned groups
+      if (matchedGroups.length > 0) {
+        const studentPromises: Promise<EntityRecord[]>[] = [];
+        for (const group of matchedGroups) {
+          if (!group.id) continue;
+          const q = query(usersRef, where('role', '==', 'student'), where('groupId', '==', group.id));
+          studentPromises.push(getDocs(q).then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord))));
+        }
+        const results = await Promise.all(studentPromises);
+        const allStudents = results.reduce((acc, val) => acc.concat(val), []);
+        const unique = new Map<string, EntityRecord>();
+        for (const s of allStudents) {
+          if (s.id) unique.set(s.id, s);
+        }
+        this.assignedStudents = Array.from(unique.values());
       }
-      this.assignedStudents = Array.from(unique.values());
     } catch (e) {
-      console.error('Failed to load assigned students', e);
+      console.error('Failed to load academic details', e);
     } finally {
       this.loadingStudents = false;
     }
+  }
+
+  openStudentDetails(student: EntityRecord): void {
+    this.dialog.open(UserDetailsDialogComponent, {
+      data: { user: student },
+      width: '80vw',
+      maxWidth: '80vw',
+      height: '85vh',
+      panelClass: 'user-details-dialog-panel'
+    });
   }
 
   close(): void {
@@ -149,7 +210,7 @@ export class UserDetailsDialogComponent implements OnInit {
   }
 
   get isStaffProfile(): boolean {
-    return this.user['role'] === 'staff' || this.user['role'] === 'teacher';
+    return ['staff', 'teacher', 'madrasaIncharge', 'coordinator'].includes(String(this.user['role']));
   }
 
   getDate(key: string): Date | string | null {

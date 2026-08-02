@@ -10,6 +10,7 @@ import { DashboardPage } from './pages/dashboard/dashboard.page';
 import { LoginPage } from './pages/login/login.page';
 import { ChangePasswordPage } from './pages/change-password/change-password.page';
 import { ManagementPage } from './pages/management/management.page';
+import { CourseCatalogPage } from './pages/course-catalog/course-catalog.page';
 import { NotificationsPage } from './pages/notifications/notifications.page';
 import { PermissionsPage } from './pages/permissions/permissions.page';
 import { ProfilePage } from './pages/profile/profile.page';
@@ -65,8 +66,9 @@ const routes: Routes = [
   { path: 'exams', component: ExamsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewExams', 'manageExams'] } },
   { path: 'competitions', component: CompetitionsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewCompetitions', 'manageCompetitions'] } },
   { path: 'courses', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courses', permission: 'manageCourses' } },
-  { path: 'course-types', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'courseTypes', permission: 'manageCourses' } },
-  { path: 'stages', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'stages', permission: 'manageCourses' } },
+  { path: 'course-catalog', component: CourseCatalogPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageCourses' } },
+  { path: 'course-types', component: CourseCatalogPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageCourses' } },
+  { path: 'stages', component: CourseCatalogPage, canActivate: [authGuard, permissionGuard], data: { permission: 'manageCourses' } },
   { path: 'classes', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classes', permission: 'manageClasses' } },
   { path: 'classGroups', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classGroups', permission: 'manageClasses' } },
   { path: 'subjects', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'subjects', permission: 'manageSubjects' } },

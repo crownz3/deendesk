@@ -17,6 +17,11 @@ import { ExternalActivityFormDialogComponent } from './external-activity-form-di
 })
 export class ExternalActivitiesPage implements OnInit {
   profile$: Observable<AppUser | null> = this.auth.profile$;
+  readonly searchQuery$ = new BehaviorSubject<string>('');
+  readonly typeFilter$ = new BehaviorSubject<string>('all');
+  readonly statusFilter$ = new BehaviorSubject<string>('all');
+  readonly personTypeFilter$ = new BehaviorSubject<string>('all');
+
   searchQuery = '';
   typeFilter = 'all';
   statusFilter = 'all';
@@ -24,6 +29,10 @@ export class ExternalActivitiesPage implements OnInit {
 
   private refresh$ = new BehaviorSubject<void>(undefined);
   activities$: Observable<ExternalActivity[]> = of([]);
+  filteredActivities$: Observable<ExternalActivity[]> = of([]);
+  stats$: Observable<{ total: number; imamCount: number; ustadhCount: number; serviceCount: number; activeCount: number }> = of({
+    total: 0, imamCount: 0, ustadhCount: 0, serviceCount: 0, activeCount: 0
+  });
 
   constructor(
     private auth: AuthService,
@@ -45,37 +54,59 @@ export class ExternalActivitiesPage implements OnInit {
         return of([]);
       })
     );
-  }
 
-  get filteredActivities$(): Observable<ExternalActivity[]> {
-    return this.activities$.pipe(
-      map(list => {
-        const query = this.searchQuery.toLowerCase().trim();
+    this.filteredActivities$ = combineLatest([
+      this.activities$,
+      this.searchQuery$,
+      this.typeFilter$,
+      this.statusFilter$,
+      this.personTypeFilter$
+    ]).pipe(
+      map(([list, search, typeF, statusF, personTypeF]) => {
+        const query = search.toLowerCase().trim();
         return list.filter(item => {
           const matchQuery = !query || 
-            item.title.toLowerCase().includes(query) ||
-            item.personName.toLowerCase().includes(query) ||
-            item.organizationName.toLowerCase().includes(query) ||
+            (item.title && item.title.toLowerCase().includes(query)) ||
+            (item.personName && item.personName.toLowerCase().includes(query)) ||
+            (item.organizationName && item.organizationName.toLowerCase().includes(query)) ||
             (item.location && item.location.toLowerCase().includes(query));
-          const matchType = this.typeFilter === 'all' || item.activityType === this.typeFilter;
-          const matchStatus = this.statusFilter === 'all' || item.activityStatus === this.statusFilter;
-          const matchPersonType = this.personTypeFilter === 'all' || item.personType === this.personTypeFilter;
+          const matchType = typeF === 'all' || item.activityType === typeF;
+          const matchStatus = statusF === 'all' || item.activityStatus === statusF;
+          const matchPersonType = personTypeF === 'all' || item.personType === personTypeF;
           return matchQuery && matchType && matchStatus && matchPersonType;
         });
       })
     );
-  }
 
-  get stats$(): Observable<{ total: number; imamCount: number; ustadhCount: number; serviceCount: number; activeCount: number }> {
-    return this.activities$.pipe(
+    this.stats$ = this.activities$.pipe(
       map(list => ({
         total: list.length,
         imamCount: list.filter(a => a.activityType === 'imam').length,
         ustadhCount: list.filter(a => a.activityType === 'outside_ustadh').length,
         serviceCount: list.filter(a => a.activityType === 'inside_madrasa_service').length,
-        activeCount: list.filter(a => a.activityStatus === 'active').length,
+        activeCount: list.filter(a => a.activityStatus === 'active').length
       }))
     );
+  }
+
+  onSearchChange(val: string) {
+    this.searchQuery = val;
+    this.searchQuery$.next(val);
+  }
+
+  onTypeChange(val: string) {
+    this.typeFilter = val;
+    this.typeFilter$.next(val);
+  }
+
+  onStatusChange(val: string) {
+    this.statusFilter = val;
+    this.statusFilter$.next(val);
+  }
+
+  onPersonTypeChange(val: string) {
+    this.personTypeFilter = val;
+    this.personTypeFilter$.next(val);
   }
 
   getActivityTypeLabel(type: ExternalActivityType): string {

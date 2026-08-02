@@ -74,6 +74,7 @@ import { MadrasaDetailsDialogComponent } from './shared/components/madrasa-detai
 import { HelpGuideDialogComponent } from './shared/components/help-guide-dialog/help-guide-dialog.component';
 import { SetupMapComponent } from './shared/components/setup-map/setup-map.component';
 import { CourseDetailsDialogComponent } from './pages/management/course-details-dialog/course-details-dialog.component';
+import { CourseMadrasasDialogComponent } from './pages/management/course-madrasas-dialog/course-madrasas-dialog.component';
 import { ClassDetailsDialogComponent } from './pages/management/class-details-dialog/class-details-dialog.component';
 import { CsvReferenceIdsDialogComponent } from './pages/csv-imports/csv-reference-ids-dialog/csv-reference-ids-dialog.component';
 import { ClassPlansPage } from './pages/class-plans/class-plans.page';
@@ -92,6 +93,7 @@ import { ClassTransferWizardDialogComponent } from './pages/management/class-tra
 import { StudentTransferDialogComponent } from './pages/management/student-transfer-dialog/student-transfer-dialog.component';
 import { PromoteDemoteDialogComponent } from './pages/management/promote-demote-dialog/promote-demote-dialog.component';
 import { CourseStagesDialogComponent } from './pages/management/course-stages-dialog/course-stages-dialog.component';
+import { CourseCatalogPage } from './pages/course-catalog/course-catalog.page';
 import { ReportFilterBuilderComponent } from './pages/reports/components/report-filter-builder.component';
 import { ReportExportWizardComponent } from './pages/reports/components/report-export-wizard.component';
 import { ReportChartViewComponent } from './pages/reports/components/report-chart-view.component';
@@ -99,6 +101,7 @@ import { AddCustomColumnDialogComponent } from './pages/reports/components/add-c
 import { AddUserInputColumnDialogComponent } from './pages/reports/components/add-user-input-column-dialog.component';
 import { SaveReportDialogComponent } from './pages/reports/components/save-report-dialog.component';
 import { ManageReportsDialogComponent } from './pages/reports/components/manage-reports-dialog.component';
+import { ReportTemplatesDialogComponent } from './pages/reports/components/report-templates-dialog.component';
 import { ResolveNamePipe } from './shared/pipes/resolve-name.pipe';
 import { FeesPage } from './pages/fees/fees.page';
 import { FeePlanFormDialogComponent } from './pages/fees/fee-plan-form-dialog.component';
@@ -201,6 +204,7 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     LoginPage,
     ChangePasswordPage,
     ManagementPage,
+    CourseCatalogPage,
     StageHeadsPage,
     StageHeadDialogComponent,
     NotificationsPage,
@@ -232,6 +236,7 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     HelpGuideDialogComponent,
     SetupMapComponent,
     CourseDetailsDialogComponent,
+    CourseMadrasasDialogComponent,
     ClassDetailsDialogComponent,
     CsvReferenceIdsDialogComponent,
     ClassPlansPage,
@@ -257,6 +262,7 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     AddUserInputColumnDialogComponent,
     SaveReportDialogComponent,
     ManageReportsDialogComponent,
+    ReportTemplatesDialogComponent,
     ResolveNamePipe,
     FeesPage,
     FeePlanFormDialogComponent,

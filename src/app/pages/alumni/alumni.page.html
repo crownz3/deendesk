@@ -61,13 +61,13 @@
       <div class="filter-row">
         <mat-form-field appearance="outline" class="search-field">
           <mat-label>Search by name, occupation, city, or year...</mat-label>
-          <input matInput [(ngModel)]="searchQuery" placeholder="Search alumni directory..." />
+          <input matInput [ngModel]="searchQuery" (ngModelChange)="onSearchChange($event)" placeholder="Search alumni directory..." />
           <ion-icon matPrefix name="search-outline" class="search-icon"></ion-icon>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Category</mat-label>
-          <mat-select [(ngModel)]="personTypeFilter">
+          <mat-select [ngModel]="personTypeFilter" (ngModelChange)="onPersonTypeChange($event)">
             <mat-option value="all">All Records</mat-option>
             <mat-option value="student">Past Students / Graduates</mat-option>
             <mat-option value="staff">Former Staff / Teachers</mat-option>

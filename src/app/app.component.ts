@@ -107,13 +107,12 @@ export class AppComponent {
     {
       label: 'Academic Management',
       items: [
-        { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', permissionsAny: ['manageCourses', 'manageClasses'] },
-        { label: 'Courses & Stages', route: '/courses', icon: 'ribbon-outline', permissionsAny: ['manageCourses'] },
-        { label: 'Course Types', route: '/course-types', icon: 'library-outline', permissionsAny: ['manageCourses'] },
-        { label: 'Course Stages', route: '/stages', icon: 'layers-outline', permissionsAny: ['manageCourses'] },
-        { label: 'Stage Heads', route: '/stage-heads', icon: 'person-add-outline', permission: 'manageStageHeads' },
+        { label: 'Course Catalog & Stages', route: '/course-catalog', icon: 'journal-outline', permissionsAny: ['manageCourses'] },
+        { label: 'Courses', route: '/courses', icon: 'ribbon-outline', permissionsAny: ['manageCourses'] },
         { label: 'Classes', route: '/classes', icon: 'easel-outline', permissionsAny: ['manageClasses'] },
         { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permissionsAny: ['manageClasses'] },
+        { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', permissionsAny: ['manageCourses', 'manageClasses'] },
+        { label: 'Stage Heads', route: '/stage-heads', icon: 'person-add-outline', permission: 'manageStageHeads' },
         { label: 'Subjects & Syllabus', route: '/subjects', icon: 'book-outline', permissionsAny: ['manageSubjects'] },
         { label: 'Class Plans & Timetables', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans'] },
         { label: 'Study Time & Homework', route: '/study-time', icon: 'hourglass-outline', permissionsAny: ['manageStudyTime'] },

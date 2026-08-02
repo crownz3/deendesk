@@ -41,7 +41,7 @@ export class QaBugFormDialogComponent implements OnInit {
     'Users & Roles',
     'Staff Management',
     'Students & Parents',
-    'Courses & Stages',
+    'Courses',
     'Classes & Timetable',
     'Attendance Marking',
     'Quran Tracker',

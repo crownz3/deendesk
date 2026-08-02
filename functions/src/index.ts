@@ -702,6 +702,46 @@ export const resetUserTemporaryPassword = functions.https.onCall(async (data, co
   return { success: true };
 });
 
+export const deleteUserAuthAccount = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+  }
+
+  const callerUid = context.auth.uid;
+  const callerDoc = await db.collection("users").doc(callerUid).get();
+  if (!callerDoc.exists) {
+    throw new functions.https.HttpsError("permission-denied", "Caller profile not found.");
+  }
+
+  const callerRole = callerDoc.data()?.["role"];
+  if (!["superAdmin", "organizationAdmin", "madrasaIncharge", "coordinator"].includes(callerRole)) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only Admins, Incharges, or Coordinators can delete Auth accounts."
+    );
+  }
+
+  const targetUid: string = data.targetUid;
+  if (!targetUid || typeof targetUid !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "Target UID is required.");
+  }
+
+  if (targetUid === callerUid) {
+    throw new functions.https.HttpsError("permission-denied", "Cannot delete your own Auth account.");
+  }
+
+  try {
+    await admin.auth().deleteUser(targetUid);
+    return { success: true };
+  } catch (err: any) {
+    if (err?.code === "auth/user-not-found") {
+      return { success: true, warning: "User not found in Firebase Auth." };
+    }
+    console.error(`Failed to delete Auth account for ${targetUid}:`, err);
+    throw new functions.https.HttpsError("internal", err?.message || "Failed to delete Auth account.");
+  }
+});
+
 // ---------------------------------------------------------------------------
 // bulkDeleteData — Super Admin only bulk collection / Auth deletion
 // ---------------------------------------------------------------------------

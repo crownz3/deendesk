@@ -194,6 +194,35 @@ export class ReportBuilderService {
     // 0. Normalize Data and Resolve References
     let processed = this.resolveReferences(rawData);
 
+    // Deduplicate records by unique entity identifier & display signature to prevent duplicate rows in ALL reports
+    const seenEntityKeys = new Set<string>();
+    const seenDisplaySignatures = new Set<string>();
+
+    processed = processed.filter(item => {
+      // 1. Check primary ID / entity ID
+      const entityId = item.id || item.uid || item.studentId || item.userId || item.assignmentId || item.transactionId;
+      if (entityId) {
+        const idKey = `id_${entityId}`;
+        if (seenEntityKeys.has(idKey)) return false;
+        seenEntityKeys.add(idKey);
+      }
+
+      // 2. Check display signature (name + madrasa + class/course + admissionDate/amount + status)
+      const name = item.studentNameDisplay || item.name || item.studentName || item.title || '';
+      const madrasa = item.madrasaNameDisplay || item.madrasaId || '';
+      const cls = item.classNameDisplay || item.classId || item.courseNameDisplay || item.courseId || '';
+      const dateVal = item.admissionDate || item.actionDate || item.startDate || item.createdAt || item.amount || '';
+      const status = item.status || item.paymentStatus || '';
+
+      if (name) {
+        const signature = `${name}___${madrasa}___${cls}___${dateVal}___${status}`.toLowerCase().trim();
+        if (seenDisplaySignatures.has(signature)) return false;
+        seenDisplaySignatures.add(signature);
+      }
+
+      return true;
+    });
+
     // 1. Client-Side Filtering
     processed = this.applyClientFilters(processed, this.state.value.filters);
     
@@ -286,6 +315,9 @@ export class ReportBuilderService {
       const cls = refs.classes?.get(classId) || {};
       const parent = refs.users?.get(parentId) || {};
 
+      const rawAdmission = row.admissionDate || user.admissionDate || row.createdAt || user.createdAt || row.joinedAt || user.joinedAt;
+      const formattedAdmission = rawAdmission ? (this.formatDateTime(rawAdmission) || rawAdmission) : '-';
+
       const merged = {
         ...organization,
         ...madrasa,
@@ -293,6 +325,7 @@ export class ReportBuilderService {
         ...cls,
         ...user,
         ...row,
+        admissionDate: formattedAdmission,
         organizationNameDisplay: row.organizationName || organization?.name || organization?.displayName || '-',
         studentNameDisplay: row.studentName || row.name || user.name || user.displayName || '-',
         fatherNameDisplay: row.fatherName || user.fatherName || '-',
@@ -305,7 +338,7 @@ export class ReportBuilderService {
         assignedStaffNamesDisplay: row.assignedStaffNames || '-'
       };
 
-      // Automatically resolve any other *Id fields into *NameDisplay
+      // Automatically resolve any other *Id fields into *NameDisplay & format raw timestamps
       for (const key of Object.keys(merged)) {
         if (key.endsWith('Id') && key.length > 2 && typeof merged[key] === 'string') {
           const prefix = key.slice(0, -2);
@@ -315,6 +348,18 @@ export class ReportBuilderService {
             const refObj = refs.users?.get(id) || refs.madrasas?.get(id) || refs.courses?.get(id) || refs.classes?.get(id) || refs.organizations?.get(id);
             if (refObj) {
               merged[displayKey] = refObj.name || refObj.displayName || refObj.title || '-';
+            }
+          }
+        } else {
+          const val = merged[key];
+          if (val) {
+            const lower = key.toLowerCase();
+            if (typeof val === 'string' && val.includes('Timestamp(seconds=')) {
+              const formatted = this.formatDateTime(val);
+              if (formatted) merged[key] = formatted;
+            } else if (lower.includes('date') || lower.includes('time') || lower.endsWith('at')) {
+              const formatted = this.formatDateTime(val);
+              if (formatted) merged[key] = formatted;
             }
           }
         }
@@ -338,9 +383,73 @@ export class ReportBuilderService {
   }
 
   private evaluateExpression(expr: string, context: any): any {
-    // A safe expression evaluator for functions like CONCAT, SUM, IF, etc.
-    // For now, returning empty, will be implemented with a robust parser.
     return '';
+  }
+
+  public formatDateTime(val: any): string | null {
+    if (val === undefined || val === null || val === '') return null;
+    let dt: Date | null = null;
+
+    if (val instanceof Date) {
+      dt = isNaN(val.getTime()) ? null : val;
+    } else if (typeof val === 'number') {
+      dt = val > 1e11 ? new Date(val) : new Date(val * 1000);
+    } else if (typeof val === 'object') {
+      if ('toDate' in val && typeof (val as any).toDate === 'function') {
+        dt = (val as any).toDate();
+      } else if ('seconds' in val && typeof (val as any).seconds === 'number') {
+        dt = new Date((val as any).seconds * 1000);
+      } else if ('_seconds' in val && typeof (val as any)._seconds === 'number') {
+        dt = new Date((val as any)._seconds * 1000);
+      } else if ('toMillis' in val && typeof (val as any).toMillis === 'function') {
+        dt = new Date((val as any).toMillis());
+      }
+    } else if (typeof val === 'string') {
+      const trimmed = val.trim();
+      const tsMatch = trimmed.match(/Timestamp\(seconds=(\d+)/i);
+      if (tsMatch) {
+        const sec = Number(tsMatch[1]);
+        if (!isNaN(sec)) dt = new Date(sec * 1000);
+      } else {
+        const num = Number(trimmed);
+        if (!isNaN(num) && num > 1000000) {
+          dt = num > 1e11 ? new Date(num) : new Date(num * 1000);
+        } else {
+          const parsed = Date.parse(trimmed);
+          if (!isNaN(parsed)) dt = new Date(parsed);
+        }
+      }
+    }
+
+    if (dt && !isNaN(dt.getTime())) {
+      return dt.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    return null;
+  }
+
+  private formatStageDisplay(val: string): string {
+    if (!val || val === 'N/A' || val === '-' || val === 'Unknown') return val;
+    const str = String(val).trim();
+    if (str.includes(' - ') || str.includes(':-') || str.includes(': ')) return str;
+
+    const match = str.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)*?)\s+(Stage\s*\d+|Sub-stage\s*\d+|Grade\s*\d+|Year\s*\d+|\d+)\b/i);
+    if (match) {
+      const mainPart = match[1].trim();
+      const subPart = match[2].trim();
+      const lower = mainPart.toLowerCase();
+      if (lower !== 'stage' && lower !== 'substage' && lower !== 'sub-stage' && lower !== 'grade' && lower !== 'year') {
+        return `${mainPart} - ${subPart}`;
+      }
+    }
+    return str;
   }
 
   private applyCountAggregation(data: any[], groupByField: string): any[] {
@@ -349,7 +458,15 @@ export class ReportBuilderService {
     const firstRows = new Map<string, any>();
 
     for (const row of data) {
-       const key = row[groupByField] || 'Unknown';
+       let rawKey = row[groupByField];
+       if (!rawKey && (groupByField === 'stageLevel' || groupByField === 'stage')) {
+         rawKey = row['stage'] || row['stageLevel'] || row['level'] || row['stageDisplay'] || row['stageName'];
+       }
+       if (!rawKey && (groupByField === 'classId' || groupByField === 'class')) {
+         rawKey = row['className'] || row['classNameDisplay'] || row['classId'];
+       }
+
+       const key = rawKey ? String(rawKey).trim() : 'Unknown';
        counts.set(key, (counts.get(key) || 0) + 1);
        
        if (!firstRows.has(key)) {
@@ -361,6 +478,7 @@ export class ReportBuilderService {
          else if (groupByField === 'courseId') labels.set(key, row.courseNameDisplay || key);
          else if (groupByField === 'classId') labels.set(key, row.classNameDisplay || key);
          else if (groupByField === 'feePlanId') labels.set(key, row.feePlanTitle || key);
+         else if (groupByField === 'stageLevel' || groupByField === 'stage') labels.set(key, this.formatStageDisplay(key));
          else labels.set(key, String(key));
        }
     }

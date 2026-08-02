@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.rejectRejoinRequest = exports.approveRejoinRequest = exports.submitRejoinRequest = exports.archiveUser = exports.reactivateUser = exports.suspendUser = exports.relieveStaff = exports.transferUser = exports.withdrawStudent = exports.completeStudentCourse = exports.graduateStudent = exports.dismissStudent = exports.overrideClearance = exports.updateClearanceItem = exports.rejectLifecycleAction = exports.approveLifecycleAction = exports.requestLifecycleAction = exports.completeAssetMaintenance = exports.createAssetMaintenance = exports.disposeAsset = exports.transferAsset = exports.assignAsset = exports.adjustAssetQuantity = exports.updateAsset = exports.createAsset = exports.addInternalIssueNote = exports.reopenIssue = exports.closeIssue = exports.resolveIssue = exports.changeIssueStatus = exports.assignIssue = exports.updateIssue = exports.createIssue = exports.syncEventParticipants = exports.changeEventStatus = exports.rescheduleEvent = exports.updateEvent = exports.createEventWithParticipants = exports.impersonateUser = exports.bulkDeleteData = exports.resetUserTemporaryPassword = exports.createUserWithTemporaryPassword = exports.createOrganizationWithAdmin = void 0;
+exports.rejectRejoinRequest = exports.approveRejoinRequest = exports.submitRejoinRequest = exports.archiveUser = exports.reactivateUser = exports.suspendUser = exports.relieveStaff = exports.transferUser = exports.withdrawStudent = exports.completeStudentCourse = exports.graduateStudent = exports.dismissStudent = exports.overrideClearance = exports.updateClearanceItem = exports.rejectLifecycleAction = exports.approveLifecycleAction = exports.requestLifecycleAction = exports.completeAssetMaintenance = exports.createAssetMaintenance = exports.disposeAsset = exports.transferAsset = exports.assignAsset = exports.adjustAssetQuantity = exports.updateAsset = exports.createAsset = exports.addInternalIssueNote = exports.reopenIssue = exports.closeIssue = exports.resolveIssue = exports.changeIssueStatus = exports.assignIssue = exports.updateIssue = exports.createIssue = exports.syncEventParticipants = exports.changeEventStatus = exports.rescheduleEvent = exports.updateEvent = exports.createEventWithParticipants = exports.impersonateUser = exports.bulkDeleteData = exports.deleteUserAuthAccount = exports.resetUserTemporaryPassword = exports.createUserWithTemporaryPassword = exports.createOrganizationWithAdmin = void 0;
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 admin.initializeApp();
@@ -544,6 +544,39 @@ exports.resetUserTemporaryPassword = functions.https.onCall(async (data, context
     await batch.commit();
     // 18. Return success
     return { success: true };
+});
+exports.deleteUserAuthAccount = functions.https.onCall(async (data, context) => {
+    var _a;
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "User must be logged in.");
+    }
+    const callerUid = context.auth.uid;
+    const callerDoc = await db.collection("users").doc(callerUid).get();
+    if (!callerDoc.exists) {
+        throw new functions.https.HttpsError("permission-denied", "Caller profile not found.");
+    }
+    const callerRole = (_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a["role"];
+    if (!["superAdmin", "organizationAdmin", "madrasaIncharge", "coordinator"].includes(callerRole)) {
+        throw new functions.https.HttpsError("permission-denied", "Only Admins, Incharges, or Coordinators can delete Auth accounts.");
+    }
+    const targetUid = data.targetUid;
+    if (!targetUid || typeof targetUid !== "string") {
+        throw new functions.https.HttpsError("invalid-argument", "Target UID is required.");
+    }
+    if (targetUid === callerUid) {
+        throw new functions.https.HttpsError("permission-denied", "Cannot delete your own Auth account.");
+    }
+    try {
+        await admin.auth().deleteUser(targetUid);
+        return { success: true };
+    }
+    catch (err) {
+        if ((err === null || err === void 0 ? void 0 : err.code) === "auth/user-not-found") {
+            return { success: true, warning: "User not found in Firebase Auth." };
+        }
+        console.error(`Failed to delete Auth account for ${targetUid}:`, err);
+        throw new functions.https.HttpsError("internal", (err === null || err === void 0 ? void 0 : err.message) || "Failed to delete Auth account.");
+    }
 });
 // ---------------------------------------------------------------------------
 // bulkDeleteData — Super Admin only bulk collection / Auth deletion

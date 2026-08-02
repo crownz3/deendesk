@@ -1,0 +1,399 @@
+<ion-content class="catalog-page-content">
+  <div class="page-shell">
+
+    <!-- Page Header -->
+    <header class="catalog-header">
+      <div class="header-info">
+        <p class="eyebrow">Academics & Governance</p>
+        <h1>Course Catalog & Academic Structure</h1>
+        <p class="subtitle">Manage Course Types, Courses, Nested Inner Stages, and Organization Naming Rules in one unified dashboard.</p>
+      </div>
+
+      <div class="header-actions">
+        <button mat-stroked-button color="primary" type="button" (click)="loadData()">
+          <ion-icon name="refresh-outline"></ion-icon> Refresh Catalog
+        </button>
+        <button mat-flat-button color="primary" type="button" (click)="openAddCourse()">
+          <ion-icon name="add-outline"></ion-icon> Add Course
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Navigation Tabs -->
+    <div class="catalog-tabs-bar">
+      <button type="button" class="nav-tab-btn" [class.active]="activeTab === 'catalog'" (click)="activeTab = 'catalog'">
+        <ion-icon name="library-outline"></ion-icon>
+        <span>1. Course Catalog & Types ({{ courses.length }})</span>
+      </button>
+      <button type="button" class="nav-tab-btn" [class.active]="activeTab === 'stages'" (click)="activeTab = 'stages'">
+        <ion-icon name="git-network-outline"></ion-icon>
+        <span>2. Nested Stages Tree</span>
+      </button>
+      <button type="button" class="nav-tab-btn" [class.active]="activeTab === 'naming'" (click)="activeTab = 'naming'">
+        <ion-icon name="text-outline"></ion-icon>
+        <span>3. Catalog Naming Rules & Shifts</span>
+      </button>
+    </div>
+
+    <div *ngIf="loading" class="loading-box">
+      <mat-spinner diameter="48"></mat-spinner>
+      <p>Loading course catalog & stages...</p>
+    </div>
+
+    <div *ngIf="!loading" class="catalog-body">
+
+      <!-- TAB 1: COURSE CATALOG & TYPES -->
+      <div *ngIf="activeTab === 'catalog'" class="tab-panel">
+
+        <!-- Course Types with nested Courses -->
+        <div class="catalog-section">
+          <div class="section-title-bar">
+            <h2>Course Types</h2>
+            <p>Select a course type to view its configured courses, or click <strong>Add Course</strong> to create a new one under a type.</p>
+          </div>
+
+          <div class="types-grid">
+            <div class="type-card expandable" *ngFor="let type of courseTypes">
+
+              <!-- Type Header -->
+              <div class="type-header">
+                <div class="type-header-left">
+                  <span class="type-icon"><ion-icon name="ribbon-outline"></ion-icon></span>
+                  <div>
+                    <h3>{{ type['name'] || type.id }}</h3>
+                    <span class="code-badge">{{ type['code'] || type.id }}</span>
+                  </div>
+                </div>
+                <div class="type-header-actions">
+                  <button mat-stroked-button color="primary" type="button" (click)="openAddCourseForType(type)" matTooltip="Add a course under this type" *ngIf="getCoursesForType(type).length === 0">
+                    <ion-icon name="add-outline"></ion-icon> Add Course
+                  </button>
+                  <button mat-icon-button color="warn" type="button" (click)="deleteCourseType(type)" matTooltip="Delete Course Type">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Default Stages for this type -->
+              <div class="type-stages-preview">
+                <span class="label">Default Stages:</span>
+                <div class="hierarchical-stages-tree">
+                  <div class="stage-hierarchy-group" *ngFor="let grp of parseStageHierarchy(type['defaultStages'] || type['stages'])">
+                    <div class="parent-stage-header">
+                      <ion-icon name="layers-outline"></ion-icon>
+                      <span class="parent-name">{{ grp.main }}</span>
+                    </div>
+                    <div class="sub-stages-flow" *ngIf="grp.subStages.length > 0">
+                      <ng-container *ngFor="let sub of grp.subStages; let isLast = last">
+                        <span class="sub-chip">{{ sub }}</span>
+                        <ion-icon name="arrow-forward-outline" class="flow-arrow" *ngIf="!isLast"></ion-icon>
+                      </ng-container>
+                    </div>
+                  </div>
+                  <span class="no-stages" *ngIf="!(type['defaultStages'] || type['stages'] || [])?.length">No default stages set</span>
+                </div>
+              </div>
+
+              <!-- Courses under this type -->
+              <div class="type-courses-section">
+                <div class="type-courses-header">
+                  <ion-icon name="library-outline"></ion-icon>
+                  <span>Courses under {{ type['name'] || type.id }}</span>
+                  <span class="pill">{{ getCoursesForType(type).length }} Master Course(s)</span>
+                  <button type="button" class="pill usage-pill-btn" *ngIf="getMadrasaUsageForType(type).count > 0" (click)="openMadrasasDialog(type['name'] || type.id, getMadrasaUsageForType(type).madrasaNames)" matTooltip="Click to view list of madrasas">
+                    <ion-icon name="business-outline"></ion-icon>
+                    <span>Active in {{ getMadrasaUsageForType(type).count }} Madrasa(s)</span>
+                    <ion-icon name="open-outline" style="font-size: 11px; margin-left: 2px; opacity: 0.8;"></ion-icon>
+                  </button>
+                </div>
+
+                <div class="type-courses-empty" *ngIf="getCoursesForType(type).length === 0">
+                  <ion-icon name="alert-circle-outline"></ion-icon>
+                  <span>No courses configured for this type yet.</span>
+                  <button mat-stroked-button color="primary" type="button" (click)="openAddCourseForType(type)">
+                    <ion-icon name="add-outline"></ion-icon> Create First Course
+                  </button>
+                </div>
+
+                <div class="nested-courses-grid" *ngIf="getCoursesForType(type).length > 0">
+                  <div class="nested-course-card" *ngFor="let course of getCoursesForType(type)">
+                    <div class="nested-course-header">
+                      <div>
+                        <strong>{{ course['name'] }}</strong>
+                        <span class="course-code">{{ course['code'] }}</span>
+                      </div>
+                      <div class="header-actions">
+                        <button mat-icon-button color="primary" type="button" (click)="openEditCourse(course)" matTooltip="Edit Course">
+                          <ion-icon name="create-outline"></ion-icon>
+                        </button>
+                        <button mat-icon-button color="warn" type="button" (click)="deleteCourse(course)" matTooltip="Delete Course">
+                          <ion-icon name="trash-outline"></ion-icon>
+                        </button>
+                      </div>
+                    </div>
+                    <div class="nested-course-meta" *ngIf="course['courseDurationYears'] || course['hasSubjects'] !== undefined || course['promotionRule']">
+                      <span *ngIf="course['courseDurationYears']"><ion-icon name="time-outline"></ion-icon> {{ course['courseDurationYears'] }} Year(s)</span>
+                      <span *ngIf="course['hasSubjects'] !== undefined"><ion-icon name="book-outline"></ion-icon> {{ course['hasSubjects'] ? 'Multi-Subject' : 'Single Subject' }}</span>
+                      <span *ngIf="course['promotionRule'] === 'daur_count_required'"><ion-icon name="ribbon-outline"></ion-icon> Daur Count: {{ course['requiredDaurCount'] || 1 }}</span>
+                    </div>
+                    <div class="nested-course-stages" *ngIf="course['stages']?.length">
+                      <span class="label">Stages:</span>
+                      <div class="hierarchical-stages-tree">
+                        <div class="stage-hierarchy-group" *ngFor="let grp of parseStageHierarchy(course['stages'])">
+                          <div class="parent-stage-header">
+                            <ion-icon name="layers-outline"></ion-icon>
+                            <span class="parent-name">{{ grp.main }}</span>
+                          </div>
+                          <div class="sub-stages-flow" *ngIf="grp.subStages.length > 0">
+                            <ng-container *ngFor="let sub of grp.subStages; let isLast = last">
+                              <span class="sub-chip">{{ sub }}</span>
+                              <ion-icon name="arrow-forward-outline" class="flow-arrow" *ngIf="!isLast"></ion-icon>
+                            </ng-container>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Madrasa Usage Info Bar -->
+                    <div class="course-madrasa-usage">
+                      <ng-container *ngIf="getMadrasaUsageForCourse(course).count > 0">
+                        <button class="view-madrasas-btn" type="button" [style.cursor]="isOrgAdminOrCoordinator ? 'pointer' : 'default'" (click)="openMadrasasDialog(course['name'], getMadrasaUsageForCourse(course).madrasaNames, course)">
+                          <ion-icon name="business-outline"></ion-icon>
+                          <span *ngIf="isOrgAdminOrCoordinator">Active in <strong>{{ getMadrasaUsageForCourse(course).count }} Madrasa(s)</strong> — View List</span>
+                          <span *ngIf="!isOrgAdminOrCoordinator">Madrasa: <strong>{{ getMadrasaUsageForCourse(course).madrasaNames[0] || 'My Madrasa' }}</strong></span>
+                          <ion-icon name="open-outline" class="open-icon" *ngIf="isOrgAdminOrCoordinator"></ion-icon>
+                        </button>
+                      </ng-container>
+                      <ng-container *ngIf="getMadrasaUsageForCourse(course).count === 0">
+                        <span class="usage-empty">Not assigned to any madrasas yet</span>
+                      </ng-container>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: NESTED STAGES TREE -->
+      <div *ngIf="activeTab === 'stages'" class="tab-panel">
+        
+        <!-- Mode Switch -->
+        <div class="mode-toggle-bar">
+          <mat-button-toggle-group [(ngModel)]="mode" (change)="onModeChange()" name="catalogStagesMode">
+            <mat-button-toggle value="courseType">
+              <ion-icon name="layers-outline"></ion-icon> Configure Stages by Course Type
+            </mat-button-toggle>
+            <mat-button-toggle value="course">
+              <ion-icon name="library-outline"></ion-icon> Configure Stages by Specific Course
+            </mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+
+        <div class="selector-box">
+          <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'courseType'">
+            <mat-label>Select Course Type to Configure Stages</mat-label>
+            <mat-select [(ngModel)]="selectedCourseTypeId" (selectionChange)="onSelectionChange()">
+              <mat-option *ngFor="let type of courseTypes" [value]="type.id">
+                <strong>{{ type['name'] || type.id }}</strong> <span class="muted">({{ type['code'] || type.id }})</span>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'course'">
+            <mat-label>Select Specific Course to Configure Stages</mat-label>
+            <mat-select [(ngModel)]="selectedCourseId" (selectionChange)="onSelectionChange()">
+              <mat-option *ngFor="let c of courses" [value]="c.id">
+                <strong>{{ c['name'] }}</strong> <span class="muted">({{ c['code'] || c.id }})</span>
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <!-- Presets -->
+        <div class="presets-bar">
+          <span class="preset-label"><ion-icon name="flash-outline"></ion-icon> Load Presets:</span>
+          <button mat-stroked-button type="button" (click)="loadPreset('maktab')">+ Maktab</button>
+          <button mat-stroked-button type="button" (click)="loadPreset('hifz')">+ Hifz</button>
+          <button mat-stroked-button type="button" (click)="loadPreset('aalim')">+ Aalim</button>
+          <button mat-stroked-button type="button" (click)="loadPreset('numbered')">+ Stage 1-5</button>
+        </div>
+
+        <!-- Tree View -->
+        <div class="tree-builder-card">
+          <div class="tree-header">
+            <div>
+              <h3>Nested Stage Tree Hierarchy</h3>
+              <span class="count-pill">{{ stagesList.length }} Total Stage Sequence Items</span>
+            </div>
+            <button mat-flat-button color="accent" type="button" (click)="addMainStage()">
+              <ion-icon name="add-circle-outline"></ion-icon> Add Main Stage
+            </button>
+          </div>
+
+          <div class="stages-tree-container" *ngIf="hierarchicalStages.length > 0">
+            <div class="parent-stage-box" *ngFor="let item of hierarchicalStages; let i = index; trackBy: trackByIndex">
+              <div class="parent-row">
+                <div class="order-badge">{{ i + 1 }}</div>
+                <input type="text" class="parent-input" [(ngModel)]="item.name" (ngModelChange)="syncStagesListFromHierarchy()" placeholder="Main Stage Name (e.g. Miftah)">
+                
+                <div class="row-actions">
+                  <button mat-icon-button type="button" (click)="moveUp(i)" [disabled]="i === 0"><ion-icon name="arrow-up-outline"></ion-icon></button>
+                  <button mat-icon-button type="button" (click)="moveDown(i)" [disabled]="i === hierarchicalStages.length - 1"><ion-icon name="arrow-down-outline"></ion-icon></button>
+                  <button mat-icon-button color="warn" type="button" (click)="removeStage(i)"><ion-icon name="trash-outline"></ion-icon></button>
+                </div>
+              </div>
+
+              <!-- Sub stages -->
+              <div class="sub-stages-panel">
+                <div class="sub-title">
+                  <ion-icon name="git-commit-outline"></ion-icon>
+                  <span>Inner Sub-Stages for {{ item.name }}</span>
+                </div>
+
+                <div class="sub-list" *ngIf="item.subStages.length > 0">
+                  <div class="sub-item" *ngFor="let sub of item.subStages; let sj = index; trackBy: trackByIndex">
+                    <ion-icon name="return-down-forward-outline" class="tree-branch"></ion-icon>
+                    <input type="text" class="sub-input" [(ngModel)]="item.subStages[sj]" (ngModelChange)="syncStagesListFromHierarchy()" placeholder="Inner stage name">
+                    <button mat-icon-button color="warn" type="button" (click)="removeSubStage(i, sj)"><ion-icon name="close-circle-outline"></ion-icon></button>
+                  </div>
+                </div>
+
+                <div class="add-sub-box">
+                  <input type="text" class="add-sub-input" [(ngModel)]="item.subStageInput" (keyup.enter)="addSubStage(i)" [placeholder]="'Add inner stage (e.g. ' + item.name + ' Stage ' + (item.subStages.length + 1) + ')'">
+                  <button mat-stroked-button color="primary" type="button" (click)="addSubStage(i)"><ion-icon name="add-outline"></ion-icon> Add Sub-stage</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-add-stage-bar">
+            <button mat-stroked-button color="primary" type="button" (click)="addMainStage()" class="full-add-btn">
+              <ion-icon name="add-outline"></ion-icon> Add Another Main Stage
+            </button>
+          </div>
+        </div>
+
+        <div class="action-footer">
+          <button mat-flat-button color="primary" type="button" (click)="saveAll()" [disabled]="saving">
+            <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+            <span *ngIf="!saving">Save Stage Hierarchy</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- TAB 3: CATALOG NAMING RULES -->
+      <div *ngIf="activeTab === 'naming'" class="tab-panel">
+
+        <div class="naming-card">
+          <h3><ion-icon name="time-outline"></ion-icon> Standard Operating Shifts / Time Slots</h3>
+          <p class="desc">Define standard Madrasa operating shifts (e.g. Morning, Evening, After Maghrib, After Isha).</p>
+
+          <div class="shifts-list">
+            <div class="shift-tag" *ngFor="let shift of standardShifts; let si = index">
+              <span>{{ shift }}</span>
+              <button mat-icon-button type="button" (click)="removeShift(si)"><ion-icon name="close-circle"></ion-icon></button>
+            </div>
+          </div>
+
+          <div class="add-shift-row">
+            <mat-form-field appearance="outline" class="flex-field">
+              <mat-label>Add New Shift Preset</mat-label>
+              <input matInput [(ngModel)]="newShiftInput" (keyup.enter)="addShift()" placeholder="e.g. After Maghrib or After Isha">
+            </mat-form-field>
+            <button mat-flat-button color="primary" type="button" (click)="addShift()" [disabled]="!newShiftInput.trim()">Add Shift</button>
+          </div>
+        </div>
+
+        <div class="naming-card">
+          <h3><ion-icon name="code-working-outline"></ion-icon> Class Name Formatting Rule</h3>
+          <p class="desc">Enforced across all Madrasas during class creation.</p>
+
+          <mat-form-field appearance="outline" class="full-field">
+            <mat-label>Class Format Rule</mat-label>
+            <mat-select [(ngModel)]="classNamePattern">
+              <mat-option value="{madrasaCode} - {shift}">Madrasa Code - Shift (e.g. MUK - Morning, MUK - After Maghrib)</mat-option>
+              <mat-option value="{madrasaCode} - {className} ({shift})">Madrasa Code - Class Name (Shift) (e.g. MUK - Class 1 (Morning))</mat-option>
+              <mat-option value="{shift} - {className}">Shift - Class Name (e.g. After Maghrib - Class 1)</mat-option>
+              <mat-option value="{className} - {shift}">Class Name - Shift (e.g. Class 1 - Evening)</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="naming-card">
+          <h3><ion-icon name="people-circle-outline"></ion-icon> Class Group Name Formatting Rule</h3>
+          <p class="desc">Enforced across all Madrasas during class section/group creation.</p>
+
+          <mat-form-field appearance="outline" class="full-field">
+            <mat-label>Group Format Rule</mat-label>
+            <mat-select [(ngModel)]="groupNamePattern">
+              <mat-option value="{shift} - {courseType} - {groupName}">Shift - Course Type - Group (e.g. After Maghrib - Maktab - Section A)</mat-option>
+              <mat-option value="{shift} - {groupName}">Shift - Group (e.g. Evening - Section A)</mat-option>
+              <mat-option value="{groupName} ({shift})">Group (Shift) (e.g. Section A (Morning))</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+
+        <div class="action-footer">
+          <button mat-flat-button color="primary" type="button" (click)="saveAll()" [disabled]="saving">
+            <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
+            <span *ngIf="!saving">Save Naming Rules & Shifts</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</ion-content>
+
+<!-- Madrasas Usage Dialog Template -->
+<ng-template #madrasasListDialog>
+  <div class="madrasas-dialog-header" style="display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 12px; border-bottom: 1px solid var(--ion-color-step-150, #e0e0e0);">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(56, 128, 255, 0.12); color: var(--ion-color-primary, #3880ff); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+        <ion-icon name="business-outline"></ion-icon>
+      </div>
+      <div>
+        <h2 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--app-text-color, #1f2937);">{{ activeMadrasasDialogTitle }}</h2>
+        <span style="font-size: 12px; color: var(--app-text-muted, #6b7280);">Assigned to {{ activeMadrasaNames.length }} Madrasa(s)</span>
+      </div>
+    </div>
+    <button mat-icon-button mat-dialog-close type="button" aria-label="Close">
+      <ion-icon name="close-outline" style="font-size: 22px;"></ion-icon>
+    </button>
+  </div>
+
+  <mat-dialog-content style="padding: 16px 20px; max-height: 380px; min-width: 320px;">
+    <!-- Search Filter (if > 3 madrasas) -->
+    <div style="margin-bottom: 12px;" *ngIf="activeMadrasaNames.length > 3">
+      <mat-form-field appearance="outline" style="width: 100%; margin-bottom: -1.25em;">
+        <mat-label>Search Madrasas</mat-label>
+        <input matInput type="text" [(ngModel)]="madrasaSearchQuery" placeholder="Filter madrasa name..." />
+        <ion-icon name="search-outline" matSuffix style="font-size: 18px; color: var(--app-text-muted, #757575);"></ion-icon>
+      </mat-form-field>
+    </div>
+
+    <div class="madrasa-names-list" style="display: flex; flex-direction: column; gap: 8px;">
+      <div *ngFor="let name of getFilteredMadrasaNames(); let i = index" 
+           style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--ion-color-step-50, #f8fafc); border: 1px solid var(--ion-color-step-150, #e2e8f0); border-radius: 8px;">
+        <span style="width: 22px; height: 22px; border-radius: 50%; background: #e0f2fe; color: #0284c7; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          {{ i + 1 }}
+        </span>
+        <span style="font-size: 13.5px; font-weight: 600; color: #0f172a; flex: 1;">{{ name }}</span>
+        <ion-icon name="checkmark-circle-outline" style="color: var(--ion-color-success, #2dd36f); font-size: 18px;"></ion-icon>
+      </div>
+
+      <div *ngIf="getFilteredMadrasaNames().length === 0" style="text-align: center; padding: 24px; color: var(--app-text-muted, #888); font-style: italic;">
+        No matching madrasas found.
+      </div>
+    </div>
+  </mat-dialog-content>
+
+  <mat-dialog-actions align="end" style="padding: 10px 20px 14px; border-top: 1px solid var(--ion-color-step-150, #e0e0e0);">
+    <button mat-flat-button color="primary" mat-dialog-close type="button">Close</button>
+  </mat-dialog-actions>
+</ng-template>

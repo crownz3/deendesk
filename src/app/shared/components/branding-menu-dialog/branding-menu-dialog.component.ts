@@ -41,15 +41,15 @@ const DEFAULT_MENU_ITEMS: Array<{ route: string; label: string; group: string; i
   { route: '/alumni', label: 'Alumni Directory', group: 'People', icon: 'ribbon-outline' },
 
   { route: '/courses', label: 'Courses', group: 'Academics', icon: 'library-outline' },
-  { route: '/course-types', label: 'Course Types', group: 'Academics', icon: 'library-outline' },
-  { route: '/stages', label: 'Course Stages', group: 'Academics', icon: 'layers-outline' },
   { route: '/classes', label: 'Classes', group: 'Academics', icon: 'easel-outline' },
   { route: '/classGroups', label: 'Class Groups', group: 'Academics', icon: 'people-circle-outline' },
+  { route: '/course-types', label: 'Course Types', group: 'Academics', icon: 'library-outline' },
+  { route: '/stages', label: 'Course Stages', group: 'Academics', icon: 'layers-outline' },
+  { route: '/academic-tree', label: 'Academic Tree', group: 'Academics', icon: 'git-branch-outline' },
   { route: '/subjects', label: 'Subjects', group: 'Academics', icon: 'book-outline' },
   { route: '/exams', label: 'Exams & Re-Exams', group: 'Academics', icon: 'document-text-outline' },
   { route: '/class-plans', label: 'Class Plans', group: 'Academics', icon: 'calendar-outline' },
   { route: '/study-time', label: "Study Time (Mutala'a)", group: 'Academics', icon: 'time-outline' },
-  { route: '/academic-tree', label: 'Academic Tree', group: 'Academics', icon: 'git-branch-outline' },
 
   { route: '/attendance', label: 'Attendance', group: 'Operations', icon: 'checkbox-outline' },
   { route: '/external-activities', label: 'External Activities', group: 'Operations', icon: 'briefcase-outline' },

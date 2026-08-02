@@ -19,12 +19,17 @@ import { CompetitionReportsDialogComponent } from './competition-reports-dialog.
 })
 export class CompetitionsPage implements OnInit {
   profile$: Observable<AppUser | null> = this.auth.profile$;
+  readonly searchQuery$ = new BehaviorSubject<string>('');
+  readonly statusFilter$ = new BehaviorSubject<string>('all');
+  readonly categoryFilter$ = new BehaviorSubject<string>('all');
+
   searchQuery = '';
   statusFilter = 'all';
   categoryFilter = 'all';
 
   private refresh$ = new BehaviorSubject<void>(undefined);
   competitions$: Observable<Competition[]> = of([]);
+  filteredCompetitions$: Observable<Competition[]> = of([]);
 
   constructor(
     private auth: AuthService,
@@ -45,25 +50,43 @@ export class CompetitionsPage implements OnInit {
         return of([]);
       })
     );
-  }
 
-  get filteredCompetitions$(): Observable<Competition[]> {
-    return this.competitions$.pipe(
-      map((list) => {
-        const query = this.searchQuery.toLowerCase().trim();
+    this.filteredCompetitions$ = combineLatest([
+      this.competitions$,
+      this.searchQuery$,
+      this.statusFilter$,
+      this.categoryFilter$
+    ]).pipe(
+      map(([list, search, status, category]) => {
+        const query = search.toLowerCase().trim();
         return list.filter((item) => {
           const matchQuery =
             !query ||
-            item.title.toLowerCase().includes(query) ||
-            item.venue.toLowerCase().includes(query) ||
-            item.category.toLowerCase().includes(query) ||
+            (item.title && item.title.toLowerCase().includes(query)) ||
+            (item.venue && item.venue.toLowerCase().includes(query)) ||
+            (item.category && item.category.toLowerCase().includes(query)) ||
             (item.targetAudience && item.targetAudience.toLowerCase().includes(query));
-          const matchStatus = this.statusFilter === 'all' || item.status === this.statusFilter;
-          const matchCategory = this.categoryFilter === 'all' || item.category === this.categoryFilter;
+          const matchStatus = status === 'all' || item.status === status;
+          const matchCategory = category === 'all' || item.category === category;
           return matchQuery && matchStatus && matchCategory;
         });
       })
     );
+  }
+
+  onSearchChange(val: string) {
+    this.searchQuery = val;
+    this.searchQuery$.next(val);
+  }
+
+  onStatusChange(val: string) {
+    this.statusFilter = val;
+    this.statusFilter$.next(val);
+  }
+
+  onCategoryChange(val: string) {
+    this.categoryFilter = val;
+    this.categoryFilter$.next(val);
   }
 
   openCompetitionDialog(competition?: Competition): void {

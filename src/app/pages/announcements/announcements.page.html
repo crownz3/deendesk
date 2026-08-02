@@ -16,13 +16,13 @@
   <div class="filters-card">
     <mat-form-field appearance="outline" class="search-field">
       <mat-label>Search Announcements</mat-label>
-      <input matInput [(ngModel)]="searchQuery" placeholder="Search by title, keyword, author..." />
+      <input matInput [ngModel]="searchQuery" (ngModelChange)="onSearchChange($event)" placeholder="Search by title, keyword, author..." />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
 
     <mat-form-field appearance="outline" class="filter-field">
       <mat-label>Target Audience</mat-label>
-      <mat-select [(ngModel)]="scopeFilter">
+      <mat-select [ngModel]="scopeFilter" (ngModelChange)="onScopeChange($event)">
         <mat-option value="all">All Audiences</mat-option>
         <mat-option value="all_org">All Organization</mat-option>
         <mat-option value="specific_madrasa">Particular Madrasa(s)</mat-option>
@@ -38,7 +38,7 @@
 
     <mat-form-field appearance="outline" class="filter-field">
       <mat-label>Priority Level</mat-label>
-      <mat-select [(ngModel)]="priorityFilter">
+      <mat-select [ngModel]="priorityFilter" (ngModelChange)="onPriorityChange($event)">
         <mat-option value="all">All Priorities</mat-option>
         <mat-option value="urgent">🔴 Urgent</mat-option>
         <mat-option value="important">🟡 Important</mat-option>

@@ -546,8 +546,8 @@ service cloud.firestore {
     function canWriteScopedModule(data, permission) {
       return isSuper()
         || (isOrgAdmin() && sameOrg(data))
-        || (isCoordinator() && inAssignedMadrasaScope(data))
-        || (isMadrasaIncharge() && inAssignedMadrasaScope(data))
+        || (isCoordinator() && sameOrg(data))
+        || (isMadrasaIncharge() && sameOrg(data))
         || (isTeacherOrStaff() && sameOrg(data));
     }
 
@@ -676,9 +676,8 @@ service cloud.firestore {
     }
 
     match /promotionHistory/{id} {
-      allow read: if canReadScopedModule(resource.data, 'generateReports');
-      allow create: if canWriteScopedModule(request.resource.data, 'managePromotions');
-      allow update, delete: if canWriteScopedModule(resource.data, 'managePromotions');
+      allow read: if signedIn() && sameOrg(resource.data);
+      allow create, update, delete: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('managePromotions'));
     }
 
     match /studentTransfers/{id} {
@@ -902,8 +901,8 @@ service cloud.firestore {
     }
 
     match /userLifecycleHistory/{id} {
-      allow read: if isSuper() || (isOrgAdmin() && sameOrg(resource.data)) || (ownUserData(resource.data) && hasPermission('viewLifecycleHistory'));
-      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || hasPermission('manageUserLifecycle'));
+      allow read: if signedIn() && sameOrg(resource.data);
+      allow create: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('manageUserLifecycle'));
       allow update, delete: if false;
     }
 

@@ -47,24 +47,6 @@
             Add
           </button>
           <button
-            *ngIf="vm.config.resource === 'courses' || vm.config.resource === 'stages' || vm.config.resource === 'courseTypes'"
-            mat-stroked-button
-            color="accent"
-            type="button"
-            (click)="openCourseStagesDialog()">
-            <ion-icon name="layers-outline"></ion-icon>
-            Manage Course Stages
-          </button>
-          <button
-            *ngIf="vm.config.resource === 'courses' || vm.config.resource === 'stages' || vm.config.resource === 'courseTypes'"
-            mat-stroked-button
-            color="primary"
-            type="button"
-            routerLink="/course-types">
-            <ion-icon name="options-outline"></ion-icon>
-            Config Course Types
-          </button>
-          <button
             *ngIf="vm.config.resource === 'students'"
             mat-stroked-button
             type="button"
@@ -124,13 +106,23 @@
           </button>
 
           <button
-            *ngIf="dataTable?.selection?.selected?.length && vm.config.resource === 'users' && (vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin')"
+            *ngIf="dataTable?.selection?.selected?.length && (vm.config.resource === 'users' || vm.config.resource === 'students') && (vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin')"
             mat-stroked-button
             color="warn"
             type="button"
             (click)="bulkDelete(vm.config, dataTable.selection.selected, dataTable)">
             <ion-icon name="close-circle-outline"></ion-icon>
-            Delete ({{ dataTable.selection.selected.length }})
+            Delete Selected ({{ dataTable.selection.selected.length }})
+          </button>
+
+          <button
+            *ngIf="vm.config.resource === 'students' && (vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin')"
+            mat-stroked-button
+            color="warn"
+            type="button"
+            (click)="deleteAllStudents()">
+            <ion-icon name="trash-bin-outline"></ion-icon>
+            Delete All Students
           </button>
 
           <button
@@ -153,7 +145,7 @@
         </div>
       </header>
 
-      <div class="filters-toolbar" *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents', 'classGroups', 'madrasas'].includes(vm.config.resource)">
+      <div class="filters-toolbar" *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents', 'classGroups', 'madrasas', 'classes', 'courses'].includes(vm.config.resource)">
         <!-- Search Input -->
         <mat-form-field appearance="outline" class="search-field">
           <mat-label>Search {{ vm.config.title.toLowerCase() }}</mat-label>
@@ -284,6 +276,7 @@
         <div class="table-container">
           <app-data-table
             #dataTable
+            [resourceKey]="vm.config.resource"
             [currentUid]="vm.profile?.uid"
             [columns]="vm.config.columns"
             [rows]="vm.rows"
@@ -307,6 +300,8 @@
             (assignStaff)="assignStaff(vm.config, $event)"
             (impersonate)="impersonateUser($event)"
             (viewDetails)="viewDetails(vm.config, $event)"
+            (viewStudents)="showRowStudents(vm.config, $event)"
+            (viewMadrasas)="openMadrasasDialog($event)"
             (remove)="remove(vm.config, $event)"
             (activate)="activate(vm.config, $event)"
             (permanentlyDelete)="permanentlyDelete(vm.config, $event)"

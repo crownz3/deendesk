@@ -19,12 +19,17 @@ import { ExamReportsDialogComponent } from './exam-reports-dialog.component';
 })
 export class ExamsPage implements OnInit {
   profile$: Observable<AppUser | null> = this.auth.profile$;
+  readonly searchQuery$ = new BehaviorSubject<string>('');
+  readonly statusFilter$ = new BehaviorSubject<string>('all');
+  readonly typeFilter$ = new BehaviorSubject<string>('all');
+
   searchQuery = '';
   statusFilter = 'all';
   typeFilter = 'all';
 
   private refresh$ = new BehaviorSubject<void>(undefined);
   exams$: Observable<Exam[]> = of([]);
+  filteredExams$: Observable<Exam[]> = of([]);
 
   constructor(
     private auth: AuthService,
@@ -45,25 +50,43 @@ export class ExamsPage implements OnInit {
         return of([]);
       })
     );
-  }
 
-  get filteredExams$(): Observable<Exam[]> {
-    return this.exams$.pipe(
-      map((list) => {
-        const query = this.searchQuery.toLowerCase().trim();
+    this.filteredExams$ = combineLatest([
+      this.exams$,
+      this.searchQuery$,
+      this.statusFilter$,
+      this.typeFilter$
+    ]).pipe(
+      map(([list, search, status, type]) => {
+        const query = search.toLowerCase().trim();
         return list.filter((item) => {
           const matchQuery =
             !query ||
-            item.title.toLowerCase().includes(query) ||
-            item.academicYear.toLowerCase().includes(query) ||
+            (item.title && item.title.toLowerCase().includes(query)) ||
+            (item.academicYear && item.academicYear.toLowerCase().includes(query)) ||
             (item.targetCourseName && item.targetCourseName.toLowerCase().includes(query)) ||
             (item.targetStage && item.targetStage.toLowerCase().includes(query));
-          const matchStatus = this.statusFilter === 'all' || item.status === this.statusFilter;
-          const matchType = this.typeFilter === 'all' || item.examType === this.typeFilter;
+          const matchStatus = status === 'all' || item.status === status;
+          const matchType = type === 'all' || item.examType === type;
           return matchQuery && matchStatus && matchType;
         });
       })
     );
+  }
+
+  onSearchChange(val: string) {
+    this.searchQuery = val;
+    this.searchQuery$.next(val);
+  }
+
+  onStatusChange(val: string) {
+    this.statusFilter = val;
+    this.statusFilter$.next(val);
+  }
+
+  onTypeChange(val: string) {
+    this.typeFilter = val;
+    this.typeFilter$.next(val);
   }
 
   openExamDialog(exam?: Exam): void {

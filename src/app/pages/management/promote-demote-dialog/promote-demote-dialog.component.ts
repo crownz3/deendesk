@@ -29,6 +29,11 @@ export class PromoteDemoteDialogComponent implements OnInit {
   reason = '';
   
   availableStages: string[] = [];
+  stageHierarchy: { name: string; subStages: string[] }[] = [];
+  selectedMainStage = '';
+  selectedSubStage = '';
+  hasSubStagesForCourse = false;
+
   selectedStageOption = '';
   customNewStage = '';
   isCustomStage = false;
@@ -108,6 +113,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
   private extractStages(course: EntityRecord) {
     let stages: string[] = [];
     const rawStages = course['stages'];
+    const rawHierarchy = course['stageHierarchy'];
     const duration = Number(course['courseDurationYears'] || 0);
 
     if (Array.isArray(rawStages) && rawStages.length) {
@@ -122,7 +128,59 @@ export class PromoteDemoteDialogComponent implements OnInit {
       const type = String(course['type'] || course['courseType'] || '').toLowerCase();
       stages = [...(DEFAULT_STAGES_BY_COURSE_TYPE[type] || [])];
     }
+
     this.availableStages = Array.from(new Set(stages));
+
+    // Build stageHierarchy
+    const hierarchyMap = new Map<string, string[]>();
+
+    if (Array.isArray(rawHierarchy) && rawHierarchy.length > 0) {
+      rawHierarchy.forEach((item: any) => {
+        const name = String(item.name || item.title || '').trim();
+        const subs = Array.isArray(item.subStages) ? item.subStages.map((s: any) => String(s).trim()).filter(Boolean) : [];
+        if (name) {
+          hierarchyMap.set(name, subs);
+        }
+      });
+    }
+
+    if (hierarchyMap.size === 0) {
+      // Parse hierarchy from availableStages (e.g. "Miftah 1", "Miftah 2" or "Miftah - Stage 1")
+      for (const st of this.availableStages) {
+        let parentName = '';
+        let subName = '';
+
+        const dashMatch = st.match(/^(.+?)\s*[-:]\s*(.+)$/);
+        if (dashMatch) {
+          parentName = dashMatch[1].trim();
+          subName = dashMatch[2].trim();
+        } else {
+          const spaceNumMatch = st.match(/^([A-Za-z\s]+?)\s+(\d+|[A-Z]|Year\s*\d+|Stage\s*\d+)$/i);
+          if (spaceNumMatch) {
+            parentName = spaceNumMatch[1].trim();
+            subName = st.trim();
+          }
+        }
+
+        if (parentName && subName) {
+          if (!hierarchyMap.has(parentName)) {
+            hierarchyMap.set(parentName, []);
+          }
+          hierarchyMap.get(parentName)!.push(subName);
+        } else {
+          if (!hierarchyMap.has(st)) {
+            hierarchyMap.set(st, []);
+          }
+        }
+      }
+    }
+
+    this.stageHierarchy = Array.from(hierarchyMap.entries()).map(([name, subStages]) => ({
+      name,
+      subStages: Array.from(new Set(subStages))
+    }));
+
+    this.hasSubStagesForCourse = this.stageHierarchy.some(h => h.subStages.length > 0);
   }
 
   onActionChange() {
@@ -131,7 +189,15 @@ export class PromoteDemoteDialogComponent implements OnInit {
 
   autoSelectStage() {
     const current = String(this.firstStudent?.['stage'] || '').trim().toLowerCase();
-    const idx = this.availableStages.findIndex(s => s.toLowerCase() === current);
+    let idx = this.availableStages.findIndex(s => s.toLowerCase() === current);
+
+    if (idx === -1 && current) {
+      idx = this.availableStages.findIndex(s => 
+        s.toLowerCase().startsWith(current + ' ') || 
+        s.toLowerCase().startsWith(current + ' -') ||
+        s.toLowerCase().startsWith(current + ':')
+      );
+    }
 
     if (this.action === 'promotion') {
       if (idx >= 0 && idx < this.availableStages.length - 1) {
@@ -152,6 +218,96 @@ export class PromoteDemoteDialogComponent implements OnInit {
 
     this.selectedStageOption = this.newStage;
     this.isCustomStage = false;
+
+    this.syncMainAndSubStageFromNewStage(this.newStage);
+  }
+
+  syncMainAndSubStageFromNewStage(stageVal: string) {
+    if (!stageVal) return;
+    const lower = stageVal.trim().toLowerCase();
+
+    for (const h of this.stageHierarchy) {
+      if (h.name.toLowerCase() === lower) {
+        this.selectedMainStage = h.name;
+        this.selectedSubStage = h.subStages.length > 0 ? h.subStages[0] : '';
+        return;
+      }
+      for (const sub of h.subStages) {
+        if (sub.toLowerCase() === lower) {
+          this.selectedMainStage = h.name;
+          this.selectedSubStage = sub;
+          return;
+        }
+      }
+    }
+
+    if (this.stageHierarchy.length > 0) {
+      this.selectedMainStage = this.stageHierarchy[0].name;
+      const subs = this.stageHierarchy[0].subStages;
+      this.selectedSubStage = subs.length > 0 ? subs[0] : '';
+    }
+  }
+
+  formatStageWithHyphen(mainName: string, subName: string): string {
+    const main = (mainName || '').trim();
+    let sub = (subName || '').trim();
+    if (!main) return sub;
+    if (!sub) return main;
+
+    if (sub.includes(' - ') || sub.includes(':-') || sub.includes(': ')) {
+      return sub;
+    }
+
+    if (sub.toLowerCase().startsWith(main.toLowerCase())) {
+      const remainder = sub.slice(main.length).trim();
+      if (remainder) {
+        return `${main} - ${remainder}`;
+      }
+      return main;
+    }
+
+    return `${main} - ${sub}`;
+  }
+
+  formatStageDisplay(val: any): string {
+    if (!val || val === 'None' || val === '-') return val || 'None';
+    const str = String(val).trim();
+    if (str.includes(' - ') || str.includes(':-') || str.includes(': ')) return str;
+
+    const match = str.match(/^([A-Za-z]+(?:\s+[A-Za-z]+)*?)\s+(Stage\s*\d+|Sub-stage\s*\d+|Grade\s*\d+|Year\s*\d+|\d+)\b/i);
+    if (match) {
+      const mainPart = match[1].trim();
+      const subPart = match[2].trim();
+      const lower = mainPart.toLowerCase();
+      if (lower !== 'stage' && lower !== 'substage' && lower !== 'sub-stage' && lower !== 'grade' && lower !== 'year') {
+        return `${mainPart} - ${subPart}`;
+      }
+    }
+    return str;
+  }
+
+  onMainStageChange(mainName: string) {
+    this.selectedMainStage = mainName;
+    const item = this.stageHierarchy.find(h => h.name === mainName);
+    if (item && item.subStages.length > 0) {
+      this.selectedSubStage = item.subStages[0];
+      this.newStage = this.formatStageWithHyphen(mainName, this.selectedSubStage);
+    } else {
+      this.selectedSubStage = '';
+      this.newStage = mainName;
+    }
+    this.selectedStageOption = this.newStage;
+  }
+
+  onSubStageChange(subName: string) {
+    this.selectedSubStage = subName;
+    this.newStage = this.formatStageWithHyphen(this.selectedMainStage, subName);
+    this.selectedStageOption = this.newStage;
+  }
+
+  getSubStagesForMainStage(mainName: string): string[] {
+    const item = this.stageHierarchy.find(h => h.name === mainName);
+    return item ? item.subStages : [];
   }
 
   onStageOptionChange(val: string) {
@@ -201,12 +357,26 @@ export class PromoteDemoteDialogComponent implements OnInit {
       for (const std of this.targetStudents) {
         const studentId = std.id || String(std['uid']);
         const studentName = String(std['name'] || std['displayName'] || 'Student');
+        const orgId = std['organizationId'] || profile?.organizationId || '';
+        const mdrId = std['madrasaId'] || (Array.isArray(std['madrasaIds']) ? std['madrasaIds'][0] : profile?.madrasaId || '');
 
+        await this.repo.update('students', studentId, {
+          stage: this.newStage,
+        }, profile);
+
+        const userUid = String(std['userId'] || std['uid'] || '');
+        if (userUid) {
+          await this.repo.update('users', userUid, {
+            stage: this.newStage,
+          }, profile).catch(e => console.warn('Failed to update users collection:', e));
+        }
+
+        // Secondary Audit Logs (Catch gracefully)
         await this.repo.create('promotionHistory', {
           studentId: studentId,
           studentName: studentName,
-          organizationId: std['organizationId'],
-          madrasaId: std['madrasaId'],
+          organizationId: orgId,
+          madrasaId: mdrId,
           previousCourseId: String(std['courseId'] ?? ''),
           previousStage: String(std['stage'] ?? ''),
           newCourseId: String(std['courseId'] ?? ''),
@@ -216,7 +386,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
           actionDate: actionDate,
           status: 'active',
           createdBy: createdBy,
-        }, profile);
+        }, profile).catch(e => console.warn('[Promotion History Log Warning]:', e));
 
         await this.repo.create('userLifecycleHistory', {
           userId: studentId,
@@ -230,21 +400,11 @@ export class PromoteDemoteDialogComponent implements OnInit {
           effectiveDate: new Date().toISOString(),
           effectiveDateMs: Date.now(),
           performedBy: createdBy,
-          organizationId: std['organizationId'],
-          madrasaId: std['madrasaId'],
+          organizationId: orgId,
+          madrasaId: mdrId,
           status: 'active',
-        }, profile);
-
-        await this.repo.update('students', studentId, {
-          stage: this.newStage,
-        }, profile);
-
-        const userUid = String(std['userId'] || std['uid'] || '');
-        if (userUid) {
-          await this.repo.update('users', userUid, {
-            stage: this.newStage,
-          }, profile).catch(e => console.warn('Failed to update users collection', e));
-        }
+          createdVia: 'promoteDialog'
+        }, profile).catch(e => console.warn('[Lifecycle History Log Warning]:', e));
       }
 
       // If custom new stage, append to course stages

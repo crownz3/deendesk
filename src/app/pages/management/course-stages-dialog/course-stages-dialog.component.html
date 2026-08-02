@@ -1,116 +1,235 @@
 <div class="dialog-header">
   <div class="header-title-group">
-    <h2 mat-dialog-title>Manage Course Stages</h2>
-    <p class="header-subtitle">Configure stage ordering by Course Type or by Specific Course</p>
+    <h2 mat-dialog-title>Organization Academic Structure & Naming Rules</h2>
+    <p class="header-subtitle">Configure hierarchical course stages, inner sub-stages, and standard catalog naming rules for your organization.</p>
   </div>
   <button mat-icon-button type="button" (click)="close()" aria-label="Close dialog">
     <ion-icon name="close"></ion-icon>
   </button>
 </div>
 
+<!-- Main Dialog Tab Switcher -->
+<div class="tabs-header-bar">
+  <button type="button" class="tab-btn" [class.active]="activeTab === 'stages'" (click)="activeTab = 'stages'">
+    <ion-icon name="git-network-outline"></ion-icon>
+    <span>Course & Inner Stages</span>
+  </button>
+  <button type="button" class="tab-btn" [class.active]="activeTab === 'namingRules'" (click)="activeTab = 'namingRules'">
+    <ion-icon name="text-outline"></ion-icon>
+    <span>Catalog Naming Rules & Shifts</span>
+  </button>
+</div>
+
 <mat-dialog-content class="stages-dialog-content">
   <div *ngIf="loading" class="loading-state">
     <mat-spinner diameter="36"></mat-spinner>
-    <p>Loading course details...</p>
+    <p>Loading catalog settings...</p>
   </div>
 
   <div *ngIf="!loading" class="dialog-body">
-    <!-- Mode Toggle Switch -->
-    <div class="mode-toggle-bar">
-      <mat-button-toggle-group [(ngModel)]="mode" (change)="onModeChange()" name="stagesMode">
-        <mat-button-toggle value="courseType">
-          <ion-icon name="layers-outline"></ion-icon> Configure by Course Type
-        </mat-button-toggle>
-        <mat-button-toggle value="course">
-          <ion-icon name="library-outline"></ion-icon> Configure by Specific Course
-        </mat-button-toggle>
-      </mat-button-toggle-group>
-    </div>
 
-    <!-- Mode Selector Dropdown -->
-    <div class="course-selector-box">
-      <!-- By Course Type -->
-      <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'courseType'">
-        <mat-label>Select Course Type</mat-label>
-        <mat-select [(ngModel)]="selectedCourseTypeId" (selectionChange)="onSelectionChange()">
-          <mat-option *ngFor="let type of courseTypes" [value]="type.id">
-            <strong>{{ type['name'] || type.id }}</strong> <span class="course-code-pill">({{ type['code'] || type.id }})</span>
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-
-      <!-- By Specific Course -->
-      <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'course'">
-        <mat-label>Select Specific Course</mat-label>
-        <mat-select [(ngModel)]="selectedCourseId" (selectionChange)="onSelectionChange()">
-          <mat-option *ngFor="let course of courses" [value]="course.id">
-            <strong>{{ course['name'] }}</strong> <span class="course-code-pill">({{ course['code'] || course.id }})</span>
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
-    </div>
-
-    <!-- Quick Presets Bar -->
-    <div class="presets-bar">
-      <span class="preset-label"><ion-icon name="flash-outline"></ion-icon> Quick Presets:</span>
-      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('maktab')">+ Maktab</button>
-      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('hifz')">+ Hifz</button>
-      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('aalim')">+ Aalim</button>
-      <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('numbered')">+ Stage 1-5</button>
-    </div>
-
-    <!-- Active Stages List -->
-    <div class="stages-section">
-      <div class="section-header">
-        <h3>
-          Sequential Stage Sequence
-          <span class="count-badge">{{ stagesList.length }} Stage(s)</span>
-        </h3>
-        <button mat-button color="warn" type="button" *ngIf="stagesList.length > 0" (click)="clearAllStages()">
-          <ion-icon name="trash-outline"></ion-icon> Clear All
-        </button>
+    <!-- TAB 1: COURSE STAGES & INNER STAGES -->
+    <ng-container *ngIf="activeTab === 'stages'">
+      <!-- Mode Toggle Switch -->
+      <div class="mode-toggle-bar">
+        <mat-button-toggle-group [(ngModel)]="mode" (change)="onModeChange()" name="stagesMode">
+          <mat-button-toggle value="courseType">
+            <ion-icon name="layers-outline"></ion-icon> Configure by Course Type
+          </mat-button-toggle>
+          <mat-button-toggle value="course">
+            <ion-icon name="library-outline"></ion-icon> Configure by Specific Course
+          </mat-button-toggle>
+        </mat-button-toggle-group>
       </div>
 
-      <div class="stages-list" *ngIf="stagesList.length > 0">
-        <div class="stage-item-row" *ngFor="let stage of stagesList; let i = index; trackBy: trackByIndex">
-          <div class="stage-order-number">{{ i + 1 }}</div>
-          <input type="text" class="stage-name-input" [(ngModel)]="stagesList[i]" placeholder="Stage Name">
+      <!-- Mode Selector Dropdown -->
+      <div class="course-selector-box">
+        <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'courseType'">
+          <mat-label>Select Course Type</mat-label>
+          <mat-select [(ngModel)]="selectedCourseTypeId" (selectionChange)="onSelectionChange()">
+            <mat-option *ngFor="let type of courseTypes" [value]="type.id">
+              <strong>{{ type['name'] || type.id }}</strong> <span class="course-code-pill">({{ type['code'] || type.id }})</span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
 
-          <div class="stage-row-actions">
-            <button mat-icon-button type="button" (click)="moveUp(i)" [disabled]="i === 0" matTooltip="Move Up">
-              <ion-icon name="arrow-up-outline"></ion-icon>
+        <mat-form-field appearance="outline" class="full-field" *ngIf="mode === 'course'">
+          <mat-label>Select Specific Course</mat-label>
+          <mat-select [(ngModel)]="selectedCourseId" (selectionChange)="onSelectionChange()">
+            <mat-option *ngFor="let course of courses" [value]="course.id">
+              <strong>{{ course['name'] }}</strong> <span class="course-code-pill">({{ course['code'] || course.id }})</span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <!-- Quick Presets Bar -->
+      <div class="presets-bar">
+        <span class="preset-label"><ion-icon name="flash-outline"></ion-icon> Quick Presets:</span>
+        <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('maktab')">+ Maktab</button>
+        <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('hifz')">+ Hifz</button>
+        <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('aalim')">+ Aalim</button>
+        <button mat-stroked-button type="button" class="preset-btn" (click)="loadPreset('numbered')">+ Stage 1-5</button>
+      </div>
+
+      <!-- Active Stages & Inner Sub-Stages Tree -->
+      <div class="stages-section">
+        <div class="section-header">
+          <h3>
+            Hierarchical Stages Tree
+            <span class="count-badge">{{ stagesList.length }} Total Stage(s)</span>
+          </h3>
+          <div class="header-btns">
+            <button mat-flat-button color="accent" type="button" (click)="addMainStage()">
+              <ion-icon name="add-circle-outline"></ion-icon> Add Main Stage
             </button>
-            <button mat-icon-button type="button" (click)="moveDown(i)" [disabled]="i === stagesList.length - 1" matTooltip="Move Down">
-              <ion-icon name="arrow-down-outline"></ion-icon>
-            </button>
-            <button mat-icon-button color="warn" type="button" (click)="removeStage(i)" matTooltip="Delete Stage">
-              <ion-icon name="trash-outline"></ion-icon>
+            <button mat-button color="warn" type="button" *ngIf="stagesList.length > 0" (click)="clearAllStages()">
+              <ion-icon name="trash-outline"></ion-icon> Clear All
             </button>
           </div>
         </div>
+
+        <div class="stages-tree" *ngIf="hierarchicalStages.length > 0">
+          <div class="parent-stage-card" *ngFor="let item of hierarchicalStages; let i = index; trackBy: trackByIndex">
+            <div class="parent-stage-header">
+              <div class="stage-order-badge">{{ i + 1 }}</div>
+              <input type="text" class="parent-stage-input" [(ngModel)]="item.name" (ngModelChange)="syncStagesListFromHierarchy()" placeholder="Main Stage Name (e.g. Miftah)">
+              
+              <div class="stage-actions">
+                <button mat-icon-button type="button" (click)="moveUp(i)" [disabled]="i === 0" matTooltip="Move Up">
+                  <ion-icon name="arrow-up-outline"></ion-icon>
+                </button>
+                <button mat-icon-button type="button" (click)="moveDown(i)" [disabled]="i === hierarchicalStages.length - 1" matTooltip="Move Down">
+                  <ion-icon name="arrow-down-outline"></ion-icon>
+                </button>
+                <button mat-icon-button color="warn" type="button" (click)="removeStage(i)" matTooltip="Delete Stage">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Inner Sub-Stages Box -->
+            <div class="sub-stages-box">
+              <div class="sub-stages-header">
+                <span><ion-icon name="git-commit-outline"></ion-icon> Inner Sub-Stages for {{ item.name }}</span>
+                <span class="sub-count" *ngIf="item.subStages.length">{{ item.subStages.length }} Sub-Stage(s)</span>
+              </div>
+
+              <!-- List of Inner Stages -->
+              <div class="sub-stages-list" *ngIf="item.subStages.length > 0">
+                <div class="sub-stage-row" *ngFor="let sub of item.subStages; let sj = index; trackBy: trackByIndex">
+                  <ion-icon name="return-down-forward-outline" class="sub-icon"></ion-icon>
+                  <input type="text" class="sub-stage-input" [(ngModel)]="item.subStages[sj]" (ngModelChange)="syncStagesListFromHierarchy()" placeholder="Sub-stage Name">
+                  <button mat-icon-button color="warn" type="button" (click)="removeSubStage(i, sj)" matTooltip="Remove Inner Stage">
+                    <ion-icon name="close-circle-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quick Add Sub-stage Input -->
+              <div class="add-sub-stage-form">
+                <input type="text" class="add-sub-input" [(ngModel)]="item.subStageInput" (keyup.enter)="addSubStage(i)" [placeholder]="'Add inner stage (e.g. ' + item.name + ' Stage ' + (item.subStages.length + 1) + ')'">
+                <button mat-stroked-button color="primary" type="button" (click)="addSubStage(i)">
+                  <ion-icon name="add-outline"></ion-icon> Add Inner Stage
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-stages" *ngIf="hierarchicalStages.length === 0">
+          <ion-icon name="layers-outline"></ion-icon>
+          <p>No stages added yet.</p>
+          <small>Use the bulk add box below or click a quick preset above.</small>
+        </div>
       </div>
 
-      <div class="empty-stages" *ngIf="stagesList.length === 0">
-        <ion-icon name="layers-outline"></ion-icon>
-        <p>No stages added yet.</p>
-        <small>Use the bulk add box below or click a quick preset above.</small>
+      <!-- Bulk Add Box -->
+      <div class="bulk-add-card">
+        <h4><ion-icon name="add-circle-outline"></ion-icon> Bulk Add Multiple Main Stages</h4>
+        <p class="bulk-hint">Enter stage names separated by commas or line breaks (e.g. <code>Miftah, Tilawatul Quran, Hifz</code>)</p>
+        
+        <mat-form-field appearance="outline" class="full-field">
+          <mat-label>Multiple Main Stages (comma or newline separated)</mat-label>
+          <textarea matInput [(ngModel)]="bulkInputText" rows="3" placeholder="e.g. Miftah, Tilawatul Quran, Hifz"></textarea>
+        </mat-form-field>
+        
+        <button mat-flat-button color="accent" type="button" (click)="addBulkStages()" [disabled]="!bulkInputText.trim()">
+          <ion-icon name="add-outline"></ion-icon> Add Multiple Stages
+        </button>
       </div>
-    </div>
+    </ng-container>
 
-    <!-- Bulk Add Box -->
-    <div class="bulk-add-card">
-      <h4><ion-icon name="add-circle-outline"></ion-icon> Bulk Add Multiple Stages at Once</h4>
-      <p class="bulk-hint">Enter stage names separated by commas or line breaks (e.g. <code>Stage 1, Stage 2, Stage 3</code>)</p>
-      
-      <mat-form-field appearance="outline" class="full-field">
-        <mat-label>Multiple Stages (comma or newline separated)</mat-label>
-        <textarea matInput [(ngModel)]="bulkInputText" rows="3" placeholder="e.g. Miftah, Tilawatul Quran, Hifz 1, Hifz 2"></textarea>
-      </mat-form-field>
-      
-      <button mat-flat-button color="accent" type="button" (click)="addBulkStages()" [disabled]="!bulkInputText.trim()">
-        <ion-icon name="add-outline"></ion-icon> Add Multiple Stages
-      </button>
-    </div>
+    <!-- TAB 2: CATALOG NAMING RULES & SHIFTS -->
+    <ng-container *ngIf="activeTab === 'namingRules'">
+      <div class="naming-rules-card">
+        <h3><ion-icon name="time-outline"></ion-icon> Standard Shifts / Time Slots</h3>
+        <p class="section-desc">Define standard Madrasa operating shifts (e.g., Morning, Evening, After Maghrib, After Isha). Madrasas will select these shifts when creating classes.</p>
+
+        <div class="shifts-chip-list">
+          <div class="shift-chip" *ngFor="let shift of standardShifts; let si = index">
+            <span>{{ shift }}</span>
+            <button mat-icon-button type="button" (click)="removeShift(si)" matTooltip="Remove shift">
+              <ion-icon name="close-circle"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="add-shift-form">
+          <mat-form-field appearance="outline" class="shift-input-field">
+            <mat-label>Add New Shift Preset</mat-label>
+            <input matInput [(ngModel)]="newShiftInput" (keyup.enter)="addShift()" placeholder="e.g. After Maghrib or After Isha">
+          </mat-form-field>
+          <button mat-flat-button color="primary" type="button" (click)="addShift()" [disabled]="!newShiftInput.trim()">
+            <ion-icon name="add-outline"></ion-icon> Add Shift
+          </button>
+        </div>
+      </div>
+
+      <div class="naming-rules-card">
+        <h3><ion-icon name="code-working-outline"></ion-icon> Class Name Formatting Pattern</h3>
+        <p class="section-desc">Class names across all Madrasas will automatically be formatted using this Organization rule.</p>
+
+        <mat-form-field appearance="outline" class="full-field">
+          <mat-label>Class Name Format Rule</mat-label>
+          <mat-select [(ngModel)]="classNamePattern">
+            <mat-option value="{madrasaCode} - {shift}">
+              <span>Madrasa Code - Shift (e.g. MUK - Morning, MUK - After Maghrib)</span>
+            </mat-option>
+            <mat-option value="{madrasaCode} - {className} ({shift})">
+              <span>Madrasa Code - Class Name (Shift) (e.g. MUK - Class 1 (Morning))</span>
+            </mat-option>
+            <mat-option value="{shift} - {className}">
+              <span>Shift - Class Name (e.g. After Maghrib - Class 1)</span>
+            </mat-option>
+            <mat-option value="{className} - {shift}">
+              <span>Class Name - Shift (e.g. Class 1 - Evening)</span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+
+      <div class="naming-rules-card">
+        <h3><ion-icon name="people-circle-outline"></ion-icon> Class Group Name Formatting Pattern</h3>
+        <p class="section-desc">Class group/section names will automatically format using this Organization rule.</p>
+
+        <mat-form-field appearance="outline" class="full-field">
+          <mat-label>Class Group Format Rule</mat-label>
+          <mat-select [(ngModel)]="groupNamePattern">
+            <mat-option value="{shift} - {courseType} - {groupName}">
+              <span>Shift - Course Type - Group (e.g. After Maghrib - Maktab - Section A)</span>
+            </mat-option>
+            <mat-option value="{shift} - {groupName}">
+              <span>Shift - Group (e.g. Evening - Section A)</span>
+            </mat-option>
+            <mat-option value="{groupName} ({shift})">
+              <span>Group (Shift) (e.g. Section A (Morning))</span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </ng-container>
+
   </div>
 </mat-dialog-content>
 
@@ -118,6 +237,6 @@
   <button mat-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
   <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="loading || saving">
     <mat-spinner diameter="20" *ngIf="saving"></mat-spinner>
-    <span *ngIf="!saving">Save Stage Sequence</span>
+    <span *ngIf="!saving">Save Organization Rules & Stages</span>
   </button>
 </mat-dialog-actions>

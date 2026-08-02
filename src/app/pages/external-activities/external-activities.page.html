@@ -61,13 +61,13 @@
       <div class="filter-row">
         <mat-form-field appearance="outline" class="search-field">
           <mat-label>Search activities or names...</mat-label>
-          <input matInput [(ngModel)]="searchQuery" placeholder="Filter by person, title, or mosque..." />
+          <input matInput [ngModel]="searchQuery" (ngModelChange)="onSearchChange($event)" placeholder="Filter by person, title, or mosque..." />
           <ion-icon matPrefix name="search-outline" class="search-icon"></ion-icon>
         </mat-form-field>
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Person Type</mat-label>
-          <mat-select [(ngModel)]="personTypeFilter">
+          <mat-select [ngModel]="personTypeFilter" (ngModelChange)="onPersonTypeChange($event)">
             <mat-option value="all">All People</mat-option>
             <mat-option value="student">Students</mat-option>
             <mat-option value="staff">Staff / Teachers</mat-option>
@@ -76,7 +76,7 @@
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Activity Category</mat-label>
-          <mat-select [(ngModel)]="typeFilter">
+          <mat-select [ngModel]="typeFilter" (ngModelChange)="onTypeChange($event)">
             <mat-option value="all">All Categories</mat-option>
             <mat-option value="imam">Imam at Mosque</mat-option>
             <mat-option value="outside_ustadh">Outside Ustadh</mat-option>
@@ -88,7 +88,7 @@
 
         <mat-form-field appearance="outline" class="filter-field">
           <mat-label>Status</mat-label>
-          <mat-select [(ngModel)]="statusFilter">
+          <mat-select [ngModel]="statusFilter" (ngModelChange)="onStatusChange($event)">
             <mat-option value="all">All Statuses</mat-option>
             <mat-option value="active">Active</mat-option>
             <mat-option value="completed">Completed</mat-option>

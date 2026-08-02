@@ -1,0 +1,716 @@
+.catalog-page-content {
+  --background: #f8fafc;
+}
+
+.page-shell {
+  padding: 24px 32px;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.catalog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+
+  .header-info {
+    .eyebrow {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #0284c7;
+      margin: 0 0 4px;
+    }
+
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0 0 6px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #64748b;
+      margin: 0;
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 12px;
+
+    button {
+      ion-icon { margin-right: 6px; }
+    }
+  }
+}
+
+.catalog-tabs-bar {
+  display: flex;
+  gap: 12px;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 24px;
+
+  .nav-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #64748b;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    ion-icon { font-size: 18px; }
+
+    &:hover {
+      color: #1e293b;
+      background: #f1f5f9;
+      border-radius: 8px 8px 0 0;
+    }
+
+    &.active {
+      color: #0284c7;
+      border-bottom-color: #0284c7;
+
+      ion-icon { color: #0284c7; }
+    }
+  }
+}
+
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px;
+  color: #64748b;
+}
+
+.full-field { width: 100%; }
+
+.catalog-section {
+  margin-bottom: 36px;
+
+  .section-title-bar {
+    margin-bottom: 16px;
+
+    h2 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    p {
+      margin: 0;
+      font-size: 13px;
+      color: #64748b;
+    }
+  }
+}
+
+.types-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.type-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  overflow: hidden;
+
+  .type-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+
+    .type-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .type-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .type-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: #e0f2fe;
+      color: #0284c7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    h3 { margin: 0; font-size: 16px; font-weight: 700; color: #0f172a; }
+    .code-badge { font-size: 11px; background: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+  }
+
+  .type-stages-preview, .course-card-stages {
+    padding: 12px 20px;
+    border-bottom: 1px solid #f1f5f9;
+    .label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  }
+
+  .type-courses-section {
+    padding: 16px 20px;
+
+    .type-courses-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 13px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 12px;
+
+      ion-icon { font-size: 16px; color: #0284c7; }
+
+      .pill {
+        background: #0284c7;
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        border-radius: 10px;
+        padding: 2px 8px;
+
+        &.usage-pill-btn {
+          background: #e0f2fe;
+          color: #0369a1;
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          border: 1px solid #bae6fd;
+          cursor: pointer;
+          transition: background 0.2s, transform 0.1s;
+
+          &:hover {
+            background: #bae6fd;
+            transform: translateY(-1px);
+          }
+
+          ion-icon { font-size: 13px; color: #0284c7; }
+        }
+      }
+    }
+
+    .type-courses-empty {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      font-size: 13px;
+      color: #94a3b8;
+
+      ion-icon { font-size: 18px; }
+      button { margin-left: auto; }
+    }
+
+    .nested-courses-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .nested-course-card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px 14px;
+      transition: box-shadow 0.2s;
+
+      &:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
+      .nested-course-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+
+        strong { font-size: 14px; font-weight: 700; color: #0f172a; display: block; }
+        .course-code { font-size: 11px; background: #dbeafe; color: #1d4ed8; padding: 2px 7px; border-radius: 4px; font-weight: 600; margin-top: 2px; display: inline-block; }
+
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+
+          button {
+            width: 32px;
+            height: 32px;
+            line-height: 32px;
+
+            ion-icon { font-size: 16px; }
+          }
+        }
+      }
+
+      .nested-course-meta {
+        display: flex;
+        gap: 14px;
+        font-size: 12px;
+        color: #64748b;
+        margin-bottom: 8px;
+
+        span { display: flex; align-items: center; gap: 4px; }
+        ion-icon { font-size: 13px; }
+      }
+
+      .course-madrasa-usage {
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px dashed #e2e8f0;
+
+        .view-madrasas-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          padding: 7px 12px;
+          background: #f0f9ff;
+          border: 1px solid #bae6fd;
+          border-radius: 8px;
+          color: #0369a1;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &:hover {
+            background: #e0f2fe;
+            border-color: #7dd3fc;
+            color: #0284c7;
+          }
+
+          ion-icon {
+            font-size: 16px;
+            color: #0284c7;
+            flex-shrink: 0;
+
+            &.open-icon {
+              font-size: 13px;
+              opacity: 0.7;
+              margin-left: 2px;
+            }
+          }
+
+          strong {
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 2px;
+          }
+        }
+
+        .usage-empty {
+          color: #94a3b8;
+          font-style: italic;
+          font-size: 11px;
+          display: block;
+          text-align: center;
+        }
+      }
+
+      .nested-course-stages {
+        .label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 4px; }
+      }
+    }
+  }
+}
+
+.hierarchical-stages-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .stage-hierarchy-group {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+
+    .parent-stage-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #0369a1;
+
+      ion-icon { font-size: 16px; color: #0284c7; }
+      .parent-name { font-weight: 800; }
+    }
+
+    .sub-stages-flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 6px;
+      padding-left: 8px;
+
+      .sub-chip {
+        font-size: 11px;
+        font-weight: 700;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #1e293b;
+        padding: 2px 8px;
+        border-radius: 12px;
+      }
+
+      .flow-arrow {
+        font-size: 12px;
+        color: #94a3b8;
+      }
+    }
+  }
+
+  .no-stages { font-size: 12px; color: #94a3b8; font-style: italic; }
+}
+
+.courses-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.course-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+
+  .course-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+
+    h3 { margin: 0; font-size: 17px; font-weight: 800; color: #0f172a; }
+    .course-code { font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 8px; border-radius: 12px; font-weight: 700; }
+  }
+
+  .course-card-meta {
+    display: flex;
+    gap: 16px;
+    padding: 10px;
+    background: #f8fafc;
+    border-radius: 8px;
+    margin-bottom: 14px;
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+
+      .meta-label { font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; }
+      .meta-val { font-size: 13px; font-weight: 700; color: #1e293b; }
+    }
+  }
+
+  .course-card-stages {
+    .label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; display: block; margin-bottom: 6px; }
+    .stages-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+
+      .pill { font-size: 12px; background: #e0e7ff; color: #3730a3; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+      .no-stages { font-size: 12px; color: #94a3b8; font-style: italic; }
+    }
+  }
+}
+
+.mode-toggle-bar {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+
+  mat-button-toggle-group {
+    width: 100%;
+    max-width: 600px;
+    border-radius: 8px;
+    overflow: hidden;
+
+    mat-button-toggle {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 600;
+
+      ion-icon { margin-right: 4px; vertical-align: text-bottom; }
+    }
+  }
+}
+
+.selector-box {
+  max-width: 600px;
+  margin: 0 auto 20px;
+
+  .muted { color: #94a3b8; font-size: 12px; }
+}
+
+.presets-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+
+  .preset-label { font-size: 12px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 4px; }
+}
+
+.tree-builder-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+
+  .tree-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+
+    h3 { margin: 0; font-size: 16px; font-weight: 800; color: #0f172a; }
+    .count-pill { font-size: 11px; background: #e0f2fe; color: #0369a1; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+  }
+
+  .bottom-add-stage-bar {
+    margin-top: 16px;
+    display: flex;
+
+    .full-add-btn {
+      width: 100%;
+      height: 42px;
+      font-weight: 700;
+      border-style: dashed;
+
+      ion-icon { margin-right: 6px; }
+    }
+  }
+}
+
+.stages-tree-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.parent-stage-box {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  overflow: hidden;
+
+  .parent-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #f1f5f9;
+
+    .order-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #0284c7;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .parent-input {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a !important;
+      background-color: #ffffff !important;
+      -webkit-text-fill-color: #0f172a !important;
+      padding: 6px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      outline: none;
+
+      &::placeholder {
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+      }
+
+      &:focus { border-color: #0284c7; }
+    }
+  }
+
+  .sub-stages-panel {
+    padding: 14px 16px;
+
+    .sub-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 10px;
+
+      ion-icon { color: #0284c7; }
+    }
+
+    .sub-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 12px;
+
+      .sub-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-left: 16px;
+
+        .tree-branch { color: #94a3b8; font-size: 18px; }
+
+        .sub-input {
+          flex: 1;
+          font-size: 13px;
+          font-weight: 600;
+          color: #1e293b !important;
+          background-color: #ffffff !important;
+          -webkit-text-fill-color: #1e293b !important;
+          padding: 6px 12px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          outline: none;
+
+          &::placeholder {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+          }
+
+          &:focus { border-color: #0284c7; }
+        }
+      }
+    }
+
+    .add-sub-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding-left: 16px;
+
+      .add-sub-input {
+        flex: 1;
+        font-size: 13px;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+        -webkit-text-fill-color: #0f172a !important;
+        padding: 7px 12px;
+        border: 1px dashed #cbd5e1;
+        border-radius: 6px;
+        outline: none;
+
+        &::placeholder {
+          color: #94a3b8 !important;
+          -webkit-text-fill-color: #94a3b8 !important;
+        }
+
+        &:focus { border-color: #0284c7; border-style: solid; }
+      }
+    }
+  }
+}
+
+.naming-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+
+  h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 800;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    ion-icon { color: #0284c7; }
+  }
+
+  .desc { font-size: 13px; color: #64748b; margin: 0 0 16px; }
+
+  .shifts-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+
+    .shift-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: #e0f2fe;
+      border: 1px solid #bae6fd;
+      color: #0369a1;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+
+      button { width: 18px; height: 18px; line-height: 18px; }
+    }
+  }
+
+  .add-shift-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+
+    .flex-field { flex: 1; }
+  }
+}
+
+.action-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+
+  button { min-width: 180px; height: 44px; font-weight: 700; font-size: 14px; }
+}

@@ -1,11 +1,20 @@
 <div class="students-dialog">
-  <h2 mat-dialog-title style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0;">
-    <span>Assigned Students - {{ data.nodeTitle }}</span>
-    <button mat-icon-button mat-dialog-close style="margin-right: -8px;">
-      <ion-icon name="close-outline" style="font-size: 24px;"></ion-icon>
+  <div class="dialog-header">
+    <div class="header-left">
+      <div class="header-icon">
+        <ion-icon name="people-outline"></ion-icon>
+      </div>
+      <div>
+        <h2 mat-dialog-title>Assigned Students — {{ data.nodeTitle }}</h2>
+        <span class="subtitle">{{ filteredStudents.length }} student(s) enrolled</span>
+      </div>
+    </div>
+    <button mat-icon-button mat-dialog-close aria-label="Close dialog">
+      <ion-icon name="close-outline"></ion-icon>
     </button>
-  </h2>
-  <mat-dialog-content>
+  </div>
+
+  <mat-dialog-content class="dialog-content">
     <div class="students-toolbar">
       <div class="search-box">
         <ion-icon name="search-outline"></ion-icon>
@@ -20,28 +29,40 @@
             {{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}
           </div>
           <div class="student-info">
-            <h3>{{ student.name || student.displayName || 'N/A' }}</h3>
-            <p>{{ student.email || 'No email' }}</p>
+            <h3>{{ student.name || student.displayName || 'Student' }}</h3>
+            <p class="email-text">{{ student.email || 'No email registered' }}</p>
           </div>
         </div>
 
         <div class="student-meta">
           <div class="meta-group">
             <span class="meta-label">Contact Info</span>
-            <span class="meta-value">Student: {{ student.mobileNumber || student.phone || 'N/A' }}</span>
-            <span class="meta-subvalue">Parent: {{ student.parentMobileNumber || student.fatherMobileNumber || student.fatherPhone || student.parentPhone || student.guardianMobileNumber || 'N/A' }}</span>
+            <span class="meta-value">
+              <strong>Student:</strong> {{ (student.studentPhone && student.studentPhone !== 'N/A') ? student.studentPhone : (student.mobileNumber || student.phone || student.mobile || student.contactNumber || 'N/A') }}
+            </span>
+            <span class="meta-subvalue">
+              <strong>Parent:</strong> {{ (student.parentPhone && student.parentPhone !== 'N/A') ? student.parentPhone : (student.parentMobileNumber || student.fatherMobileNumber || student.fatherPhone || student.parentPhone || 'N/A') }}
+              <span *ngIf="student.parentName || student.fatherName"> ({{ student.parentName || student.fatherName }})</span>
+            </span>
           </div>
-          
+
           <div class="meta-group">
             <span class="meta-label">Academic Info</span>
-            <span class="meta-value">{{ student.courseName || 'N/A' }} • {{ student.className || 'N/A' }}</span>
-            <span class="meta-subvalue">Group: {{ student.groupName || 'N/A' }} (Staff: {{ student.assignedStaffName || 'None' }})</span>
+            <span class="meta-value">
+              {{ student.courseName || 'N/A' }}
+              <span *ngIf="student.className && student.className !== 'N/A'"> • {{ student.className }}</span>
+            </span>
+            <span class="meta-subvalue">
+              Group: <strong>{{ (student.groupName && student.groupName !== 'N/A') ? student.groupName : (student.group || student.groupId || 'N/A') }}</strong>
+              <span *ngIf="student.assignedStaffName && student.assignedStaffName !== 'None'"> (Staff: {{ student.assignedStaffName }})</span>
+            </span>
           </div>
         </div>
 
         <div class="student-actions">
-          <button mat-button color="primary" (click)="viewAttendanceHistory(student)">
-            <ion-icon name="calendar-outline"></ion-icon> History
+          <button mat-flat-button color="primary" class="history-btn" (click)="viewAttendanceHistory(student)">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>History</span>
           </button>
         </div>
       </div>
@@ -51,10 +72,8 @@
       <div class="empty-state">
         <ion-icon name="people-outline"></ion-icon>
         <h3>No students assigned</h3>
-        <p>Students assigned to this academic item will appear here.</p>
+        <p>Students assigned to this item will appear here.</p>
       </div>
     </ng-template>
   </mat-dialog-content>
-
-
 </div>

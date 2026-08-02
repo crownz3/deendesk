@@ -59,6 +59,24 @@
             <span class="label">Levels / Batches</span>
             <span class="value">{{ formatList(course['levels']) }}</span>
           </div>
+          <div class="data-row" *ngIf="course['promotionRule']">
+            <span class="label">Promotion Exam Rule</span>
+            <span class="value">
+              <ng-container *ngIf="course['promotionRule'] === 'exam_mandatory'">Mandatory Exam Pass</ng-container>
+              <ng-container *ngIf="course['promotionRule'] === 'exam_optional_manual'">Optional Exam / Manual Teacher Override</ng-container>
+              <ng-container *ngIf="course['promotionRule'] === 'daur_count_required'">
+                Daur Count Completion ({{ course['requiredDaurCount'] || 1 }} Time{{ (course['requiredDaurCount'] || 1) > 1 ? 's' : '' }})
+              </ng-container>
+            </span>
+          </div>
+          <div class="data-row" *ngIf="course['evaluationMode']">
+            <span class="label">Daily Evaluation Mode</span>
+            <span class="value">
+              <ng-container *ngIf="course['evaluationMode'] === 'portion_based'">Portion-Based (Sabaq / Sabqi / Manzil / Daur)</ng-container>
+              <ng-container *ngIf="course['evaluationMode'] === 'subject_based'">Subject-Based (Kitabs / Books)</ng-container>
+              <ng-container *ngIf="course['evaluationMode'] === 'hybrid'">Hybrid (Both Portion & Subject)</ng-container>
+            </span>
+          </div>
         </div>
       </section>
     </div>

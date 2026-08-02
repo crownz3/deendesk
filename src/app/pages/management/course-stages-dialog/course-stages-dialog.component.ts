@@ -9,7 +9,14 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 export interface CourseStagesDialogData {
   courseId?: string;
   course?: EntityRecord;
-  mode?: 'course' | 'courseType';
+  mode?: 'course' | 'courseType' | 'namingRules';
+}
+
+export interface StageHierarchyItem {
+  name: string;
+  subStages: string[];
+  expanded?: boolean;
+  subStageInput?: string;
 }
 
 @Component({
@@ -22,7 +29,8 @@ export class CourseStagesDialogComponent implements OnInit {
   loading = true;
   saving = false;
 
-  mode: 'course' | 'courseType' = 'course';
+  activeTab: 'stages' | 'namingRules' = 'stages';
+  mode: 'course' | 'courseType' | 'namingRules' = 'course';
 
   courses: EntityRecord[] = [];
   courseTypes: EntityRecord[] = [];
@@ -34,7 +42,15 @@ export class CourseStagesDialogComponent implements OnInit {
   selectedCourseType: EntityRecord | null = null;
 
   stagesList: string[] = [];
+  hierarchicalStages: StageHierarchyItem[] = [];
   bulkInputText = '';
+
+  // Organization Naming Rules
+  standardShifts: string[] = ['Morning', 'Evening', 'After Maghrib', 'After Isha'];
+  newShiftInput = '';
+  classNamePattern = '{madrasaCode} - {shift}';
+  groupNamePattern = '{shift} - {courseType} - {groupName}';
+  organizationId = '';
 
   readonly builtInCourseTypes: EntityRecord[] = [
     { id: 'maktab', name: 'Maktab', code: 'MAKTAB', defaultStages: ['Miftah', 'Tilawatul Quran', 'Hifz'] },
@@ -70,15 +86,30 @@ export class CourseStagesDialogComponent implements OnInit {
     this.loading = true;
     try {
       const profile = await firstValueFrom(this.auth.profile$);
-      this.courses = await this.repo.getAllOnce<EntityRecord>('courses', profile);
+      const orgId = profile?.organizationId || '';
+      const isSuperAdmin = profile?.role === 'superAdmin';
+
+      const allCourses = await this.repo.getAllOnce<EntityRecord>('courses', profile);
       const fetchedTypes = await this.repo.getAllOnce<EntityRecord>('courseTypes', profile);
+
+      this.courses = isSuperAdmin ? allCourses : allCourses.filter(c => !c['organizationId'] || c['organizationId'] === orgId);
+
+      const orgFetchedTypes = isSuperAdmin 
+        ? fetchedTypes 
+        : fetchedTypes.filter(t => !t['organizationId'] || t['organizationId'] === orgId);
 
       // Merge fetched types with builtIn if not already present
       const typeMap = new Map<string, EntityRecord>();
-      this.builtInCourseTypes.forEach(t => typeMap.set(String(t.id).toLowerCase(), t));
-      fetchedTypes.forEach(t => {
+      this.builtInCourseTypes.forEach(t => typeMap.set(String(t.id).toLowerCase(), { ...t }));
+      orgFetchedTypes.forEach(t => {
+        const rawTypeId = String(t['originalTypeId'] || t['code'] || t.id).toLowerCase();
         const key = String(t['code'] || t['name'] || t.id).toLowerCase();
-        typeMap.set(key, { ...t, name: t['name'] || t.id });
+        if (t['status'] === 'disabled' || t['isDeleted'] === true || t['status'] === 'inactive') {
+          typeMap.delete(rawTypeId);
+          typeMap.delete(key);
+        } else {
+          typeMap.set(key, { ...t, name: t['name'] || t.id });
+        }
       });
       this.courseTypes = Array.from(typeMap.values());
 
@@ -115,10 +146,134 @@ export class CourseStagesDialogComponent implements OnInit {
     }
   }
 
+  private buildHierarchyFromStagesList() {
+    this.hierarchicalStages = [];
+    const parentMap = new Map<string, StageHierarchyItem>();
+
+    for (const raw of this.stagesList) {
+      const name = String(raw).trim();
+      if (!name) continue;
+
+      let parentName = '';
+      let subName = '';
+
+      if (name.includes(' - ')) {
+        const parts = name.split(' - ');
+        parentName = parts[0].trim();
+        subName = parts.slice(1).join(' - ').trim();
+      } else {
+        const match = name.match(/^(.*?)\s+Stage\s+(\d+.*)$/i) ||
+                      name.match(/^(.*?)\s+Level\s+(\d+.*)$/i);
+        if (match) {
+          parentName = match[1].trim();
+          subName = name.substring(parentName.length).replace(/^[\s-]+/, '').trim();
+        }
+      }
+
+      if (parentName && subName) {
+        const key = parentName.toLowerCase();
+        let item = parentMap.get(key);
+        if (!item) {
+          item = { name: parentName, subStages: [], expanded: true };
+          parentMap.set(key, item);
+          this.hierarchicalStages.push(item);
+        }
+        if (!Array.isArray(item.subStages)) item.subStages = [];
+        item.subStages.push(subName);
+      } else {
+        const key = name.toLowerCase();
+        if (!parentMap.has(key)) {
+          const item: StageHierarchyItem = { name, subStages: [], expanded: true };
+          parentMap.set(key, item);
+          this.hierarchicalStages.push(item);
+        }
+      }
+    }
+  }
+
+  syncStagesListFromHierarchy() {
+    const list: string[] = [];
+    for (const item of this.hierarchicalStages) {
+      const parentName = item.name.trim();
+      if (!parentName) continue;
+
+      if (item.subStages && item.subStages.length > 0) {
+        for (const subRaw of item.subStages) {
+          const sub = subRaw.trim();
+          if (!sub) continue;
+
+          if (sub.toLowerCase().startsWith(parentName.toLowerCase())) {
+            list.push(sub);
+          } else {
+            list.push(`${parentName} - ${sub}`);
+          }
+        }
+      } else {
+        list.push(parentName);
+      }
+    }
+    this.stagesList = list;
+  }
+
+  addSubStage(parentIndex: number) {
+    const item = this.hierarchicalStages[parentIndex];
+    if (!item) return;
+    const subText = (item.subStageInput || '').trim();
+    const count = item.subStages.length + 1;
+
+    let baseName = item.name.trim();
+    if (/stage$/i.test(baseName)) {
+      baseName = baseName.replace(/stage$/i, '').trim();
+    }
+
+    const subName = subText || (baseName ? `${baseName} Stage ${count}` : `Stage ${count}`);
+
+    item.subStages.push(subName);
+    item.subStageInput = '';
+    item.expanded = true;
+    this.syncStagesListFromHierarchy();
+    this.snackBar.open(`Added sub-stage "${subName}" under ${item.name}`, 'Close', { duration: 2000 });
+  }
+
+  removeSubStage(parentIndex: number, subIndex: number) {
+    const item = this.hierarchicalStages[parentIndex];
+    if (item && item.subStages) {
+      item.subStages.splice(subIndex, 1);
+      this.syncStagesListFromHierarchy();
+    }
+  }
+
+  addShift() {
+    const shift = this.newShiftInput.trim();
+    if (!shift) return;
+    if (!this.standardShifts.map(s => s.toLowerCase()).includes(shift.toLowerCase())) {
+      this.standardShifts.push(shift);
+      this.newShiftInput = '';
+      this.snackBar.open(`Added shift preset "${shift}"`, 'Close', { duration: 2000 });
+    }
+  }
+
+  addMainStage() {
+    const count = this.hierarchicalStages.length + 1;
+    const item: StageHierarchyItem = {
+      name: `Stage ${count}`,
+      subStages: [],
+      expanded: true
+    };
+    this.hierarchicalStages.push(item);
+    this.syncStagesListFromHierarchy();
+    this.snackBar.open(`Added Main Stage (${item.name})`, 'Close', { duration: 2000 });
+  }
+
+  removeShift(index: number) {
+    this.standardShifts.splice(index, 1);
+  }
+
   private loadStagesForSelectedCourse() {
     if (!this.selectedCourseId) {
       this.selectedCourse = null;
       this.stagesList = [];
+      this.hierarchicalStages = [];
       return;
     }
 
@@ -139,12 +294,14 @@ export class CourseStagesDialogComponent implements OnInit {
     } else {
       this.stagesList = [];
     }
+    this.buildHierarchyFromStagesList();
   }
 
   private loadStagesForSelectedCourseType() {
     if (!this.selectedCourseTypeId) {
       this.selectedCourseType = null;
       this.stagesList = [];
+      this.hierarchicalStages = [];
       return;
     }
 
@@ -165,6 +322,7 @@ export class CourseStagesDialogComponent implements OnInit {
     } else {
       this.stagesList = [];
     }
+    this.buildHierarchyFromStagesList();
   }
 
   addBulkStages() {
@@ -230,7 +388,7 @@ export class CourseStagesDialogComponent implements OnInit {
     }
   }
 
-  trackByIndex(index: number, item: string) {
+  trackByIndex(index: number, item?: any): number {
     return index;
   }
 
@@ -242,7 +400,16 @@ export class CourseStagesDialogComponent implements OnInit {
     this.saving = true;
     try {
       const profile = await firstValueFrom(this.auth.profile$);
+      this.syncStagesListFromHierarchy();
       const cleanStages = this.stagesList.map(s => s.trim()).filter(Boolean);
+
+      if (profile?.organizationId) {
+        await this.repo.update('organizations', profile.organizationId, {
+          standardShifts: this.standardShifts,
+          classNamePattern: this.classNamePattern,
+          groupNamePattern: this.groupNamePattern
+        }, profile).catch(err => console.warn('Could not update org naming rules', err));
+      }
 
       if (this.mode === 'course') {
         if (!this.selectedCourseId || !this.selectedCourse) {

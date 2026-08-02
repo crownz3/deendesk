@@ -11,26 +11,14 @@
         </div>
 
         <div class="selector-wrapper">
-          <mat-form-field appearance="outline" class="report-selector-field" subscriptSizing="dynamic">
-            <mat-select [value]="state?.activeReportId" (selectionChange)="selectReport($event.value)" placeholder="Select Report Template">
-              <div class="search-box-sticky">
-                <mat-icon matPrefix class="search-icon">search</mat-icon>
-                <input type="text" matInput placeholder="Search Reports..." [(ngModel)]="reportSearch" (keydown)="$event.stopPropagation()">
-              </div>
-              <mat-optgroup *ngIf="filteredSavedReports && filteredSavedReports.length > 0" label="Saved Custom Reports">
-                <mat-option *ngFor="let saved of filteredSavedReports" [value]="saved.id">
-                  <div class="saved-option-item">
-                    <span class="saved-name">{{ saved.name }}</span>
-                    <span class="saved-desc" *ngIf="saved.description">{{ saved.description }}</span>
-                  </div>
-                </mat-option>
-              </mat-optgroup>
-              
-              <mat-optgroup *ngFor="let group of filteredReportGroups" [label]="group.name">
-                <mat-option *ngFor="let config of group.configs" [value]="config.id">{{ config.name }}</mat-option>
-              </mat-optgroup>
-            </mat-select>
-          </mat-form-field>
+          <button mat-stroked-button color="primary" class="template-selector-btn" (click)="openReportTemplatesDialog()" matTooltip="Select Report Template">
+            <mat-icon class="btn-icon">analytics</mat-icon>
+            <div class="btn-content">
+              <span class="btn-label">Report Template:</span>
+              <span class="btn-value">{{ activeReportName }}</span>
+            </div>
+            <mat-icon class="btn-chevron">expand_more</mat-icon>
+          </button>
         </div>
       </div>
 

@@ -28,6 +28,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 import { QuickAddDialogComponent, QuickAddResult } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
 import { UserDetailsDialogComponent } from '../../shared/components/user-details-dialog/user-details-dialog.component';
 import { CourseDetailsDialogComponent } from './course-details-dialog/course-details-dialog.component';
+import { CourseMadrasasDialogComponent } from './course-madrasas-dialog/course-madrasas-dialog.component';
 import { ClassDetailsDialogComponent } from './class-details-dialog/class-details-dialog.component';
 import { MadrasaDetailsDialogComponent } from '../../shared/components/madrasa-details-dialog/madrasa-details-dialog.component';
 import { PageEvent } from '@angular/material/paginator';
@@ -39,6 +40,7 @@ import { UserSwapDialogComponent } from './user-swap-dialog/user-swap-dialog.com
 import { CourseStagesDialogComponent } from './course-stages-dialog/course-stages-dialog.component';
 import { AcademicTreeAssignStudentsDialogComponent } from '../tree-view/academic-tree-assign-students-dialog.component';
 import { AcademicTreeAssignStaffDialogComponent } from '../tree-view/academic-tree-assign-staff-dialog.component';
+import { AcademicTreeStudentsDialogComponent } from '../tree-view/academic-tree-students-dialog.component';
 
 interface ManagementConfig {
   resource: string;
@@ -323,6 +325,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'gender', label: 'Gender' },
       { key: 'roles', label: 'Other Roles', type: 'role' },
       { key: 'assignedClassGroup', label: 'Assigned Class Group' },
+      { key: 'studentCount', label: 'Assigned Students', type: 'studentCount' },
       { key: 'madrasaIds', label: 'Madrasas', type: 'idRef', referenceType: 'madrasa' },
       { key: 'status', label: 'Status', type: 'status' },
       { key: 'temporaryPasswordDisplay', label: 'Temporary Password', type: 'temporaryPassword' },
@@ -441,10 +444,11 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'name', label: 'Course' },
       { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
-      { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
       { key: 'code', label: 'Code' },
       { key: 'typeDisplay', label: 'Course Type' },
-      { key: 'stagesDisplay', label: 'Stages' },
+      { key: 'stagesDisplay', label: 'Stages', type: 'stageChips' },
+      { key: 'madrasaCount', label: 'Madrasas', type: 'madrasaCount' },
+      { key: 'studentCount', label: 'Students', type: 'studentCount' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     allowDetails: true,
@@ -485,6 +489,9 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
         ]
       },
       {
+        key: 'requiredDaurCount', label: 'Required Daur Count', type: 'text', placeholder: 'Enter required Daur count (e.g. 1, 2, 3, 5...)'
+      },
+      {
         key: 'evaluationMode', label: 'Daily Evaluation Mode', type: 'select', options: [
           { label: 'Portion-Based (Sabaq / Sabqi / Manzil / Daur)', value: 'portion_based' },
           { label: 'Subject-Based (Kitabs / Books)', value: 'subject_based' },
@@ -497,7 +504,6 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
           { label: 'No - Single Subject / General Course', value: false as any }
         ]
       },
-      { key: 'levels', label: 'Custom Stages / Levels (comma separated)', type: 'text', placeholder: 'e.g. Sabaq, Sabqi, Manzil, Daur OR Year 1, Year 2, Year 3' },
       { key: 'description', label: 'Description', type: 'textarea' },
       baseStatusField,
     ],
@@ -571,6 +577,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'name', label: 'Class' },
       { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
       { key: 'groupStaff', label: 'Staff', type: 'staffChips' },
+      { key: 'studentCount', label: 'Students', type: 'studentCount' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -599,7 +606,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
       { key: 'classId', label: 'Class', type: 'idRef', referenceType: 'class' },
       { key: 'assignedStaffIds', label: 'Assigned Staff', type: 'idRef', referenceType: 'staff' },
-      { key: 'studentCount', label: 'Students' },
+      { key: 'studentCount', label: 'Students', type: 'studentCount' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
     fields: [
@@ -693,21 +700,45 @@ export class ManagementPage {
   }
 
   getFilteredMadrasas(madrasas: EntityRecord[]): EntityRecord[] {
-    if (!madrasas || !this.madrasaSearch) return madrasas;
+    if (!madrasas) return [];
+    const uniqueMap = new Map<string, EntityRecord>();
+    madrasas.forEach(m => {
+      const nameKey = String(m['name'] || m['title'] || '').trim().toLowerCase();
+      const key = nameKey || m.id;
+      if (key && !uniqueMap.has(key)) uniqueMap.set(key, m);
+    });
+    const list = Array.from(uniqueMap.values());
+    if (!this.madrasaSearch) return list;
     const q = this.madrasaSearch.toLowerCase();
-    return madrasas.filter(m => String(m['name'] || '').toLowerCase().includes(q));
+    return list.filter(m => String(m['name'] || m['title'] || '').toLowerCase().includes(q));
   }
 
   getFilteredCourses(courses: EntityRecord[]): EntityRecord[] {
-    if (!courses || !this.courseSearch) return courses;
+    if (!courses) return [];
+    const uniqueMap = new Map<string, EntityRecord>();
+    courses.forEach(c => {
+      const nameKey = String(c['name'] || c['title'] || '').trim().toLowerCase();
+      const key = nameKey || c.id;
+      if (key && !uniqueMap.has(key)) uniqueMap.set(key, c);
+    });
+    const list = Array.from(uniqueMap.values());
+    if (!this.courseSearch) return list;
     const q = this.courseSearch.toLowerCase();
-    return courses.filter(c => String(c['name'] || '').toLowerCase().includes(q));
+    return list.filter(c => String(c['name'] || c['title'] || '').toLowerCase().includes(q));
   }
 
   getFilteredClasses(classes: EntityRecord[]): EntityRecord[] {
-    if (!classes || !this.classSearch) return classes;
+    if (!classes) return [];
+    const uniqueMap = new Map<string, EntityRecord>();
+    classes.forEach(c => {
+      const nameKey = String(c['name'] || c['title'] || '').trim().toLowerCase();
+      const key = nameKey || c.id;
+      if (key && !uniqueMap.has(key)) uniqueMap.set(key, c);
+    });
+    const list = Array.from(uniqueMap.values());
+    if (!this.classSearch) return list;
     const q = this.classSearch.toLowerCase();
-    return classes.filter(c => String(c['name'] || '').toLowerCase().includes(q));
+    return list.filter(c => String(c['name'] || c['title'] || '').toLowerCase().includes(q));
   }
 
   readonly madrasaFilter$ = new BehaviorSubject<string>('all');
@@ -765,8 +796,17 @@ export class ManagementPage {
            const allStaffRows = [...staffRows, ...usersRows];
            let filteredRows = this.decorateRows(config, this.filterRows(config, rows));
            let displayMadrasas = madrasas;
-           let displayCourses = courses;
            let displayClasses = classes;
+
+           // For non-admin users, only show courses linked to their madrasa
+           const _isOrgAdmin = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin';
+           const _myMadrasaId = (profile as any)?.madrasaId || (profile as any)?.primaryMadrasaId || '';
+           let displayCourses = (_isOrgAdmin || !_myMadrasaId)
+             ? courses
+             : courses.filter(c =>
+                 c['madrasaId'] === _myMadrasaId ||
+                 (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(_myMadrasaId))
+               );
 
            if (profile?.role === 'superAdmin' && organizationFilter !== 'all') {
              filteredRows = filteredRows.filter(r => r['organizationId'] === organizationFilter);
@@ -774,26 +814,110 @@ export class ManagementPage {
              displayCourses = courses.filter(c => c['organizationId'] === organizationFilter);
              displayClasses = classes.filter(c => c['organizationId'] === organizationFilter);
            }
+
+           // Deduplicate displayCourses by course code/name so dropdown selectors show unique course options
+           const courseMap = new Map<string, EntityRecord>();
+           displayCourses.forEach(c => {
+             const key = String(c['code'] || c['name'] || c.id).toLowerCase().trim();
+             if (!courseMap.has(key)) {
+               courseMap.set(key, c);
+             }
+           });
+           displayCourses = Array.from(courseMap.values());
             
            if (config.resource === 'classGroups') {
              filteredRows = filteredRows.map(group => {
-               const count = students.filter(s => s['groupId'] === group.id && s['status'] !== 'inactive').length;
-                return { ...group, studentCount: count };
-              });
-            }
+               const count = students.filter(s => String(s['groupId']) === String(group.id) && s['status'] !== 'inactive').length;
+               return { ...group, studentCount: count };
+             });
+           }
 
-            if (config.resource === 'classes') {
-              filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
-            }
+           if (config.resource === 'classes') {
+             filteredRows = filteredRows.map(cls => {
+               const count = students.filter(s => String(s['classId']) === String(cls.id) && s['status'] !== 'inactive').length;
+               return { ...cls, studentCount: count };
+             });
+             filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
+           }
+
+           if (config.resource === 'courses') {
+             const isOrgAdminOrCoordinator = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin' || profile?.role === 'coordinator';
+
+             if (isOrgAdminOrCoordinator) {
+               // For Org Admins & Coordinators: Only show Master Courses (courses created at org level without madrasaId)
+               // Deduplicate by code/name/type so 1 single master row per course is shown in the table
+               const masterCourses = filteredRows.filter(c => !c['madrasaId']);
+               const madrasaCourses = filteredRows.filter(c => !!c['madrasaId']);
+
+               const sourceList = masterCourses.length > 0 ? masterCourses : filteredRows;
+               const seenKeys = new Set<string>();
+               const uniqueMasterCourses: EntityRecord[] = [];
+
+               sourceList.forEach(course => {
+                 const key = String(course['code'] || course['name'] || course.id).toLowerCase();
+                 if (!seenKeys.has(key)) {
+                   seenKeys.add(key);
+                   uniqueMasterCourses.push(course);
+                 }
+               });
+
+               filteredRows = uniqueMasterCourses.map(masterCourse => {
+                 const mCode = String(masterCourse['code'] || '').toLowerCase();
+                 const mName = String(masterCourse['name'] || '').toLowerCase();
+                 const mType = String(masterCourse['type'] || masterCourse['courseType'] || '').toLowerCase();
+
+                 const matchingMadrasaCourses = madrasaCourses.filter(c => {
+                   const cCode = String(c['code'] || '').toLowerCase();
+                   const cName = String(c['name'] || '').toLowerCase();
+                   const cType = String(c['type'] || c['courseType'] || '').toLowerCase();
+                   return (mCode && cCode === mCode) || (mName && cName === mName) || (mType && cType === mType);
+                 });
+
+                 const madrasaIds = Array.from(new Set(matchingMadrasaCourses.map(c => String(c['madrasaId'])).filter(Boolean)));
+                 const madrasaNames = madrasaIds.map(mId => {
+                   const mDoc = madrasas.find(m => String(m.id) === mId);
+                   return mDoc ? String(mDoc['name'] || mDoc['title'] || mId) : mId;
+                 });
+
+                 const matchingCourseIds = new Set([String(masterCourse.id), ...matchingMadrasaCourses.map(c => String(c.id))]);
+                 const totalStudents = students.filter(s => matchingCourseIds.has(String(s['courseId'])) && s['status'] !== 'inactive').length;
+
+                 return {
+                   ...masterCourse,
+                   madrasaCount: madrasaNames.length,
+                   madrasaNames: madrasaNames,
+                   studentCount: totalStudents
+                 };
+               });
+             } else {
+               // Non-admin users (madrasa incharges etc.) only see courses linked to their madrasa
+               const myMadrasaId = (profile as any)?.madrasaId || (profile as any)?.primaryMadrasaId || '';
+               if (myMadrasaId) {
+                 filteredRows = filteredRows.filter(course =>
+                   course['madrasaId'] === myMadrasaId ||
+                   (Array.isArray(course['madrasaIds']) && course['madrasaIds'].includes(myMadrasaId))
+                 );
+               }
+               filteredRows = filteredRows.map(course => {
+                 const count = students.filter(s => String(s['courseId']) === String(course.id) && s['status'] !== 'inactive').length;
+                 return { ...course, madrasaCount: 1, madrasaNames: [], studentCount: count };
+               });
+             }
+           }
 
             // Enrich 'users', 'incharges', 'coordinators', 'staff' rows with effective roles derived from madrasa membership.
             // A person may have role='teacher' in their user doc but also appear in a madrasa's inchargeIds or coordinatorIds.
-            if (['users', 'incharges', 'coordinators', 'staff'].includes(config.resource)) {
-              filteredRows = filteredRows.map(row => {
-                const roles = this.getEffectiveRoles(row, madrasas);
-                return { ...row, roles };
-              });
-            }
+             if (['users', 'incharges', 'coordinators', 'staff'].includes(config.resource)) {
+               filteredRows = filteredRows.map(row => {
+                 const roles = this.getEffectiveRoles(row, madrasas);
+                 const sIds = [row.id, row['uid'], row['userId'], row['email']].map(v => String(v || '').trim()).filter(Boolean);
+                 const assignedGroupIds = classGroups
+                   .filter(g => Array.isArray(g['assignedStaffIds']) && sIds.some(id => (g['assignedStaffIds'] as unknown[]).map(String).includes(id)))
+                   .map(g => String(g.id));
+                 const count = students.filter(s => assignedGroupIds.includes(String(s['groupId'])) && s['status'] !== 'inactive').length;
+                 return { ...row, roles, studentCount: count };
+               });
+             }
 
             // Resource-level role filtering using effective roles:
             // e.g. 'incharges' page shows anyone holding 'madrasaIncharge' role (primary, secondary, or derived from madrasa doc)
@@ -808,56 +932,59 @@ export class ManagementPage {
               }
             }
            
-            if (config.resource === 'students') {
-               if (courseFilter !== 'all') {
-                 filteredRows = filteredRows.filter(r => r['courseId'] === courseFilter);
-                 displayClasses = classes.filter(c => c['courseId'] === courseFilter);
-               }
-               if (classFilter !== 'all') {
-                 filteredRows = filteredRows.filter(r => r['classId'] === classFilter);
-               }
-               if (stageFilter !== 'all') {
-                 filteredRows = filteredRows.filter(r => r['stage'] === stageFilter || r['level'] === stageFilter);
-               }
-            }
-            
-            if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource)) {
-               if (madrasaFilter !== 'all') {
-                 // Find the selected madrasa document to get inchargeIds and coordinatorIds
-                 const selectedMadrasa = madrasas.find(m => m.id === madrasaFilter);
-                 const madrasaInchargeIds: string[] = Array.isArray(selectedMadrasa?.['inchargeIds']) ? selectedMadrasa!['inchargeIds'].map(String) : [];
-                 const madrasaCoordinatorIds: string[] = Array.isArray(selectedMadrasa?.['coordinatorIds']) ? selectedMadrasa!['coordinatorIds'].map(String) : [];
+             if (['students', 'classGroups', 'classes'].includes(config.resource)) {
+                if (courseFilter !== 'all') {
+                  filteredRows = filteredRows.filter(r => r['courseId'] === courseFilter);
+                  displayClasses = classes.filter(c => c['courseId'] === courseFilter);
+                }
+                if (classFilter !== 'all' && config.resource !== 'classes') {
+                  const selectedClass = classes.find(c => c.id === classFilter);
+                  const selectedName = selectedClass ? String(selectedClass['name'] || selectedClass['title'] || '').trim().toLowerCase() : '';
+                  const matchingClassIds = selectedName
+                    ? classes.filter(c => String(c['name'] || c['title'] || '').trim().toLowerCase() === selectedName).map(c => c.id)
+                    : [classFilter];
 
-                 filteredRows = filteredRows.filter(r => {
-                   const userId = String(r['uid'] || r.id || '');
-                   // 1. Check user's own madrasaId / madrasaIds fields
-                   const ownLink = r['madrasaId'] === madrasaFilter ||
-                     (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter));
-                   // 2. Check if user appears in the madrasa's inchargeIds or coordinatorIds
-                   const madrasaLink = (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
-                   return ownLink || madrasaLink;
-                 });
-               }
+                  filteredRows = filteredRows.filter(r => matchingClassIds.includes(r['classId']) || r['classId'] === classFilter);
+                }
+                if (stageFilter !== 'all' && config.resource === 'students') {
+                  filteredRows = filteredRows.filter(r => r['stage'] === stageFilter || r['level'] === stageFilter);
+                }
+             }
 
-               // Role filter for 'users' — runs here (after enrichment) so derived roles are included.
-               // For other resources (incharges, coordinators etc.) filtering is already handled
-               // in userRowsForResource via queryRoles.
-               if (config.resource === 'users' && roleFilter !== 'all') {
-                 filteredRows = filteredRows.filter(r => this.getEffectiveRoles(r).includes(roleFilter));
-               }
+             if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents', 'classGroups', 'classes', 'courses'].includes(config.resource)) {
+                if (madrasaFilter !== 'all') {
+                  const selectedMadrasa = madrasas.find(m => m.id === madrasaFilter);
+                  const madrasaInchargeIds: string[] = Array.isArray(selectedMadrasa?.['inchargeIds']) ? selectedMadrasa!['inchargeIds'].map(String) : [];
+                  const madrasaCoordinatorIds: string[] = Array.isArray(selectedMadrasa?.['coordinatorIds']) ? selectedMadrasa!['coordinatorIds'].map(String) : [];
 
-               if (statusFilter !== 'all') {
-                 const sf = statusFilter.toLowerCase();
-                 filteredRows = filteredRows.filter(r => {
-                   const rawStatus = r['status'] ? String(r['status']).toLowerCase() : 'active';
-                   return rawStatus === sf;
-                 });
-               }
+                  displayCourses = displayCourses.filter(c => c['madrasaId'] === madrasaFilter || (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(madrasaFilter)));
+                  displayClasses = displayClasses.filter(c => c['madrasaId'] === madrasaFilter || (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(madrasaFilter)));
 
-               if (genderFilter !== 'all') {
-                 filteredRows = filteredRows.filter(r => r['gender'] === genderFilter);
-               }
-            }
+                  filteredRows = filteredRows.filter(r => {
+                    const userId = String(r['uid'] || r.id || '');
+                    const ownLink = r['madrasaId'] === madrasaFilter ||
+                      (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter));
+                    const madrasaLink = (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
+                    return ownLink || madrasaLink;
+                  });
+                }
+
+                if (config.resource === 'users' && roleFilter !== 'all') {
+                  filteredRows = filteredRows.filter(r => this.getEffectiveRoles(r).includes(roleFilter));
+                }
+
+                if (genderFilter !== 'all' && ['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource)) {
+                  filteredRows = filteredRows.filter(r => r['gender'] === genderFilter);
+                }
+             }
+
+             if (statusFilter !== 'all') {
+               const sf = statusFilter.toLowerCase();
+               filteredRows = filteredRows.filter(r => {
+                 const rawStatus = r['status'] ? String(r['status']).toLowerCase() : 'active';
+                 return rawStatus === sf;
+               });
+             }
 
             if (searchQuery) {
               const q = searchQuery.toLowerCase();
@@ -879,19 +1006,42 @@ export class ManagementPage {
  
             return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, organizations };
         }),
-        map(({ rows, profile, totalItems, madrasas, courses, classes, organizations }): PageState<ManagementVm> => ({
-          data: {
-            config,
-            rows,
-            profile,
-            totalItems,
-            madrasas,
-            courses,
-            classes,
-            organizations
-          },
-          loading: false,
-        })),
+        map(({ rows, profile, totalItems, madrasas, courses, classes, organizations }): PageState<ManagementVm> => {
+          let dynamicConfig = config;
+          if (config.resource === 'courses') {
+            const isOrgAdminOrCoordinator = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin' || profile?.role === 'coordinator';
+            if (!isOrgAdminOrCoordinator) {
+              // For Madrasa Incharge / Staff: Show their Madrasa column instead of all-madrasas count button
+              dynamicConfig = {
+                ...config,
+                columns: [
+                  { key: 'name', label: 'Course' },
+                  { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
+                  { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
+                  { key: 'code', label: 'Code' },
+                  { key: 'typeDisplay', label: 'Course Type' },
+                  { key: 'stagesDisplay', label: 'Stages', type: 'stageChips' },
+                  { key: 'studentCount', label: 'Students', type: 'studentCount' },
+                  { key: 'status', label: 'Status', type: 'status' },
+                ]
+              };
+            }
+          }
+
+          return {
+            data: {
+              config: dynamicConfig,
+              rows,
+              profile,
+              totalItems,
+              madrasas,
+              courses,
+              classes,
+              organizations
+            },
+            loading: false,
+          };
+        }),
         startWith({ loading: true } as PageState<ManagementVm>),
         catchError((err) => {
           console.error('[Management] Page load failed:', err);
@@ -1732,8 +1882,126 @@ export class ManagementPage {
     return credential.email;
   }
 
+  async openMadrasasDialog(row: EntityRecord): Promise<void> {
+    if (!row) return;
+
+    await this.loader.withLoader('Loading madrasa details...', async () => {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const allMadrasas = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
+
+      let rawIds: string[] = [];
+      if (Array.isArray(row['madrasaIds'])) {
+        rawIds = row['madrasaIds'].map(String).filter(Boolean);
+      } else if (row['madrasaId']) {
+        rawIds = [String(row['madrasaId'])];
+      } else if (Array.isArray(row['madrasas'])) {
+        rawIds = row['madrasas'].map(String).filter(Boolean);
+      }
+
+      const assignedMadrasas = allMadrasas.filter(m => 
+        rawIds.includes(String(m.id)) || 
+        rawIds.includes(String(m['code'])) ||
+        (rawIds.length === 0 && row.id && String(m.id) === String(row.id))
+      );
+      
+      const madrasaIds = assignedMadrasas.length > 0 ? assignedMadrasas.map(m => String(m.id)) : rawIds;
+      const madrasaNames = assignedMadrasas.map(m => String(m['name'] || m['title'] || m['code'] || m.id));
+
+      const title = String(row['name'] || row['displayName'] || row['title'] || 'Assigned Madrasas');
+
+      this.dialog.open(CourseMadrasasDialogComponent, {
+        data: {
+          courseId: row.id,
+          courseName: title,
+          courseCode: String(row['code'] || ''),
+          madrasaIds,
+          madrasaNames
+        },
+        width: '640px',
+        maxWidth: '92vw',
+        maxHeight: '90vh'
+      });
+    });
+  }
+
   async openCreate(config: ManagementConfig): Promise<void> {
+    if (config.resource === 'courses') {
+      await this.openAddCourseForMadrasa(config);
+      return;
+    }
     await this.openEditor(config);
+  }
+
+  private async openAddCourseForMadrasa(config: ManagementConfig): Promise<void> {
+    const profile = await firstValueFrom(this.auth.profile$);
+    const isOrgAdmin = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin';
+
+    if (isOrgAdmin) {
+      // Org admins use the full creation form
+      await this.openEditor(config);
+      return;
+    }
+
+    // Madrasa incharge — only select from org-configured courses
+    let orgCourses: EntityRecord[] = [];
+    try {
+      orgCourses = await this.repo.getAllOnce<EntityRecord>('courses', profile);
+    } catch (e) {
+      console.warn('Could not load org courses', e);
+    }
+
+    if (!orgCourses.length) {
+      this.snackBar.open('No courses have been configured by your organization admin yet. Please contact your organization admin.', 'Close', { duration: 5000 });
+      return;
+    }
+
+    const courseOptions = orgCourses.map(c => ({
+      label: `${String(c['name'] || '')} — ${String(c['type'] || c['code'] || '').toUpperCase()}`,
+      value: String(c.id)
+    }));
+
+    const madrasaId = (profile as any)?.madrasaId || (profile as any)?.primaryMadrasaId || '';
+
+    this.dialog.open(QuickAddDialogComponent, {
+      data: {
+        title: 'Add Course to Your Madrasa',
+        subtitle: 'Select a course type configured by your organization admin. All stages and settings will be copied automatically.',
+        fields: [
+          {
+            key: 'baseCourseId',
+            label: 'Select Course Type',
+            type: 'select',
+            required: true,
+            options: courseOptions,
+          },
+        ],
+        saveFn: async (formValue: Record<string, unknown>) => {
+          const baseId = String(formValue['baseCourseId'] || '');
+          const base = orgCourses.find(c => String(c.id) === baseId);
+          if (!base) throw new Error('Selected course not found.');
+
+          await this.repo.create('courses', {
+            name: base['name'],
+            code: base['code'],
+            type: base['type'],
+            stages: Array.isArray(base['stages']) ? [...base['stages']] : [],
+            defaultStages: Array.isArray(base['defaultStages']) ? [...base['defaultStages']] : [],
+            courseDurationYears: base['courseDurationYears'] || 1,
+            promotionRule: base['promotionRule'] || null,
+            requiredDaurCount: base['requiredDaurCount'] || null,
+            evaluationMode: base['evaluationMode'] || null,
+            description: base['description'] || '',
+            hasSubjects: base['hasSubjects'] || false,
+            madrasaId: madrasaId,
+            organizationId: profile?.organizationId || base['organizationId'] || '',
+            status: 'active',
+          }, profile);
+        }
+      },
+      width: '480px'
+    }).afterClosed().subscribe(res => {
+      if (res?.value) this.refreshData();
+    });
   }
 
   async edit(config: ManagementConfig, row: EntityRecord): Promise<void> {
@@ -1780,6 +2048,132 @@ export class ManagementPage {
       maxWidth: '80vw',
       height: '85vh',
       panelClass: 'user-details-dialog-panel'
+    });
+  }
+
+  async showRowStudents(config: ManagementConfig, row: EntityRecord): Promise<void> {
+    const profile = await firstValueFrom(this.auth.profile$);
+    await this.loader.withLoader('Loading students...', async () => {
+      let studentsList: EntityRecord[] = [];
+      const title = String(row['name'] || row['displayName'] || 'Enrolled Students');
+
+      const usersStudents = await this.repo.getAllOnce<EntityRecord>('users', profile, { roles: ['student'] }).catch(() => []);
+      const directStudents = await this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => []);
+
+      const studentMap = new Map<string, EntityRecord>();
+      [...usersStudents, ...directStudents].forEach(st => {
+        const key = String(st['uid'] || st['userId'] || st['email'] || st.id || '').toLowerCase().trim();
+        if (key && key !== 'undefined') {
+          studentMap.set(key, { ...(studentMap.get(key) || {}), ...st });
+        }
+      });
+      const allStudents = Array.from(studentMap.values());
+
+      const classGroupDocs = await this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []);
+      const allClasses = await this.repo.getAllOnce<EntityRecord>('classes', profile).catch(() => []);
+      const allCourses = await this.repo.getAllOnce<EntityRecord>('courses', profile).catch(() => []);
+      const allUsers = await this.repo.getAllOnce<EntityRecord>('users', profile).catch(() => []);
+      const allStaff = await this.repo.getAllOnce<EntityRecord>('staff', profile).catch(() => []);
+
+      if (config.resource === 'classGroups') {
+        studentsList = allStudents.filter(s => String(s['groupId'] || s['classGroupId'] || s['group']) === String(row.id) && s['status'] !== 'inactive');
+      } else if (config.resource === 'classes') {
+        studentsList = allStudents.filter(s => String(s['classId']) === String(row.id) && s['status'] !== 'inactive');
+      } else if (config.resource === 'courses') {
+        const mCode = String(row['code'] || '').toLowerCase();
+        const mName = String(row['name'] || '').toLowerCase();
+        const mType = String(row['type'] || row['courseType'] || '').toLowerCase();
+
+        const matchingCourseIds = new Set([String(row.id)]);
+        allCourses.filter(c => {
+          const cCode = String(c['code'] || '').toLowerCase();
+          const cName = String(c['name'] || '').toLowerCase();
+          const cType = String(c['type'] || c['courseType'] || '').toLowerCase();
+          return (mCode && cCode === mCode) || (mName && cName === mName) || (mType && cType === mType);
+        }).forEach(c => matchingCourseIds.add(String(c.id)));
+
+        studentsList = allStudents.filter(s => matchingCourseIds.has(String(s['courseId'])) && s['status'] !== 'inactive');
+      } else {
+        const sIds = [row.id, row['uid'], row['userId'], row['email']].map(v => String(v || '').trim()).filter(Boolean);
+        const assignedGroupIds = classGroupDocs
+          .filter(g => Array.isArray(g['assignedStaffIds']) && sIds.some(id => (g['assignedStaffIds'] as unknown[]).map(String).includes(id)))
+          .map(g => String(g.id));
+        studentsList = allStudents.filter(s => assignedGroupIds.includes(String(s['groupId'] || s['classGroupId'] || s['group'])) && s['status'] !== 'inactive');
+      }
+
+      const allParents = await this.repo.getAllOnce<EntityRecord>('users', profile, { roles: ['parent'] }).catch(() => []);
+
+      const enrichedStudents = studentsList.map(st => {
+        const cId = String(st['courseId'] || '');
+        const clsId = String(st['classId'] || '');
+        const grpId = String(st['groupId'] || st['classGroupId'] || st['group'] || st['sectionId'] || st['section'] || '');
+
+        const courseDoc = allCourses.find(c => String(c.id) === cId);
+        const classDoc = allClasses.find(c => String(c.id) === clsId);
+        const groupDoc = classGroupDocs.find(g => String(g.id) === grpId || String(g['code'] || '').toLowerCase() === grpId.toLowerCase());
+        const parentDoc = allParents.find(p => String(p.id) === String(st['parentId'] || st['parentUid']) || (st['parentEmail'] && String(p['email']).toLowerCase() === String(st['parentEmail']).toLowerCase()));
+
+        const courseName = String(st['courseName'] || courseDoc?.['name'] || courseDoc?.['title'] || row['name'] || row['title'] || '');
+        const className = String(st['className'] || classDoc?.['name'] || classDoc?.['title'] || '');
+        const groupName = String(st['groupName'] || st['sectionName'] || st['group'] || groupDoc?.['name'] || groupDoc?.['title'] || groupDoc?.['groupName'] || '');
+
+        const studentPhone = String(
+          st['mobileNumber'] || st['phone'] || st['mobile'] || st['studentPhone'] || st['studentMobile'] || st['contactNumber'] || st['studentContact'] || ''
+        );
+
+        const parentPhone = String(
+          st['parentMobileNumber'] || st['fatherMobileNumber'] || st['fatherPhone'] || st['parentPhone'] ||
+          st['guardianMobileNumber'] || st['guardianPhone'] || st['parentMobile'] || st['emergencyContact'] ||
+          parentDoc?.['mobileNumber'] || parentDoc?.['phone'] || parentDoc?.['mobile'] || ''
+        );
+
+        const parentName = String(
+          st['fatherName'] || st['parentName'] || st['guardianName'] || parentDoc?.['name'] || parentDoc?.['displayName'] || ''
+        );
+
+        const staffIds: string[] = Array.isArray(groupDoc?.['assignedStaffIds']) ? groupDoc!['assignedStaffIds'].map(String) : [];
+        const staffNames = staffIds.map(id => {
+          const cleanId = String(id || '').trim();
+          if (!cleanId) return null;
+
+          const u = allUsers.find(usr =>
+            String(usr['uid'] || usr.id || '').toLowerCase() === cleanId.toLowerCase() ||
+            String(usr['email'] || '').toLowerCase() === cleanId.toLowerCase()
+          );
+          if (u) return String(u['displayName'] || u['name'] || u['email'] || cleanId);
+
+          const s = allStaff.find(stf =>
+            String(stf.id || stf['userId'] || stf['uid'] || '').toLowerCase() === cleanId.toLowerCase() ||
+            String(stf['email'] || '').toLowerCase() === cleanId.toLowerCase()
+          );
+          if (s) return String(s['name'] || s['displayName'] || s['email'] || cleanId);
+
+          return cleanId.length > 20 ? 'Staff Member' : cleanId;
+        }).filter((name): name is string => !!name);
+
+        const assignedStaffName = staffNames.length > 0 ? staffNames.join(', ') : 'None';
+
+        return {
+          ...st,
+          studentPhone: studentPhone || 'N/A',
+          parentPhone: parentPhone || 'N/A',
+          parentName: parentName || '',
+          courseName: courseName || 'N/A',
+          className: className || 'N/A',
+          groupName: groupName || 'N/A',
+          assignedStaffName
+        };
+      });
+
+      this.dialog.open(AcademicTreeStudentsDialogComponent, {
+        data: {
+          nodeTitle: title,
+          nodeType: config.resource,
+          students: enrichedStudents
+        },
+        width: '780px',
+        maxWidth: '92vw'
+      });
     });
   }
 
@@ -1985,6 +2379,15 @@ export class ManagementPage {
             }
           }
         }));
+
+        this.repo.clearCache(config.collection);
+        this.repo.clearCache('students');
+        this.repo.clearCache('users');
+        this.repo.clearCache('classes');
+        this.repo.clearCache('classGroups');
+        this.repo.clearCache('courses');
+        this.refreshData();
+
         if (failCount > 0) {
           this.snackBar.open(`Deleted ${successCount} records. Failed to delete ${failCount}.`, 'Close', { duration: 5000 });
         } else {
@@ -2017,6 +2420,15 @@ export class ManagementPage {
           if (config.collection === 'users' && row['entityId'] && row['entityType']) {
             await this.repo.remove(String(row['entityType']) + 's', String(row['entityId'])).catch(() => {});
           }
+
+          this.repo.clearCache(config.collection);
+          this.repo.clearCache('students');
+          this.repo.clearCache('users');
+          this.repo.clearCache('classes');
+          this.repo.clearCache('classGroups');
+          this.repo.clearCache('courses');
+          this.refreshData();
+
           this.snackBar.open(`Record permanently deleted.`, 'Close', { duration: 4000 });
         } catch (error: any) {
           this.dialog.open(ConfirmDialogComponent, {
@@ -2025,6 +2437,67 @@ export class ManagementPage {
         }
       });
     }
+  }
+
+  async deleteAllStudents(): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: 'Delete ALL Students',
+        message: 'Are you sure you want to permanently delete ALL students in this scope? This will delete all student profiles, student user accounts, and reset student counts across classes and courses. This action CANNOT be undone.',
+        confirmLabel: 'Delete All Students',
+        confirmColor: 'warn',
+      },
+    }).afterClosed());
+
+    if (!confirmed) return;
+
+    await this.loader.withLoader('Deleting all students...', async () => {
+      try {
+        const profile = await firstValueFrom(this.auth.profile$);
+        const allStudents = await firstValueFrom(this.repo.list<EntityRecord>('students', profile));
+        const allStudentUsers = await firstValueFrom(this.repo.list<EntityRecord>('users', profile, [], { roles: ['student'] }));
+
+        let count = 0;
+        for (const s of allStudents) {
+          if (s.id) {
+            await this.repo.remove('students', s.id).catch(() => {});
+            count++;
+          }
+        }
+        for (const u of allStudentUsers) {
+          if (u.id) {
+            await this.repo.remove('users', u.id).catch(() => {});
+          }
+        }
+
+        // Also update studentCount: 0 on classes and classGroups in Firestore
+        const allClasses = await firstValueFrom(this.repo.list<EntityRecord>('classes', profile));
+        for (const cls of allClasses) {
+          if (cls.id && cls['studentCount'] !== 0) {
+            await this.repo.update('classes', cls.id, { studentCount: 0 }, profile).catch(() => {});
+          }
+        }
+
+        const allGroups = await firstValueFrom(this.repo.list<EntityRecord>('classGroups', profile));
+        for (const grp of allGroups) {
+          if (grp.id && grp['studentCount'] !== 0) {
+            await this.repo.update('classGroups', grp.id, { studentCount: 0 }, profile).catch(() => {});
+          }
+        }
+
+        this.repo.clearCache('students');
+        this.repo.clearCache('users');
+        this.repo.clearCache('classes');
+        this.repo.clearCache('classGroups');
+        this.repo.clearCache('courses');
+        this.refreshData();
+
+        this.snackBar.open(`Successfully deleted all students (${count} student profiles removed). Counts reset to 0.`, 'Close', { duration: 5000 });
+      } catch (err: any) {
+        console.error('[Delete All Students Error]', err);
+        this.snackBar.open(`Error deleting all students: ${err.message || err}`, 'Close', { duration: 5000 });
+      }
+    });
   }
 
   async migrateGroups(config: ManagementConfig): Promise<void> {

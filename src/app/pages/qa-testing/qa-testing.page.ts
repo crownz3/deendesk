@@ -84,7 +84,7 @@ export class QaTestingPage implements OnInit, OnDestroy {
     'Users & Roles',
     'Staff Management',
     'Students & Parents',
-    'Courses & Stages',
+    'Courses',
     'Classes & Timetable',
     'Attendance Marking',
     'Quran Tracker',

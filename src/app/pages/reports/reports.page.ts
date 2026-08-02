@@ -13,6 +13,7 @@ import { AddCustomColumnDialogComponent } from './components/add-custom-column-d
 import { AddUserInputColumnDialogComponent } from './components/add-user-input-column-dialog.component';
 import { SaveReportDialogComponent } from './components/save-report-dialog.component';
 import { ManageReportsDialogComponent } from './components/manage-reports-dialog.component';
+import { ReportTemplatesDialogComponent } from './components/report-templates-dialog.component';
 import { RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -219,6 +220,37 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     } else {
       this.builder.loadReportDefinition(reportId);
     }
+  }
+
+  get activeReportName(): string {
+    if (!this.state?.activeReportId) return 'Select Report Template';
+    const saved = this.savedReports.find(r => r.id === this.state?.activeReportId);
+    if (saved) return saved.name;
+
+    for (const group of this.reportGroups) {
+      const found = group.configs.find(c => c.id === this.state?.activeReportId);
+      if (found) return found.name;
+    }
+    return 'Select Report Template';
+  }
+
+  public openReportTemplatesDialog(): void {
+    const dialogRef = this.dialog.open(ReportTemplatesDialogComponent, {
+      width: '760px',
+      maxWidth: '92vw',
+      panelClass: 'report-templates-dialog-panel',
+      data: {
+        activeReportId: this.state?.activeReportId || '',
+        savedReports: this.savedReports || [],
+        reportGroups: this.reportGroups || []
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((selectedReportId: string | undefined) => {
+      if (selectedReportId) {
+        this.selectReport(selectedReportId);
+      }
+    });
   }
 
   public openSaveReportDialog() {

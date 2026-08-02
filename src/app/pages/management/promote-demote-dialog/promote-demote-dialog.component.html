@@ -38,7 +38,7 @@
         <li><strong>Class:</strong> {{ className }}</li>
         <li><strong>Group:</strong> {{ groupName }}</li>
         <li><strong>Staff:</strong> {{ staffNames }}</li>
-        <li><strong>Current Stage:</strong> {{ firstStudent?.['stage'] || 'None' }}</li>
+        <li><strong>Current Stage:</strong> {{ formatStageDisplay(firstStudent?.['stage']) }}</li>
       </ul>
     </div>
 
@@ -51,22 +51,45 @@
         </mat-select>
       </mat-form-field>
 
-      <mat-form-field appearance="outline">
-        <mat-label>Target New Stage</mat-label>
-        <mat-select [(ngModel)]="selectedStageOption" name="selectedStageOption" (selectionChange)="onStageOptionChange($event.value)" required>
-          <mat-option *ngFor="let s of availableStages; let i = index" [value]="s" [disabled]="targetStudents.length === 1 && isCurrentStage(s)">
-            {{ i + 1 }}. {{ s }} <span *ngIf="targetStudents.length === 1 && isCurrentStage(s)" class="current-stage-tag">(Current Stage)</span>
-          </mat-option>
-          <mat-option value="__ADD_NEW__" style="color: var(--ion-color-primary, #3880ff); font-weight: 600;">
-            + Add New Stage...
-          </mat-option>
-        </mat-select>
-      </mat-form-field>
+      <!-- Stage & Sub-Stage Selection -->
+      <ng-container *ngIf="hasSubStagesForCourse; else flatStageSelect">
+        <mat-form-field appearance="outline">
+          <mat-label>Select Main Stage</mat-label>
+          <mat-select [value]="selectedMainStage" (selectionChange)="onMainStageChange($event.value)" required>
+            <mat-option *ngFor="let h of stageHierarchy" [value]="h.name">
+              {{ h.name }} <span *ngIf="h.subStages.length">({{ h.subStages.length }} sub-stages)</span>
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
 
-      <mat-form-field appearance="outline" *ngIf="isCustomStage">
-        <mat-label>Enter New Custom Stage Name</mat-label>
-        <input matInput type="text" [(ngModel)]="customNewStage" name="customNewStage" (ngModelChange)="onCustomStageInput($event)" placeholder="e.g. Advanced Hifz / Stage 6" required>
-      </mat-form-field>
+        <mat-form-field appearance="outline" *ngIf="getSubStagesForMainStage(selectedMainStage).length > 0">
+          <mat-label>Select Sub-Stage</mat-label>
+          <mat-select [value]="selectedSubStage" (selectionChange)="onSubStageChange($event.value)" required>
+            <mat-option *ngFor="let sub of getSubStagesForMainStage(selectedMainStage)" [value]="sub">
+              {{ sub }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </ng-container>
+
+      <ng-template #flatStageSelect>
+        <mat-form-field appearance="outline">
+          <mat-label>Target New Stage</mat-label>
+          <mat-select [(ngModel)]="selectedStageOption" name="selectedStageOption" (selectionChange)="onStageOptionChange($event.value)" required>
+            <mat-option *ngFor="let s of availableStages; let i = index" [value]="s" [disabled]="targetStudents.length === 1 && isCurrentStage(s)">
+              {{ i + 1 }}. {{ s }} <span *ngIf="targetStudents.length === 1 && isCurrentStage(s)" class="current-stage-tag">(Current Stage)</span>
+            </mat-option>
+            <mat-option value="__ADD_NEW__" style="color: var(--ion-color-primary, #3880ff); font-weight: 600;">
+              + Add New Stage...
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" *ngIf="isCustomStage">
+          <mat-label>Enter New Custom Stage Name</mat-label>
+          <input matInput type="text" [(ngModel)]="customNewStage" name="customNewStage" (ngModelChange)="onCustomStageInput($event)" placeholder="e.g. Advanced Hifz / Stage 6" required>
+        </mat-form-field>
+      </ng-template>
 
       <mat-form-field appearance="outline">
         <mat-label>Reason / Note</mat-label>

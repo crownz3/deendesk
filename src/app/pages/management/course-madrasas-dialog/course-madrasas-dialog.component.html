@@ -1,0 +1,125 @@
+<div class="dialog-header">
+  <div class="header-left">
+    <div class="header-icon">
+      <ion-icon name="business-outline"></ion-icon>
+    </div>
+    <div class="header-text-block">
+      <h2 mat-dialog-title>{{ data.courseName }}</h2>
+      <span class="subtitle">Assigned Madrasa List ({{ madrasaDetails.length }})</span>
+    </div>
+  </div>
+  <button mat-icon-button mat-dialog-close aria-label="Close" class="close-dialog-btn">
+    <ion-icon name="close-outline"></ion-icon>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content">
+  <div class="loading-spinner" *ngIf="loading">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading Madrasas & Classes...</span>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <div class="search-box" *ngIf="madrasaDetails.length > 3">
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Search Madrasas</mat-label>
+        <input matInput type="text" [(ngModel)]="searchQuery" placeholder="Filter madrasa name or code..." />
+        <ion-icon name="search-outline" matSuffix></ion-icon>
+      </mat-form-field>
+    </div>
+
+    <div class="madrasa-list">
+      <div class="madrasa-card" *ngFor="let m of filteredMadrasas; let i = index">
+        <div class="madrasa-card-header">
+          <div class="madrasa-info">
+            <span class="index-badge">{{ i + 1 }}</span>
+            <div class="title-block">
+              <strong class="madrasa-name">{{ m.madrasaName }}</strong>
+              <span class="added-date" *ngIf="m.addedAt">
+                <ion-icon name="calendar-outline"></ion-icon> Added: {{ m.addedAt | date:'mediumDate' }}
+              </span>
+            </div>
+          </div>
+          <div class="header-actions">
+            <span class="class-badge" *ngIf="m.classes.length > 0">
+              {{ m.classes.length }} Class(es)
+            </span>
+            <button mat-icon-button color="primary" type="button" (click)="m.expanded = !m.expanded" [matTooltip]="m.expanded ? 'Hide Details' : 'View Classes & Students'">
+              <ion-icon [name]="m.expanded ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <!-- Expanded Details (Classes, Groups, Staff, Students) -->
+        <div class="madrasa-card-details" *ngIf="m.expanded">
+          <div *ngIf="m.classes.length === 0" class="no-classes-msg">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            <span>Course added to Madrasa, but no active classes created yet.</span>
+          </div>
+
+          <div class="class-block" *ngFor="let cls of m.classes">
+            <div class="class-name-bar">
+              <ion-icon name="school-outline"></ion-icon>
+              <strong>{{ cls.className }}</strong>
+            </div>
+
+            <div class="groups-list">
+              <div class="group-card" *ngFor="let grp of cls.groups">
+                <div class="group-header">
+                  <div class="group-title">
+                    <span class="group-name">{{ grp.groupName }}</span>
+                    <span class="shift-tag" *ngIf="grp.shift">{{ grp.shift }}</span>
+                  </div>
+                  <button type="button" class="students-count-btn" (click)="grp.studentsExpanded = !grp.studentsExpanded">
+                    <ion-icon name="people-outline"></ion-icon>
+                    <span><strong>{{ grp.studentCount }}</strong> Students</span>
+                    <ion-icon [name]="grp.studentsExpanded ? 'chevron-up-outline' : 'chevron-down-outline'" class="arrow-icon"></ion-icon>
+                  </button>
+                </div>
+
+                <!-- Assigned Teachers -->
+                <div class="staff-row" *ngIf="grp.staffNames.length > 0">
+                  <span class="label"><ion-icon name="person-outline"></ion-icon> Teachers:</span>
+                  <span class="staff-names">{{ grp.staffNames.join(', ') }}</span>
+                </div>
+                <div class="staff-row muted" *ngIf="grp.staffNames.length === 0">
+                  <span class="label"><ion-icon name="person-outline"></ion-icon> Teachers:</span>
+                  <span class="staff-names italic">Unassigned</span>
+                </div>
+
+                <!-- Expanded Assigned Students Roster -->
+                <div class="students-roster" *ngIf="grp.studentsExpanded">
+                  <div class="roster-header">
+                    <ion-icon name="people-circle-outline"></ion-icon>
+                    <span>Assigned Students Roster ({{ grp.students.length }})</span>
+                  </div>
+                  <div class="students-grid" *ngIf="grp.students.length > 0">
+                    <div class="student-chip" *ngFor="let st of grp.students">
+                      <ion-icon name="person-circle-outline"></ion-icon>
+                      <div class="st-info">
+                        <span class="st-name">{{ st['name'] || st['displayName'] }}</span>
+                        <span class="st-sub" *ngIf="st['fatherName']">S/O {{ st['fatherName'] }}</span>
+                      </div>
+                      <span class="st-stage" *ngIf="st['stage'] || st['level']">{{ st['stage'] || st['level'] }}</span>
+                    </div>
+                  </div>
+                  <div class="no-students-msg" *ngIf="grp.students.length === 0">
+                    No active students assigned to this section yet.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-state" *ngIf="filteredMadrasas.length === 0">
+        <p>No matching madrasas found.</p>
+      </div>
+    </div>
+  </ng-container>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-flat-button color="primary" mat-dialog-close type="button">Done</button>
+</mat-dialog-actions>

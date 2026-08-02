@@ -100,16 +100,30 @@
           </ng-container>
 
           <!-- Dynamic Stage Select Override -->
-          <mat-select *ngIf="isStageField(field.key) && shouldShowStageSelect()" [multiple]="field.type === 'multiselect'" [formControlName]="field.key">
-            <mat-option *ngFor="let stage of getStageOptions(field.key)" [value]="stage" [disabled]="stage === getOriginalStage()">
-              {{ stage }} <span *ngIf="stage === getOriginalStage()" class="current-stage-tag">(Current Stage)</span>
-            </mat-option>
-          </mat-select>
+          <ng-container *ngIf="isStageField(field.key) && shouldShowStageSelect()">
+            <mat-select [value]="selectedMainStage[field.key]" (selectionChange)="onMainStageChange(field.key, $event.value)">
+              <mat-option *ngFor="let group of getStageHierarchy(field.key)" [value]="group.main" [disabled]="group.main === getOriginalStage()">
+                {{ group.main }}
+                <span *ngIf="group.subStages.length > 0" style="font-size: 11px; opacity: 0.75; margin-left: 6px;">({{ group.subStages.length }} Sub-Stages)</span>
+                <span *ngIf="group.main === getOriginalStage()" class="current-stage-tag">(Current Stage)</span>
+              </mat-option>
+            </mat-select>
+          </ng-container>
 
           <mat-error *ngIf="form.get(field.key)?.hasError('required')">{{ field.label }} is required</mat-error>
           <mat-error *ngIf="form.get(field.key)?.hasError('pattern')">Mobile number can contain numbers only</mat-error>
           <mat-error *ngIf="form.get(field.key)?.hasError('minlength') || form.get(field.key)?.hasError('maxlength')">Mobile number must be exactly 10 digits</mat-error>
           <mat-error *ngIf="form.get(field.key)?.hasError('serverError')">{{ form.get(field.key)?.getError('serverError') }}</mat-error>
+        </mat-form-field>
+
+        <!-- Sub-Stage Select Dropdown -->
+        <mat-form-field appearance="outline" class="full-field" *ngIf="isStageField(field.key) && shouldShowStageSelect() && hasSubStages(field.key)">
+          <mat-label>Select Sub-Stage</mat-label>
+          <mat-select [value]="selectedSubStage[field.key]" (selectionChange)="onSubStageChange(field.key, $event.value)">
+            <mat-option *ngFor="let sub of getSubStagesForSelectedMainStage(field.key)" [value]="sub">
+              {{ sub }}
+            </mat-option>
+          </mat-select>
         </mat-form-field>
       </ng-container>
 

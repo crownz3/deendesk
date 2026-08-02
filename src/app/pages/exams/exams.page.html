@@ -16,13 +16,13 @@
   <div class="filters-card">
     <mat-form-field appearance="outline" class="search-field">
       <mat-label>Search Exams</mat-label>
-      <input matInput [(ngModel)]="searchQuery" placeholder="Search by title, year, course..." />
+      <input matInput [ngModel]="searchQuery" (ngModelChange)="onSearchChange($event)" placeholder="Search by title, year, course..." />
       <mat-icon matSuffix>search</mat-icon>
     </mat-form-field>
 
     <mat-form-field appearance="outline" class="filter-field">
       <mat-label>Status</mat-label>
-      <mat-select [(ngModel)]="statusFilter">
+      <mat-select [ngModel]="statusFilter" (ngModelChange)="onStatusChange($event)">
         <mat-option value="all">All Statuses</mat-option>
         <mat-option value="draft">Draft</mat-option>
         <mat-option value="scheduled">Scheduled</mat-option>
@@ -35,7 +35,7 @@
 
     <mat-form-field appearance="outline" class="filter-field">
       <mat-label>Exam Type</mat-label>
-      <mat-select [(ngModel)]="typeFilter">
+      <mat-select [ngModel]="typeFilter" (ngModelChange)="onTypeChange($event)">
         <mat-option value="all">All Types</mat-option>
         <mat-option value="annual">Annual Exam</mat-option>
         <mat-option value="mid_term">Mid-Term Exam</mat-option>

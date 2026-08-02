@@ -1,0 +1,119 @@
+<div class="templates-dialog-container">
+  <!-- Header Bar -->
+  <div class="dialog-header">
+    <div class="header-title">
+      <mat-icon color="primary" class="header-icon">analytics</mat-icon>
+      <div>
+        <h2>Select Report Template</h2>
+        <p class="header-subtitle">Browse default system reports or custom saved templates</p>
+      </div>
+    </div>
+    <button mat-icon-button type="button" (click)="close()" aria-label="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Search & Category Filters -->
+  <div class="dialog-filter-bar">
+    <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+      <mat-icon matPrefix>search</mat-icon>
+      <input matInput type="text" placeholder="Search templates by name, category, or description..." [(ngModel)]="searchQuery" />
+      <button mat-icon-button matSuffix *ngIf="searchQuery" (click)="searchQuery = ''" type="button">
+        <mat-icon>clear</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <div class="category-pills">
+      <button
+        type="button"
+        class="category-pill-btn"
+        *ngFor="let cat of categories"
+        [class.active]="selectedCategory === cat.id"
+        (click)="selectedCategory = cat.id"
+      >
+        <span>{{ cat.label }}</span>
+        <span class="count-badge">{{ cat.count }}</span>
+      </button>
+    </div>
+  </div>
+
+  <mat-divider></mat-divider>
+
+  <!-- Dialog Body: Scrollable Templates Grid -->
+  <div class="dialog-body">
+    <!-- Saved Custom Reports Section -->
+    <div class="template-section" *ngIf="filteredSavedReports.length > 0">
+      <div class="section-title">
+        <mat-icon color="accent">folder_special</mat-icon>
+        <h3>Saved Custom Reports</h3>
+        <span class="section-count">({{ filteredSavedReports.length }})</span>
+      </div>
+
+      <div class="templates-grid">
+        <div
+          class="template-card saved-card"
+          *ngFor="let saved of filteredSavedReports"
+          [class.active]="activeReportId === saved.id"
+          (click)="selectTemplate(saved.id || '')"
+        >
+          <div class="card-top">
+            <div class="icon-box saved-icon">
+              <mat-icon>star</mat-icon>
+            </div>
+            <span class="active-badge" *ngIf="activeReportId === saved.id">
+              <mat-icon>check_circle</mat-icon> Active
+            </span>
+          </div>
+          <h4 class="template-name">{{ saved.name }}</h4>
+          <p class="template-desc">{{ saved.description || 'Custom configured saved report' }}</p>
+          <div class="card-footer">
+            <span class="cat-tag saved-tag">Saved Template</span>
+            <button mat-button color="primary" class="select-btn">Select</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Standard Report Groups -->
+    <div class="template-section" *ngFor="let group of filteredGroups">
+      <div class="section-title">
+        <mat-icon color="primary">{{ getCategoryIcon(group.name) }}</mat-icon>
+        <h3>{{ group.name }}</h3>
+        <span class="section-count">({{ group.configs.length }})</span>
+      </div>
+
+      <div class="templates-grid">
+        <div
+          class="template-card"
+          *ngFor="let config of group.configs"
+          [class.active]="activeReportId === config.id"
+          (click)="selectTemplate(config.id)"
+        >
+          <div class="card-top">
+            <div class="icon-box">
+              <mat-icon>{{ getCategoryIcon(config.category || group.name) }}</mat-icon>
+            </div>
+            <span class="active-badge" *ngIf="activeReportId === config.id">
+              <mat-icon>check_circle</mat-icon> Active
+            </span>
+          </div>
+
+          <h4 class="template-name">{{ config.name }}</h4>
+          <p class="template-desc">{{ config.description || 'System standard report template' }}</p>
+
+          <div class="card-footer">
+            <span class="cat-tag">{{ config.category || 'Standard' }}</span>
+            <button mat-button color="primary" class="select-btn">Select</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Empty Search State -->
+    <div class="empty-state" *ngIf="filteredSavedReports.length === 0 && filteredGroups.length === 0">
+      <mat-icon class="empty-icon">search_off</mat-icon>
+      <h3>No templates match your search</h3>
+      <p>Try searching with a different term or select another category filter.</p>
+    </div>
+  </div>
+</div>

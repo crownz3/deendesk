@@ -17,12 +17,17 @@ import { AnnouncementDetailsDialogComponent } from './announcement-details-dialo
 })
 export class AnnouncementsPage implements OnInit {
   profile$: Observable<AppUser | null> = this.auth.profile$;
+  readonly searchQuery$ = new BehaviorSubject<string>('');
+  readonly scopeFilter$ = new BehaviorSubject<string>('all');
+  readonly priorityFilter$ = new BehaviorSubject<string>('all');
+
   searchQuery = '';
   scopeFilter = 'all';
   priorityFilter = 'all';
 
   private refresh$ = new BehaviorSubject<void>(undefined);
   announcements$: Observable<Announcement[]> = of([]);
+  filteredAnnouncements$: Observable<Announcement[]> = of([]);
 
   constructor(
     private auth: AuthService,
@@ -43,24 +48,42 @@ export class AnnouncementsPage implements OnInit {
         return of([]);
       })
     );
-  }
 
-  get filteredAnnouncements$(): Observable<Announcement[]> {
-    return this.announcements$.pipe(
-      map((list) => {
-        const query = this.searchQuery.toLowerCase().trim();
+    this.filteredAnnouncements$ = combineLatest([
+      this.announcements$,
+      this.searchQuery$,
+      this.scopeFilter$,
+      this.priorityFilter$
+    ]).pipe(
+      map(([list, search, scope, priority]) => {
+        const query = search.toLowerCase().trim();
         return list.filter((item) => {
           const matchQuery =
             !query ||
             item.title.toLowerCase().includes(query) ||
             item.content.toLowerCase().includes(query) ||
             (item.publishedByName && item.publishedByName.toLowerCase().includes(query));
-          const matchScope = this.scopeFilter === 'all' || item.targetScope === this.scopeFilter;
-          const matchPriority = this.priorityFilter === 'all' || item.priority === this.priorityFilter;
+          const matchScope = scope === 'all' || item.targetScope === scope;
+          const matchPriority = priority === 'all' || item.priority === priority;
           return matchQuery && matchScope && matchPriority;
         });
       })
     );
+  }
+
+  onSearchChange(val: string) {
+    this.searchQuery = val;
+    this.searchQuery$.next(val);
+  }
+
+  onScopeChange(val: string) {
+    this.scopeFilter = val;
+    this.scopeFilter$.next(val);
+  }
+
+  onPriorityChange(val: string) {
+    this.priorityFilter = val;
+    this.priorityFilter$.next(val);
   }
 
   openAnnouncementDialog(announcement?: Announcement): void {

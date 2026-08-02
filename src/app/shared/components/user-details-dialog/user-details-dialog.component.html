@@ -1,256 +1,328 @@
-<header class="dialog-header">
-  <div>
-    <h2 mat-dialog-title>User Details</h2>
-    <p class="subtitle">{{ user['displayName'] || user['name'] || 'Unknown User' }}</p>
+<header class="dialog-header font-inter">
+  <div class="header-user-info">
+    <img [src]="user['photoURL'] || '/assets/images/avatars/default-neutral.png'" alt="Avatar" class="profile-avatar" />
+    <div class="user-titles">
+      <div class="name-status-row">
+        <h2>{{ user['displayName'] || user['name'] || 'Unknown User' }}</h2>
+        <app-status-badge [status]="getString('status') || 'active'"></app-status-badge>
+      </div>
+      <div class="meta-row">
+        <app-role-badge [role]="getString('role')"></app-role-badge>
+        <span class="user-email" *ngIf="user['email']">
+          <ion-icon name="mail-outline"></ion-icon> {{ user['email'] }}
+        </span>
+        <span class="user-phone" *ngIf="userPhone !== '-'">
+          <ion-icon name="call-outline"></ion-icon> {{ userPhone }}
+        </span>
+      </div>
+    </div>
   </div>
   <button mat-icon-button (click)="close()" aria-label="Close dialog">
     <ion-icon name="close-outline"></ion-icon>
   </button>
 </header>
 
-<mat-dialog-content class="dialog-content">
-  <div class="cards-grid">
-    
-    <!-- Basic Info Card -->
-    <article class="detail-card">
-      <div class="card-header">
-        <ion-icon name="person-outline"></ion-icon>
-        <h3>Basic Information</h3>
-      </div>
-      <div class="card-body">
-        <div class="avatar-wrapper">
-          <img [src]="user['photoURL'] || '/assets/images/avatars/default-neutral.png'" alt="Avatar" class="profile-avatar" />
-        </div>
-        <div class="info-row">
-          <span class="label">Display Name</span>
-          <span class="value">{{ user['displayName'] || user['name'] || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Email</span>
-          <span class="value">{{ user['email'] || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Phone</span>
-          <span class="value">{{ user['phone'] || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Gender</span>
-          <span class="value">{{ user['gender'] || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Auth Provider</span>
-          <span class="value">{{ user['authProvider'] || 'email' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Status</span>
-          <span class="value">
-            <app-status-badge [status]="getString('status') || 'active'"></app-status-badge>
-          </span>
-        </div>
-      </div>
-    </article>
+<!-- Dialog Navigation Tabs -->
+<div class="dialog-tabs-bar font-inter">
+  <button type="button" class="tab-btn" [class.active]="activeTab === 'minimal'" (click)="activeTab = 'minimal'">
+    <ion-icon name="card-outline"></ion-icon>
+    <span>Minimal Details</span>
+  </button>
 
-    <!-- Role and Access Card -->
-    <article class="detail-card">
-      <div class="card-header">
-        <ion-icon name="shield-checkmark-outline"></ion-icon>
-        <h3>Role and Access</h3>
+  <button type="button" class="tab-btn" [class.active]="activeTab === 'more'" (click)="activeTab = 'more'">
+    <ion-icon name="information-circle-outline"></ion-icon>
+    <span>More Details</span>
+  </button>
+
+  <button type="button" class="tab-btn badge-tab" [class.active]="activeTab === 'students'" (click)="activeTab = 'students'" *ngIf="assignedStudents.length > 0 || loadingStudents">
+    <ion-icon name="people-outline"></ion-icon>
+    <span>Students List</span>
+    <span class="tab-count-chip">{{ assignedStudents.length }}</span>
+  </button>
+</div>
+
+<mat-dialog-content class="dialog-content font-inter">
+
+  <!-- MINIMAL DETAILS TAB -->
+  <div *ngIf="activeTab === 'minimal'" class="tab-content minimal-tab">
+    <div class="minimal-grid">
+      
+      <!-- Personal Overview -->
+      <article class="detail-card">
+        <div class="card-header">
+          <ion-icon name="person-outline"></ion-icon>
+          <h3>Personal Information</h3>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="label">Full Name</span>
+            <span class="value font-semibold">{{ user['displayName'] || user['name'] || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Mobile Number</span>
+            <span class="value">{{ userPhone }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Gender</span>
+            <span class="value capitalize">{{ user['gender'] || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Status</span>
+            <span class="value">
+              <app-status-badge [status]="getString('status') || 'active'"></app-status-badge>
+            </span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Academic Overview -->
+      <article class="detail-card">
+        <div class="card-header">
+          <ion-icon name="school-outline"></ion-icon>
+          <h3>Academic Associations</h3>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="label">Madrasa(s)</span>
+            <span class="value">
+              <ng-container *ngIf="getArray('madrasaIds').length; else singleMadrasa">
+                <span class="id-list">
+                  <ng-container *ngFor="let id of getArray('madrasaIds'); let last = last">
+                    <app-name-with-copy [id]="id" type="madrasa"></app-name-with-copy>
+                    <span *ngIf="!last">, </span>
+                  </ng-container>
+                </span>
+              </ng-container>
+              <ng-template #singleMadrasa>
+                <app-name-with-copy *ngIf="user['madrasaId']" [id]="user['madrasaId']" type="madrasa"></app-name-with-copy>
+                <span *ngIf="!user['madrasaId'] && !getArray('madrasaIds').length">-</span>
+              </ng-template>
+            </span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Courses</span>
+            <span class="value">
+              <ng-container *ngIf="courseNames.length; else noCourses">
+                <div class="badge-tag-list">
+                  <span class="badge-tag course-tag" *ngFor="let c of courseNames">{{ c }}</span>
+                </div>
+              </ng-container>
+              <ng-template #noCourses>-</ng-template>
+            </span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Classes</span>
+            <span class="value">
+              <ng-container *ngIf="classNames.length; else noClasses">
+                <div class="badge-tag-list">
+                  <span class="badge-tag class-tag" *ngFor="let cls of classNames">{{ cls }}</span>
+                </div>
+              </ng-container>
+              <ng-template #noClasses>-</ng-template>
+            </span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Class Groups</span>
+            <span class="value">
+              <ng-container *ngIf="groupNames.length; else noGroups">
+                <div class="badge-tag-list">
+                  <span class="badge-tag group-tag" *ngFor="let g of groupNames">{{ g }}</span>
+                </div>
+              </ng-container>
+              <ng-template #noGroups>-</ng-template>
+            </span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Student Count Trigger Banner -->
+      <article class="detail-card highlight-card" (click)="activeTab = 'students'" *ngIf="assignedStudents.length > 0 || loadingStudents">
+        <div class="student-count-banner">
+          <div class="count-main">
+            <div class="count-icon-box">
+              <ion-icon name="people"></ion-icon>
+            </div>
+            <div class="count-text">
+              <div class="number">{{ assignedStudents.length }}</div>
+              <div class="subtext">Enrolled Students in Assigned Class Groups</div>
+            </div>
+          </div>
+          <button type="button" class="action-link-btn">
+            <span>View Students List</span>
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </button>
+        </div>
+      </article>
+
+    </div>
+  </div>
+
+  <!-- STUDENTS LIST TAB -->
+  <div *ngIf="activeTab === 'students'" class="tab-content students-tab">
+    <div class="students-header">
+      <h3>Students Enrolled ({{ assignedStudents.length }})</h3>
+      <p class="subtitle">Click any student to view their profile details</p>
+    </div>
+
+    <div *ngIf="loadingStudents" class="loading-box">
+      <ion-spinner name="crescent"></ion-spinner>
+      <span>Loading students list...</span>
+    </div>
+
+    <div *ngIf="!loadingStudents && assignedStudents.length === 0" class="empty-box">
+      <ion-icon name="people-outline"></ion-icon>
+      <span>No students assigned to these class groups.</span>
+    </div>
+
+    <div class="students-list-grid" *ngIf="!loadingStudents && assignedStudents.length > 0">
+      <div class="student-item-card" *ngFor="let st of assignedStudents" (click)="openStudentDetails(st)">
+        <img [src]="st['photoURL'] || '/assets/images/avatars/default-neutral.png'" alt="Student" class="st-avatar" />
+        <div class="st-info">
+          <h4 class="st-name">{{ st['displayName'] || st['name'] || 'Student' }}</h4>
+          <p class="st-sub">
+            <span *ngIf="st['phone']"><ion-icon name="call-outline"></ion-icon> {{ st['phone'] }}</span>
+            <span *ngIf="st['email']"><ion-icon name="mail-outline"></ion-icon> {{ st['email'] }}</span>
+          </p>
+        </div>
+        <ion-icon name="chevron-forward-outline" class="arrow-icon"></ion-icon>
       </div>
-      <div class="card-body">
-        <div class="info-row">
-          <span class="label">Role(s)</span>
-          <span class="value" style="display: flex; gap: 4px; flex-wrap: wrap;">
-            <ng-container *ngIf="getArray('roles').length > 0; else singleRole">
-              <app-role-badge *ngFor="let r of getArray('roles')" [role]="r"></app-role-badge>
-            </ng-container>
-            <ng-template #singleRole>
-              <app-role-badge [role]="getString('role')"></app-role-badge>
-            </ng-template>
-          </span>
+    </div>
+  </div>
+
+  <!-- MORE DETAILS TAB -->
+  <div *ngIf="activeTab === 'more'" class="tab-content more-tab">
+    <div class="cards-grid">
+      
+      <!-- Role & Permissions -->
+      <article class="detail-card">
+        <div class="card-header">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <h3>Role & Permissions</h3>
         </div>
-        <div class="info-row" *ngIf="user['organizationId']">
-          <span class="label">Organization</span>
-          <span class="value">
-            <app-name-with-copy [id]="user['organizationId']" type="organization"></app-name-with-copy>
-          </span>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="label">Role(s)</span>
+            <span class="value" style="display: flex; gap: 4px; flex-wrap: wrap;">
+              <ng-container *ngIf="getArray('roles').length > 0; else singleRole">
+                <app-role-badge *ngFor="let r of getArray('roles')" [role]="r"></app-role-badge>
+              </ng-container>
+              <ng-template #singleRole>
+                <app-role-badge [role]="getString('role')"></app-role-badge>
+              </ng-template>
+            </span>
+          </div>
+
+          <div class="info-row" *ngIf="user['organizationId']">
+            <span class="label">Organization</span>
+            <span class="value">
+              <app-name-with-copy [id]="user['organizationId']" type="organization"></app-name-with-copy>
+            </span>
+          </div>
+
+          <div class="permissions-section" *ngIf="permissions.length > 0">
+            <span class="label block-label">Permissions</span>
+            <div class="tags">
+              <span class="tag" *ngFor="let p of permissions">{{ getPermissionLabel(p) }}</span>
+            </div>
+          </div>
         </div>
-        <div class="info-row" *ngIf="user['madrasaId'] || getArray('madrasaIds').length">
-          <span class="label">Madrasa(s)</span>
-          <span class="value">
-            <ng-container *ngIf="getArray('madrasaIds').length; else singleMadrasa">
+      </article>
+
+      <!-- Credential Status -->
+      <article class="detail-card">
+        <div class="card-header">
+          <ion-icon name="key-outline"></ion-icon>
+          <h3>Credential Status</h3>
+        </div>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="label">Password Status</span>
+            <span class="value">
+              <span class="status-chip" [ngClass]="credentialInfo.status === 'TEMP_PASSWORD_PENDING' ? 'warning' : (credentialInfo.status === 'PASSWORD_CHANGED' ? 'success' : 'danger')">
+                {{ passwordStatus }}
+              </span>
+            </span>
+          </div>
+          <div class="info-row" *ngIf="showTemporaryPassword">
+            <span class="label">Temporary Password</span>
+            <span class="value password-value">
+              <code>{{ credentialInfo.display }}</code>
+            </span>
+          </div>
+        </div>
+      </article>
+
+      <!-- Linked Records -->
+      <article class="detail-card" *ngIf="getArray('linkedStudentIds').length || getArray('studentIds').length">
+        <div class="card-header">
+          <ion-icon name="people-outline"></ion-icon>
+          <h3>Linked Records</h3>
+        </div>
+        <div class="card-body">
+          <div class="info-row" *ngIf="getArray('linkedStudentIds').length">
+            <span class="label">Linked Students</span>
+            <span class="value">
               <span class="id-list">
-                <ng-container *ngFor="let id of getArray('madrasaIds'); let last = last">
-                  <app-name-with-copy [id]="id" type="madrasa"></app-name-with-copy>
+                <ng-container *ngFor="let id of getArray('linkedStudentIds'); let last = last">
+                  <app-name-with-copy [id]="id" type="student"></app-name-with-copy>
                   <span *ngIf="!last">, </span>
                 </ng-container>
               </span>
-            </ng-container>
-            <ng-template #singleMadrasa>
-              <app-name-with-copy *ngIf="user['madrasaId']" [id]="user['madrasaId']" type="madrasa"></app-name-with-copy>
-            </ng-template>
-          </span>
-        </div>
-        <div class="info-row" *ngIf="!isStaffProfile && getArray('classIds').length">
-          <span class="label">Classes</span>
-          <span class="value">
-            <span class="id-list">
-              <ng-container *ngFor="let id of getArray('classIds'); let last = last">
-                <app-name-with-copy [id]="id" type="class"></app-name-with-copy>
-                <span *ngIf="!last">, </span>
-              </ng-container>
             </span>
-          </span>
-        </div>
-        <div class="info-row" *ngIf="!isStaffProfile && getArray('subjectIds').length">
-          <span class="label">Subjects</span>
-          <span class="value">
-            <span class="id-list">
-              <ng-container *ngFor="let id of getArray('subjectIds'); let last = last">
-                <app-name-with-copy [id]="id" type="subject"></app-name-with-copy>
-                <span *ngIf="!last">, </span>
-              </ng-container>
+          </div>
+          <div class="info-row" *ngIf="getArray('studentIds').length">
+            <span class="label">Student Records</span>
+            <span class="value">
+              <span class="id-list">
+                <ng-container *ngFor="let id of getArray('studentIds'); let last = last">
+                  <app-name-with-copy [id]="id" type="student"></app-name-with-copy>
+                  <span *ngIf="!last">, </span>
+                </ng-container>
+              </span>
             </span>
-          </span>
-        </div>
-        
-        <div class="permissions-section" *ngIf="permissions.length > 0">
-          <span class="label block-label">Permissions</span>
-          <div class="tags">
-            <span class="tag" *ngFor="let p of permissions">{{ getPermissionLabel(p) }}</span>
           </div>
         </div>
-      </div>
-    </article>
+      </article>
 
-    <!-- Student / Parent Links -->
-    <article class="detail-card" *ngIf="user['role'] === 'student' || user['role'] === 'parent' || getArray('linkedStudentIds').length || getArray('studentIds').length || assignedStudents.length || assignedGroups.length || loadingStudents">
-      <div class="card-header">
-        <ion-icon name="people-outline"></ion-icon>
-        <h3>Academic Links</h3>
-      </div>
-      <div class="card-body">
-        <div class="info-row" *ngIf="assignedGroups.length">
-          <span class="label">Class Groups</span>
-          <span class="value" style="display: flex; flex-direction: column; gap: 6px;">
-            <div *ngFor="let group of assignedGroups" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap;">
-              <ng-container *ngIf="group['courseId']">
-                <app-name-with-copy [id]="group['courseId']" type="course" [hideIcon]="true"></app-name-with-copy>
-                <ion-icon name="chevron-forward-outline" style="font-size: 12px; opacity: 0.6; margin: 0 4px;"></ion-icon>
-              </ng-container>
-              <ng-container *ngIf="group['classId']">
-                <app-name-with-copy [id]="group['classId']" type="class" [hideIcon]="true"></app-name-with-copy>
-                <ion-icon name="chevron-forward-outline" style="font-size: 12px; opacity: 0.6; margin: 0 4px;"></ion-icon>
-              </ng-container>
-              <app-name-with-copy [id]="group.id" type="classGroup" [fallbackName]="group['name'] || 'Unnamed Group'"></app-name-with-copy>
-            </div>
-          </span>
+      <!-- Audit Info -->
+      <article class="detail-card">
+        <div class="card-header">
+          <ion-icon name="time-outline"></ion-icon>
+          <h3>Audit Information</h3>
         </div>
-        <div class="info-row" *ngIf="user['role'] === 'student' && user['studentId']">
-          <span class="label">Student Record</span>
-          <span class="value">
-            <app-name-with-copy [id]="user['studentId']" type="student"></app-name-with-copy>
-          </span>
-        </div>
-        <div class="info-row" *ngIf="getArray('linkedStudentIds').length">
-          <span class="label">Linked Students</span>
-          <span class="value">
-            <span class="id-list">
-              <ng-container *ngFor="let id of getArray('linkedStudentIds'); let last = last">
-                <app-name-with-copy [id]="id" type="student"></app-name-with-copy>
-                <span *ngIf="!last">, </span>
-              </ng-container>
+        <div class="card-body">
+          <div class="info-row">
+            <span class="label">Created At</span>
+            <span class="value">{{ (getDate('createdAt') | date:'medium') || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Updated At</span>
+            <span class="value">{{ (getDate('updatedAt') | date:'medium') || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Last Login</span>
+            <span class="value">{{ (getDate('lastLoginAt') | date:'medium') || '-' }}</span>
+          </div>
+          <div class="info-row" *ngIf="user['passwordUpdatedAt']">
+            <span class="label">Password Changed At</span>
+            <span class="value">{{ (getDate('passwordUpdatedAt') | date:'medium') || '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">Created By</span>
+            <span class="value uid-text">
+              <app-name-with-copy *ngIf="user['createdBy']; else noCreatedBy" [id]="user['createdBy']" type="user"></app-name-with-copy>
+              <ng-template #noCreatedBy>-</ng-template>
             </span>
-          </span>
+          </div>
         </div>
-        <div class="info-row" *ngIf="getArray('studentIds').length">
-          <span class="label">Student Records</span>
-          <span class="value">
-            <span class="id-list">
-              <ng-container *ngFor="let id of getArray('studentIds'); let last = last">
-                <app-name-with-copy [id]="id" type="student"></app-name-with-copy>
-                <span *ngIf="!last">, </span>
-              </ng-container>
-            </span>
-          </span>
-        </div>
-        <div class="info-row" *ngIf="loadingStudents">
-          <span class="label">Students in Assigned Classes</span>
-          <span class="value">
-            <ion-spinner name="dots"></ion-spinner> Loading...
-          </span>
-        </div>
-        <div class="info-row" *ngIf="!loadingStudents && assignedStudents.length">
-          <span class="label">Students in Assigned Classes</span>
-          <span class="value">
-            <span class="id-list">
-              <ng-container *ngFor="let student of assignedStudents; let last = last">
-                <app-name-with-copy [id]="student.id" type="student"></app-name-with-copy>
-                <span *ngIf="!last">, </span>
-              </ng-container>
-            </span>
-          </span>
-        </div>
-      </div>
-    </article>
+      </article>
 
-    <!-- Credential Status -->
-    <article class="detail-card">
-      <div class="card-header">
-        <ion-icon name="key-outline"></ion-icon>
-        <h3>Credential Status</h3>
-      </div>
-      <div class="card-body">
-        <div class="info-row">
-          <span class="label">Status</span>
-          <span class="value">
-            <span class="status-chip" [ngClass]="credentialInfo.status === 'TEMP_PASSWORD_PENDING' ? 'warning' : (credentialInfo.status === 'PASSWORD_CHANGED' ? 'success' : 'danger')">
-              {{ passwordStatus }}
-            </span>
-          </span>
-        </div>
-        <div class="info-row" *ngIf="showTemporaryPassword">
-          <span class="label">Temporary Password</span>
-          <span class="value password-value">
-            <code>{{ credentialInfo.display }}</code>
-          </span>
-        </div>
-      </div>
-    </article>
-
-    <!-- Audit Information -->
-    <article class="detail-card">
-      <div class="card-header">
-        <ion-icon name="time-outline"></ion-icon>
-        <h3>Audit Information</h3>
-      </div>
-      <div class="card-body">
-        <div class="info-row">
-          <span class="label">Created At</span>
-          <span class="value">{{ (getDate('createdAt') | date:'medium') || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Updated At</span>
-          <span class="value">{{ (getDate('updatedAt') | date:'medium') || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Last Login</span>
-          <span class="value">{{ (getDate('lastLoginAt') | date:'medium') || '-' }}</span>
-        </div>
-        <div class="info-row" *ngIf="user['passwordUpdatedAt']">
-          <span class="label">Password Changed At</span>
-          <span class="value">{{ (getDate('passwordUpdatedAt') | date:'medium') || '-' }}</span>
-        </div>
-        <div class="info-row">
-          <span class="label">Created By</span>
-          <span class="value uid-text">
-            <app-name-with-copy *ngIf="user['createdBy']; else noCreatedBy" [id]="user['createdBy']" type="user"></app-name-with-copy>
-            <ng-template #noCreatedBy>-</ng-template>
-          </span>
-        </div>
-      </div>
-    </article>
-
+    </div>
   </div>
+
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">

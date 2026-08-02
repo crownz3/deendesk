@@ -433,6 +433,16 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
           return sameOrg && sameMadrasa;
         });
       }
+
+      const seenLabels = new Set<string>();
+      options = options.filter((opt: any) => {
+        const label = String(opt.label || opt.value || '').trim().toLowerCase();
+        if (seenLabels.has(label)) {
+          return false;
+        }
+        seenLabels.add(label);
+        return true;
+      });
     } else if (field.key === 'subjectId' || field.key === 'subjectIds') {
       const courseId = this.form.get('courseId')?.value || this.form.get('newCourseId')?.value;
       const classId = this.form.get('classId')?.value;
@@ -544,7 +554,20 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
     ).trim().toLowerCase();
   }
 
-  getStageOptions(fieldKey?: string): string[] {
+  private stageHierarchyCache: { [fieldKey: string]: { main: string; subStages: string[] }[] } = {};
+  private stageOptionsCache: { [fieldKey: string]: string[] } = {};
+
+  clearStageCaches() {
+    this.stageHierarchyCache = {};
+    this.stageOptionsCache = {};
+  }
+
+  getStageOptions(fieldKey: string = 'stage'): string[] {
+    const cacheKey = fieldKey || 'stage';
+    if (this.stageOptionsCache[cacheKey]) {
+      return this.stageOptionsCache[cacheKey];
+    }
+
     const selectedCourse = this.getSelectedCourse();
     const courseStages = selectedCourse?.['stages'];
 
@@ -565,10 +588,9 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       }
     }
 
+    this.stageOptionsCache[cacheKey] = options;
     return options;
   }
-
-
 
   shouldShowStageSelect(): boolean {
     return this.getStageOptions().length > 0;
@@ -576,6 +598,13 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
   isFieldVisible(field: QuickAddField): boolean {
     if (field.type === 'hidden') return false;
+    if (field.key === 'requiredDaurCount') {
+      return this.form.get('promotionRule')?.value === 'daur_count_required';
+    }
+    if (field.key === 'courseDurationYears') {
+      const val = this.form.get('hasFixedDuration')?.value;
+      return val === true || val === 'true';
+    }
     if (field.key === 'stages') {
       return this.shouldShowStageSelect();
     }
@@ -588,7 +617,168 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  selectedMainStage: { [fieldKey: string]: string } = {};
+  selectedSubStage: { [fieldKey: string]: string } = {};
+
+  getStageHierarchy(fieldKey: string = 'stage'): { main: string; subStages: string[] }[] {
+    const cacheKey = fieldKey || 'stage';
+    if (this.stageHierarchyCache[cacheKey]) {
+      return this.stageHierarchyCache[cacheKey];
+    }
+
+    const rawOptions = this.getStageOptions(fieldKey);
+    if (!rawOptions || !rawOptions.length) {
+      this.stageHierarchyCache[cacheKey] = [];
+      return [];
+    }
+
+    const result: { main: string; subStages: string[] }[] = [];
+    const map = new Map<string, { main: string; subStages: string[] }>();
+
+    for (const raw of rawOptions) {
+      const name = String(raw).trim();
+      if (!name) continue;
+
+      let parentName = '';
+      let subName = '';
+
+      if (name.includes(' - ')) {
+        const parts = name.split(' - ');
+        parentName = parts[0].trim();
+        subName = parts.slice(1).join(' - ').trim();
+      } else {
+        const match = name.match(/^(.*?)\s+Stage\s+(\d+.*)$/i) ||
+                      name.match(/^(.*?)\s+Level\s+(\d+.*)$/i);
+        if (match) {
+          parentName = match[1].trim();
+          subName = name.substring(parentName.length).replace(/^[\s-]+/, '').trim();
+        }
+      }
+
+      if (parentName && subName) {
+        const key = parentName.toLowerCase();
+        let entry = map.get(key);
+        if (!entry) {
+          entry = { main: parentName, subStages: [] };
+          map.set(key, entry);
+          result.push(entry);
+        }
+        if (!entry.subStages.includes(subName)) {
+          entry.subStages.push(subName);
+        }
+      } else {
+        const key = name.toLowerCase();
+        if (!map.has(key)) {
+          const entry = { main: name, subStages: [] };
+          map.set(key, entry);
+          result.push(entry);
+        }
+      }
+    }
+
+    this.stageHierarchyCache[cacheKey] = result;
+    return result;
+  }
+
+  initStageState(fieldKey: string = 'stage') {
+    const control = this.form.get(fieldKey);
+    if (!control) return;
+    const currentVal = String(control.value || '').trim();
+    if (!currentVal) {
+      this.selectedMainStage[fieldKey] = '';
+      this.selectedSubStage[fieldKey] = '';
+      return;
+    }
+
+    const hierarchy = this.getStageHierarchy(fieldKey);
+    for (const group of hierarchy) {
+      if (group.subStages.length > 0) {
+        for (const sub of group.subStages) {
+          const fullPattern1 = `${group.main} - ${sub}`;
+          const fullPattern2 = `${group.main} ${sub}`;
+          if (currentVal.toLowerCase() === fullPattern1.toLowerCase() ||
+              currentVal.toLowerCase() === fullPattern2.toLowerCase() ||
+              currentVal.toLowerCase() === sub.toLowerCase()) {
+            this.selectedMainStage[fieldKey] = group.main;
+            this.selectedSubStage[fieldKey] = sub;
+            return;
+          }
+        }
+      }
+      if (currentVal.toLowerCase() === group.main.toLowerCase()) {
+        this.selectedMainStage[fieldKey] = group.main;
+        this.selectedSubStage[fieldKey] = '';
+        return;
+      }
+    }
+
+    this.selectedMainStage[fieldKey] = currentVal;
+    this.selectedSubStage[fieldKey] = '';
+  }
+
+  formatStageWithHyphen(mainName: string, subName: string): string {
+    const main = (mainName || '').trim();
+    let sub = (subName || '').trim();
+    if (!main) return sub;
+    if (!sub) return main;
+
+    if (sub.includes(' - ') || sub.includes(':-') || sub.includes(': ')) {
+      return sub;
+    }
+
+    if (sub.toLowerCase().startsWith(main.toLowerCase())) {
+      const remainder = sub.slice(main.length).trim();
+      if (remainder) {
+        return `${main} - ${remainder}`;
+      }
+      return main;
+    }
+
+    return `${main} - ${sub}`;
+  }
+
+  onMainStageChange(fieldKey: string, mainStage: string) {
+    this.selectedMainStage[fieldKey] = mainStage;
+    const hierarchy = this.getStageHierarchy(fieldKey);
+    const group = hierarchy.find(g => g.main.toLowerCase() === (mainStage || '').toLowerCase());
+
+    const control = this.form.get(fieldKey);
+    if (group && group.subStages && group.subStages.length > 0) {
+      const firstSub = group.subStages[0];
+      this.selectedSubStage[fieldKey] = firstSub;
+      const fullVal = this.formatStageWithHyphen(group.main, firstSub);
+      const rawOptions = this.getStageOptions(fieldKey);
+      const exactMatch = rawOptions.find(o => o.toLowerCase() === fullVal.toLowerCase()) || fullVal;
+      control?.patchValue(exactMatch, { emitEvent: false });
+    } else {
+      this.selectedSubStage[fieldKey] = '';
+      control?.patchValue(mainStage, { emitEvent: false });
+    }
+  }
+
+  onSubStageChange(fieldKey: string, subStage: string) {
+    this.selectedSubStage[fieldKey] = subStage;
+    const main = this.selectedMainStage[fieldKey] || '';
+    const fullVal = this.formatStageWithHyphen(main, subStage);
+    const rawOptions = this.getStageOptions(fieldKey);
+    const exactMatch = rawOptions.find(o => o.toLowerCase() === fullVal.toLowerCase()) || fullVal;
+    const control = this.form.get(fieldKey);
+    control?.patchValue(exactMatch, { emitEvent: false });
+  }
+
+  hasSubStages(fieldKey: string): boolean {
+    return this.getSubStagesForSelectedMainStage(fieldKey).length > 0;
+  }
+
+  getSubStagesForSelectedMainStage(fieldKey: string): string[] {
+    const main = this.selectedMainStage[fieldKey];
+    if (!main) return [];
+    const group = this.getStageHierarchy(fieldKey).find(g => g.main.toLowerCase() === main.toLowerCase());
+    return group ? group.subStages : [];
+  }
+
   resetInvalidStage() {
+    this.clearStageCaches();
     for (const key of ['stage', 'newStage']) {
       const options = this.getStageOptions(key);
       if (!options.length) continue;
@@ -597,9 +787,10 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       if (control) {
         const current = control.value;
         if (current && !options.includes(current)) {
-          control.patchValue('');
+          control.patchValue('', { emitEvent: false });
         }
       }
+      this.initStageState(key);
     }
   }
 

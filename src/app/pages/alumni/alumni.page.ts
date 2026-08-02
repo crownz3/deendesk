@@ -17,12 +17,18 @@ import { AlumniFormDialogComponent } from './alumni-form-dialog.component';
 })
 export class AlumniPage implements OnInit {
   profile$: Observable<AppUser | null> = this.auth.profile$;
+  readonly searchQuery$ = new BehaviorSubject<string>('');
+  readonly personTypeFilter$ = new BehaviorSubject<string>('all');
+
   searchQuery = '';
   personTypeFilter = 'all';
-  statusFilter = 'all';
 
   private refresh$ = new BehaviorSubject<void>(undefined);
   records$: Observable<AlumniRecord[]> = of([]);
+  filteredRecords$: Observable<AlumniRecord[]> = of([]);
+  stats$: Observable<{ totalAlumni: number; huffazGraduates: number; aalimGraduates: number; formerStaff: number }> = of({
+    totalAlumni: 0, huffazGraduates: 0, aalimGraduates: 0, formerStaff: 0
+  });
 
   constructor(
     private auth: AuthService,
@@ -43,27 +49,27 @@ export class AlumniPage implements OnInit {
         return of([]);
       })
     );
-  }
 
-  get filteredRecords$(): Observable<AlumniRecord[]> {
-    return this.records$.pipe(
-      map(list => {
-        const query = this.searchQuery.toLowerCase().trim();
+    this.filteredRecords$ = combineLatest([
+      this.records$,
+      this.searchQuery$,
+      this.personTypeFilter$
+    ]).pipe(
+      map(([list, search, personTypeF]) => {
+        const query = search.toLowerCase().trim();
         return list.filter(item => {
           const matchQuery = !query ||
-            item.name.toLowerCase().includes(query) ||
+            (item.name && item.name.toLowerCase().includes(query)) ||
             (item.currentOccupation && item.currentOccupation.toLowerCase().includes(query)) ||
             (item.currentCity && item.currentCity.toLowerCase().includes(query)) ||
             (item.passedOutYear && item.passedOutYear.includes(query));
-          const matchPersonType = this.personTypeFilter === 'all' || item.personType === this.personTypeFilter;
+          const matchPersonType = personTypeF === 'all' || item.personType === personTypeF;
           return matchQuery && matchPersonType;
         });
       })
     );
-  }
 
-  get stats$(): Observable<{ totalAlumni: number; huffazGraduates: number; aalimGraduates: number; formerStaff: number }> {
-    return this.records$.pipe(
+    this.stats$ = this.records$.pipe(
       map(list => ({
         totalAlumni: list.length,
         huffazGraduates: list.filter(r => r.graduationStatus === 'hifz_completed').length,
@@ -71,6 +77,16 @@ export class AlumniPage implements OnInit {
         formerStaff: list.filter(r => r.personType === 'staff').length,
       }))
     );
+  }
+
+  onSearchChange(val: string) {
+    this.searchQuery = val;
+    this.searchQuery$.next(val);
+  }
+
+  onPersonTypeChange(val: string) {
+    this.personTypeFilter = val;
+    this.personTypeFilter$.next(val);
   }
 
   openAddDialog(user: AppUser): void {
