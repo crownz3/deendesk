@@ -514,7 +514,7 @@ export interface CsvImportLog extends ScopedEntity {
 export interface TableColumn {
   key: string;
   label: string;
-  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef' | 'staffChips' | 'studentCount' | 'madrasaCount' | 'stageChips';
+  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef' | 'staffChips' | 'studentCount' | 'madrasaCount' | 'classCount' | 'groupCount' | 'stageChips';
   referenceType?: 'organization' | 'madrasa' | 'user' | 'course' | 'class' | 'classGroup' | 'subject' | 'student' | 'parent' | 'staff' | 'teacher' | 'coordinator' | 'incharge';
 }
 

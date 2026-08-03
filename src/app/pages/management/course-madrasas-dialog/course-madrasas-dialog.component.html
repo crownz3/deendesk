@@ -95,10 +95,12 @@
                   </div>
                   <div class="students-grid" *ngIf="grp.students.length > 0">
                     <div class="student-chip" *ngFor="let st of grp.students">
-                      <ion-icon name="person-circle-outline"></ion-icon>
+                      <div class="st-avatar">
+                        {{ (st['name'] || st['displayName'] || '?').charAt(0).toUpperCase() }}
+                      </div>
                       <div class="st-info">
-                        <span class="st-name">{{ st['name'] || st['displayName'] }}</span>
-                        <span class="st-sub" *ngIf="st['fatherName']">S/O {{ st['fatherName'] }}</span>
+                        <span class="st-name" [matTooltip]="st['name'] || st['displayName']">{{ st['name'] || st['displayName'] }}</span>
+                        <span class="st-sub" *ngIf="st['fatherName'] || st['parentName']">S/O {{ st['fatherName'] || st['parentName'] }}</span>
                       </div>
                       <span class="st-stage" *ngIf="st['stage'] || st['level']">{{ st['stage'] || st['level'] }}</span>
                     </div>

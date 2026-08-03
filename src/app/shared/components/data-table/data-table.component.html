@@ -145,6 +145,18 @@
                   <span>{{ row['madrasaCount'] || 0 }} Madrasa(s)</span>
                 </button>
               </span>
+              <span *ngSwitchCase="'classCount'" class="student-count-cell">
+                <span class="student-count-chip-btn" [class.has-students]="$any(row['classCount'] || 0) > 0">
+                  <ion-icon name="easel-outline"></ion-icon>
+                  <span>{{ row['classCount'] || 0 }} Class(es)</span>
+                </span>
+              </span>
+              <span *ngSwitchCase="'groupCount'" class="student-count-cell">
+                <span class="student-count-chip-btn" [class.has-students]="$any(row['groupCount'] || 0) > 0">
+                  <ion-icon name="shapes-outline"></ion-icon>
+                  <span>{{ row['groupCount'] || 0 }} Group(s)</span>
+                </span>
+              </span>
               <span *ngSwitchCase="'date'" class="date-cell">
                 {{ (getDate(row, column.key) | date:'MMM d, yyyy, h:mm a') || 'N/A' }}
               </span>

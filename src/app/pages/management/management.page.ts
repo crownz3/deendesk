@@ -66,6 +66,13 @@ interface ManagementConfig {
   specialCreate?: 'student' | 'userAccess' | 'staffAccess' | 'organization';
 }
 
+export function extractId(val: any): string {
+  if (!val) return '';
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'object') return String(val.id || val.uid || val.docId || val._id || '').trim();
+  return String(val).trim();
+}
+
 export interface PageState<T> {
   data?: T;
   loading: boolean;
@@ -450,6 +457,8 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'typeDisplay', label: 'Course Type' },
       { key: 'stagesDisplay', label: 'Stages', type: 'stageChips' },
       { key: 'madrasaCount', label: 'Madrasas', type: 'madrasaCount' },
+      { key: 'classCount', label: 'Classes', type: 'classCount' },
+      { key: 'groupCount', label: 'Class Groups', type: 'groupCount' },
       { key: 'studentCount', label: 'Students', type: 'studentCount' },
       { key: 'status', label: 'Status', type: 'status' },
     ],
@@ -838,78 +847,91 @@ export class ManagementPage {
              });
            }
 
-           if (config.resource === 'classes') {
-             filteredRows = filteredRows.map(cls => {
-               const count = students.filter(s => String(s['classId']) === String(cls.id) && s['status'] !== 'inactive').length;
-               return { ...cls, studentCount: count };
-             });
-             filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
-           }
+            if (config.resource === 'classes') {
+              filteredRows = filteredRows.map(cls => {
+                const clsIdStr = extractId(cls.id);
+                const groupsInClass = new Set(
+                  classGroups.filter(g => extractId(g['classId'] || g['class']) === clsIdStr).map(g => extractId(g.id))
+                );
+                const count = students.filter(s => {
+                  if (s['status'] === 'inactive') return false;
+                  const sClassId = extractId(s['classId'] || s['class']);
+                  const sGroupId = extractId(s['groupId'] || s['classGroupId'] || s['group'] || s['sectionId'] || s['section']);
+                  return sClassId === clsIdStr || (sGroupId && groupsInClass.has(sGroupId));
+                }).length;
+                return { ...cls, studentCount: count };
+              });
+              filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
+            }
 
-           if (config.resource === 'courses') {
-             const isOrgAdminOrCoordinator = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin' || profile?.role === 'coordinator';
+            if (config.resource === 'courses') {
+              filteredRows = filteredRows.map(course => {
+                const courseIdStr = extractId(course.id);
+                const courseCodeStr = String(course['code'] || '').toLowerCase();
+                const courseNameStr = String(course['name'] || '').toLowerCase();
 
-             if (isOrgAdminOrCoordinator) {
-               // For Org Admins & Coordinators: Only show Master Courses (courses created at org level without madrasaId)
-               // Deduplicate by code/name/type so 1 single master row per course is shown in the table
-               const masterCourses = filteredRows.filter(c => !c['madrasaId']);
-               const madrasaCourses = filteredRows.filter(c => !!c['madrasaId']);
+                // Find classes linked to this course
+                const matchingClasses = classes.filter(cls => {
+                  const cId = extractId(cls['courseId'] || cls['course']);
+                  const cCode = String(cls['courseCode'] || '').toLowerCase();
+                  const cName = String(cls['courseName'] || '').toLowerCase();
 
-               const sourceList = masterCourses.length > 0 ? masterCourses : filteredRows;
-               const seenKeys = new Set<string>();
-               const uniqueMasterCourses: EntityRecord[] = [];
+                  return (cId && cId === courseIdStr) ||
+                         (courseCodeStr && cCode && cCode === courseCodeStr) ||
+                         (courseNameStr && cName && cName === courseNameStr);
+                });
 
-               sourceList.forEach(course => {
-                 const key = String(course['code'] || course['name'] || course.id).toLowerCase();
-                 if (!seenKeys.has(key)) {
-                   seenKeys.add(key);
-                   uniqueMasterCourses.push(course);
-                 }
-               });
+                // Find classGroups linked to these classes or directly to this course
+                const classIds = new Set(matchingClasses.map(c => extractId(c.id)));
+                const matchingGroups = classGroups.filter(grp => {
+                  const gCourseId = extractId(grp['courseId'] || grp['course']);
+                  const gClassId = extractId(grp['classId'] || grp['class']);
+                  return (gCourseId && gCourseId === courseIdStr) || (gClassId && classIds.has(gClassId));
+                });
 
-               filteredRows = uniqueMasterCourses.map(masterCourse => {
-                 const mCode = String(masterCourse['code'] || '').toLowerCase();
-                 const mName = String(masterCourse['name'] || '').toLowerCase();
-                 const mType = String(masterCourse['type'] || masterCourse['courseType'] || '').toLowerCase();
+                // Calculate total active students in this course
+                const totalStudents = students.filter(s => {
+                  if (s['status'] === 'inactive') return false;
+                  const sCourseId = extractId(s['courseId'] || s['course']);
+                  const sClassId = extractId(s['classId'] || s['class']);
+                  return (sCourseId && sCourseId === courseIdStr) || (sClassId && classIds.has(sClassId));
+                }).length;
 
-                 const matchingMadrasaCourses = madrasaCourses.filter(c => {
-                   const cCode = String(c['code'] || '').toLowerCase();
-                   const cName = String(c['name'] || '').toLowerCase();
-                   const cType = String(c['type'] || c['courseType'] || '').toLowerCase();
-                   return (mCode && cCode === mCode) || (mName && cName === mName) || (mType && cType === mType);
-                 });
+                // Collect ALL madrasas associated with this course
+                let mIds: string[] = [];
+                const directMId = extractId(course['madrasaId']);
+                if (directMId) mIds.push(directMId);
 
-                 const madrasaIds = Array.from(new Set(matchingMadrasaCourses.map(c => String(c['madrasaId'])).filter(Boolean)));
-                 const madrasaNames = madrasaIds.map(mId => {
-                   const mDoc = madrasas.find(m => String(m.id) === mId);
-                   return mDoc ? String(mDoc['name'] || mDoc['title'] || mId) : mId;
-                 });
+                if (Array.isArray(course['madrasaIds'])) {
+                  course['madrasaIds'].forEach(m => {
+                    const id = extractId(m);
+                    if (id && !mIds.includes(id)) mIds.push(id);
+                  });
+                }
+                matchingClasses.forEach(cls => {
+                  const id = extractId(cls['madrasaId']);
+                  if (id && !mIds.includes(id)) mIds.push(id);
+                });
+                matchingGroups.forEach(grp => {
+                  const id = extractId(grp['madrasaId']);
+                  if (id && !mIds.includes(id)) mIds.push(id);
+                });
 
-                 const matchingCourseIds = new Set([String(masterCourse.id), ...matchingMadrasaCourses.map(c => String(c.id))]);
-                 const totalStudents = students.filter(s => matchingCourseIds.has(String(s['courseId'])) && s['status'] !== 'inactive').length;
+                const mNames = mIds.map(mId => {
+                  const mDoc = madrasas.find(m => extractId(m.id) === mId);
+                  return mDoc ? String(mDoc['name'] || mDoc['title'] || mId) : mId;
+                });
 
-                 return {
-                   ...masterCourse,
-                   madrasaCount: madrasaNames.length,
-                   madrasaNames: madrasaNames,
-                   studentCount: totalStudents
-                 };
-               });
-             } else {
-               // Non-admin users (madrasa incharges etc.) only see courses linked to their madrasa
-               const myMadrasaId = (profile as any)?.madrasaId || (profile as any)?.primaryMadrasaId || '';
-               if (myMadrasaId) {
-                 filteredRows = filteredRows.filter(course =>
-                   course['madrasaId'] === myMadrasaId ||
-                   (Array.isArray(course['madrasaIds']) && course['madrasaIds'].includes(myMadrasaId))
-                 );
-               }
-               filteredRows = filteredRows.map(course => {
-                 const count = students.filter(s => String(s['courseId']) === String(course.id) && s['status'] !== 'inactive').length;
-                 return { ...course, madrasaCount: 1, madrasaNames: [], studentCount: count };
-               });
-             }
-           }
+                return {
+                  ...course,
+                  classCount: matchingClasses.length,
+                  groupCount: matchingGroups.length,
+                  madrasaCount: mNames.length,
+                  madrasaNames: mNames,
+                  studentCount: totalStudents
+                };
+              });
+            }
 
             // Enrich 'users', 'incharges', 'coordinators', 'staff' rows with effective roles derived from madrasa membership.
             // A person may have role='teacher' in their user doc but also appear in a madrasa's inchargeIds or coordinatorIds.
@@ -1909,20 +1931,52 @@ export class ManagementPage {
     await this.loader.withLoader('Loading madrasa details...', async () => {
       const profile = await firstValueFrom(this.auth.profile$);
       const allMadrasas = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
+      const allClasses = await this.repo.getAllOnce<EntityRecord>('classes', profile).catch(() => []);
+      const allGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []);
 
       let rawIds: string[] = [];
       if (Array.isArray(row['madrasaIds'])) {
-        rawIds = row['madrasaIds'].map(String).filter(Boolean);
-      } else if (row['madrasaId']) {
-        rawIds = [String(row['madrasaId'])];
-      } else if (Array.isArray(row['madrasas'])) {
-        rawIds = row['madrasas'].map(String).filter(Boolean);
+        rawIds.push(...row['madrasaIds'].map(String).filter(Boolean));
       }
+      if (row['madrasaId']) {
+        rawIds.push(String(row['madrasaId']));
+      }
+      if (Array.isArray(row['madrasas'])) {
+        rawIds.push(...row['madrasas'].map(String).filter(Boolean));
+      }
+
+      // Collect madrasa IDs from linked classes and class groups
+      const courseIdStr = String(row.id);
+      const courseCodeStr = String(row['code'] || '').toLowerCase();
+      const courseNameStr = String(row['name'] || '').toLowerCase();
+
+      const matchingClasses = allClasses.filter(cls => {
+        const cId = String(cls['courseId'] || cls['course'] || '');
+        const cCode = String(cls['courseCode'] || '').toLowerCase();
+        const cName = String(cls['courseName'] || '').toLowerCase();
+
+        return (cId && cId === courseIdStr) ||
+               (courseCodeStr && cCode && cCode === courseCodeStr) ||
+               (courseNameStr && cName && cName === courseNameStr);
+      });
+      matchingClasses.forEach(cls => {
+        if (cls['madrasaId']) rawIds.push(String(cls['madrasaId']));
+      });
+
+      const classIds = new Set(matchingClasses.map(c => String(c.id)));
+      const matchingGroups = allGroups.filter(grp => 
+        (grp['courseId'] && String(grp['courseId']) === courseIdStr) ||
+        (grp['classId'] && classIds.has(String(grp['classId'])))
+      );
+      matchingGroups.forEach(grp => {
+        if (grp['madrasaId']) rawIds.push(String(grp['madrasaId']));
+      });
+
+      rawIds = Array.from(new Set(rawIds));
 
       const assignedMadrasas = allMadrasas.filter(m => 
         rawIds.includes(String(m.id)) || 
-        rawIds.includes(String(m['code'])) ||
-        (rawIds.length === 0 && row.id && String(m.id) === String(row.id))
+        rawIds.includes(String(m['code']))
       );
       
       const madrasaIds = assignedMadrasas.length > 0 ? assignedMadrasas.map(m => String(m.id)) : rawIds;
@@ -2083,9 +2137,15 @@ export class ManagementPage {
 
       const studentMap = new Map<string, EntityRecord>();
       [...usersStudents, ...directStudents].forEach(st => {
-        const key = String(st['uid'] || st['userId'] || st['email'] || st.id || '').toLowerCase().trim();
-        if (key && key !== 'undefined') {
-          studentMap.set(key, { ...(studentMap.get(key) || {}), ...st });
+        const nameStr = String(st['displayName'] || st['name'] || st['studentName'] || '').trim().toLowerCase();
+        const emailStr = String(st['email'] || '').trim().toLowerCase();
+        const uidStr = extractId(st['uid'] || st['userId'] || st['studentId']);
+        const docId = extractId(st.id);
+
+        const key = nameStr || uidStr || (emailStr && emailStr !== 'n/a' ? emailStr : '') || docId;
+        if (key) {
+          const existing = studentMap.get(key) || {};
+          studentMap.set(key, { ...existing, ...st });
         }
       });
       const allStudents = Array.from(studentMap.values());
@@ -2097,23 +2157,46 @@ export class ManagementPage {
       const allStaff = await this.repo.getAllOnce<EntityRecord>('staff', profile).catch(() => []);
 
       if (config.resource === 'classGroups') {
-        studentsList = allStudents.filter(s => String(s['groupId'] || s['classGroupId'] || s['group']) === String(row.id) && s['status'] !== 'inactive');
+        const grpIdStr = extractId(row.id);
+        studentsList = allStudents.filter(s => {
+          if (s['status'] === 'inactive') return false;
+          const sGrpId = extractId(s['groupId'] || s['classGroupId'] || s['group']);
+          return sGrpId === grpIdStr;
+        });
       } else if (config.resource === 'classes') {
-        studentsList = allStudents.filter(s => String(s['classId']) === String(row.id) && s['status'] !== 'inactive');
-      } else if (config.resource === 'courses') {
-        const mCode = String(row['code'] || '').toLowerCase();
-        const mName = String(row['name'] || '').toLowerCase();
-        const mType = String(row['type'] || row['courseType'] || '').toLowerCase();
+        const classIdStr = extractId(row.id);
+        const classGroupsUnderThisClass = new Set(
+          classGroupDocs.filter(g => extractId(g['classId'] || g['class']) === classIdStr).map(g => extractId(g.id))
+        );
 
-        const matchingCourseIds = new Set([String(row.id)]);
+        studentsList = allStudents.filter(s => {
+          if (s['status'] === 'inactive') return false;
+          const sClassId = extractId(s['classId'] || s['class']);
+          const sGroupId = extractId(s['groupId'] || s['classGroupId'] || s['group'] || s['sectionId'] || s['section']);
+          return sClassId === classIdStr || (sGroupId && classGroupsUnderThisClass.has(sGroupId));
+        });
+      } else if (config.resource === 'courses') {
+        const courseIdStr = extractId(row.id);
+        const courseCodeStr = String(row['code'] || '').toLowerCase();
+        const courseNameStr = String(row['name'] || '').toLowerCase();
+
+        const matchingCourseIds = new Set([courseIdStr]);
         allCourses.filter(c => {
           const cCode = String(c['code'] || '').toLowerCase();
           const cName = String(c['name'] || '').toLowerCase();
-          const cType = String(c['type'] || c['courseType'] || '').toLowerCase();
-          return (mCode && cCode === mCode) || (mName && cName === mName) || (mType && cType === mType);
-        }).forEach(c => matchingCourseIds.add(String(c.id)));
+          return (courseCodeStr && cCode === courseCodeStr) || (courseNameStr && cName === courseNameStr);
+        }).forEach(c => matchingCourseIds.add(extractId(c.id)));
 
-        studentsList = allStudents.filter(s => matchingCourseIds.has(String(s['courseId'])) && s['status'] !== 'inactive');
+        const matchingClassIds = new Set(
+          allClasses.filter(cls => matchingCourseIds.has(extractId(cls['courseId'] || cls['course']))).map(cls => extractId(cls.id))
+        );
+
+        studentsList = allStudents.filter(s => {
+          if (s['status'] === 'inactive') return false;
+          const sCourseId = extractId(s['courseId'] || s['course']);
+          const sClassId = extractId(s['classId'] || s['class']);
+          return matchingCourseIds.has(sCourseId) || (sClassId && matchingClassIds.has(sClassId));
+        });
       } else {
         const sIds = [row.id, row['uid'], row['userId'], row['email']].map(v => String(v || '').trim()).filter(Boolean);
         const assignedGroupIds = classGroupDocs
@@ -2121,6 +2204,24 @@ export class ManagementPage {
           .map(g => String(g.id));
         studentsList = allStudents.filter(s => assignedGroupIds.includes(String(s['groupId'] || s['classGroupId'] || s['group'])) && s['status'] !== 'inactive');
       }
+
+      // Deduplicate studentsList by student name / email / UID so no student appears twice in the dialog
+      const uniqueStudentsMap = new Map<string, EntityRecord>();
+      studentsList.forEach(st => {
+        const nameStr = String(st['displayName'] || st['name'] || st['studentName'] || '').trim().toLowerCase();
+        const emailStr = String(st['email'] || '').trim().toLowerCase();
+        const uidStr = extractId(st['uid'] || st['userId'] || st['studentId']);
+        const docId = extractId(st.id);
+
+        const dedupeKey = nameStr || uidStr || (emailStr && emailStr !== 'n/a' ? emailStr : '') || docId;
+        if (dedupeKey && !uniqueStudentsMap.has(dedupeKey)) {
+          uniqueStudentsMap.set(dedupeKey, st);
+        } else if (dedupeKey && uniqueStudentsMap.has(dedupeKey)) {
+          const existing = uniqueStudentsMap.get(dedupeKey)!;
+          uniqueStudentsMap.set(dedupeKey, { ...existing, ...st });
+        }
+      });
+      studentsList = Array.from(uniqueStudentsMap.values());
 
       const allParents = await this.repo.getAllOnce<EntityRecord>('users', profile, { roles: ['parent'] }).catch(() => []);
 
