@@ -220,7 +220,153 @@
   margin-bottom: 24px;
 }
 
-/* Continue Card */
+/* Active Signed-In Session Card */
+.active-session-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 18px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 18px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  margin-bottom: 24px;
+
+  .session-badge-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid #a7f3d0;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 18px;
+
+    &.saved-badge {
+      background: #e0f2fe;
+      color: #0284c7;
+      border-color: #bae6fd;
+    }
+
+    .session-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 6px #10b981;
+
+      &.blue-dot {
+        background: #0284c7;
+        box-shadow: 0 0 6px #0284c7;
+      }
+    }
+  }
+
+  .quick-pass-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .user-session-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+
+    .user-avatar-circle {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #2563eb, #0284c7);
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+
+    .user-details {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+
+      .user-name {
+        font-size: 19px;
+        font-weight: 800;
+        color: #0f172a;
+        margin: 0 0 4px 0;
+      }
+
+      .user-role-badge {
+        font-size: 12px;
+        font-weight: 700;
+        background: #f1f5f9;
+        color: #0284c7;
+        padding: 3px 10px;
+        border-radius: 12px;
+        border: 1px solid #e2e8f0;
+      }
+    }
+  }
+
+  .continue-dashboard-btn {
+    width: 100%;
+    min-height: 50px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.25);
+    margin-bottom: 12px;
+
+    ::ng-deep .mdc-button__label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      line-height: 1;
+      width: 100%;
+    }
+
+    ion-icon {
+      font-size: 18px;
+      margin: 0;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+  }
+
+  .switch-account-btn {
+    font-size: 13px;
+    color: #64748b;
+
+    ::ng-deep .mdc-button__label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      line-height: 1;
+    }
+
+    ion-icon {
+      font-size: 16px;
+      margin: 0;
+      display: inline-block;
+      vertical-align: middle;
+      line-height: 1;
+    }
+  }
+}
+
 /* Redirecting spinner — shown after successful sign-in while auto-navigating */
 .redirecting-card {
   display: flex;
@@ -312,26 +458,37 @@ form {
   margin-top: 20px;
 }
 
-.auth-primary-button {
+.auth-primary-button,
+.auth-google-button {
   width: 100%;
   min-height: 52px;
   border-radius: 14px;
   font-weight: 700;
+
+  ::ng-deep .mdc-button__label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    line-height: 1;
+    width: 100%;
+  }
+
+  ion-icon {
+    font-size: 18px;
+    margin: 0;
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 1;
+  }
 }
 
 .auth-google-button {
-  width: 100%;
-  min-height: 52px;
   border-radius: 999px;
   border: 1px solid var(--app-border, #e0e0e0);
   background: var(--app-surface, #fff);
   color: var(--app-primary);
   font-weight: 600;
-}
-
-ion-icon {
-  font-size: 18px;
-  margin-right: 8px;
 }
 
 .reset-actions {

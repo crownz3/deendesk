@@ -139,17 +139,67 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
     private readonly auth: AuthService
   ) {}
 
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'number') return [String(val)];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const ids: string[] = [];
+      if (val.id) ids.push(String(val.id).trim());
+      if (val.uid) ids.push(String(val.uid).trim());
+      if (val.userId) ids.push(String(val.userId).trim());
+      if (val.entityId) ids.push(String(val.entityId).trim());
+      if (val.docId) ids.push(String(val.docId).trim());
+      if (val.email) ids.push(String(val.email).trim());
+      return ids;
+    }
+    return [];
+  }
+
   ngOnInit(): void {
     this.node = this.data.node;
     this.resolveNames();
     
-    const incomingAssigned = this.data.assignedStaff || [];
-    const incomingAvailable = this.data.availableStaff || [];
+    const assignedTokens = new Set([
+      ...this.extractAllStrings(this.data.assignedStaff),
+      ...this.extractAllStrings(this.node?.assignedStaff),
+      ...this.extractAllStrings(this.node?.raw?.assignedStaff),
+      ...this.extractAllStrings(this.node?.assignedStaffIds),
+      ...this.extractAllStrings(this.node?.raw?.assignedStaffIds),
+      ...this.extractAllStrings(this.node?.staffIds),
+      ...this.extractAllStrings(this.node?.raw?.staffIds),
+    ]);
 
-    this.selectedUsers = this.uniqueUsers(incomingAssigned);
-    this.availableUsers = this.uniqueUsers(
-      incomingAvailable.filter((staff: any) => !this.isAlreadySelected(staff))
+    const pool = this.uniqueUsers([
+      ...(this.data.allStaff || []),
+      ...(this.data.assignedStaff || []),
+      ...(this.data.availableStaff || [])
+    ]);
+
+    let resolvedAssigned = pool.filter(user => {
+      if (!this.isStaffUser(user)) return false;
+      const uTokens = this.extractAllStrings(user);
+      return Array.from(assignedTokens).some(tok => uTokens.includes(tok));
+    });
+
+    if (resolvedAssigned.length === 0 && Array.isArray(this.data.assignedStaff) && this.data.assignedStaff.length > 0) {
+      resolvedAssigned = this.data.assignedStaff.filter(u => this.isStaffUser(u));
+    }
+
+    this.selectedUsers = this.uniqueUsers(resolvedAssigned);
+
+    const selectedTokenSet = new Set(
+      this.selectedUsers.flatMap(u => this.extractAllStrings(u))
     );
+
+    this.availableUsers = pool.filter(user => {
+      if (!this.isStaffUser(user)) return false;
+      const uTokens = this.extractAllStrings(user);
+      return !uTokens.some(tok => selectedTokenSet.has(tok));
+    });
 
     this.originalSelectedIds = new Set();
     this.selectedUsers.forEach(staff => {
@@ -185,8 +235,14 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   }
 
   private isStaffUser(user: any): boolean {
-    const role = this.normalizeRole(user?.role);
-    return ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'].includes(role);
+    if (!user) return false;
+    const staffRoles = ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'];
+    const singleRole = this.normalizeRole(user?.role);
+    if (staffRoles.some(r => singleRole.includes(r))) return true;
+    if (Array.isArray(user?.roles)) {
+      return user.roles.some((ro: any) => staffRoles.includes(this.normalizeRole(ro)));
+    }
+    return false;
   }
 
   private isAlreadySelected(staff: any): boolean {

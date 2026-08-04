@@ -36,17 +36,25 @@ export class NameWithCopyComponent implements OnInit, OnChanges {
     }
   }
 
+  private isRawId(val: string): boolean {
+    if (!val) return false;
+    const s = String(val).trim();
+    const parts = s.split(',').map(p => p.trim());
+    return parts.every(p => /^[a-zA-Z0-9_-]{15,}$/.test(p));
+  }
+
   private resolve() {
-    const validFallback = this.fallbackName && this.fallbackName !== '-' && this.fallbackName !== 'Unknown' && this.fallbackName !== 'N/A' ? String(this.fallbackName).trim() : null;
+    const rawFallback = this.fallbackName && this.fallbackName !== '-' && this.fallbackName !== 'Unknown' && this.fallbackName !== 'N/A' ? String(this.fallbackName).trim() : null;
+    const validFallback = rawFallback && !this.isRawId(rawFallback) ? rawFallback : null;
+
     if (validFallback) {
       this.name$ = of(validFallback);
     } else {
       this.name$ = this.nameResolver.resolveName(this.id, this.type).pipe(
         map(res => {
-          if (!res || res === 'Unknown' || res === 'N/A') {
+          if (!res || res === 'Unknown' || res === 'N/A' || this.isRawId(res)) {
             if (validFallback) return validFallback;
-            if (this.id && typeof this.id === 'string' && this.id.length < 15 && this.id !== '-') return this.id;
-            return '-';
+            return 'N/A';
           }
           return res;
         })

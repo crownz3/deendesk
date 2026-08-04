@@ -135,11 +135,20 @@ export class DashboardPage {
   getCounts(filter: 'all' | 'active' | 'inactive', vm: DashboardVm | null): number {
     if (!vm) return 0;
     const rawData = vm._rawData || {};
-    const students = Array.isArray(rawData['students']) ? rawData['students'] : [];
+    
+    // Primary collection for dashboard status overview (users -> students -> madrasas)
+    let primaryItems: EntityRecord[] = [];
+    if (Array.isArray(rawData['users']) && rawData['users'].length > 0) {
+      primaryItems = rawData['users'];
+    } else if (Array.isArray(rawData['students']) && rawData['students'].length > 0) {
+      primaryItems = rawData['students'];
+    } else if (Array.isArray(rawData['madrasas']) && rawData['madrasas'].length > 0) {
+      primaryItems = rawData['madrasas'];
+    }
 
-    if (filter === 'all') return students.length;
-    if (filter === 'active') return students.filter(r => this.isEntityActive(r)).length;
-    return students.filter(r => !this.isEntityActive(r)).length;
+    if (filter === 'all') return primaryItems.length;
+    if (filter === 'active') return primaryItems.filter(r => this.isEntityActive(r)).length;
+    return primaryItems.filter(r => !this.isEntityActive(r)).length;
   }
 
   toggleMadrasaDetails(): void {

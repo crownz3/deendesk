@@ -129,6 +129,7 @@
                   Apply To Days (Multi-Select) *
                 </label>
                 <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+                  <button type="button" mat-stroked-button color="primary" (click)="selectAllDays('none')" style="font-size: 11px; height: 26px; line-height: 26px; padding: 0 8px; border-radius: 13px;">1 Day Only</button>
                   <button type="button" mat-stroked-button color="primary" (click)="selectAllDays('weekdays')" style="font-size: 11px; height: 26px; line-height: 26px; padding: 0 8px; border-radius: 13px;">Mon-Fri</button>
                   <button type="button" mat-stroked-button color="primary" (click)="selectAllDays('sixDays')" style="font-size: 11px; height: 26px; line-height: 26px; padding: 0 8px; border-radius: 13px;">Mon-Sat</button>
                   <button type="button" mat-stroked-button color="primary" (click)="selectAllDays('all')" style="font-size: 11px; height: 26px; line-height: 26px; padding: 0 8px; border-radius: 13px;">All 7 Days</button>

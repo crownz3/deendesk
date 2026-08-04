@@ -947,6 +947,10 @@ export class ManagementPage {
                });
              }
 
+             if (config.resource === 'staff') {
+               console.log('🔍 [VM Staff Step 0] Start count:', filteredRows.length);
+             }
+
             // Resource-level role filtering using effective roles:
             // e.g. 'incharges' page shows anyone holding 'madrasaIncharge' role (primary, secondary, or derived from madrasa doc)
             // 'coordinators' page shows anyone holding 'coordinator' role
@@ -957,6 +961,9 @@ export class ManagementPage {
                   const userRoles = this.getEffectiveRoles(r, madrasas);
                   return reqRoles.some(req => userRoles.includes(req));
                 });
+              }
+              if (config.resource === 'staff') {
+                console.log('🔍 [VM Staff Step 1 - reqRoles] Remaining:', filteredRows.length);
               }
             }
            
@@ -981,21 +988,21 @@ export class ManagementPage {
 
              if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents', 'classGroups', 'classes', 'courses'].includes(config.resource)) {
                  if (madrasaFilter !== 'all') {
-                   const selectedMadrasa = madrasas.find(m => m.id === madrasaFilter);
+                   const selectedMadrasa = madrasas.find(m => extractId(m.id) === madrasaFilter);
                    const madrasaInchargeIds: string[] = Array.isArray(selectedMadrasa?.['inchargeIds']) ? selectedMadrasa!['inchargeIds'].map(String) : [];
                    const madrasaCoordinatorIds: string[] = Array.isArray(selectedMadrasa?.['coordinatorIds']) ? selectedMadrasa!['coordinatorIds'].map(String) : [];
 
-                   const madrasaClasses = classes.filter(cls => cls['madrasaId'] === madrasaFilter || (Array.isArray(cls['madrasaIds']) && cls['madrasaIds'].includes(madrasaFilter)));
+                   const madrasaClasses = classes.filter(cls => extractId(cls['madrasaId']) === madrasaFilter || (Array.isArray(cls['madrasaIds']) && cls['madrasaIds'].map(extractId).includes(madrasaFilter)));
                    const madrasaClassCourseIds = new Set(madrasaClasses.map(cls => String(cls['courseId'] || '')).filter(Boolean));
 
-                   const madrasaStudents = students.filter(s => s['madrasaId'] === madrasaFilter || (Array.isArray(s['madrasaIds']) && s['madrasaIds'].includes(madrasaFilter)));
+                   const madrasaStudents = students.filter(s => extractId(s['madrasaId']) === madrasaFilter || (Array.isArray(s['madrasaIds']) && s['madrasaIds'].map(extractId).includes(madrasaFilter)));
                    const madrasaStudentCourseIds = new Set(madrasaStudents.map(s => String(s['courseId'] || '')).filter(Boolean));
 
                    displayCourses = displayCourses.filter(c => {
                      const cId = String(c.id);
                      if (!c['madrasaId']) return true;
-                     if (c['madrasaId'] === madrasaFilter) return true;
-                     if (Array.isArray(c['madrasaIds']) && c['madrasaIds'].includes(madrasaFilter)) return true;
+                     if (extractId(c['madrasaId']) === madrasaFilter) return true;
+                     if (Array.isArray(c['madrasaIds']) && c['madrasaIds'].map(extractId).includes(madrasaFilter)) return true;
                      if (madrasaClassCourseIds.has(cId)) return true;
                      if (madrasaStudentCourseIds.has(cId)) return true;
                      return false;
@@ -1005,11 +1012,15 @@ export class ManagementPage {
 
                    filteredRows = filteredRows.filter(r => {
                      const userId = String(r['uid'] || r.id || '');
-                     const ownLink = r['madrasaId'] === madrasaFilter ||
-                       (Array.isArray(r['madrasaIds']) && r['madrasaIds'].includes(madrasaFilter));
+                     const rowMId = extractId(r['madrasaId']);
+                     const rowMIds = Array.isArray(r['madrasaIds']) ? r['madrasaIds'].map(extractId) : [];
+                     const ownLink = rowMId === madrasaFilter || rowMIds.includes(madrasaFilter) || (!rowMId && rowMIds.length === 0);
                      const madrasaLink = (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
                      return ownLink || madrasaLink;
                    });
+                 }
+                 if (config.resource === 'staff') {
+                   console.log('🔍 [VM Staff Step 2 - madrasaFilter:', madrasaFilter, '] Remaining:', filteredRows.length);
                  }
 
                 if (config.resource === 'users' && roleFilter !== 'all') {
@@ -1027,6 +1038,9 @@ export class ManagementPage {
                  const rawStatus = r['status'] ? String(r['status']).toLowerCase() : 'active';
                  return rawStatus === sf;
                });
+             }
+             if (config.resource === 'staff') {
+               console.log('🔍 [VM Staff Step 3 - statusFilter:', statusFilter, '] Final remaining before pagination:', filteredRows.length);
              }
 
             if (searchQuery) {
@@ -1240,9 +1254,29 @@ export class ManagementPage {
           return userRow;
         });
 
+        // Also include any standalone staff documents from `staff` collection that don't have a linked user document
+        const userUidSet = new Set(userRows.map(u => String(u['uid'] || u.id || '').toLowerCase().trim()));
+        const userEmailSet = new Set(userRows.map(u => String(u['email'] || '').toLowerCase().trim()).filter(Boolean));
+
+        const orphanStaffRows: EntityRecord[] = [];
+        staffRows.forEach(s => {
+          const uid = String(s['userId'] || s['uid'] || s.id || '').toLowerCase().trim();
+          const email = String(s['email'] || '').toLowerCase().trim();
+          if (!userUidSet.has(uid) && (!email || !userEmailSet.has(email))) {
+            orphanStaffRows.push({
+              ...s,
+              role: s['role'] || 'teacher',
+              roles: Array.isArray(s['roles']) ? s['roles'] : [s['role'] || 'teacher'],
+              displayName: s['displayName'] || s['name'] || 'Staff Member',
+              entityId: s.id,
+              entityType: 'staff'
+            });
+          }
+        });
+
         // Effective role filtering is performed uniformly in the vm$ pipeline using getEffectiveRoles(r, madrasas)
         // so multi-role users (e.g. Incharges/Coordinators with teaching duties) match consistently on all pages.
-        return this.credentialRows(merged);
+        return this.credentialRows([...merged, ...orphanStaffRows]);
       })
     );
   }
@@ -1251,7 +1285,7 @@ export class ManagementPage {
     switch (resource) {
       case 'coordinators': return ['coordinator'];
       case 'incharges': return ['madrasaIncharge'];
-      case 'staff': return ['teacher', 'staff', 'stageHead', 'madrasaIncharge', 'coordinator'];
+      case 'staff': return ['teacher', 'staff', 'stageHead', 'madrasaIncharge', 'coordinator', 'ustadh', 'headTeacher', 'teacher_assistant', 'organizationAdmin'];
       case 'students': return ['student'];
       case 'parents': return ['parent'];
       default: return undefined;
@@ -1290,9 +1324,13 @@ export class ManagementPage {
     }
 
     // Mirror role-badge implicit expansions:
-    // madrasaIncharge and stageHead are also displayed as Teacher / Staff
-    if (effective.has('madrasaIncharge') || effective.has('stageHead')) {
+    // madrasaIncharge, coordinator, stageHead, ustadh are also displayed as Teacher / Staff
+    if (effective.has('madrasaIncharge') || effective.has('stageHead') || effective.has('coordinator') || effective.has('ustadh') || effective.has('headTeacher')) {
       effective.add('teacher');
+      effective.add('staff');
+    }
+    if (effective.has('teacher')) {
+      effective.add('staff');
     }
 
     return Array.from(effective);
@@ -1459,65 +1497,113 @@ export class ManagementPage {
           return of([] as EntityRecord[]);
         })
       ),
+      this.repo.list<EntityRecord>('madrasas', profile, [], undefined).pipe(
+        catchError((e) => {
+          console.warn('[Staff] Madrasas load failed:', e);
+          return of([] as EntityRecord[]);
+        })
+      ),
     ]).pipe(
-      map(([staffs, users, groups]) => {
+      map(([staffs, users, groups, madrasas]) => {
+        const staffRolesList = ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin', 'ustadh', 'stageHead', 'headTeacher', 'teacher_assistant'];
+
         const allStaffRecordsMap = new Map<string, any>();
-        staffs.forEach(s => allStaffRecordsMap.set(String(s['userId'] || s.id || ''), s));
         
-        // Only explicitly add users to the staff table if they have a staff role
-        const staffRoleUsers = users.filter(r => ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'].includes(String(r['role'])));
+        // 1. Process staff collection records — only include if role is staff/teacher or unset
+        staffs.forEach(s => {
+          const effective = this.getEffectiveRoles(s, madrasas);
+          const isStaffRole = effective.some(r => staffRolesList.includes(r)) || !s['role'];
+          if (isStaffRole) {
+            const key = String(s['userId'] || s['uid'] || s.id || '');
+            if (key) allStaffRecordsMap.set(key, s);
+            const email = String(s['email'] || '').toLowerCase().trim();
+            if (email) allStaffRecordsMap.set(email, s);
+          }
+        });
+        
+        // 2. Include any user from `users` collection who effectively holds a staff/teaching role
+        const staffRoleUsers = users.filter(r => {
+          const effective = this.getEffectiveRoles(r, madrasas);
+          return effective.some(role => staffRolesList.includes(role));
+        });
         
         staffRoleUsers.forEach(u => {
           const uidStr = String(u['uid'] || u.id || '');
           const uEmail = String(u['email'] || '').toLowerCase().trim();
-          const existingByEmail = Array.from(allStaffRecordsMap.values()).find(s => {
-             const sEmail = String(s['email'] || '').toLowerCase().trim();
-             return sEmail && sEmail === uEmail;
-          });
-          if (!allStaffRecordsMap.has(uidStr) && !existingByEmail) {
-            allStaffRecordsMap.set(uidStr, u);
+          const existing = (uidStr ? allStaffRecordsMap.get(uidStr) : undefined) || (uEmail ? allStaffRecordsMap.get(uEmail) : undefined);
+          if (!existing) {
+            allStaffRecordsMap.set(uidStr || String(u.id || ''), u);
           }
         });
-        const combinedStaffRaw = Array.from(allStaffRecordsMap.values());
+        
+        // Deduplicate records map values into an array
+        const combinedStaffRaw = Array.from(new Set(allStaffRecordsMap.values()));
+
+        console.log('🔍 [StaffPage Debug] Raw staffs collection count:', staffs.length);
+        console.log('🔍 [StaffPage Debug] Raw users collection count:', users.length);
+        console.log('🔍 [StaffPage Debug] Matched staffRoleUsers count:', staffRoleUsers.length);
+        console.log('🔍 [StaffPage Debug] Final combined staff count:', combinedStaffRaw.length);
+        console.log('🔍 [StaffPage Debug] Staff members:', combinedStaffRaw.map(s => `${s['displayName'] || s['name'] || s['email']} (role: ${s['role']})`));
 
         return combinedStaffRaw.map((row) => {
           const rowEmail = String(row['email'] || '').toLowerCase().trim();
+          const rowUserId = String(row['userId'] || row['uid'] || row.id || '').trim();
           const userRow = users.find(u => {
              const uEmail = String(u['email'] || '').toLowerCase().trim();
-             return u['uid'] === row['userId'] || u.id === row['userId'] || u['entityId'] === row.id || (uEmail && uEmail === rowEmail);
+             const uId = String(u['uid'] || u.id || '').trim();
+             const matchId = !!uId && !!rowUserId && uId === rowUserId;
+             const matchEntity = !!u['entityId'] && !!row.id && String(u['entityId']).trim() === String(row.id).trim();
+             const matchEmail = !!uEmail && !!rowEmail && uEmail === rowEmail;
+             return matchId || matchEntity || matchEmail;
           }) || row;
           const creds = this.credentialService.getCredentialStatus(userRow);
-        return {
-          ...userRow,
-          ...row,
-          id: row.id,
-          uid: userRow['uid'] || userRow.id || row.id,
-          name: userRow['displayName'] || userRow['name'] || row['name'] || '',
-          displayName: userRow['displayName'] || userRow['name'] || row['name'] || '',
-          email: userRow['email'] || row['email'] || '',
-          role: userRow['role'] || row['role'] || 'teacher',
-          mobileNumber: userRow['mobileNumber'] || row['mobileNumber'] || userRow['phone'] || row['phone'] || '',
-          phone: userRow['phone'] || row['phone'] || userRow['mobileNumber'] || row['mobileNumber'] || '',
-          designation: userRow['designation'] || row['designation'] || '',
-          organizationId: userRow['organizationId'] || row['organizationId'],
-          madrasaId: userRow['madrasaId'] || row['madrasaId'],
-          madrasaIds: (Array.isArray(userRow['madrasaIds']) && userRow['madrasaIds'].length > 0) ? userRow['madrasaIds'] : row['madrasaIds'],
-          roles: Array.from(new Set([
+
+          // Resolve effective madrasaIds and organizationId so non-superAdmin filtering works accurately!
+          const organizationId = userRow['organizationId'] || row['organizationId'] || profile?.organizationId;
+          const madrasaId = userRow['madrasaId'] || row['madrasaId'];
+          const madrasaIds = Array.from(new Set([
+            ...(Array.isArray(userRow['madrasaIds']) ? userRow['madrasaIds'].map(String) : []),
+            ...(Array.isArray(row['madrasaIds']) ? row['madrasaIds'].map(String) : []),
+            ...(madrasaId ? [String(madrasaId)] : [])
+          ]));
+
+          const resolvedRole = userRow['role'] || row['role'] || 'teacher';
+          const rawRolesList = [
             ...(Array.isArray(userRow['roles']) ? userRow['roles'] : []),
-            ...(Array.isArray(row['roles']) ? row['roles'] : [])
-          ])),
-          credentialStatus: creds.status,
-          temporaryPasswordDisplay: creds.display,
-          assignedClassGroup: (() => {
-            const possibleIds = [row.id, userRow.id, userRow['uid'], userRow['userId'], row['userId'], userRow['entityId'], row['email'], userRow['email']]
-              .map(v => String(v || '').trim())
-              .filter(Boolean);
-            return groups
-              .filter(g => Array.isArray(g['assignedStaffIds']) && possibleIds.some(id => (g['assignedStaffIds'] as any[]).map(String).includes(id)))
-              .map(g => g['name'] || 'Unnamed Class')
-              .join(', ');
-          })(),
-        } as EntityRecord;
+            ...(Array.isArray(row['roles']) ? row['roles'] : []),
+            resolvedRole
+          ].map(String);
+          const hasSpecificRole = rawRolesList.some(r => ['teacher', 'madrasaincharge', 'stagehead', 'coordinator', 'ustadh', 'headteacher'].includes(r.toLowerCase()));
+          const resolvedRoles = Array.from(new Set(rawRolesList.filter(r => !(r.toLowerCase() === 'staff' && hasSpecificRole))));
+
+          return {
+            ...userRow,
+            ...row,
+            id: row.id,
+            uid: userRow['uid'] || userRow.id || row.id,
+            name: userRow['displayName'] || userRow['name'] || row['name'] || '',
+            displayName: userRow['displayName'] || userRow['name'] || row['name'] || '',
+            email: userRow['email'] || row['email'] || '',
+            role: resolvedRole,
+            roles: resolvedRoles,
+            mobileNumber: userRow['mobileNumber'] || row['mobileNumber'] || userRow['phone'] || row['phone'] || '',
+            phone: userRow['phone'] || row['phone'] || userRow['mobileNumber'] || row['mobileNumber'] || '',
+            designation: userRow['designation'] || row['designation'] || '',
+            organizationId,
+            madrasaId: madrasaId || (madrasaIds.length > 0 ? madrasaIds[0] : null),
+            madrasaIds,
+            credentialStatus: creds.status,
+            temporaryPasswordDisplay: creds.display,
+            assignedClassGroup: (() => {
+              const possibleIds = [row.id, userRow.id, userRow['uid'], userRow['userId'], row['userId'], userRow['entityId'], row['email'], userRow['email']]
+                .map(v => String(v || '').trim())
+                .filter(Boolean);
+              return groups
+                .filter(g => Array.isArray(g['assignedStaffIds']) && possibleIds.some(id => (g['assignedStaffIds'] as any[]).map(String).includes(id)))
+                .map(g => g['name'] || 'Unnamed Class')
+                .join(', ');
+            })(),
+          } as EntityRecord;
         });
       })
     );
@@ -2770,24 +2856,62 @@ export class ManagementPage {
     });
   }
 
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'number') return [String(val)];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const ids: string[] = [];
+      if (val.id) ids.push(String(val.id).trim());
+      if (val.uid) ids.push(String(val.uid).trim());
+      if (val.userId) ids.push(String(val.userId).trim());
+      if (val.entityId) ids.push(String(val.entityId).trim());
+      if (val.docId) ids.push(String(val.docId).trim());
+      if (val.email) ids.push(String(val.email).trim());
+      return ids;
+    }
+    return [];
+  }
+
   async assignStaff(config: ManagementConfig, row: EntityRecord) {
     if (config.resource !== 'classGroups' && config.resource !== 'classes') return;
     
     await this.loader.withLoader('Loading staff...', async () => {
       const profile = await firstValueFrom(this.auth.profile$);
       const users = await this.repo.getAllOnce<EntityRecord>('users', profile);
-      const allStaff = users.filter((u: any) => ['staff', 'coordinator', 'madrasaIncharge', 'teacher', 'organizationAdmin'].includes(String(u['role'])));
+
+      const staffRoles = ['staff', 'coordinator', 'madrasaIncharge', 'teacher', 'organizationAdmin'];
+      const isStaff = (u: any) => {
+        const r = String(u['role'] || '').toLowerCase();
+        if (staffRoles.some(sr => r.includes(sr.toLowerCase()))) return true;
+        if (Array.isArray(u['roles'])) {
+          return u['roles'].some((ro: any) => staffRoles.some(sr => String(ro || '').toLowerCase() === sr.toLowerCase()));
+        }
+        return false;
+      };
       
-      let assignedStaff: any[] = [];
+      const allStaff = users.filter((u: any) => isStaff(u));
+      
+      const assignedTokens = new Set([
+        ...this.extractAllStrings(row['assignedStaffIds']),
+        ...this.extractAllStrings(row['assignedStaff']),
+        ...this.extractAllStrings(row['staffIds']),
+        ...this.extractAllStrings(row['teacherIds']),
+      ]);
+
+      const assignedStaff = allStaff.filter((s: any) => {
+        const sTokens = this.extractAllStrings(s);
+        return Array.from(assignedTokens).some(tok => sTokens.includes(tok));
+      });
+
       let nodeType = '';
       if (config.resource === 'classGroups') {
         nodeType = 'classGroup';
-        const assignedStaffIds = Array.isArray(row['assignedStaffIds']) ? row['assignedStaffIds'] : [];
-        assignedStaff = allStaff.filter((s: any) => assignedStaffIds.includes(s.id));
       } else if (config.resource === 'classes') {
         nodeType = 'class';
-        const assignedStaffIds = Array.isArray(row['assignedStaffIds']) ? row['assignedStaffIds'] : [];
-        assignedStaff = allStaff.filter((s: any) => assignedStaffIds.includes(s.id));
       }
       
       const node = {
@@ -2797,10 +2921,10 @@ export class ManagementPage {
         parentClassId: row['classId'],
         parentCourseId: row['courseId'],
         parentMadrasaId: row['madrasaId'],
-        assignedStaff
+        assignedStaff,
+        assignedStaffIds: Array.from(assignedTokens)
       };
       
-      const assignedIds = new Set(assignedStaff.map(s => s.id));
       this.dialog.open(AcademicTreeAssignStaffDialogComponent, {
         width: '90vw',
         height: '90vh',
@@ -2811,7 +2935,7 @@ export class ManagementPage {
           mode: assignedStaff.length > 0 ? 'edit' : 'add',
           node,
           assignedStaff,
-          availableStaff: allStaff.filter((s: any) => !assignedIds.has(s.id)),
+          availableStaff: allStaff.filter(s => !assignedStaff.some(as => as.id === s.id)),
           allStaff
         },
         autoFocus: false,
@@ -3869,8 +3993,27 @@ export class ManagementPage {
     }
 
     if (hasField('assignedStaffIds')) {
-      const staff = await this.repo.getAllOnce<EntityRecord>('staff', profile);
-      if (hasField('assignedStaffIds')) options['assignedStaffIds'] = this.toOptions(staff, 'name');
+      const rawStaff = await this.repo.getAllOnce<EntityRecord>('staff', profile);
+      // Deduplicate by email or userId so a person with multiple role-documents appears only once.
+      const staffByIdentity = new Map<string, EntityRecord>();
+      for (const s of rawStaff) {
+        const email = String(s['email'] || '').toLowerCase().trim();
+        const userId = String(s['userId'] || s['uid'] || '').trim();
+        const identityKey = (email && email.includes('@')) ? email : (userId || String(s.id || ''));
+        if (!identityKey) continue;
+        if (!staffByIdentity.has(identityKey)) {
+          staffByIdentity.set(identityKey, { ...s });
+        } else {
+          // Merge: combine roles arrays from duplicate documents
+          const existing = staffByIdentity.get(identityKey)!;
+          const existingRoles: string[] = Array.isArray(existing['roles']) ? existing['roles'] as string[] : (existing['role'] ? [String(existing['role'])] : []);
+          const newRoles: string[] = Array.isArray(s['roles']) ? s['roles'] as string[] : (s['role'] ? [String(s['role'])] : []);
+          const merged = Array.from(new Set([...existingRoles, ...newRoles]));
+          staffByIdentity.set(identityKey, { ...existing, roles: merged, role: merged[0] || existing['role'] });
+        }
+      }
+      const staff = Array.from(staffByIdentity.values());
+      if (hasField('assignedStaffIds')) options['assignedStaffIds'] = this.toStaffOptions(staff);
     }
 
     if (hasField('linkedStudentIds')) {
@@ -3979,8 +4122,12 @@ export class ManagementPage {
       });
     }
 
-    if (config.fixedRole === 'teacher') {
-      return rows.filter((row) => ['teacher', 'staff', 'coordinator', 'madrasaincharge', 'organizationadmin'].includes(String(row['role'] || '').trim().toLowerCase()));
+    if (config.fixedRole === 'teacher' || config.resource === 'staff') {
+      const allowed = ['teacher', 'staff', 'coordinator', 'madrasaincharge', 'organizationadmin', 'ustadh', 'stagehead', 'headteacher', 'teacher_assistant'];
+      return rows.filter((row) => {
+        const effective = this.getEffectiveRoles(row);
+        return effective.some(r => allowed.includes(r.toLowerCase()));
+      });
     }
 
     if (config.fixedRole === 'parent') {
@@ -3998,10 +4145,10 @@ export class ManagementPage {
     const decorated = rows.map((row) => ({
       ...row,
       stage: row['stage'] || row['level'] || row['stageOrLevel'] || '-',
-      organizationName: row['organizationName'] || row['organizationId'] || '-',
-      madrasaNames: Array.isArray(row['madrasaIds']) ? row['madrasaIds'].join(', ') : row['madrasaId'] || '-',
-      courseName: row['courseName'] || row['courseId'] || '-',
-      className: row['className'] || row['classId'] || '-',
+      organizationName: row['organizationName'] || '-',
+      madrasaNames: row['madrasaNames'] || '-',
+      courseName: row['courseName'] || '-',
+      className: row['className'] || '-',
       stagesDisplay: this.formatList(row['stages']),
       defaultStagesDisplay: this.formatList(row['defaultStages'] || row['stages']),
       levelsDisplay: this.formatList(row['levels']),
@@ -4059,13 +4206,50 @@ export class ManagementPage {
       const isDuplicate = (labelCounts.get(baseLabel) || 0) > 1;
       let finalLabel = baseLabel;
       if (isDuplicate) {
-        const extra = row['code'] || row['madrasaName'] || row['type'] || row.id;
-        finalLabel = `${baseLabel} (${extra})`;
+        // Use human-readable disambiguation — code, type, or madrasa name — never raw UID
+        const extra = row['code'] || row['madrasaName'] || row['type'];
+        finalLabel = extra ? `${baseLabel} (${extra})` : baseLabel;
       }
       return {
         label: finalLabel,
         value: String(row.id || row['uid'] || row['email']),
         data: row
+      };
+    });
+  }
+
+  /** Staff-specific options builder that shows role label as sublabel instead of raw UID. */
+  private toStaffOptions(staff: EntityRecord[]): SelectOption[] {
+    const ROLE_MAP: Record<string, string> = {
+      teacher: 'Teacher',
+      staff: 'Staff',
+      madrasaIncharge: 'Madrasa Incharge',
+      madrasaincharge: 'Madrasa Incharge',
+      coordinator: 'Coordinator',
+      organizationAdmin: 'Admin',
+      organizationadmin: 'Admin',
+      ustadh: 'Ustadh',
+      stageHead: 'Stage Head',
+      stagehead: 'Stage Head',
+      headTeacher: 'Head Teacher',
+      headteacher: 'Head Teacher',
+      teacher_assistant: 'Teacher Assistant',
+    };
+    const getRoleLabel = (s: EntityRecord): string => {
+      const roles: string[] = Array.isArray(s['roles']) ? (s['roles'] as string[]) : [];
+      const single = String(s['role'] || '').trim();
+      const all = roles.length > 0 ? roles : (single ? [single] : []);
+      const labels = all.map(r => ROLE_MAP[r] || ROLE_MAP[r.toLowerCase()] || '').filter(Boolean);
+      return labels.length > 0 ? labels.join(' / ') : (single || '');
+    };
+
+    return staff.map(s => {
+      const name = String(s['name'] || s['displayName'] || s['email'] || '').trim();
+      const roleLabel = getRoleLabel(s);
+      return {
+        label: name,
+        value: String(s.id || s['uid'] || s['email']),
+        data: { ...s, role: roleLabel || s['role'] },  // put readable label in data.role for template
       };
     });
   }

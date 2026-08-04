@@ -228,6 +228,11 @@ export class AppComponent {
         this.attendanceService.resumeIncompleteJobs(profile);
       }
     });
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe(() => {
+      this.loader.reset();
+    });
   }
 
   private initBackButtonHandler(): void {

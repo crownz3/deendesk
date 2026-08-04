@@ -217,6 +217,20 @@
     border-color: #bbf7d0;
     color: #15803d;
   }
+
+  &.staff-tag {
+    background: #f3e8ff;
+    border-color: #e9d5ff;
+    color: #6b21a8;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+
+    ion-icon {
+      font-size: 13px;
+      color: #6b21a8;
+    }
+  }
 }
 
 /* Highlight Student Count Banner */

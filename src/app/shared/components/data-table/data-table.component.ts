@@ -89,7 +89,19 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
 
       const savedFields = localStorage.getItem(`deendesk_card_fields_${this.resourceKey}`);
       if (savedFields) {
-        this.visibleCardFieldKeys = JSON.parse(savedFields);
+        let keys: string[] = JSON.parse(savedFields);
+        if (Array.isArray(keys) && this.columns && this.columns.length) {
+          const defaultKeys = this.getDefaultPriorityKeys();
+          const missingPriorityKeys = this.columns
+            .map(c => c.key)
+            .filter(k => !keys.includes(k) && (defaultKeys.includes(k) || k.toLowerCase().includes('staff') || k.toLowerCase().includes('teacher')));
+          if (missingPriorityKeys.length > 0) {
+            keys = Array.from(new Set([...keys, ...missingPriorityKeys]));
+          }
+          this.visibleCardFieldKeys = keys;
+        } else {
+          this.resetDefaultCardFields(false);
+        }
       } else {
         this.resetDefaultCardFields(false);
       }
@@ -98,17 +110,22 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
     }
   }
 
+  getDefaultPriorityKeys(): string[] {
+    return [
+      'displayName', 'name', 'title', 'role', 'mobileNumber', 'phone', 'mobile', 
+      'gender', 'courseId', 'classId', 'groupId', 'madrasaId', 'madrasas', 'madrasaCount', 'classGroup', 'stage', 
+      'status', 'credentialStatus', 'studentCount', 'assignedStaffIds', 'groupStaff', 'teacherId', 'staffIds', 
+      'assignedStaff', 'teacherName', 'staffName', 'staffNames', 'staff', 'classCount', 'groupCount'
+    ];
+  }
+
   resetDefaultCardFields(save = true): void {
     if (!this.columns || !this.columns.length) {
       this.visibleCardFieldKeys = [];
       return;
     }
 
-    const defaultPriorityKeys = [
-      'displayName', 'name', 'title', 'role', 'mobileNumber', 'phone', 'mobile', 
-      'gender', 'courseId', 'classId', 'groupId', 'madrasaId', 'madrasas', 'madrasaCount', 'classGroup', 'stage', 
-      'status', 'credentialStatus', 'studentCount'
-    ];
+    const defaultPriorityKeys = this.getDefaultPriorityKeys();
     
     let selected = this.columns
       .map(c => c.key)
@@ -122,7 +139,9 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
         k.toLowerCase().includes('course') || 
         k.toLowerCase().includes('class') || 
         k.toLowerCase().includes('group') || 
-        k.toLowerCase().includes('stage')
+        k.toLowerCase().includes('stage') ||
+        k.toLowerCase().includes('staff') ||
+        k.toLowerCase().includes('teacher')
       );
 
     if (selected.length === 0) {
@@ -135,6 +154,10 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
         localStorage.setItem(`deendesk_card_fields_${this.resourceKey}`, JSON.stringify(this.visibleCardFieldKeys));
       } catch (e) {}
     }
+  }
+
+  isString(val: unknown): val is string {
+    return typeof val === 'string';
   }
 
   onViewModeChange(mode: 'table' | 'card'): void {

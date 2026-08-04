@@ -83,6 +83,39 @@ ion-icon.ios,
 
 ion-content {
   --background: var(--app-bg) !important;
+  --overflow: auto;
+  height: 100%;
+  width: 100%;
+}
+
+ion-content::part(scroll) {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: contain;
+}
+
+/* Prevent Angular Material CDK scroll-block from freezing Ionic ion-content scrolling */
+html.cdk-global-scrollblock ion-content::part(scroll),
+body.cdk-global-scrollblock ion-content::part(scroll) {
+  overflow-y: auto !important;
+  touch-action: pan-y !important;
+}
+
+/* Pointer Events Safety Protection against UI Freeze */
+.cdk-overlay-container:empty,
+.cdk-overlay-container:not(:has(.cdk-overlay-pane)) {
+  pointer-events: none !important;
+  display: none !important;
+}
+
+.cdk-overlay-backdrop:not(.cdk-overlay-backdrop-showing) {
+  pointer-events: none !important;
+  display: none !important;
+}
+
+html, body, app-root, ion-app, ion-router-outlet, ion-split-pane, .ion-page {
+  pointer-events: auto !important;
 }
 
 .page-wrapper,

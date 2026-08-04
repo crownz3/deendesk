@@ -1,10 +1,39 @@
 <div class="timetable-container" *ngIf="plan">
-  <div class="title-section" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
-    <h3 style="margin: 0;">Timetable</h3>
+  <!-- Top Control Bar -->
+  <div class="timetable-header-bar">
+    <div class="header-left">
+      <h3 class="timetable-title">
+        <mat-icon class="title-icon">calendar_month</mat-icon>
+        Weekly Schedule Matrix
+      </h3>
+      <span class="subtitle">Class Timetable & Period Management</span>
+    </div>
 
-    <div class="timetable-top-actions" *ngIf="canManage" style="display: flex; gap: 8px; flex-wrap: wrap;">
-      <button mat-flat-button color="primary" (click)="openEntryForm(undefined, undefined, 'period')" style="font-weight: 600;">
-        <mat-icon style="margin-right: 6px;">calendar_month</mat-icon>
+    <div class="header-center" *ngIf="canManage">
+      <!-- Global Period vs Full Day Mode Switcher -->
+      <mat-button-toggle-group [value]="globalMode" (change)="setGlobalMode($event.value)" class="global-mode-toggle" hideSingleSelectionIndicator="true">
+        <mat-button-toggle value="period">
+          <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">access_time</mat-icon> Period-Based
+        </mat-button-toggle>
+        <mat-button-toggle value="fullDay">
+          <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">today</mat-icon> Full-Day
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <!-- View Switcher (Calendar View vs Grid Matrix View) -->
+      <mat-button-toggle-group [value]="viewMode" (change)="viewMode = $event.value" class="view-mode-toggle" hideSingleSelectionIndicator="true">
+        <mat-button-toggle value="calendar" matTooltip="Monthly Calendar View">
+          <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">calendar_today</mat-icon> Calendar
+        </mat-button-toggle>
+        <mat-button-toggle value="grid" matTooltip="Weekly Matrix View">
+          <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">grid_on</mat-icon> Matrix
+        </mat-button-toggle>
+      </mat-button-toggle-group>
+    </div>
+
+    <div class="header-right" *ngIf="canManage">
+      <button mat-flat-button color="primary" class="action-btn" (click)="openEntryForm(undefined, undefined, 'period')">
+        <mat-icon style="margin-right: 6px;">add_circle_outline</mat-icon>
         + Add Period to Multiple Days
       </button>
     </div>
@@ -12,85 +41,162 @@
 
   <app-global-loader *ngIf="loading"></app-global-loader>
 
-  <div class="timetable-grid" *ngIf="!loading">
-    <div class="day-column" *ngFor="let day of daysOfWeek">
-      <div class="day-header">
-        <div class="day-header-top">
-          <div class="day-title">
-            <h3>{{ day }}</h3>
-            <span class="activity-count">{{ getEntriesForDay(day).length }} Activities</span>
+  <!-- Monthly Calendar View -->
+  <div class="monthly-calendar-wrapper" *ngIf="!loading && viewMode === 'calendar'">
+    <!-- Month Navigation Bar -->
+    <div class="month-nav-bar">
+      <div class="nav-controls">
+        <button mat-icon-button class="nav-arrow" (click)="prevMonth()" matTooltip="Previous Month">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <h3 class="month-title">{{ currentMonthYearLabel }}</h3>
+        <button mat-icon-button class="nav-arrow" (click)="nextMonth()" matTooltip="Next Month">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+
+        <button mat-stroked-button class="today-btn" (click)="goToToday()">Today</button>
+        <button *ngIf="plan.startDate" mat-button class="plan-start-btn" (click)="goToPlanStart()">
+          Start Date ({{ formatYmd(plan.startDate) }})
+        </button>
+      </div>
+
+      <div class="plan-range-badge" *ngIf="plan.startDate">
+        <mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 4px;">date_range</mat-icon>
+        <span [innerHTML]="formattedPlanRangeLabel"></span>
+      </div>
+    </div>
+
+    <!-- Responsive Scroll Container with Unified Grid -->
+    <div class="calendar-scroll-container">
+      <div class="unified-calendar-grid">
+        <!-- 7 Weekday Header Cells -->
+        <div class="weekday-cell" *ngFor="let w of CALENDAR_WEEKDAYS">{{ w }}</div>
+
+        <!-- Calendar Month Date Cells -->
+        <div 
+          class="calendar-date-cell" 
+          *ngFor="let day of calendarDays" 
+          [ngClass]="{
+            'other-month': !day.isCurrentMonth,
+            'today-cell': day.isToday,
+            'in-plan-range': day.isInPlanRange,
+            'out-of-range': !day.isInPlanRange,
+            'has-entries': day.entries.length > 0
+          }"
+        >
+          <div class="cell-top">
+            <span class="day-number" [class.today-badge]="day.isToday">{{ day.dayNumber }}</span>
+            <button *ngIf="canManage && day.isInPlanRange" mat-icon-button class="cell-add-btn" (click)="openEntryForm(undefined, day.dayOfWeek, dayModes[day.dayOfWeek])" matTooltip="Add period on {{ day.dateStr }}">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+
+          <div class="cell-entries">
+            <div class="off-day-chip" *ngIf="day.isUnselectedWeekday && day.isCurrentMonth && day.isInPlanRange && !day.entries.length">
+              <span class="off-day-text">N/A (Off Day)</span>
+            </div>
+
+            <div class="cal-period-chip" *ngFor="let entry of day.entries" [matTooltip]="(entry.startTime || 'Full Day') + ' - ' + entry.activityName">
+              <div class="chip-main-info" (click)="openEntryForm(entry, day.dayOfWeek)">
+                <span class="chip-time" *ngIf="entry.scheduleType !== 'fullDay'">{{ entry.startTime }}</span>
+                <span class="chip-time full-day" *ngIf="entry.scheduleType === 'fullDay'">FULL</span>
+                <span class="chip-title">{{ entry.activityName }}</span>
+              </div>
+
+              <div class="chip-hover-actions" *ngIf="canManage">
+                <button mat-icon-button class="chip-action-btn edit" (click)="openEntryForm(entry, day.dayOfWeek); $event.stopPropagation()" matTooltip="Edit Period">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button class="chip-action-btn copy" *ngIf="entry.scheduleType !== 'fullDay'" (click)="duplicateEntry(entry); $event.stopPropagation()" matTooltip="Duplicate Period">
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+                <button mat-icon-button class="chip-action-btn delete" (click)="deleteEntry(entry); $event.stopPropagation()" matTooltip="Delete Period">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        <mat-button-toggle-group *ngIf="canManage" [value]="dayModes[day]" (change)="setDayMode(day, $event.value)" class="mode-toggle" hideSingleSelectionIndicator="true">
-          <mat-button-toggle value="period">Period-Based</mat-button-toggle>
-          <mat-button-toggle value="fullDay">Full-Day</mat-button-toggle>
-        </mat-button-toggle-group>
       </div>
-      
-      <div class="activities-container">
-        <app-empty-state
-          *ngIf="!getEntriesForDay(day).length"
-          icon="calendar-clear-outline"
-          title="No Activities"
-          [message]="'No activities scheduled for ' + day + '.'"
-          [compact]="true"
-        >
-          <div actions *ngIf="canManage && dayModes[day] === 'period'">
-            <button mat-stroked-button color="primary" class="compact-btn" (click)="openEntryForm(undefined, day, 'period')">
-              <mat-icon style="margin: 0;">add</mat-icon> Add Period
+    </div>
+  </div>
+
+  <!-- Grid Matrix View (Clean Calendar Schedule Matrix) -->
+  <div class="schedule-matrix-wrapper" *ngIf="!loading && viewMode === 'grid'">
+    <div class="matrix-grid">
+      <div class="matrix-column" *ngFor="let day of daysOfWeek">
+        <!-- Column Header -->
+        <div class="matrix-col-header" [class.unselected-col-header]="!isWeekdaySelected(day)">
+          <div class="col-day-info">
+            <span class="col-day-name">{{ day }}</span>
+            <span class="col-count-badge" *ngIf="isWeekdaySelected(day)">{{ getEntriesForDay(day).length }} Periods</span>
+            <span class="col-off-badge" *ngIf="!isWeekdaySelected(day)">N/A (Off Day)</span>
+          </div>
+          <button *ngIf="canManage && isWeekdaySelected(day)" mat-icon-button class="col-add-btn" (click)="openEntryForm(undefined, day, dayModes[day])" matTooltip="Add period for {{ day }}">
+            <mat-icon>add</mat-icon>
+          </button>
+        </div>
+
+        <!-- Activity Cards inside Column -->
+        <div class="matrix-col-content">
+          <div class="empty-matrix-cell unselected-day-cell" *ngIf="!isWeekdaySelected(day) && !getEntriesForDay(day).length">
+            <ion-icon name="moon-outline" class="empty-icon"></ion-icon>
+            <p class="empty-msg">N/A (Off Day)</p>
+          </div>
+
+          <div class="empty-matrix-cell" *ngIf="isWeekdaySelected(day) && !getEntriesForDay(day).length">
+            <ion-icon name="calendar-clear-outline" class="empty-icon"></ion-icon>
+            <p class="empty-msg">No Period</p>
+            <button *ngIf="canManage" mat-button class="quick-add-btn" (click)="openEntryForm(undefined, day, dayModes[day])">
+              + Add
             </button>
           </div>
-          <div actions *ngIf="canManage && dayModes[day] === 'fullDay'">
-            <button mat-stroked-button color="primary" class="compact-btn" (click)="openEntryForm(undefined, day, 'fullDay')">
-              <mat-icon style="margin: 0;">add</mat-icon> Set Full-Day
-            </button>
-          </div>
-        </app-empty-state>
 
-        <mat-card class="activity-card" *ngFor="let entry of getEntriesForDay(day)" [ngClass]="{'full-day-card': dayModes[day] === 'fullDay'}">
-          <div class="activity-card-header">
-            <div class="activity-time" *ngIf="dayModes[day] === 'period'">
-              {{ entry.startTime }} &ndash; {{ entry.endTime }}
-            </div>
-            <div class="full-day-chip" *ngIf="dayModes[day] === 'fullDay'">
-              FULL DAY
-            </div>
-            <div class="activity-actions" *ngIf="canManage">
-              <button mat-icon-button (click)="openEntryForm(entry, day)" matTooltip="Edit">
-                <mat-icon>edit</mat-icon>
-              </button>
-              <button mat-icon-button *ngIf="dayModes[day] === 'period'" (click)="duplicateEntry(entry)" matTooltip="Duplicate">
-                <mat-icon>content_copy</mat-icon>
-              </button>
-              <button mat-icon-button color="warn" (click)="deleteEntry(entry)" matTooltip="Delete">
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
-          </div>
-          
-          <div class="activity-name">
-            {{ entry.activityName }}
-          </div>
-          
-          <div class="activity-meta" *ngIf="entry.teacherId || entry.subjectId || entry.roomId">
-            <span *ngIf="entry.teacherId" class="meta-item"><mat-icon>person</mat-icon> {{ (resolver.resolveName(entry.teacherId, 'user') | async) || entry['teacherName'] || entry.teacherId }}</span>
-            <span *ngIf="entry.teacherId && (entry.subjectId || entry.roomId)" class="dot">&bull;</span>
-            <span *ngIf="entry.subjectId" class="meta-item">{{ entry['subjectName'] || entry.subjectId }}</span>
-            <span *ngIf="entry.subjectId && entry.roomId" class="dot">&bull;</span>
-            <span *ngIf="entry.roomId" class="meta-item">{{ entry.roomId }}</span>
-          </div>
-          
-          <div class="activity-description" *ngIf="entry.description">
-            {{ entry.description }}
-          </div>
-        </mat-card>
+          <div class="matrix-card" *ngFor="let entry of getEntriesForDay(day)" [ngClass]="{'full-day-matrix-card': entry.scheduleType === 'fullDay'}">
+            <div class="matrix-card-top">
+              <div class="matrix-time-badge" *ngIf="entry.scheduleType !== 'fullDay'">
+                <mat-icon class="clock-icon">schedule</mat-icon>
+                <span>{{ entry.startTime }} &ndash; {{ entry.endTime }}</span>
+              </div>
+              <div class="matrix-full-day-badge" *ngIf="entry.scheduleType === 'fullDay'">
+                FULL DAY
+              </div>
 
-      </div>
-      
-      <div class="day-footer" *ngIf="canManage && dayModes[day] === 'period' && getEntriesForDay(day).length">
-        <button mat-stroked-button color="primary" class="add-period-btn" (click)="openEntryForm(undefined, day, 'period')">
-          <mat-icon>add</mat-icon> Add Period
-        </button>
+              <div class="matrix-card-actions" *ngIf="canManage">
+                <button mat-icon-button (click)="openEntryForm(entry, day)" matTooltip="Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button *ngIf="entry.scheduleType !== 'fullDay'" (click)="duplicateEntry(entry)" matTooltip="Duplicate">
+                  <mat-icon>content_copy</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="deleteEntry(entry)" matTooltip="Delete">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <div class="matrix-card-body">
+              <h4 class="matrix-activity-title">{{ entry.activityName }}</h4>
+              
+              <div class="matrix-meta-row" *ngIf="entry.teacherId || entry.subjectId || entry.roomId">
+                <div class="matrix-meta-tag teacher-tag" *ngIf="entry.teacherId">
+                  <mat-icon>person_outline</mat-icon>
+                  <span>{{ (resolver.resolveName(entry.teacherId, 'user') | async) || entry['teacherName'] || entry.teacherId }}</span>
+                </div>
+                <div class="matrix-meta-tag subject-tag" *ngIf="entry.subjectId">
+                  <mat-icon>book_outline</mat-icon>
+                  <span>{{ entry['subjectName'] || entry.subjectId }}</span>
+                </div>
+                <div class="matrix-meta-tag room-tag" *ngIf="entry.roomId">
+                  <mat-icon>meeting_room</mat-icon>
+                  <span>{{ entry.roomId }}</span>
+                </div>
+              </div>
+
+              <p class="matrix-desc" *ngIf="entry.description">{{ entry.description }}</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

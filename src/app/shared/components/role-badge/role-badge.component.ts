@@ -39,12 +39,24 @@ export class RoleBadgeComponent implements OnChanges {
       roles = roles.filter(r => !excludes.includes(r));
     }
 
-    return roles.map(r => {
+    const uniqueBadges: { label: string; class: string }[] = [];
+    const seenLabels = new Set<string>();
+
+    roles.forEach(r => {
+      // Exclude redundant 'staff' if more specific staff/teaching roles are present
+      if (r.toLowerCase() === 'staff' && roles.some(other => ['teacher', 'ustadh', 'madrasaincharge', 'stagehead', 'coordinator', 'headteacher'].includes(other.toLowerCase()))) {
+        return;
+      }
       const label = r in ROLE_LABELS
         ? ROLE_LABELS[r as UserRole]
         : (r ? r.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim() : 'User');
-      const cssClass = `role-${r}`;
-      return { label, class: cssClass };
+
+      if (!seenLabels.has(label)) {
+        seenLabels.add(label);
+        uniqueBadges.push({ label, class: `role-${r}` });
+      }
     });
+
+    return uniqueBadges;
   }
 }

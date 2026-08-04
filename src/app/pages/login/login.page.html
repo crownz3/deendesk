@@ -61,72 +61,134 @@
 
     <section class="login-card">
       <ng-container *ngIf="authReady$ | async; else checkingSession">
-        <!-- Already signed in — show redirect spinner instead of Continue card -->
-        <ng-container *ngIf="profile$ | async as profile">
-          <div class="redirecting-card" *ngIf="profile.status === 'active'">
-            <ion-spinner name="crescent"></ion-spinner>
-            <p>Taking you to your dashboard...</p>
+        <!-- Already signed in — show active session continue card -->
+        <ng-container *ngIf="profile$ | async as profile; else loginForm">
+          <div class="active-session-card" *ngIf="profile.status === 'active'">
+            <div class="session-badge-header">
+              <span class="session-dot"></span>
+              <span>Signed in session active</span>
+            </div>
+            
+            <div class="user-session-info">
+              <div class="user-avatar-circle">
+                {{ (profile.displayName || '?').charAt(0).toUpperCase() }}
+              </div>
+              <div class="user-details">
+                <h3 class="user-name">{{ profile.displayName }}</h3>
+                <span class="user-role-badge">{{ profile.role || 'Super Admin' }}</span>
+              </div>
+            </div>
+
+            <button mat-flat-button color="primary" class="continue-dashboard-btn" type="button" (click)="continue(profile)">
+              <span>Continue to Dashboard</span>
+              <ion-icon name="arrow-forward-outline"></ion-icon>
+            </button>
+
+            <button mat-button class="switch-account-btn" type="button" (click)="signOutAndSwitch()">
+              <ion-icon name="log-out-outline"></ion-icon>
+              <span>Sign in as a different account</span>
+            </button>
           </div>
+
           <div class="pending-card" *ngIf="profile.status !== 'active'">
             <ion-icon name="time-outline"></ion-icon>
             <h2>Access Pending</h2>
             <p>Your account is not yet active. Please contact your organization authority to activate your access.</p>
             <button mat-stroked-button color="warn" type="button" (click)="continue(profile)">Continue anyway</button>
+            <button mat-button type="button" (click)="signOutAndSwitch()">Sign out</button>
           </div>
         </ng-container>
 
-        <div class="auth-header">
-          <h2>Sign in</h2>
-          <p>Use an account created by your authority.</p>
-        </div>
+        <ng-template #loginForm>
+          <!-- Quick Login Card for Saved Profile -->
+          <div class="active-session-card saved-account-card" *ngIf="lastProfile && !isSwitchingAccount; else fullForm">
+            <div class="session-badge-header saved-badge">
+              <span class="session-dot blue-dot"></span>
+              <span>Saved Account</span>
+            </div>
 
-        <div class="last-account" *ngIf="lastProfile">
-          <span>{{ lastProfile.displayName }}</span>
-          <small>{{ lastProfile.role }}</small>
-        </div>
+            <div class="user-session-info">
+              <div class="user-avatar-circle">
+                {{ (lastProfile.displayName || '?').charAt(0).toUpperCase() }}
+              </div>
+              <div class="user-details">
+                <h3 class="user-name">{{ lastProfile.displayName }}</h3>
+                <span class="user-role-badge">{{ lastProfile.role }}</span>
+              </div>
+            </div>
 
-        <form [formGroup]="form" (ngSubmit)="login()">
-          <mat-form-field appearance="outline" class="auth-field">
-            <mat-label>Email</mat-label>
-            <input matInput type="email" formControlName="email" autocomplete="email" />
-            <mat-error *ngIf="form.controls.email.hasError('required')">Email is required</mat-error>
-            <mat-error *ngIf="form.controls.email.hasError('email')">Enter a valid email</mat-error>
-          </mat-form-field>
+            <form [formGroup]="form" (ngSubmit)="login()" class="quick-pass-form">
+              <mat-form-field appearance="outline" class="auth-field">
+                <mat-label>Enter Password</mat-label>
+                <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" autocomplete="current-password" placeholder="Enter password to sign in" />
+                <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button" [attr.aria-label]="'Hide password'">
+                  <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                <mat-error>Password is required</mat-error>
+              </mat-form-field>
 
-          <mat-form-field appearance="outline" class="auth-field">
-            <mat-label>Password</mat-label>
-            <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" autocomplete="current-password" />
-            <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button" [attr.aria-label]="'Hide password'" [attr.aria-pressed]="hidePassword">
-              <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
-            </button>
-            <mat-error>Password is required</mat-error>
-          </mat-form-field>
+              <button mat-flat-button color="primary" class="continue-dashboard-btn" type="submit" [disabled]="loading">
+                <span>Continue as {{ (lastProfile.displayName || 'User').split(' ')[0] }}</span>
+                <ion-icon name="arrow-forward-outline"></ion-icon>
+              </button>
+            </form>
 
-          <div class="auth-actions">
-            <button mat-flat-button color="primary" class="auth-primary-button" type="submit" [disabled]="loading">
-              <ion-icon name="log-in-outline"></ion-icon>
-              Sign in
-            </button>
-
-            <button mat-stroked-button class="auth-google-button" type="button" (click)="googleLogin()" [disabled]="loading">
-              <ion-icon name="logo-google"></ion-icon>
-              Continue with Google
-            </button>
-          </div>
-        </form>
-
-        <div class="reset-actions">
-          <button mat-button type="button" class="reset-button" (click)="resetPassword()">
-            Forgot password
-          </button>
-          
-          <div class="custom-email-reset">
-            <p class="reset-info">Your account uses an internal/custom email. If you cannot receive reset email, send a request to your admin.</p>
-            <button mat-stroked-button color="warn" type="button" class="request-reset-button" (click)="requestPasswordReset()" [disabled]="loading">
-              Send Request
+            <button mat-button class="switch-account-btn" type="button" (click)="useDifferentAccount()">
+              <ion-icon name="person-add-outline"></ion-icon>
+              <span>Sign in with a different account</span>
             </button>
           </div>
-        </div>
+
+          <ng-template #fullForm>
+            <div class="auth-header">
+              <h2>Sign in</h2>
+              <p>Use an account created by your authority.</p>
+            </div>
+
+            <form [formGroup]="form" (ngSubmit)="login()">
+              <mat-form-field appearance="outline" class="auth-field">
+                <mat-label>Email</mat-label>
+                <input matInput type="email" formControlName="email" autocomplete="email" />
+                <mat-error *ngIf="form.controls.email.hasError('required')">Email is required</mat-error>
+                <mat-error *ngIf="form.controls.email.hasError('email')">Enter a valid email</mat-error>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="auth-field">
+                <mat-label>Password</mat-label>
+                <input matInput [type]="hidePassword ? 'password' : 'text'" formControlName="password" autocomplete="current-password" />
+                <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button" [attr.aria-label]="'Hide password'">
+                  <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+                </button>
+                <mat-error>Password is required</mat-error>
+              </mat-form-field>
+
+              <div class="auth-actions">
+                <button mat-flat-button color="primary" class="auth-primary-button" type="submit" [disabled]="loading">
+                  <ion-icon name="log-in-outline"></ion-icon>
+                  Sign in
+                </button>
+
+                <button mat-stroked-button class="auth-google-button" type="button" (click)="googleLogin()" [disabled]="loading">
+                  <ion-icon name="logo-google"></ion-icon>
+                  Continue with Google
+                </button>
+              </div>
+            </form>
+
+            <div class="reset-actions">
+              <button mat-button type="button" class="reset-button" (click)="resetPassword()">
+                Forgot password
+              </button>
+              
+              <div class="custom-email-reset">
+                <p class="reset-info">Your account uses an internal/custom email. If you cannot receive reset email, send a request to your admin.</p>
+                <button mat-stroked-button color="warn" type="button" class="request-reset-button" (click)="requestPasswordReset()" [disabled]="loading">
+                  Send Request
+                </button>
+              </div>
+            </div>
+          </ng-template>
+        </ng-template>
       </ng-container>
 
       <ng-template #checkingSession>

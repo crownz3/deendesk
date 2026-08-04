@@ -351,12 +351,24 @@ export class TreeViewPage {
   }
 
   private isStudentUser(user: any): boolean {
-    return this.normalizeRole(user?.role) === 'student';
+    if (!user) return false;
+    const role = this.normalizeRole(user?.role);
+    if (role === 'student') return true;
+    if (Array.isArray(user?.roles)) {
+      return user.roles.some((ro: any) => this.normalizeRole(ro) === 'student');
+    }
+    return false;
   }
 
   private isStaffUser(user: any): boolean {
-    const role = this.normalizeRole(user?.role);
-    return ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'].includes(role);
+    if (!user) return false;
+    const staffRoles = ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'];
+    const singleRole = this.normalizeRole(user?.role);
+    if (staffRoles.some(r => singleRole.includes(r))) return true;
+    if (Array.isArray(user?.roles)) {
+      return user.roles.some((ro: any) => staffRoles.includes(this.normalizeRole(ro)));
+    }
+    return false;
   }
 
   private getUserId(user: any): string {
@@ -1070,11 +1082,43 @@ export class TreeViewPage {
     });
   }
 
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'number') return [String(val)];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const ids: string[] = [];
+      if (val.id) ids.push(String(val.id).trim());
+      if (val.uid) ids.push(String(val.uid).trim());
+      if (val.userId) ids.push(String(val.userId).trim());
+      if (val.entityId) ids.push(String(val.entityId).trim());
+      if (val.docId) ids.push(String(val.docId).trim());
+      if (val.email) ids.push(String(val.email).trim());
+      return ids;
+    }
+    return [];
+  }
+
   assignStaff(node: AcademicTreeNode, allStaff: any[], event?: Event): void {
     if (event) event.stopPropagation();
 
+    const assignedTokens = new Set([
+      ...this.extractAllStrings(node.assignedStaff),
+      ...this.extractAllStrings(node.raw?.assignedStaff),
+      ...this.extractAllStrings(node.raw?.assignedStaffIds),
+      ...this.extractAllStrings((node as any).staffIds),
+      ...this.extractAllStrings(node.raw?.staffIds),
+    ]);
+
     const assignedStaff = this.uniqueUsers(
-      (node.assignedStaff || []).filter(user => this.isStaffUser(user))
+      (allStaff || []).filter((user: any) => {
+        if (!this.isStaffUser(user)) return false;
+        const uTokens = this.extractAllStrings(user);
+        return Array.from(assignedTokens).some(tok => uTokens.includes(tok));
+      })
     );
 
     // For classGroup nodes, the available staff are all staff assigned to the parent class

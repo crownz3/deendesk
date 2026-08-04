@@ -11,5 +11,30 @@ export class GlobalLoaderComponent {
   loading$ = this.loader.loading$;
   message$ = this.loader.message$;
 
-  constructor(private loader: LoaderService) {}
+  constructor(public loader: LoaderService) {}
+
+  isAuthOrLogin(message: string | null): boolean {
+    if (!message) return false;
+    const m = message.toLowerCase();
+    return m.includes('authenticat') ||
+           m.includes('login') ||
+           m.includes('logging') ||
+           m.includes('sign in') ||
+           m.includes('signing in') ||
+           m.includes('sign out') ||
+           m.includes('signing out') ||
+           m.includes('switch');
+  }
+
+  onBackdropClick(): void {
+    const currentMsg = this.loader.getMessage();
+    if (this.isAuthOrLogin(currentMsg)) return;
+    this.loader.reset();
+  }
+
+  dismissLoader(): void {
+    const currentMsg = this.loader.getMessage();
+    if (this.isAuthOrLogin(currentMsg)) return;
+    this.loader.reset();
+  }
 }

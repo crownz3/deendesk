@@ -326,14 +326,19 @@ export class TimetableEntryFormDialogComponent implements OnInit {
 
     if (this.data.entry) {
       this.form.patchValue(this.data.entry);
-      this.selectedDays = [this.data.entry.dayOfWeek || this.daysOfWeek[0] || 'Monday'];
+      const entryDay = this.data.entry.dayOfWeek;
+      const matchedEntryDay = entryDay ? this.daysOfWeek.find(d => String(d).toLowerCase().trim() === String(entryDay).toLowerCase().trim()) : null;
+      this.selectedDays = [matchedEntryDay || this.daysOfWeek[0] || 'Monday'];
     } else {
       const patch: any = {};
-      if (this.data.dayOfWeek && this.daysOfWeek.includes(this.data.dayOfWeek)) {
-        patch.dayOfWeek = this.data.dayOfWeek;
-        this.selectedDays = [this.data.dayOfWeek];
+      const targetDay = this.data.dayOfWeek ? String(this.data.dayOfWeek).toLowerCase().trim() : '';
+      const matchedDay = targetDay ? this.daysOfWeek.find(d => String(d).toLowerCase().trim() === targetDay) : null;
+
+      if (matchedDay) {
+        patch.dayOfWeek = matchedDay;
+        this.selectedDays = [matchedDay];
       } else {
-        this.selectedDays = [...this.daysOfWeek];
+        this.selectedDays = this.daysOfWeek.length > 0 ? [this.daysOfWeek[0]] : ['Monday'];
         if (this.selectedDays.length > 0) {
           patch.dayOfWeek = this.selectedDays[0];
         }

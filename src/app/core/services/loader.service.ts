@@ -4,6 +4,7 @@ import { BehaviorSubject } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class LoaderService {
   private loadingCount = 0;
+  private autoDismissTimer: any = null;
 
   private loadingSubject = new BehaviorSubject<boolean>(false);
   private messageSubject = new BehaviorSubject<string>('Loading, please wait...');
@@ -15,15 +16,24 @@ export class LoaderService {
     this.loadingCount++;
     this.messageSubject.next(message);
     this.loadingSubject.next(true);
+
+    // Safety timeout: auto-reset loader after 12 seconds to prevent screen touch freeze
+    if (this.autoDismissTimer) clearTimeout(this.autoDismissTimer);
+    this.autoDismissTimer = setTimeout(() => {
+      this.reset();
+    }, 12000);
   }
 
   hide(): void {
     this.loadingCount = Math.max(0, this.loadingCount - 1);
 
     if (this.loadingCount === 0) {
-      this.loadingSubject.next(false);
-      this.messageSubject.next('Loading, please wait...');
+      this.reset();
     }
+  }
+
+  getMessage(): string {
+    return this.messageSubject.value || '';
   }
 
   setMessage(message: string): void {
@@ -31,6 +41,10 @@ export class LoaderService {
   }
 
   reset(): void {
+    if (this.autoDismissTimer) {
+      clearTimeout(this.autoDismissTimer);
+      this.autoDismissTimer = null;
+    }
     this.loadingCount = 0;
     this.loadingSubject.next(false);
     this.messageSubject.next('Loading, please wait...');

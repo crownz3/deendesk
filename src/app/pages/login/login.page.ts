@@ -63,9 +63,14 @@ export class LoginPage implements OnInit {
     private readonly auditLogService: AuditLogService,
   ) {}
 
+  isSwitchingAccount = false;
+
   ngOnInit(): void {
     const stored = localStorage.getItem('deendesk.lastProfile');
     this.lastProfile = stored ? (JSON.parse(stored) as { displayName: string; email: string; role: string }) : null;
+    if (this.lastProfile?.email) {
+      this.form.controls.email.setValue(this.lastProfile.email);
+    }
 
     if (this.route.snapshot.queryParamMap.get('status') === 'pending') {
       this.snackBar.open('Your access is pending. Please contact your organization authority.', 'Close', { duration: 6000 });
@@ -81,6 +86,11 @@ export class LoginPage implements OnInit {
         }
       });
     });
+  }
+
+  useDifferentAccount(): void {
+    this.isSwitchingAccount = true;
+    this.form.reset();
   }
 
   onMouseDown(event: MouseEvent): void {
@@ -233,8 +243,14 @@ export class LoginPage implements OnInit {
     }
   }
 
-  async continue(user: AppUser): Promise<void> {
-    await this.router.navigateByUrl('/dashboard');
+  async continue(user?: AppUser | null): Promise<void> {
+    const nextUrl = this.route.snapshot.queryParamMap.get('returnUrl') || '/dashboard';
+    await this.router.navigateByUrl(nextUrl);
+  }
+
+  async signOutAndSwitch(): Promise<void> {
+    await this.auth.logout();
+    this.snackBar.open('Signed out. Please enter credentials to sign in.', 'Close', { duration: 3000 });
   }
 
   async resetPassword(): Promise<void> {

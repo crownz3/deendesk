@@ -34,10 +34,10 @@
     <span>More Details</span>
   </button>
 
-  <button type="button" class="tab-btn badge-tab" [class.active]="activeTab === 'students'" (click)="activeTab = 'students'" *ngIf="assignedStudents.length > 0 || loadingStudents">
+  <button type="button" class="tab-btn badge-tab" [class.active]="activeTab === 'students'" (click)="activeTab = 'students'" *ngIf="totalStudentCount > 0 || loadingStudents">
     <ion-icon name="people-outline"></ion-icon>
     <span>Students List</span>
-    <span class="tab-count-chip">{{ assignedStudents.length }}</span>
+    <span class="tab-count-chip">{{ totalStudentCount }}</span>
   </button>
 </div>
 
@@ -135,18 +135,38 @@
               <ng-template #noGroups>-</ng-template>
             </span>
           </div>
+
+          <div class="info-row" *ngIf="assignedStaffList.length > 0 || assignedStaffNames.length > 0">
+            <span class="label">Assigned Staff</span>
+            <span class="value">
+              <div class="badge-tag-list font-inter">
+                <ng-container *ngIf="assignedStaffList.length > 0; else staffNamesOnly">
+                  <span class="badge-tag staff-tag" *ngFor="let staff of assignedStaffList">
+                    <ion-icon name="person-outline"></ion-icon>
+                    {{ staff['displayName'] || staff['name'] || staff['email'] }}
+                  </span>
+                </ng-container>
+                <ng-template #staffNamesOnly>
+                  <span class="badge-tag staff-tag" *ngFor="let name of assignedStaffNames">
+                    <ion-icon name="person-outline"></ion-icon>
+                    {{ name }}
+                  </span>
+                </ng-template>
+              </div>
+            </span>
+          </div>
         </div>
       </article>
 
       <!-- Student Count Trigger Banner -->
-      <article class="detail-card highlight-card" (click)="activeTab = 'students'" *ngIf="assignedStudents.length > 0 || loadingStudents">
+      <article class="detail-card highlight-card" (click)="activeTab = 'students'" *ngIf="totalStudentCount > 0 || loadingStudents">
         <div class="student-count-banner">
           <div class="count-main">
             <div class="count-icon-box">
               <ion-icon name="people"></ion-icon>
             </div>
             <div class="count-text">
-              <div class="number">{{ assignedStudents.length }}</div>
+              <div class="number">{{ totalStudentCount }}</div>
               <div class="subtext">Enrolled Students in Assigned Class Groups</div>
             </div>
           </div>
@@ -163,7 +183,7 @@
   <!-- STUDENTS LIST TAB -->
   <div *ngIf="activeTab === 'students'" class="tab-content students-tab">
     <div class="students-header">
-      <h3>Students Enrolled ({{ assignedStudents.length }})</h3>
+      <h3>Students Enrolled ({{ totalStudentCount }})</h3>
       <p class="subtitle">Click any student to view their profile details</p>
     </div>
 

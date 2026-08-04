@@ -12,6 +12,18 @@ import { NameResolverService } from '../../core/services/name-resolver.service';
 
 import { ClassPlanAttendanceService } from '../../core/services/class-plan-attendance.service';
 
+export interface CalendarDay {
+  date: Date;
+  dateStr: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isInPlanRange: boolean;
+  isUnselectedWeekday: boolean;
+  dayOfWeek: string;
+  entries: (EntityRecord & TimetableEntry)[];
+}
+
 @Component({
   selector: 'app-class-plan-timetable',
   templateUrl: './class-plan-timetable.component.html',
@@ -28,6 +40,14 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
   
   daysOfWeek: string[] = [];
   readonly ALL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+  readonly CALENDAR_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  viewMode: 'calendar' | 'grid' = 'calendar';
+  globalMode: 'period' | 'fullDay' = 'period';
+
+  currentCalendarDate = new Date();
+  calendarDays: CalendarDay[] = [];
+
   dayModes: Record<string, 'period' | 'fullDay'> = {
     'Monday': 'period',
     'Tuesday': 'period',
@@ -37,7 +57,20 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
     'Saturday': 'period',
     'Sunday': 'period'
   };
-  
+
+  setGlobalMode(mode: 'period' | 'fullDay') {
+    this.globalMode = mode;
+    this.daysOfWeek.forEach(day => {
+      this.setDayMode(day, mode);
+    });
+  }
+
+  isWeekdaySelected(dayOfWeek: string): boolean {
+    if (!this.plan?.weekDays || this.plan.weekDays.length === 0) return true;
+    const target = String(dayOfWeek).toLowerCase().trim();
+    return this.plan.weekDays.some(w => String(w).toLowerCase().trim() === target);
+  }
+
   constructor(
     private readonly repo: RepositoryService,
     private readonly auth: AuthService,
@@ -51,14 +84,30 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
   async ngOnInit() {
     this.profile = await firstValueFrom(this.auth.profile$);
     if (this.plan?.id) {
+      this.initCalendarDate();
       await this.loadEntries();
     }
   }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['plan'] && !changes['plan'].firstChange && this.plan?.id) {
+      this.initCalendarDate();
       this.loadEntries();
     }
+  }
+
+  initCalendarDate() {
+    if (this.plan?.startDate) {
+      const parts = this.plan.startDate.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        this.currentCalendarDate = new Date(y, m, d);
+        return;
+      }
+    }
+    this.currentCalendarDate = new Date();
   }
 
   async loadEntries() {
@@ -75,20 +124,10 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
         subjectName: e.subjectId ? subjects.find(s => s.id === e.subjectId)?.['name'] as string : undefined
       }));
       
-      if (this.plan.scheduleType === 'weekly' && this.plan.weekDays && this.plan.weekDays.length > 0) {
-        this.daysOfWeek = this.ALL_DAYS.filter(day => this.plan.weekDays!.includes(day.toLowerCase()));
-      } else if (this.plan.scheduleType === 'oneTime' && this.plan.startDate) {
-        const date = new Date(this.plan.startDate);
-        const dayName = this.ALL_DAYS[date.getDay() === 0 ? 6 : date.getDay() - 1]; // Date.getDay() gives 0 for Sunday
-        // Actually to be safe let's just use a map
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        this.daysOfWeek = [dayNames[date.getDay()]];
-      } else {
-        this.daysOfWeek = [...this.ALL_DAYS];
-      }
+      this.daysOfWeek = [...this.ALL_DAYS];
       
       this.daysOfWeek.forEach(day => {
-        const dayEntries = this.entries.filter(e => e.dayOfWeek === day);
+        const dayEntries = this.getEntriesForDay(day);
         if (dayEntries.some(e => e.scheduleType === 'fullDay')) {
           this.dayModes[day] = 'fullDay';
         } else {
@@ -97,6 +136,7 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
       });
 
       this.sortEntries();
+      this.buildCalendarDays();
     } catch (e) {
       this.snackBar.open('Error loading timetable.', 'Close', { duration: 3000 });
     } finally {
@@ -104,8 +144,139 @@ export class ClassPlanTimetableComponent implements OnInit, OnChanges {
     }
   }
 
+  formatYmd(val?: string | null): string | null {
+    if (!val) return null;
+    const s = String(val).trim();
+    if (s.includes('T')) return s.split('T')[0];
+    if (s.length >= 10) return s.substring(0, 10);
+    return s;
+  }
+
+  get formattedPlanRangeLabel(): string {
+    if (!this.plan?.startDate) return '';
+    const startYmd = this.formatYmd(this.plan.startDate);
+    const endYmd = this.formatYmd(this.plan.endDate);
+    if (!startYmd) return '';
+    const startDateObj = new Date(startYmd + 'T00:00:00');
+    const startFormatted = isNaN(startDateObj.getTime()) ? startYmd : startDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (!endYmd) return `Plan Start: ${startFormatted}`;
+    const endDateObj = new Date(endYmd + 'T00:00:00');
+    const endFormatted = isNaN(endDateObj.getTime()) ? endYmd : endDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `Plan Range: ${startFormatted} &ndash; ${endFormatted}`;
+  }
+
+  buildCalendarDays() {
+    if (!this.plan) return;
+    const year = this.currentCalendarDate.getFullYear();
+    const month = this.currentCalendarDate.getMonth();
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    const lastDayOfMonth = new Date(year, month + 1, 0);
+
+    const startingDayOfWeek = firstDayOfMonth.getDay();
+    const daysInMonth = lastDayOfMonth.getDate();
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+    const planStartStr = this.formatYmd(this.plan.startDate);
+    const planEndStr = this.formatYmd(this.plan.endDate);
+
+    const days: CalendarDay[] = [];
+
+    // 1. Prev Month padding
+    const prevMonthLastDay = new Date(year, month, 0).getDate();
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+      const d = new Date(year, month - 1, prevMonthLastDay - i);
+      days.push(this.createCalendarDayObj(d, false, planStartStr, planEndStr, todayStr, dayNames));
+    }
+
+    // 2. Current Month days
+    for (let i = 1; i <= daysInMonth; i++) {
+      const d = new Date(year, month, i);
+      days.push(this.createCalendarDayObj(d, true, planStartStr, planEndStr, todayStr, dayNames));
+    }
+
+    // 3. Next Month padding
+    const totalSlots = days.length <= 35 ? 35 : 42;
+    const remaining = totalSlots - days.length;
+    for (let i = 1; i <= remaining; i++) {
+      const d = new Date(year, month + 1, i);
+      days.push(this.createCalendarDayObj(d, false, planStartStr, planEndStr, todayStr, dayNames));
+    }
+
+    this.calendarDays = days;
+  }
+
+  private createCalendarDayObj(
+    date: Date,
+    isCurrentMonth: boolean,
+    planStartStr: string | null,
+    planEndStr: string | null,
+    todayStr: string,
+    dayNames: string[]
+  ): CalendarDay {
+    const year = date.getFullYear();
+    const monthStr = String(date.getMonth() + 1).padStart(2, '0');
+    const dateNumStr = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${monthStr}-${dateNumStr}`;
+    const dayOfWeek = dayNames[date.getDay()];
+
+    const isInPlanRange = (!planStartStr || dateStr >= planStartStr) && (!planEndStr || dateStr <= planEndStr);
+    const targetDay = dayOfWeek.toLowerCase().trim();
+    const isWeekdayActive = this.isWeekdaySelected(dayOfWeek);
+    const isUnselectedWeekday = this.plan?.scheduleType === 'weekly' && !isWeekdayActive;
+
+    const entries = this.entries.filter(e => {
+      if (e['date'] && e['date'] === dateStr) return true;
+      const entryDay = String(e.dayOfWeek || '').toLowerCase().trim();
+      if (entryDay && entryDay === targetDay && isInPlanRange && isWeekdayActive) {
+        return true;
+      }
+      return false;
+    });
+
+    return {
+      date,
+      dateStr,
+      dayNumber: date.getDate(),
+      isCurrentMonth,
+      isToday: dateStr === todayStr,
+      isInPlanRange,
+      isUnselectedWeekday,
+      dayOfWeek,
+      entries
+    };
+  }
+
+  get currentMonthYearLabel(): string {
+    return this.currentCalendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  prevMonth() {
+    this.currentCalendarDate = new Date(this.currentCalendarDate.getFullYear(), this.currentCalendarDate.getMonth() - 1, 1);
+    this.buildCalendarDays();
+  }
+
+  nextMonth() {
+    this.currentCalendarDate = new Date(this.currentCalendarDate.getFullYear(), this.currentCalendarDate.getMonth() + 1, 1);
+    this.buildCalendarDays();
+  }
+
+  goToToday() {
+    this.currentCalendarDate = new Date();
+    this.buildCalendarDays();
+  }
+
+  goToPlanStart() {
+    this.initCalendarDate();
+    this.buildCalendarDays();
+  }
+
   getEntriesForDay(day: string): (EntityRecord & TimetableEntry)[] {
-    return this.entries.filter(e => e.dayOfWeek === day);
+    if (!day) return [];
+    const targetDay = String(day).toLowerCase().trim();
+    return this.entries.filter(e => String(e.dayOfWeek || '').toLowerCase().trim() === targetDay);
   }
 
   sortEntries() {
