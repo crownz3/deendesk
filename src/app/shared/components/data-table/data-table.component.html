@@ -241,7 +241,7 @@
               <ion-icon name="eye-outline"></ion-icon>
               <span>View details</span>
             </button>
-            <button mat-menu-item type="button" (click)="edit.emit(row)">
+            <button *ngIf="allowEdit" mat-menu-item type="button" (click)="edit.emit(row)">
               <ion-icon name="create-outline"></ion-icon>
               <span>Edit</span>
             </button>
@@ -338,7 +338,7 @@
             <ion-icon name="eye-outline"></ion-icon>
             <span>View details</span>
           </button>
-          <button mat-menu-item type="button" (click)="edit.emit(row)">
+          <button *ngIf="allowEdit" mat-menu-item type="button" (click)="edit.emit(row)">
             <ion-icon name="create-outline"></ion-icon>
             <span>Edit</span>
           </button>

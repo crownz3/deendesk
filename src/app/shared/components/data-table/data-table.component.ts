@@ -24,6 +24,7 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   @Input() emptyIcon = 'file-tray-outline';
   @Input() showActions = true;
   @Input() allowCredentials = false;
+  @Input() allowEdit = true;
   @Input() allowPromotion = false;
   @Input() allowDetails = false;
   @Input() allowDelete = false;

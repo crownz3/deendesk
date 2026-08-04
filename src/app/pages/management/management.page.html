@@ -42,7 +42,7 @@
             <ion-icon name="refresh-outline"></ion-icon>
             Refresh
           </button>
-          <button mat-flat-button color="primary" type="button" (click)="openCreate(vm.config)">
+          <button *ngIf="canCreateResource(vm.config, vm.profile)" mat-flat-button color="primary" type="button" (click)="openCreate(vm.config)">
             <ion-icon name="add-outline"></ion-icon>
             Add
           </button>
@@ -288,6 +288,7 @@
             [allowCredentials]="vm.config.allowCredentials || false"
             [allowPromotion]="vm.config.allowPromotion || false"
             [allowDetails]="vm.config.allowDetails || false"
+            [allowEdit]="canCreateResource(vm.config, vm.profile)"
             [allowDelete]="(vm.config.allowDelete || false) && (vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin')"
             [allowTransfer]="vm.config.allowTransfer || false"
             [allowSwap]="vm.config.allowSwap || false"

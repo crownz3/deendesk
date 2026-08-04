@@ -2130,87 +2130,29 @@ export class ManagementPage {
     });
   }
 
-  async openCreate(config: ManagementConfig): Promise<void> {
+  canCreateResource(config: ManagementConfig, profile: AppUser | null): boolean {
     if (config.resource === 'courses') {
-      await this.openAddCourseForMadrasa(config);
+      const role = String(profile?.role || '').toLowerCase();
+      return role === 'superadmin' || role === 'organizationadmin';
+    }
+    return true;
+  }
+
+  async openCreate(config: ManagementConfig): Promise<void> {
+    const profile = await firstValueFrom(this.auth.profile$);
+    if (!this.canCreateResource(config, profile)) {
+      this.snackBar.open('Only Organization Admins can add courses.', 'Close', { duration: 4000 });
       return;
     }
     await this.openEditor(config);
   }
 
-  private async openAddCourseForMadrasa(config: ManagementConfig): Promise<void> {
-    const profile = await firstValueFrom(this.auth.profile$);
-    const isOrgAdmin = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin';
-
-    if (isOrgAdmin) {
-      // Org admins use the full creation form
-      await this.openEditor(config);
-      return;
-    }
-
-    // Madrasa incharge — only select from org-configured courses
-    let orgCourses: EntityRecord[] = [];
-    try {
-      orgCourses = await this.repo.getAllOnce<EntityRecord>('courses', profile);
-    } catch (e) {
-      console.warn('Could not load org courses', e);
-    }
-
-    if (!orgCourses.length) {
-      this.snackBar.open('No courses have been configured by your organization admin yet. Please contact your organization admin.', 'Close', { duration: 5000 });
-      return;
-    }
-
-    const courseOptions = orgCourses.map(c => ({
-      label: `${String(c['name'] || '')} — ${String(c['type'] || c['code'] || '').toUpperCase()}`,
-      value: String(c.id)
-    }));
-
-    const madrasaId = (profile as any)?.madrasaId || (profile as any)?.primaryMadrasaId || '';
-
-    this.dialog.open(QuickAddDialogComponent, {
-      data: {
-        title: 'Add Course to Your Madrasa',
-        subtitle: 'Select a course type configured by your organization admin. All stages and settings will be copied automatically.',
-        fields: [
-          {
-            key: 'baseCourseId',
-            label: 'Select Course Type',
-            type: 'select',
-            required: true,
-            options: courseOptions,
-          },
-        ],
-        saveFn: async (formValue: Record<string, unknown>) => {
-          const baseId = String(formValue['baseCourseId'] || '');
-          const base = orgCourses.find(c => String(c.id) === baseId);
-          if (!base) throw new Error('Selected course not found.');
-
-          await this.repo.create('courses', {
-            name: base['name'],
-            code: base['code'],
-            type: base['type'],
-            stages: Array.isArray(base['stages']) ? [...base['stages']] : [],
-            defaultStages: Array.isArray(base['defaultStages']) ? [...base['defaultStages']] : [],
-            courseDurationYears: base['courseDurationYears'] || 1,
-            promotionRule: base['promotionRule'] || null,
-            requiredDaurCount: base['requiredDaurCount'] || null,
-            evaluationMode: base['evaluationMode'] || null,
-            description: base['description'] || '',
-            hasSubjects: base['hasSubjects'] || false,
-            madrasaId: madrasaId,
-            organizationId: profile?.organizationId || base['organizationId'] || '',
-            status: 'active',
-          }, profile);
-        }
-      },
-      width: '480px'
-    }).afterClosed().subscribe(res => {
-      if (res?.value) this.refreshData();
-    });
-  }
-
   async edit(config: ManagementConfig, row: EntityRecord): Promise<void> {
+    const profile = await firstValueFrom(this.auth.profile$);
+    if (config.resource === 'courses' && !this.canCreateResource(config, profile)) {
+      this.snackBar.open('Only Organization Admins can edit courses.', 'Close', { duration: 4000 });
+      return;
+    }
     await this.openEditor(config, row);
   }
 
