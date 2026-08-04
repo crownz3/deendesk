@@ -19,11 +19,10 @@ export class GlobalLoaderComponent {
     return m.includes('authenticat') ||
            m.includes('login') ||
            m.includes('logging') ||
-           m.includes('sign in') ||
-           m.includes('signing in') ||
-           m.includes('sign out') ||
-           m.includes('signing out') ||
-           m.includes('switch');
+           m.includes('sign') ||
+           m.includes('switch') ||
+           m.includes('session') ||
+           m.includes('secure');
   }
 
   onBackdropClick(): void {

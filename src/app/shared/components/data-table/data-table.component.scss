@@ -212,6 +212,18 @@ ion-icon {
   max-width: 360px;
 }
 
+.staff-text-list {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-text-main, #1e293b);
+
+  .staff-text-name {
+    font-weight: 600;
+    color: var(--app-text-main, #1e293b);
+  }
+}
+
 .staff-chip {
   display: inline-flex;
   align-items: center;

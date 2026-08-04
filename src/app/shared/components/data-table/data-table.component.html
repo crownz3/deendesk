@@ -462,24 +462,18 @@
               </span>
             </span>
 
-            <!-- Staff Chips -->
-            <span *ngIf="column.type === 'staffChips'" class="staff-chip-list">
+            <!-- Staff Chips (Card View: Displayed as clean text) -->
+            <span *ngIf="column.type === 'staffChips'" class="staff-text-list">
               <ng-container *ngIf="staffPeople(row, column.key).length; else noStaffAssignedCard">
-                <span class="staff-chip" *ngFor="let person of visibleStaffPeople(row, column.key)">
+                <ng-container *ngFor="let person of staffPeople(row, column.key); let last = last">
                   <ng-container *ngIf="isString(person); else objectStaffPerson">
                     <app-name-with-copy [id]="person" type="staff"></app-name-with-copy>
                   </ng-container>
                   <ng-template #objectStaffPerson>
-                    <img *ngIf="staffAvatar(person); else staffInitialAvatarCard" [src]="staffAvatar(person)" alt="" class="staff-chip-avatar" />
-                    <ng-template #staffInitialAvatarCard>
-                      <span class="staff-chip-avatar initials">{{ staffInitials(person) }}</span>
-                    </ng-template>
-                    <span class="staff-chip-name">{{ person.name || person.displayName || person.email || person.id }}</span>
+                    <span class="staff-text-name">{{ person.name || person.displayName || person.email || person.id }}</span>
                   </ng-template>
-                </span>
-                <span class="staff-chip more" *ngIf="hiddenStaffCount(row, column.key) > 0">
-                  +{{ hiddenStaffCount(row, column.key) }}
-                </span>
+                  <span *ngIf="!last">, </span>
+                </ng-container>
               </ng-container>
               <ng-template #noStaffAssignedCard>
                 <span class="muted-text">No staff</span>

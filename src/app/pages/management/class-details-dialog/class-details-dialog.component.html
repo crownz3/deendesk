@@ -52,7 +52,7 @@
           </div>
           <div class="info-item">
             <span class="info-label">Stage / Level</span>
-            <span class="info-value">{{ classRecord['stage'] || '-' }}</span>
+            <span class="info-value">{{ stageDisplay }}</span>
           </div>
           <div class="info-item">
             <span class="info-label">Created</span>
@@ -114,7 +114,7 @@
                 <div class="members-list" *ngIf="g.groupStaff?.length; else noStaff">
                   <div class="member-item" *ngFor="let sf of g.groupStaff">
                     <span class="member-name">{{ sf.displayName || sf.name || sf.email }}</span>
-                    <span class="member-sub">{{ sf.role | titlecase }}</span>
+                    <span class="member-sub">{{ getRoleLabel(sf['role']) }}</span>
                   </div>
                 </div>
                 <ng-template #noStaff>
