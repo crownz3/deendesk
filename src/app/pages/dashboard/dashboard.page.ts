@@ -249,12 +249,49 @@ export class DashboardPage {
               map((fetched: any) => {
                 const allStudents = [...fetched.studentsByClass, ...fetched.studentsByGroup];
                 const uniqueStudents = Array.from(new Map(allStudents.map((s: any) => [s.id, s])).values());
+
+                const profAny = profile as Record<string, any>;
+                const staffTokens = new Set<string>([
+                  ...this.extractAllStrings(profAny['id']),
+                  ...this.extractAllStrings(profAny['uid']),
+                  ...this.extractAllStrings(profAny['entityId']),
+                  ...this.extractAllStrings(profAny['email'])
+                ]);
+
+                const assignedGroups = initialData.classGroups.filter((g: any) => {
+                  const gStaffTokens = this.extractAllStrings([g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff']]);
+                  return gStaffTokens.some(tok => staffTokens.has(tok));
+                });
+                const assignedGroupIds = new Set<string>([
+                  ...assignedGroups.map((g: any) => String(g.id)),
+                  ...this.extractAllStrings([profAny['groupId'], profAny['groupIds'], profAny['classGroupId'], profAny['classGroupIds'], profAny['assignedGroupId']])
+                ]);
+
+                const assignedClassIds = new Set<string>([
+                  ...assignedGroups.map((g: any) => String(g['classId'] || '')).filter(Boolean),
+                  ...initialData.classes.filter((c: any) => {
+                    const cStaffTokens = this.extractAllStrings([c['assignedStaffIds'], c['assignedStaff'], c['staffIds'], c['teacherIds']]);
+                    return cStaffTokens.some(tok => staffTokens.has(tok));
+                  }).map((c: any) => String(c.id)),
+                  ...this.extractAllStrings([profAny['classId'], profAny['classIds'], profAny['assignedClassId'], profAny['assignedClassIds']])
+                ]);
+
+                const scopedStudents = uniqueStudents.filter((s: any) => {
+                  const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
+                  if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+                  const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
+                  if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+
+                  return false;
+                });
+
                 return {
                   ...initialData,
                   classPlans: fetched.classPlans,
                   courses: fetched.courses,
                   madrasas: fetched.madrasas,
-                  students: uniqueStudents,
+                  students: scopedStudents.length > 0 ? scopedStudents : (assignedGroupIds.size > 0 || assignedClassIds.size > 0 ? scopedStudents : uniqueStudents),
                   organizations: [] // Teachers don't need full org data for stats
                 };
               })
@@ -263,6 +300,26 @@ export class DashboardPage {
         );
       })
     );
+  }
+
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'number') return [String(val)];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const ids: string[] = [];
+      if (val.id) ids.push(String(val.id).trim());
+      if (val.uid) ids.push(String(val.uid).trim());
+      if (val.userId) ids.push(String(val.userId).trim());
+      if (val.entityId) ids.push(String(val.entityId).trim());
+      if (val.docId) ids.push(String(val.docId).trim());
+      if (val.email) ids.push(String(val.email).trim());
+      return ids;
+    }
+    return [];
   }
 
   private chunkArray<T>(array: T[], size: number): T[][] {

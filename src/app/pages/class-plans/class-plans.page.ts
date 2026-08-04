@@ -78,6 +78,56 @@ export class ClassPlansPage {
             if (!isSuperAdmin && orgId) {
               classPlans = classPlans.filter(p => !p.organizationId || p.organizationId === orgId);
             }
+
+            if (profile.role === 'teacher' || (profile.role as string) === 'staff') {
+              const profAny = profile as Record<string, any>;
+              const staffTokens = new Set<string>([
+                ...this.extractAllStrings(profAny['id']),
+                ...this.extractAllStrings(profAny['uid']),
+                ...this.extractAllStrings(profAny['entityId']),
+                ...this.extractAllStrings(profAny['email'])
+              ]);
+
+              const assignedGroups = (data.classGroups || []).filter((g: any) => {
+                const gStaffTokens = this.extractAllStrings([g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff']]);
+                return gStaffTokens.some(tok => staffTokens.has(tok));
+              });
+              const assignedGroupIds = new Set<string>([
+                ...assignedGroups.map((g: any) => String(g.id)),
+                ...this.extractAllStrings([profAny['groupId'], profAny['groupIds'], profAny['classGroupId'], profAny['classGroupIds'], profAny['assignedGroupId']])
+              ]);
+
+              const assignedClassIds = new Set<string>([
+                ...assignedGroups.map((g: any) => String(g['classId'] || '')).filter(Boolean),
+                ...(data.classes || []).filter((c: any) => {
+                  const cStaffTokens = this.extractAllStrings([c['assignedStaffIds'], c['assignedStaff'], c['staffIds'], c['teacherIds']]);
+                  return cStaffTokens.some(tok => staffTokens.has(tok));
+                }).map((c: any) => String(c.id)),
+                ...this.extractAllStrings([profAny['classId'], profAny['classIds'], profAny['assignedClassId'], profAny['assignedClassIds']])
+              ]);
+
+              const assignedCourseIds = new Set<string>([
+                ...(data.classes || []).filter((c: any) => assignedClassIds.has(String(c.id))).map((c: any) => String(c['courseId'] || '')).filter(Boolean),
+                ...this.extractAllStrings([profAny['courseId'], profAny['courseIds'], profAny['assignedCourseId'], profAny['assignedCourseIds']])
+              ]);
+
+              classPlans = classPlans.filter((p: any) => {
+                const pTeacherTokens = this.extractAllStrings([p['teacherId'], p['assignedStaffId'], p['teacherUid'], p['createdBy'], p['updatedBy']]);
+                if (pTeacherTokens.some(tok => staffTokens.has(tok))) return true;
+
+                const pGroupTokens = this.extractAllStrings([p['groupId'], p['classGroupId'], p['groupIds'], p['classGroupIds']]);
+                if (pGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+                const pClassTokens = this.extractAllStrings([p['classId'], p['assignedClassId'], p['classIds'], p['assignedClassIds']]);
+                if (pClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+
+                const pCourseTokens = this.extractAllStrings([p['courseId'], p['assignedCourseId'], p['courseIds'], p['assignedCourseIds']]);
+                if (pCourseTokens.some(crsId => assignedCourseIds.has(crsId))) return true;
+
+                return false;
+              });
+            }
+
             return {
               data: { profile, ...data, classPlans },
               loading: false,
@@ -535,5 +585,25 @@ export class ClassPlansPage {
     if (!profile) return false;
     const role = (profile.role || '').toLowerCase();
     return role === 'superadmin' || role === 'organizationadmin' || role === 'coordinator' || role === 'madrasaincharge';
+  }
+
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'number') return [String(val)];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const ids: string[] = [];
+      if (val.id) ids.push(String(val.id).trim());
+      if (val.uid) ids.push(String(val.uid).trim());
+      if (val.userId) ids.push(String(val.userId).trim());
+      if (val.entityId) ids.push(String(val.entityId).trim());
+      if (val.docId) ids.push(String(val.docId).trim());
+      if (val.email) ids.push(String(val.email).trim());
+      return ids;
+    }
+    return [];
   }
 }

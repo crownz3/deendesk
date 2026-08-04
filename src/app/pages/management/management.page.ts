@@ -1385,8 +1385,53 @@ export class ManagementPage {
     ]).pipe(
       map(([students, courses, classes, classGroups, parents, userRows, madrasas]) => {
         if (profile?.role === 'teacher' || (profile?.role as string) === 'staff') {
-          const allowedClassIds = classes.map(c => c.id);
-          students = students.filter(s => allowedClassIds.includes(String(s['classId'])));
+          const profAny = profile as Record<string, any>;
+          const staffTokens = new Set<string>([
+            ...this.extractAllStrings(profAny?.['id']),
+            ...this.extractAllStrings(profAny?.['uid']),
+            ...this.extractAllStrings(profAny?.['entityId']),
+            ...this.extractAllStrings(profAny?.['email'])
+          ]);
+
+          const assignedGroupIds = new Set<string>();
+          classGroups.forEach(g => {
+            const gStaffTokens = this.extractAllStrings([g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff']]);
+            if (gStaffTokens.some(tok => staffTokens.has(tok))) {
+              assignedGroupIds.add(String(g.id));
+            }
+          });
+          this.extractAllStrings([profAny?.['groupId'], profAny?.['groupIds'], profAny?.['classGroupId'], profAny?.['classGroupIds'], profAny?.['assignedGroupId']]).forEach(id => assignedGroupIds.add(id));
+
+          const assignedClassIds = new Set<string>();
+          classGroups.filter(g => assignedGroupIds.has(String(g.id))).forEach(g => {
+            if (g['classId']) assignedClassIds.add(String(g['classId']));
+          });
+          classes.forEach(c => {
+            const cStaffTokens = this.extractAllStrings([c['assignedStaffIds'], c['assignedStaff'], c['staffIds'], c['teacherIds']]);
+            if (cStaffTokens.some(tok => staffTokens.has(tok))) {
+              assignedClassIds.add(String(c.id));
+            }
+          });
+          this.extractAllStrings([profAny?.['classId'], profAny?.['classIds'], profAny?.['assignedClassId'], profAny?.['assignedClassIds']]).forEach(id => assignedClassIds.add(id));
+
+          const assignedCourseIds = new Set<string>();
+          classes.filter(c => assignedClassIds.has(String(c.id))).forEach(c => {
+            if (c['courseId']) assignedCourseIds.add(String(c['courseId']));
+          });
+          this.extractAllStrings([profAny?.['courseId'], profAny?.['courseIds'], profAny?.['assignedCourseId'], profAny?.['assignedCourseIds']]).forEach(id => assignedCourseIds.add(id));
+
+          students = students.filter(s => {
+            const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
+            if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+            const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
+            if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+
+            const sCourseTokens = this.extractAllStrings([s['courseId'], s['assignedCourseId'], s['courseIds'], s['assignedCourseIds']]);
+            if (sCourseTokens.some(crsId => assignedCourseIds.has(crsId))) return true;
+
+            return false;
+          });
         }
         return students.map((row) => {
         const studentUserId = this.recordId(row);

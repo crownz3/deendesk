@@ -190,6 +190,8 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         orgControl.setValue(profile.organizationId);
         orgControl.disable();
       }
+
+      this.applyAutoSelectCascade();
     });
 
     const roleControl = this.form.get('role');
@@ -434,6 +436,104 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
     const organizationId = this.form.get('organizationId')?.value;
     const madrasaId = this.form.get('madrasaId')?.value || (Array.isArray(this.form.get('madrasaIds')?.value) && this.form.get('madrasaIds')?.value[0]);
 
+    const isOrgAdminOrSuper = !this.currentUserProfile ||
+      this.currentUserProfile.role === 'superAdmin' ||
+      (this.currentUserProfile.role as string) === 'superadmin' ||
+      this.currentUserProfile.role === 'organizationAdmin' ||
+      (this.currentUserProfile.role as string) === 'organizationadmin';
+
+    if (!isOrgAdminOrSuper) {
+      const profAny = this.currentUserProfile as Record<string, any>;
+      const staffTokens = new Set<string>([
+        ...this.extractAllStrings(profAny?.['id']),
+        ...this.extractAllStrings(profAny?.['uid']),
+        ...this.extractAllStrings(profAny?.['entityId']),
+        ...this.extractAllStrings(profAny?.['email'])
+      ]);
+
+      const groupField = this.data.fields.find(f => f.key === 'groupId' || f.key === 'groupIds');
+      const classField = this.data.fields.find(f => f.key === 'classId' || f.key === 'classIds');
+      const courseField = this.data.fields.find(f => f.key === 'courseId' || f.key === 'newCourseId' || f.key === 'courseIds');
+
+      const assignedGroupIds = new Set<string>();
+      if (groupField?.options) {
+        groupField.options.forEach((opt: any) => {
+          const data = opt.data;
+          if (data) {
+            const gStaffTokens = this.extractAllStrings([data['assignedStaffIds'], data['assignedStaff'], data['staffIds'], data['teacherIds'], data['groupStaff']]);
+            if (gStaffTokens.some(tok => staffTokens.has(tok))) {
+              assignedGroupIds.add(String(opt.value || data.id));
+            }
+          }
+        });
+      }
+      this.extractAllStrings([profAny?.['groupId'], profAny?.['groupIds'], profAny?.['classGroupId'], profAny?.['classGroupIds'], profAny?.['assignedGroupId']]).forEach(id => assignedGroupIds.add(id));
+
+      const assignedClassIds = new Set<string>();
+      if (groupField?.options) {
+        groupField.options.filter((opt: any) => assignedGroupIds.has(String(opt.value || opt.data?.id))).forEach((opt: any) => {
+          if (opt.data?.classId) assignedClassIds.add(String(opt.data.classId));
+        });
+      }
+      if (classField?.options) {
+        classField.options.forEach((opt: any) => {
+          const data = opt.data;
+          if (data) {
+            const cStaffTokens = this.extractAllStrings([data['assignedStaffIds'], data['assignedStaff'], data['staffIds'], data['teacherIds']]);
+            if (cStaffTokens.some(tok => staffTokens.has(tok))) {
+              assignedClassIds.add(String(opt.value || data.id));
+            }
+          }
+        });
+      }
+      this.extractAllStrings([profAny?.['classId'], profAny?.['classIds'], profAny?.['assignedClassId'], profAny?.['assignedClassIds']]).forEach(id => assignedClassIds.add(id));
+
+      const assignedCourseIds = new Set<string>();
+      if (classField?.options) {
+        classField.options.filter((opt: any) => assignedClassIds.has(String(opt.value || opt.data?.id))).forEach((opt: any) => {
+          if (opt.data?.courseId) assignedCourseIds.add(String(opt.data.courseId));
+        });
+      }
+      if (courseField?.options) {
+        courseField.options.forEach((opt: any) => {
+          const data = opt.data;
+          if (data) {
+            const cStaffTokens = this.extractAllStrings([data['assignedStaffIds'], data['assignedStaff'], data['staffIds'], data['teacherIds']]);
+            if (cStaffTokens.some(tok => staffTokens.has(tok))) {
+              assignedCourseIds.add(String(opt.value || data.id));
+            }
+          }
+        });
+      }
+      this.extractAllStrings([profAny?.['courseId'], profAny?.['courseIds'], profAny?.['assignedCourseId'], profAny?.['assignedCourseIds']]).forEach(id => assignedCourseIds.add(id));
+
+      const assignedMadrasaIds = new Set<string>();
+      if (courseField?.options) {
+        courseField.options.filter((opt: any) => assignedCourseIds.has(String(opt.value || opt.data?.id))).forEach((opt: any) => {
+          if (opt.data?.madrasaId) assignedMadrasaIds.add(String(opt.data.madrasaId));
+        });
+      }
+      this.extractAllStrings([profAny?.['madrasaId'], profAny?.['madrasaIds'], profAny?.['primaryMadrasaId']]).forEach(id => assignedMadrasaIds.add(id));
+
+      if (field.key === 'groupId' || field.key === 'groupIds') {
+        if (assignedGroupIds.size > 0) {
+          options = options.filter((opt: any) => assignedGroupIds.has(String(opt.value || opt.data?.id)));
+        }
+      } else if (field.key === 'classId' || field.key === 'classIds') {
+        if (assignedClassIds.size > 0) {
+          options = options.filter((opt: any) => assignedClassIds.has(String(opt.value || opt.data?.id)));
+        }
+      } else if (field.key === 'courseId' || field.key === 'newCourseId' || field.key === 'courseIds') {
+        if (assignedCourseIds.size > 0) {
+          options = options.filter((opt: any) => assignedCourseIds.has(String(opt.value || opt.data?.id)));
+        }
+      } else if (field.key === 'madrasaId' || field.key === 'madrasaIds') {
+        if (assignedMadrasaIds.size > 0) {
+          options = options.filter((opt: any) => assignedMadrasaIds.has(String(opt.value || opt.data?.id)));
+        }
+      }
+    }
+
     if (field.key === 'madrasaId' || field.key === 'madrasaIds') {
       if (organizationId) {
         options = options.filter((opt: any) => {
@@ -455,7 +555,6 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
         const hasCourseControl = this.form.contains('courseId') || this.form.contains('newCourseId');
         
-        // If the form has a course control, strict enforce the course check. Otherwise, skip it.
         if (hasCourseControl) {
           if (!courseId) return false;
           if (!sameCourse) return false;
@@ -526,7 +625,7 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         const hasClassControl = this.form.contains('classId') || this.form.contains('classIds');
 
         if (hasClassControl) {
-          if (!classId || (Array.isArray(classId) && classId.length === 0)) return false; // Must select a class first
+          if (!classId || (Array.isArray(classId) && classId.length === 0)) return false;
 
           let sameClass = true;
           if (Array.isArray(classId)) {
@@ -554,6 +653,72 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
     }
 
     return options;
+  }
+
+  private applyAutoSelectCascade(): void {
+    setTimeout(() => {
+      const madrasaControl = this.form.get('madrasaId') || this.form.get('madrasaIds');
+      const courseControl = this.form.get('courseId') || this.form.get('newCourseId') || this.form.get('courseIds');
+      const classControl = this.form.get('classId') || this.form.get('classIds');
+      const groupControl = this.form.get('groupId') || this.form.get('groupIds');
+
+      const madrasaField = this.data.fields.find(f => f.key === 'madrasaId' || f.key === 'madrasaIds');
+      const courseField = this.data.fields.find(f => f.key === 'courseId' || f.key === 'newCourseId' || f.key === 'courseIds');
+      const classField = this.data.fields.find(f => f.key === 'classId' || f.key === 'classIds');
+      const groupField = this.data.fields.find(f => f.key === 'groupId' || f.key === 'groupIds');
+
+      if (madrasaField && madrasaControl && !madrasaControl.value) {
+        const validMadrasas = this.getFilteredOptions(madrasaField);
+        if (validMadrasas.length === 1) {
+          const val = Array.isArray(madrasaControl.value) ? [validMadrasas[0].value] : validMadrasas[0].value;
+          madrasaControl.setValue(val);
+        }
+      }
+
+      if (courseField && courseControl && !courseControl.value) {
+        const validCourses = this.getFilteredOptions(courseField);
+        if (validCourses.length === 1) {
+          const val = Array.isArray(courseControl.value) ? [validCourses[0].value] : validCourses[0].value;
+          courseControl.setValue(val);
+        }
+      }
+
+      if (classField && classControl && !classControl.value) {
+        const validClasses = this.getFilteredOptions(classField);
+        if (validClasses.length === 1) {
+          const val = Array.isArray(classControl.value) ? [validClasses[0].value] : validClasses[0].value;
+          classControl.setValue(val);
+        }
+      }
+
+      if (groupField && groupControl && !groupControl.value) {
+        const validGroups = this.getFilteredOptions(groupField);
+        if (validGroups.length === 1) {
+          const val = Array.isArray(groupControl.value) ? [validGroups[0].value] : validGroups[0].value;
+          groupControl.setValue(val);
+        }
+      }
+    }, 50);
+  }
+
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'number') return [String(val)];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const ids: string[] = [];
+      if (val.id) ids.push(String(val.id).trim());
+      if (val.uid) ids.push(String(val.uid).trim());
+      if (val.userId) ids.push(String(val.userId).trim());
+      if (val.entityId) ids.push(String(val.entityId).trim());
+      if (val.docId) ids.push(String(val.docId).trim());
+      if (val.email) ids.push(String(val.email).trim());
+      return ids;
+    }
+    return [];
   }
 
   isStageField(key: string): boolean {

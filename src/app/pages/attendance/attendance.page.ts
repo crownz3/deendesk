@@ -270,15 +270,85 @@ export class AttendancePage implements OnInit, OnDestroy {
   }
 
   getFilteredClassPlans(vm: AttendanceVm) {
+    let plans = vm.classPlans || [];
     const madrasaId = this.form.get('madrasaId')?.value;
     if (this.showMadrasaDropdown(vm.profile.role)) {
       if (!madrasaId) return [];
-      return vm.classPlans.filter(p => String(p.madrasaId) === String(madrasaId));
+      plans = plans.filter(p => String(p.madrasaId) === String(madrasaId));
+    } else if (madrasaId) {
+      plans = plans.filter(p => String(p.madrasaId) === String(madrasaId));
     }
-    if (madrasaId) {
-       return vm.classPlans.filter(p => String(p.madrasaId) === String(madrasaId));
+
+    if (vm.profile.role === 'teacher' || (vm.profile.role as string) === 'staff') {
+      const profAny = vm.profile as Record<string, any>;
+      const staffTokens = new Set<string>([
+        ...this.extractAllStrings(profAny['id']),
+        ...this.extractAllStrings(profAny['uid']),
+        ...this.extractAllStrings(profAny['entityId']),
+        ...this.extractAllStrings(profAny['email'])
+      ]);
+
+      const assignedGroups = (vm.classGroups || []).filter((g: any) => {
+        const gStaffTokens = this.extractAllStrings([g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff']]);
+        return gStaffTokens.some(tok => staffTokens.has(tok));
+      });
+      const assignedGroupIds = new Set<string>([
+        ...assignedGroups.map((g: any) => String(g.id)),
+        ...this.extractAllStrings([profAny['groupId'], profAny['groupIds'], profAny['classGroupId'], profAny['classGroupIds'], profAny['assignedGroupId']])
+      ]);
+
+      const assignedClassIds = new Set<string>([
+        ...assignedGroups.map((g: any) => String(g['classId'] || '')).filter(Boolean),
+        ...(vm.classes || []).filter((c: any) => {
+          const cStaffTokens = this.extractAllStrings([c['assignedStaffIds'], c['assignedStaff'], c['staffIds'], c['teacherIds']]);
+          return cStaffTokens.some(tok => staffTokens.has(tok));
+        }).map((c: any) => String(c.id)),
+        ...this.extractAllStrings([profAny['classId'], profAny['classIds'], profAny['assignedClassId'], profAny['assignedClassIds']])
+      ]);
+
+      const assignedCourseIds = new Set<string>([
+        ...(vm.classes || []).filter((c: any) => assignedClassIds.has(String(c.id))).map((c: any) => String(c['courseId'] || '')).filter(Boolean),
+        ...this.extractAllStrings([profAny['courseId'], profAny['courseIds'], profAny['assignedCourseId'], profAny['assignedCourseIds']])
+      ]);
+
+      plans = plans.filter((p: any) => {
+        const pTeacherTokens = this.extractAllStrings([p['teacherId'], p['assignedStaffId'], p['teacherUid'], p['createdBy'], p['updatedBy']]);
+        if (pTeacherTokens.some(tok => staffTokens.has(tok))) return true;
+
+        const pGroupTokens = this.extractAllStrings([p['groupId'], p['classGroupId'], p['groupIds'], p['classGroupIds']]);
+        if (pGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+        const pClassTokens = this.extractAllStrings([p['classId'], p['assignedClassId'], p['classIds'], p['assignedClassIds']]);
+        if (pClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+
+        const pCourseTokens = this.extractAllStrings([p['courseId'], p['assignedCourseId'], p['courseIds'], p['assignedCourseIds']]);
+        if (pCourseTokens.some(crsId => assignedCourseIds.has(crsId))) return true;
+
+        return false;
+      });
     }
-    return vm.classPlans;
+
+    return plans;
+  }
+
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'number') return [String(val)];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const ids: string[] = [];
+      if (val.id) ids.push(String(val.id).trim());
+      if (val.uid) ids.push(String(val.uid).trim());
+      if (val.userId) ids.push(String(val.userId).trim());
+      if (val.entityId) ids.push(String(val.entityId).trim());
+      if (val.docId) ids.push(String(val.docId).trim());
+      if (val.email) ids.push(String(val.email).trim());
+      return ids;
+    }
+    return [];
   }
 
   async onGetAttendance(vm: AttendanceVm) {
