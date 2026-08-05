@@ -1,0 +1,95 @@
+<div class="stage-info-dialog">
+  <div class="dialog-header">
+    <div class="header-title-group">
+      <ion-icon name="information-circle-outline" class="info-icon"></ion-icon>
+      <h2>{{ data.title || 'Information & Syllabus' }}</h2>
+    </div>
+    <button mat-icon-button type="button" (click)="close()" aria-label="Close dialog">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+  </div>
+
+  <div class="dialog-body">
+    <!-- Group Information Mode -->
+    <ng-container *ngIf="data.groupInfo as group">
+      <div class="info-card group-card">
+        <div class="card-header">
+          <ion-icon name="shapes-outline" class="card-icon"></ion-icon>
+          <div>
+            <h3>{{ group.name || 'Class Group' }}</h3>
+            <p class="subtitle" *ngIf="group.courseName">{{ group.courseName }}</p>
+          </div>
+        </div>
+        <div class="details-grid">
+          <div class="detail-item" *ngIf="group.stageName">
+            <span class="label">Stage / Level:</span>
+            <span class="value">{{ group.stageName }}</span>
+          </div>
+          <div class="detail-item" *ngIf="group.staffName">
+            <span class="label">Assigned Staff:</span>
+            <span class="value">{{ group.staffName }}</span>
+          </div>
+          <div class="detail-item" *ngIf="group.studentCount !== undefined">
+            <span class="label">Total Students:</span>
+            <span class="value">{{ group.studentCount }} Students</span>
+          </div>
+          <div class="detail-item" *ngIf="group.schedule">
+            <span class="label">Schedule:</span>
+            <span class="value">{{ group.schedule }}</span>
+          </div>
+        </div>
+        <div class="description-box" *ngIf="group.description">
+          <h4>Group Details / Remarks</h4>
+          <p>{{ group.description }}</p>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Stage / Sub-stage Syllabus Information Mode -->
+    <ng-container *ngIf="!data.groupInfo">
+      <div class="info-meta" *ngIf="data.courseName || data.stageName">
+        <span class="meta-badge course" *ngIf="data.courseName">
+          <ion-icon name="ribbon-outline"></ion-icon>
+          {{ data.courseName }}
+        </span>
+        <span class="meta-badge stage" *ngIf="data.stageName">
+          <ion-icon name="layers-outline"></ion-icon>
+          {{ data.stageName }}
+        </span>
+        <span class="meta-badge substage" *ngIf="data.subStageName">
+          <ion-icon name="bookmark-outline"></ion-icon>
+          {{ data.subStageName }}
+        </span>
+      </div>
+
+      <div class="description-section" *ngIf="data.description">
+        <h3>Description & Syllabus Overview</h3>
+        <div class="description-content">
+          <p>{{ data.description }}</p>
+        </div>
+      </div>
+
+      <div class="substages-section" *ngIf="data.subStages && data.subStages.length > 0">
+        <h3>Sub-Stages Breakdown ({{ data.subStages.length }})</h3>
+        <div class="substage-list">
+          <div class="substage-card" *ngFor="let sub of data.subStages; let i = index">
+            <div class="substage-header">
+              <span class="substage-num">{{ i + 1 }}</span>
+              <h4>{{ sub.name }}</h4>
+            </div>
+            <p class="substage-desc" *ngIf="sub.description">{{ sub.description }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="empty-info" *ngIf="!data.description && (!data.subStages || data.subStages.length === 0)">
+        <ion-icon name="document-text-outline" class="empty-icon"></ion-icon>
+        <p>No detailed syllabus description provided for this stage yet.</p>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="dialog-actions">
+    <button mat-flat-button color="primary" type="button" (click)="close()">Got it</button>
+  </div>
+</div>

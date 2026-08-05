@@ -31,14 +31,14 @@ export function studentDobValidator(control: AbstractControl): ValidationErrors 
 
   return null;
 }
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { StageInfoDialogComponent } from '../stage-info-dialog/stage-info-dialog.component';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { QuickAddField, PermissionKey, AppUser, UserRole } from '../../../core/models/domain.model';
 import { DEFAULT_STAGES_BY_COURSE_TYPE } from '../../../core/constants/defaults';
 import { AuthService } from '../../../core/services/auth.service';
 import { RepositoryService } from '../../../core/services/repository.service';
 import { RolePermissionsService } from '../../../core/services/role-permissions.service';
 import { Subscription, firstValueFrom } from 'rxjs';
-import { MatDialog } from '@angular/material/dialog';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 export interface QuickAddDialogData {
@@ -999,6 +999,62 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       }
       this.initStageState(key);
     }
+  }
+
+  hasStageOrGroupInfo(fieldKey: string): boolean {
+    return this.isStageField(fieldKey) || fieldKey === 'groupId' || fieldKey === 'groupIds' || fieldKey === 'courseId';
+  }
+
+  showStageOrGroupInfo(fieldKey: string): void {
+    if (fieldKey === 'groupId' || fieldKey === 'groupIds') {
+      const groupVal = this.form.get(fieldKey)?.value;
+      const groupField = this.data.fields.find(f => f.key === 'groupId' || f.key === 'groupIds');
+      const opt = groupField?.options?.find((o: any) => String(o.value) === String(groupVal) || String(o.data?.id) === String(groupVal));
+      const data = opt?.data || {};
+
+      this.dialog.open(StageInfoDialogComponent, {
+        data: {
+          title: 'Class Group Details',
+          groupInfo: {
+            name: opt?.label || data.name || 'Class Group',
+            courseName: data.courseName || data.courseId,
+            stageName: data.stage || data.stageOrLevel || data.level,
+            staffName: data.assignedStaffNames || data.staffName || 'Staff',
+            schedule: data.schedule || data.timing || data.shift,
+            studentCount: data.studentCount || 0,
+            description: data.description || data.remarks || ''
+          }
+        },
+        width: '480px'
+      });
+      return;
+    }
+
+    const selectedCourse = this.getSelectedCourse();
+    const courseName = selectedCourse ? String(selectedCourse['name'] || selectedCourse['id']) : '';
+    const mainStage = this.selectedMainStage[fieldKey] || String(this.form.get(fieldKey)?.value || '').split(' - ')[0] || '';
+    const subStage = this.selectedSubStage[fieldKey] || (String(this.form.get(fieldKey)?.value || '').includes(' - ') ? String(this.form.get(fieldKey)?.value).split(' - ').slice(1).join(' - ') : '');
+    const stageDescriptions = (selectedCourse?.['stageDescriptions'] as Record<string, string>) || {};
+
+    const fullStageKey = subStage ? `${mainStage} - ${subStage}` : mainStage;
+    const description = stageDescriptions[fullStageKey] || stageDescriptions[mainStage] || stageDescriptions[subStage] || (selectedCourse?.['description'] as string) || '';
+
+    const subStagesList = this.getSubStagesForSelectedMainStage(fieldKey).map(sub => ({
+      name: sub,
+      description: stageDescriptions[`${mainStage} - ${sub}`] || stageDescriptions[sub] || ''
+    }));
+
+    this.dialog.open(StageInfoDialogComponent, {
+      data: {
+        title: 'Stage Syllabus & Information',
+        courseName,
+        stageName: mainStage || 'Course Overview',
+        subStageName: subStage,
+        description,
+        subStages: subStagesList
+      },
+      width: '480px'
+    });
   }
 
   canQuickAdd(resource?: string): boolean {

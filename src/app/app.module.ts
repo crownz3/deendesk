@@ -95,6 +95,7 @@ import { ClassTransferWizardDialogComponent } from './pages/management/class-tra
 import { StudentTransferDialogComponent } from './pages/management/student-transfer-dialog/student-transfer-dialog.component';
 import { PromoteDemoteDialogComponent } from './pages/management/promote-demote-dialog/promote-demote-dialog.component';
 import { CourseStagesDialogComponent } from './pages/management/course-stages-dialog/course-stages-dialog.component';
+import { StageInfoDialogComponent } from './shared/components/stage-info-dialog/stage-info-dialog.component';
 import { CourseCatalogPage } from './pages/course-catalog/course-catalog.page';
 import { ReportFilterBuilderComponent } from './pages/reports/components/report-filter-builder.component';
 import { ReportExportWizardComponent } from './pages/reports/components/report-export-wizard.component';
@@ -259,6 +260,7 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     StudentTransferDialogComponent,
     PromoteDemoteDialogComponent,
     CourseStagesDialogComponent,
+    StageInfoDialogComponent,
     ReportFilterBuilderComponent,
     ReportExportWizardComponent,
     ReportChartViewComponent,

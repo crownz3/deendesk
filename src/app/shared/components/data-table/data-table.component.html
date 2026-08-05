@@ -216,12 +216,20 @@
                   </button>
                 </div>
                 <ng-template #plainContent>
-                  <div *ngIf="column.key === 'name' && row['role'] && row['role'] !== 'teacher' && row['role'] !== 'staff' && row['role'] !== 'student' && row['role'] !== 'parent'; else justText" class="name-with-badge">
+                  <div *ngIf="column.key === 'name' && row['role'] && row['role'] !== 'teacher' && row['role'] !== 'staff' && row['role'] !== 'student' && row['role'] !== 'parent'; else checkGroupOrText" class="name-with-badge">
                     <span class="role-badge small-badge">{{ formatRole(row['role']) }}</span>
                     <span class="staff-chip-name">{{ text(row, column.key) }}</span>
                   </div>
-                  <ng-template #justText>
-                    <span>{{ getTableCellValue(row, column) }}</span>
+                  <ng-template #checkGroupOrText>
+                    <div *ngIf="column.key === 'name' && resourceKey === 'classGroups'; else justText" style="display: inline-flex; align-items: center; gap: 6px;">
+                      <span>{{ getTableCellValue(row, column) }}</span>
+                      <button mat-icon-button type="button" style="width: 24px; height: 24px; line-height: 24px;" (click)="openGroupInfo(row); $event.stopPropagation()" matTooltip="View Class Group Info">
+                        <ion-icon name="information-circle-outline" style="font-size: 16px; color: var(--ion-color-primary, #3880ff);"></ion-icon>
+                      </button>
+                    </div>
+                    <ng-template #justText>
+                      <span>{{ getTableCellValue(row, column) }}</span>
+                    </ng-template>
                   </ng-template>
                 </ng-template>
               </ng-container>

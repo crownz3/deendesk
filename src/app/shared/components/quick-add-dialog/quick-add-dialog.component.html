@@ -105,8 +105,12 @@
               </ng-container>
               <ng-template #standardOption>{{ option.label }}</ng-template>
             </mat-option>
-          </mat-select>
+            </mat-select>
           </ng-container>
+
+          <button *ngIf="hasStageOrGroupInfo(field.key)" mat-icon-button matSuffix type="button" class="info-button" (click)="showStageOrGroupInfo(field.key); $event.stopPropagation()" matTooltip="View Details & Syllabus">
+            <ion-icon name="information-circle-outline" style="font-size: 20px; color: var(--ion-color-primary, #3880ff);"></ion-icon>
+          </button>
 
           <!-- Dynamic Stage Select Override -->
           <ng-container *ngIf="isStageField(field.key) && shouldShowStageSelect()">

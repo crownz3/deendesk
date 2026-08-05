@@ -234,6 +234,49 @@
     }
   }
 
+  .stage-desc-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+
+    .desc-icon {
+      font-size: 16px;
+      color: #64748b;
+    }
+
+    .parent-stage-desc-input {
+      flex: 1;
+      font-size: 12px;
+      color: #334155;
+      background: transparent;
+      border: none;
+      outline: none;
+      padding: 4px 0;
+
+      &::placeholder {
+        color: #94a3b8;
+      }
+    }
+  }
+
+  .sub-stage-desc-input {
+    flex: 1;
+    font-size: 11px;
+    color: #475569;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    padding: 4px 8px;
+    outline: none;
+
+    &:focus {
+      border-color: #3880ff;
+    }
+  }
+
   .sub-stages-box {
     padding: 12px 14px;
 

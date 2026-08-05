@@ -108,6 +108,12 @@
               </div>
             </div>
 
+            <!-- Description for Main Stage -->
+            <div class="stage-desc-row">
+              <ion-icon name="document-text-outline" class="desc-icon"></ion-icon>
+              <input type="text" class="parent-stage-desc-input" [(ngModel)]="item.description" placeholder="Syllabus description for {{ item.name }} (optional)">
+            </div>
+
             <!-- Inner Sub-Stages Box -->
             <div class="sub-stages-box">
               <div class="sub-stages-header">
@@ -120,6 +126,7 @@
                 <div class="sub-stage-row" *ngFor="let sub of item.subStages; let sj = index; trackBy: trackByIndex">
                   <ion-icon name="return-down-forward-outline" class="sub-icon"></ion-icon>
                   <input type="text" class="sub-stage-input" [(ngModel)]="item.subStages[sj]" (ngModelChange)="syncStagesListFromHierarchy()" placeholder="Sub-stage Name">
+                  <input type="text" class="sub-stage-desc-input" [ngModel]="getSubStageDescription(item, sub)" (ngModelChange)="setSubStageDescription(item, sub, $event)" placeholder="Sub-stage description (optional)">
                   <button mat-icon-button color="warn" type="button" (click)="removeSubStage(i, sj)" matTooltip="Remove Inner Stage">
                     <ion-icon name="close-circle-outline"></ion-icon>
                   </button>

@@ -15,6 +15,8 @@ export interface CourseStagesDialogData {
 export interface StageHierarchyItem {
   name: string;
   subStages: string[];
+  description?: string;
+  subStageDescriptions?: Record<string, string>;
   expanded?: boolean;
   subStageInput?: string;
 }
@@ -149,6 +151,7 @@ export class CourseStagesDialogComponent implements OnInit {
   private buildHierarchyFromStagesList() {
     this.hierarchicalStages = [];
     const parentMap = new Map<string, StageHierarchyItem>();
+    const existingDesc = (this.selectedCourse?.['stageDescriptions'] as Record<string, string>) || {};
 
     for (const raw of this.stagesList) {
       const name = String(raw).trim();
@@ -174,21 +177,34 @@ export class CourseStagesDialogComponent implements OnInit {
         const key = parentName.toLowerCase();
         let item = parentMap.get(key);
         if (!item) {
-          item = { name: parentName, subStages: [], expanded: true };
+          item = { name: parentName, subStages: [], description: existingDesc[parentName] || '', subStageDescriptions: {}, expanded: true };
           parentMap.set(key, item);
           this.hierarchicalStages.push(item);
         }
         if (!Array.isArray(item.subStages)) item.subStages = [];
         item.subStages.push(subName);
+
+        const fullKey = `${parentName} - ${subName}`;
+        if (!item.subStageDescriptions) item.subStageDescriptions = {};
+        item.subStageDescriptions[subName] = existingDesc[fullKey] || existingDesc[subName] || '';
       } else {
         const key = name.toLowerCase();
         if (!parentMap.has(key)) {
-          const item: StageHierarchyItem = { name, subStages: [], expanded: true };
+          const item: StageHierarchyItem = { name, subStages: [], description: existingDesc[name] || '', subStageDescriptions: {}, expanded: true };
           parentMap.set(key, item);
           this.hierarchicalStages.push(item);
         }
       }
     }
+  }
+
+  getSubStageDescription(item: StageHierarchyItem, sub: string): string {
+    return item.subStageDescriptions?.[sub] || '';
+  }
+
+  setSubStageDescription(item: StageHierarchyItem, sub: string, desc: string): void {
+    if (!item.subStageDescriptions) item.subStageDescriptions = {};
+    item.subStageDescriptions[sub] = desc;
   }
 
   syncStagesListFromHierarchy() {
@@ -411,6 +427,27 @@ export class CourseStagesDialogComponent implements OnInit {
         }, profile).catch(err => console.warn('Could not update org naming rules', err));
       }
 
+      const stageDescriptions: Record<string, string> = {};
+      for (const item of this.hierarchicalStages) {
+        const pName = (item.name || '').trim();
+        if (!pName) continue;
+        if (item.description?.trim()) {
+          stageDescriptions[pName] = item.description.trim();
+        }
+        if (item.subStages && item.subStages.length > 0 && item.subStageDescriptions) {
+          for (const sub of item.subStages) {
+            const subName = (sub || '').trim();
+            if (!subName) continue;
+            const fullKey = `${pName} - ${subName}`;
+            const desc = item.subStageDescriptions[subName];
+            if (desc?.trim()) {
+              stageDescriptions[fullKey] = desc.trim();
+              stageDescriptions[subName] = desc.trim();
+            }
+          }
+        }
+      }
+
       if (this.mode === 'course') {
         if (!this.selectedCourseId || !this.selectedCourse) {
           this.snackBar.open('Please select a course first', 'Close', { duration: 3000 });
@@ -418,12 +455,14 @@ export class CourseStagesDialogComponent implements OnInit {
         }
 
         await this.repo.update('courses', this.selectedCourseId, {
-          stages: cleanStages
+          stages: cleanStages,
+          stageDescriptions: stageDescriptions
         }, profile);
 
         this.selectedCourse['stages'] = cleanStages;
-        this.snackBar.open(`Stages updated for course "${this.selectedCourse['name']}"`, 'Close', { duration: 3000 });
-        this.dialogRef.close({ success: true, mode: 'course', id: this.selectedCourseId, stages: cleanStages });
+        this.selectedCourse['stageDescriptions'] = stageDescriptions;
+        this.snackBar.open(`Stages & descriptions updated for course "${this.selectedCourse['name']}"`, 'Close', { duration: 3000 });
+        this.dialogRef.close({ success: true, mode: 'course', id: this.selectedCourseId, stages: cleanStages, stageDescriptions });
       } else {
         // Save for Course Type
         if (!this.selectedCourseTypeId) {

@@ -8,6 +8,9 @@ import { MatTableDataSource } from '@angular/material/table';
 import { MatSort } from '@angular/material/sort';
 import { PageEvent } from '@angular/material/paginator';
 
+import { StageInfoDialogComponent } from '../stage-info-dialog/stage-info-dialog.component';
+import { MatDialog } from '@angular/material/dialog';
+
 @Component({
   selector: 'app-data-table',
   templateUrl: './data-table.component.html',
@@ -66,7 +69,28 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   visibleCardFieldKeys: string[] = [];
   pageIndex = 0;
 
-  constructor(private snackBar: MatSnackBar) {}
+  constructor(
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
+  ) {}
+
+  openGroupInfo(row: EntityRecord): void {
+    this.dialog.open(StageInfoDialogComponent, {
+      data: {
+        title: 'Class Group Details',
+        groupInfo: {
+          name: String(row['name'] || row['title'] || 'Class Group'),
+          courseName: String(row['courseName'] || row['courseId'] || ''),
+          stageName: String(row['stage'] || row['stageOrLevel'] || row['level'] || ''),
+          staffName: String(row['assignedStaffNames'] || row['staffName'] || ''),
+          schedule: String(row['schedule'] || row['timing'] || row['shift'] || ''),
+          studentCount: Number(row['studentCount'] || 0),
+          description: String(row['description'] || row['remarks'] || '')
+        }
+      },
+      width: '480px'
+    });
+  }
 
   ngOnInit(): void {
     this.loadViewPreferences();

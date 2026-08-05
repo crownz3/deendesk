@@ -1,10 +1,11 @@
 import { Component, Inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { EntityRecord, RepositoryService } from '../../../core/services/repository.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DEFAULT_STAGES_BY_COURSE_TYPE } from '../../../core/constants/defaults';
 import { firstValueFrom } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { StageInfoDialogComponent } from '../../../shared/components/stage-info-dialog/stage-info-dialog.component';
 
 export interface PromoteDemoteData {
   student?: EntityRecord;
@@ -49,7 +50,8 @@ export class PromoteDemoteDialogComponent implements OnInit {
     private dialogRef: MatDialogRef<PromoteDemoteDialogComponent>,
     private repo: RepositoryService,
     private auth: AuthService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog
   ) {
     this.targetStudents = data.students?.length ? data.students : (data.student ? [data.student] : []);
     this.firstStudent = this.targetStudents[0] || null;
@@ -246,6 +248,34 @@ export class PromoteDemoteDialogComponent implements OnInit {
       const subs = this.stageHierarchy[0].subStages;
       this.selectedSubStage = subs.length > 0 ? subs[0] : '';
     }
+  }
+
+  showStageInfo(): void {
+    const course = this.currentCourseRecord;
+    const courseName = course ? String(course['name'] || course.id) : this.courseName;
+    const mainStage = this.selectedMainStage || this.selectedStageOption || '';
+    const subStage = this.selectedSubStage || '';
+    const stageDescriptions = (course?.['stageDescriptions'] as Record<string, string>) || {};
+
+    const fullStageKey = subStage ? `${mainStage} - ${subStage}` : mainStage;
+    const description = stageDescriptions[fullStageKey] || stageDescriptions[mainStage] || stageDescriptions[subStage] || (course?.['description'] as string) || '';
+
+    const subStagesList = this.getSubStagesForMainStage(mainStage).map(sub => ({
+      name: sub,
+      description: stageDescriptions[`${mainStage} - ${sub}`] || stageDescriptions[sub] || ''
+    }));
+
+    this.dialog.open(StageInfoDialogComponent, {
+      data: {
+        title: 'Target Stage Syllabus & Information',
+        courseName,
+        stageName: mainStage || 'Course Overview',
+        subStageName: subStage,
+        description,
+        subStages: subStagesList
+      },
+      width: '480px'
+    });
   }
 
   formatStageWithHyphen(mainName: string, subName: string): string {
