@@ -134,6 +134,14 @@
             Download CSV
           </button>
           <button
+            *ngIf="['staff', 'incharges', 'coordinators', 'users'].includes(vm.config.resource) && vm.rows.length > 0"
+            mat-stroked-button
+            type="button"
+            (click)="downloadStaffReportCsv(vm.rows)">
+            <ion-icon name="download-outline"></ion-icon>
+            Download Staff CSV
+          </button>
+          <button
             *ngIf="vm.config.resource === 'users' && vm.rows.length > 0"
             mat-stroked-button
             color="accent"

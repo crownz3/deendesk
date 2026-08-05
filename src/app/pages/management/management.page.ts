@@ -4363,6 +4363,27 @@ export class ManagementPage {
     this.csv.download(`organizations-${new Date().toISOString().slice(0, 10)}.csv`, csv);
   }
 
+  downloadStaffReportCsv(rows: EntityRecord[]): void {
+    const csvRows = rows.map(row => {
+      const groups = row['assignedClassGroup'] || row['groupName'] || row['group'] || row['section'] || 'Unassigned';
+      const madrasas = row['madrasaNames'] || row['madrasaName'] || row['madrasa'] || 'Unassigned';
+      return {
+        'Staff Name': row['displayName'] || row['name'] || '',
+        'Email': row['email'] || '',
+        'Mobile Number': row['mobileNumber'] || row['phone'] || row['mobile'] || 'N/A',
+        'Gender': row['gender'] || 'N/A',
+        'Role': this.formatRole(row['role'] || row['roles']),
+        'Assigned Madrasa(s)': String(madrasas),
+        'Assigned Class Group(s)': String(groups),
+        'Status': row['status'] || 'active',
+        'Credential Status': this.getCredentialStatusLabel(row)
+      };
+    });
+
+    const csv = this.csv.toCsv(csvRows);
+    this.csv.download(`staff-assigned-groups-report-${new Date().toISOString().slice(0, 10)}.csv`, csv);
+  }
+
   private getCredentialStatusLabel(row: EntityRecord): string {
     const status = row['credentialStatus'];
     if (status === 'TEMP_PASSWORD_PENDING') return 'Temporary password pending';
