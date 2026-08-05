@@ -24,6 +24,8 @@ export interface ReportState {
     courses: Map<string, any>;
     classes: Map<string, any>;
     users: Map<string, any>;
+    classGroups?: any[];
+    staffDocs?: any[];
   };
 }
 
@@ -48,7 +50,8 @@ export class ReportBuilderService {
       madrasas: new Map(),
       courses: new Map(),
       classes: new Map(),
-      users: new Map()
+      users: new Map(),
+      classGroups: []
     }
   });
 
@@ -138,7 +141,6 @@ export class ReportBuilderService {
     this.updateState({ filters });
     const currentDef = this.state.value.baseDefinition;
     if (currentDef) {
-      // Re-fetch or re-filter data
       this.fetchData(currentDef, filters);
     }
   }
@@ -159,12 +161,14 @@ export class ReportBuilderService {
       if (!profile) return;
       
       // Fetch references for display names
-      const [organizations, madrasas, courses, classes, users] = await Promise.all([
+      const [organizations, madrasas, courses, classes, users, classGroups, staffDocs] = await Promise.all([
         this.repo.getAllOnce<any>('organizations', profile).catch(() => []),
         this.repo.getAllOnce<any>('madrasas', profile).catch(() => []),
         this.repo.getAllOnce<any>('courses', profile).catch(() => []),
         this.repo.getAllOnce<any>('classes', profile).catch(() => []),
-        this.repo.getAllOnce<any>('users', profile).catch(() => [])
+        this.repo.getAllOnce<any>('users', profile).catch(() => []),
+        this.repo.getAllOnce<any>('classGroups', profile).catch(() => []),
+        this.repo.getAllOnce<any>('staff', profile).catch(() => [])
       ]);
 
       const refs = {
@@ -172,7 +176,9 @@ export class ReportBuilderService {
         madrasas: new Map(madrasas.map(m => [m.id, m])),
         courses: new Map(courses.map(c => [c.id, c])),
         classes: new Map(classes.map(c => [c.id, c])),
-        users: new Map(users.map(u => [u.id, u]))
+        users: new Map(users.map(u => [u.id, u])),
+        classGroups: classGroups,
+        staffDocs: staffDocs
       };
       
       this.updateState({ references: refs });
@@ -191,7 +197,6 @@ export class ReportBuilderService {
   }
 
   private processData(rawData: any[]): void {
-    // 0. Normalize Data and Resolve References
     let processed = this.resolveReferences(rawData);
 
     // Deduplicate records by unique entity identifier & display signature to prevent duplicate rows in ALL reports
@@ -300,13 +305,42 @@ export class ReportBuilderService {
 
   private resolveReferences(data: any[]): any[] {
     const refs = this.state.value.references;
+    const allStaffDocs = refs.staffDocs || [];
+    const allClassGroups = refs.classGroups || [];
+
+    function extractTokens(val: any): string[] {
+      if (!val) return [];
+      if (typeof val === 'string') {
+        if (val.includes(',')) return val.split(',').flatMap(extractTokens);
+        return [val.trim()];
+      }
+      if (typeof val === 'number') return [String(val)];
+      if (typeof val === 'object') {
+        if (Array.isArray(val)) return val.flatMap(extractTokens);
+        const keys = ['id', 'uid', 'userId', 'staffId', 'docId', '_id', 'email', 'name', 'displayName', 'title', 'groupName', 'className'];
+        const found: string[] = [];
+        for (const k of keys) {
+          if (val[k]) found.push(...extractTokens(val[k]));
+        }
+        return found;
+      }
+      return [String(val).trim()];
+    }
+
     return data.map(row => {
-      const studentId = row.studentId || row.userId || row.id;
+      const studentId = row.studentId || row.userId || row.id || row.uid;
       const user = refs.users?.get(studentId) || row;
-      const organizationId = row.organizationId || user.organizationId;
-      const madrasaId = row.madrasaId || user.madrasaId;
-      const courseId = row.courseId || user.courseId;
-      const classId = row.classId || user.classId;
+      const targetCleanId = String(studentId || '').trim();
+
+      const matchingStaffDoc = allStaffDocs.find((s: any) =>
+        String(s.id || s.docId || s.userId || s.uid || '').trim().toLowerCase() === targetCleanId.toLowerCase() ||
+        (s.email && user.email && String(s.email).trim().toLowerCase() === String(user.email).trim().toLowerCase())
+      ) || {};
+
+      const organizationId = row.organizationId || user.organizationId || matchingStaffDoc.organizationId;
+      const madrasaId = row.madrasaId || user.madrasaId || matchingStaffDoc.madrasaId;
+      const courseId = row.courseId || user.courseId || matchingStaffDoc.courseId;
+      const classId = row.classId || user.classId || matchingStaffDoc.classId;
       const parentId = row.parentId || user.parentId;
       
       const organization = refs.organizations?.get(organizationId) || {};
@@ -318,6 +352,149 @@ export class ReportBuilderService {
       const rawAdmission = row.admissionDate || user.admissionDate || row.createdAt || user.createdAt || row.joinedAt || user.joinedAt;
       const formattedAdmission = rawAdmission ? (this.formatDateTime(rawAdmission) || rawAdmission) : '-';
 
+      // 1. Gather all user identifiers
+      const userTokens = new Set<string>([
+        ...extractTokens(row.id), ...extractTokens(row.uid), ...extractTokens(row.userId), ...extractTokens(row.docId),
+        ...extractTokens(user.id), ...extractTokens(user.uid), ...extractTokens(user.userId), ...extractTokens(user.docId),
+        ...extractTokens(matchingStaffDoc.id), ...extractTokens(matchingStaffDoc.uid), ...extractTokens(matchingStaffDoc.userId),
+        ...extractTokens(row.email), ...extractTokens(user.email), ...extractTokens(matchingStaffDoc.email),
+        ...extractTokens(row.displayName), ...extractTokens(row.name), ...extractTokens(user.displayName), ...extractTokens(user.name), ...extractTokens(matchingStaffDoc.name)
+      ].map(s => s.toLowerCase()));
+
+      const groupNamesList: string[] = [];
+
+      // 2. Gather direct group names from row, user, and staff doc
+      const directFields = [
+        row.assignedClassGroup, row.assignedClassGroups, row.assignedGroup, row.assignedGroups,
+        row.groupName, row.groupNames, row.group, row.groups, row.section, row.sections,
+        row.assignedClassGroupNames, row.assignedGroupNames, row.classGroupName, row.classGroupNames,
+        user.assignedClassGroup, user.assignedClassGroups, user.assignedGroup, user.assignedGroups,
+        user.groupName, user.groupNames, user.group, user.groups, user.section, user.sections,
+        user.assignedClassGroupNames, user.assignedGroupNames, user.classGroupName, user.classGroupNames,
+        matchingStaffDoc.assignedClassGroup, matchingStaffDoc.assignedClassGroups, matchingStaffDoc.assignedGroup, matchingStaffDoc.assignedGroups,
+        matchingStaffDoc.groupName, matchingStaffDoc.groupNames, matchingStaffDoc.group, matchingStaffDoc.groups
+      ].filter(Boolean);
+
+      directFields.forEach(gVal => {
+        const tokens = extractTokens(gVal);
+        tokens.forEach(tok => {
+          if (tok && tok !== '-' && tok !== 'null' && tok !== 'undefined') {
+            groupNamesList.push(tok);
+          }
+        });
+      });
+
+      // 3. Gather group IDs from row/user/staff and resolve their names from classGroups
+      const directGroupIds = new Set<string>([
+        ...extractTokens(row.groupId), ...extractTokens(row.groupIds), ...extractTokens(row.classGroupId), ...extractTokens(row.classGroupIds),
+        ...extractTokens(user.groupId), ...extractTokens(user.groupIds), ...extractTokens(user.classGroupId), ...extractTokens(user.classGroupIds),
+        ...extractTokens(matchingStaffDoc.groupId), ...extractTokens(matchingStaffDoc.groupIds), ...extractTokens(matchingStaffDoc.classGroupId), ...extractTokens(matchingStaffDoc.classGroupIds)
+      ].map(s => s.toLowerCase()));
+
+      const matchedGroupDocs: any[] = [];
+
+      // 4. Search classGroups collection for assignments
+      if (allClassGroups.length > 0) {
+        allClassGroups.forEach((g: any) => {
+          const gId = String(g.id || g.docId || '').trim().toLowerCase();
+          const gName = String(g.name || g.groupName || g.title || '').trim();
+          if (!gName) return;
+
+          if (gId && directGroupIds.has(gId)) {
+            groupNamesList.push(gName);
+            matchedGroupDocs.push(g);
+            return;
+          }
+
+          const gStaffTokens = new Set<string>([
+            ...extractTokens(g.assignedStaffIds), ...extractTokens(g.assignedStaff), ...extractTokens(g.staffIds),
+            ...extractTokens(g.teacherIds), ...extractTokens(g.teachers), ...extractTokens(g.staff), ...extractTokens(g.groupStaff),
+            ...extractTokens(g.assignedStaffNames), ...extractTokens(g.staffNames), ...extractTokens(g.teacherNames),
+            ...extractTokens(g.incharge), ...extractTokens(g.inchargeId), ...extractTokens(g.inchargeEmail),
+            ...extractTokens(g.teacher), ...extractTokens(g.teacherId), ...extractTokens(g.teacherEmail)
+          ].map(s => s.toLowerCase()));
+
+          const gStudentTokens = new Set<string>([
+            ...extractTokens(g.assignedStudentIds), ...extractTokens(g.assignedStudents), ...extractTokens(g.studentIds),
+            ...extractTokens(g.students), ...extractTokens(g.assignedStudentNames)
+          ].map(s => s.toLowerCase()));
+
+          let isMatch = false;
+          for (const uTok of userTokens) {
+            if (!uTok) continue;
+            if (gStaffTokens.has(uTok) || gStudentTokens.has(uTok)) {
+              isMatch = true;
+              break;
+            }
+          }
+
+          if (isMatch) {
+            groupNamesList.push(gName);
+            matchedGroupDocs.push(g);
+          }
+        });
+      }
+
+      // Format clean resolved group names display string
+      const uniqueGroupNames = Array.from(new Set(groupNamesList.filter(Boolean)));
+      const resolvedClassGroupDisplay = uniqueGroupNames.length > 0 ? uniqueGroupNames.join(', ') : '-';
+
+      // 5. Gather all assigned Madrasa names across row, user, staffDoc, and matched classGroups
+      const madrasaNamesList: string[] = [];
+
+      const directMadrasaIds = [
+        ...extractTokens(row.madrasaId), ...extractTokens(row.madrasaIds),
+        ...extractTokens(user.madrasaId), ...extractTokens(user.madrasaIds),
+        ...extractTokens(matchingStaffDoc.madrasaId), ...extractTokens(matchingStaffDoc.madrasaIds)
+      ].filter(Boolean);
+
+      directMadrasaIds.forEach(mId => {
+        const mObj = refs.madrasas?.get(mId);
+        if (mObj) {
+          madrasaNamesList.push(mObj.name || mObj.title || mObj.displayName || mId);
+        }
+      });
+
+      const directMadrasaFields = [
+        row.madrasaNames, row.madrasaName, row.assignedMadrasaNames, row.assignedMadrasas,
+        user.madrasaNames, user.madrasaName, user.assignedMadrasaNames, user.assignedMadrasas,
+        matchingStaffDoc.madrasaNames, matchingStaffDoc.madrasaName, matchingStaffDoc.assignedMadrasaNames, matchingStaffDoc.assignedMadrasas
+      ].filter(Boolean);
+
+      directMadrasaFields.forEach(mVal => {
+        const tokens = extractTokens(mVal);
+        tokens.forEach(tok => {
+          if (tok && tok !== '-' && tok !== 'null' && tok !== 'undefined') {
+            const mObj = refs.madrasas?.get(tok);
+            if (mObj) {
+              madrasaNamesList.push(mObj.name || mObj.title || mObj.displayName || tok);
+            } else if (tok.length > 2 && !tok.match(/^[a-zA-Z0-9_-]{15,30}$/)) {
+              madrasaNamesList.push(tok);
+            }
+          }
+        });
+      });
+
+      if (matchedGroupDocs.length > 0) {
+        matchedGroupDocs.forEach((g: any) => {
+          const gMadrasaName = String(g.madrasaName || '').trim();
+          const gMadrasaId = String(g.madrasaId || g.madrasa || '').trim();
+          if (gMadrasaName && gMadrasaName !== '-') {
+            madrasaNamesList.push(gMadrasaName);
+          } else if (gMadrasaId && gMadrasaId !== '-') {
+            const mObj = refs.madrasas?.get(gMadrasaId);
+            if (mObj) {
+              madrasaNamesList.push(mObj.name || mObj.title || mObj.displayName || gMadrasaId);
+            }
+          }
+        });
+      }
+
+      const uniqueMadrasaNames = Array.from(new Set(madrasaNamesList.filter(Boolean)));
+      const resolvedMadrasaNameDisplay = uniqueMadrasaNames.length > 0 ? uniqueMadrasaNames.join(', ') : (row.madrasaName || madrasa?.name || '-');
+
+      const resolvedPersonName = row.displayName || row.name || user.displayName || user.name || matchingStaffDoc.name || matchingStaffDoc.displayName || row.email || user.email || '-';
+
       const merged = {
         ...organization,
         ...madrasa,
@@ -325,17 +502,21 @@ export class ReportBuilderService {
         ...cls,
         ...user,
         ...row,
+        name: resolvedPersonName,
+        staffNameDisplay: resolvedPersonName,
+        displayName: resolvedPersonName,
         admissionDate: formattedAdmission,
         organizationNameDisplay: row.organizationName || organization?.name || organization?.displayName || '-',
         studentNameDisplay: row.studentName || row.name || user.name || user.displayName || '-',
         fatherNameDisplay: row.fatherName || user.fatherName || '-',
         parentNameDisplay: row.parentName || parent?.name || parent?.displayName || '-',
         studentEmailDisplay: row.email || user.email || '-',
-        madrasaNameDisplay: row.madrasaName || madrasa?.name || '-',
+        madrasaNameDisplay: resolvedMadrasaNameDisplay,
         courseNameDisplay: row.courseName || course?.name || '-',
         classNameDisplay: row.className || cls?.name || '-',
         stageDisplay: row.stageLevel || row.stage || user.stageLevel || user.stage || '-',
-        assignedStaffNamesDisplay: row.assignedStaffNames || '-'
+        assignedStaffNamesDisplay: row.assignedStaffNames || '-',
+        assignedClassGroupDisplay: resolvedClassGroupDisplay
       };
 
       // Automatically resolve any other *Id fields into *NameDisplay & format raw timestamps

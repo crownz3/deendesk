@@ -26,6 +26,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 })
 export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public reportGroups = [
+    { name: 'Custom Independent Builders', configs: REPORT_DEFINITIONS.filter(c => c.category === 'custom') },
     { name: 'Student Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'student') },
     { name: 'Staff Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'staff') },
     { name: 'Madrasa Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'madrasa') },
@@ -83,6 +84,23 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public displayColumns: string[] = [];
   get displayedColumnKeys(): string[] { return this.displayColumns; }
   set displayedColumnKeys(val: string[]) { this.displayColumns = val; }
+
+  public fieldSearchQuery = '';
+  public tableSearchQuery = '';
+
+  get filteredAvailableFields(): ReportFieldMetadata[] {
+    const q = (this.fieldSearchQuery || '').toLowerCase().trim();
+    if (!q) return this.availableFields;
+    return this.availableFields.filter(f =>
+      (f.label && f.label.toLowerCase().includes(q)) ||
+      (f.key && f.key.toLowerCase().includes(q))
+    );
+  }
+
+  applyTableFilter(query: string): void {
+    this.tableSearchQuery = query;
+    this.dataSource.filter = (query || '').trim().toLowerCase();
+  }
   
   public dataSource = new MatTableDataSource<any>([]);
   public state?: ReportState;
@@ -114,7 +132,6 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
 
   refreshData(): void {
     this.repo.clearCache();
-    // Re-trigger the ngOnInit flow to reload data
     this.ngOnInit();
   }
 
@@ -142,6 +159,18 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnInit() {
+    this.dataSource.filterPredicate = (data: any, filter: string) => {
+      if (!filter) return true;
+      const searchStr = Object.keys(data).map(key => {
+        const val = data[key];
+        if (val === null || val === undefined) return '';
+        if (typeof val === 'object') return JSON.stringify(val);
+        return String(val);
+      }).join(' ').toLowerCase();
+
+      return searchStr.includes(filter);
+    };
+
     this.sub.add(
       this.builder.state$.subscribe(state => {
         this.state = state;
@@ -154,6 +183,9 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
         }
 
         this.dataSource.data = state.data || [];
+        if (this.tableSearchQuery) {
+          this.dataSource.filter = this.tableSearchQuery.trim().toLowerCase();
+        }
         this.displayColumns = this.selectedColumns.map(c => c.key);
         if (this._paginator) {
           this.dataSource.paginator = this._paginator;

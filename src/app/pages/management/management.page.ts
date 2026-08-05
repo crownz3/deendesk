@@ -4384,6 +4384,13 @@ export class ManagementPage {
     this.csv.download(`staff-assigned-groups-report-${new Date().toISOString().slice(0, 10)}.csv`, csv);
   }
 
+  private formatRole(roleVal: any): string {
+    if (!roleVal) return 'N/A';
+    const roles: string[] = Array.isArray(roleVal) ? roleVal.map(String) : [String(roleVal)];
+    const labels = ROLE_LABELS as Record<string, string>;
+    return roles.map(r => labels[r] || labels[r.toLowerCase()] || r).join(', ');
+  }
+
   private getCredentialStatusLabel(row: EntityRecord): string {
     const status = row['credentialStatus'];
     if (status === 'TEMP_PASSWORD_PENDING') return 'Temporary password pending';

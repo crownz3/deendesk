@@ -63,7 +63,10 @@
           <h3>Available Fields</h3>
           <mat-form-field appearance="outline" class="search-fields">
             <mat-icon matPrefix>search</mat-icon>
-            <input matInput placeholder="Search fields...">
+            <input matInput [(ngModel)]="fieldSearchQuery" placeholder="Search fields...">
+            <button mat-icon-button matSuffix *ngIf="fieldSearchQuery" (click)="fieldSearchQuery = ''">
+              <mat-icon>close</mat-icon>
+            </button>
           </mat-form-field>
           <button mat-stroked-button color="primary" class="w-100 mt-2" (click)="openAddCustomColumnDialog()" style="margin-top: 8px;width: 100%;">
             <mat-icon>dataset</mat-icon> Add Database Column
@@ -76,10 +79,10 @@
         <div class="fields-list" 
              id="availableFieldsList"
              cdkDropList 
-             [cdkDropListData]="availableFields"
+             [cdkDropListData]="filteredAvailableFields"
              [cdkDropListConnectedTo]="['selectedColumnsList']"
              (cdkDropListDropped)="drop($event)">
-          <div class="field-item" *ngFor="let field of availableFields" cdkDrag>
+          <div class="field-item" *ngFor="let field of filteredAvailableFields" cdkDrag>
             <div class="d-flex align-items-center" style="flex: 1; display: flex; align-items: center;">
               <mat-icon class="drag-handle" style="margin-right: 8px; cursor: grab; color: #999;">drag_indicator</mat-icon>
               <span>{{field.label}}</span>
@@ -88,8 +91,8 @@
               <mat-icon style="font-size: 20px;">add</mat-icon>
             </button>
           </div>
-          <div class="empty-state" *ngIf="availableFields.length === 0">
-            All fields added.
+          <div class="empty-state" *ngIf="filteredAvailableFields.length === 0">
+            {{ fieldSearchQuery ? 'No matching fields found.' : 'All fields added.' }}
           </div>
         </div>
       </aside>
@@ -105,6 +108,21 @@
 
         <div class="preview-container mat-elevation-z1" *ngIf="state?.baseDefinition && state?.activeReportId">
           
+          <!-- Dynamic Table Search Bar -->
+          <div class="table-search-bar" style="padding: 12px 16px; background: #ffffff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+            <mat-form-field appearance="outline" style="flex: 1; max-width: 520px; margin-bottom: -1.25em;">
+              <mat-label>Search Table Data</mat-label>
+              <mat-icon matPrefix>search</mat-icon>
+              <input matInput [ngModel]="tableSearchQuery" (ngModelChange)="applyTableFilter($event)" placeholder="Search any staff name, class group, madrasa, role, email...">
+              <button mat-icon-button matSuffix *ngIf="tableSearchQuery" (click)="applyTableFilter('')">
+                <mat-icon>close</mat-icon>
+              </button>
+            </mat-form-field>
+            <span class="table-results-badge" style="font-size: 13px; color: #64748b; font-weight: 500;">
+              Showing {{ dataSource.filteredData.length }} of {{ dataSource.data.length }} record(s)
+            </span>
+          </div>
+
           <ng-container *ngIf="state?.loading">
              <mat-progress-bar mode="indeterminate"></mat-progress-bar>
           </ng-container>
