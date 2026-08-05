@@ -1324,13 +1324,9 @@ export class ManagementPage {
     }
 
     // Mirror role-badge implicit expansions:
-    // madrasaIncharge, coordinator, stageHead, ustadh are also displayed as Teacher / Staff
+    // madrasaIncharge, coordinator, stageHead, ustadh count as 'teacher'
     if (effective.has('madrasaIncharge') || effective.has('stageHead') || effective.has('coordinator') || effective.has('ustadh') || effective.has('headTeacher')) {
       effective.add('teacher');
-      effective.add('staff');
-    }
-    if (effective.has('teacher')) {
-      effective.add('staff');
     }
 
     return Array.from(effective);
@@ -1548,8 +1544,14 @@ export class ManagementPage {
           return of([] as EntityRecord[]);
         })
       ),
+      this.repo.list<EntityRecord>('classes', profile, [], undefined).pipe(
+        catchError((e) => {
+          console.warn('[Staff] Classes load failed:', e);
+          return of([] as EntityRecord[]);
+        })
+      ),
     ]).pipe(
-      map(([staffs, users, groups, madrasas]) => {
+      map(([staffs, users, groups, madrasas, classes]) => {
         const staffRolesList = ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin', 'ustadh', 'stageHead', 'headTeacher', 'teacher_assistant'];
 
         const allStaffRecordsMap = new Map<string, any>();
@@ -1588,7 +1590,6 @@ export class ManagementPage {
         console.log('🔍 [StaffPage Debug] Raw users collection count:', users.length);
         console.log('🔍 [StaffPage Debug] Matched staffRoleUsers count:', staffRoleUsers.length);
         console.log('🔍 [StaffPage Debug] Final combined staff count:', combinedStaffRaw.length);
-        console.log('🔍 [StaffPage Debug] Staff members:', combinedStaffRaw.map(s => `${s['displayName'] || s['name'] || s['email']} (role: ${s['role']})`));
 
         return combinedStaffRaw.map((row) => {
           const rowEmail = String(row['email'] || '').toLowerCase().trim();
@@ -1603,14 +1604,77 @@ export class ManagementPage {
           }) || row;
           const creds = this.credentialService.getCredentialStatus(userRow);
 
+          const possibleIds = [
+            row.id, userRow.id, userRow['uid'], userRow['userId'], row['userId'], userRow['entityId'],
+            row['email'], userRow['email']
+          ]
+          .map(v => String(v || '').trim())
+          .filter(Boolean);
+
+          const assignedGroups = groups.filter(g => {
+            const staffTokens = [
+              ...(Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'] : []),
+              ...(Array.isArray(g['staffIds']) ? g['staffIds'] : []),
+              ...(Array.isArray(g['teacherIds']) ? g['teacherIds'] : []),
+              ...(g['teacherId'] ? [g['teacherId']] : []),
+              ...(g['staffId'] ? [g['staffId']] : []),
+              ...(g['assignedStaff'] ? [g['assignedStaff']] : []),
+            ].map(v => String(v || '').trim()).filter(Boolean);
+
+            return possibleIds.some(id => staffTokens.includes(id));
+          });
+
+          const groupNames = assignedGroups.map(g => g['name'] || g['title'] || 'Unnamed Class').join(', ');
+          const directGroup = userRow['assignedClassGroup'] || row['assignedClassGroup'] || userRow['groupName'] || row['groupName'];
+          const assignedClassGroup = groupNames || (typeof directGroup === 'string' && directGroup.trim() ? directGroup.trim() : undefined);
+
+          const groupMadrasaIds = assignedGroups.map(g => {
+            const mIds = Array.isArray(g['madrasaIds']) ? g['madrasaIds'].map(String) : [];
+            const mId = g['madrasaId'] ? [String(g['madrasaId'])] : [];
+            const m = g['madrasa'] ? [String(g['madrasa'])] : [];
+            let parentClassMIds: string[] = [];
+            if (g['classId'] && classes) {
+              const parentClass = classes.find(c => String(c.id) === String(g['classId']));
+              if (parentClass) {
+                if (parentClass['madrasaId']) parentClassMIds.push(String(parentClass['madrasaId']));
+                if (Array.isArray(parentClass['madrasaIds'])) parentClassMIds.push(...parentClass['madrasaIds'].map(String));
+                if (parentClass['madrasa']) parentClassMIds.push(String(parentClass['madrasa']));
+              }
+            }
+            return [...mIds, ...mId, ...m, ...parentClassMIds];
+          }).flat().filter(Boolean);
+
           // Resolve effective madrasaIds and organizationId so non-superAdmin filtering works accurately!
           const organizationId = userRow['organizationId'] || row['organizationId'] || profile?.organizationId;
           const madrasaId = userRow['madrasaId'] || row['madrasaId'];
           const madrasaIds = Array.from(new Set([
             ...(Array.isArray(userRow['madrasaIds']) ? userRow['madrasaIds'].map(String) : []),
             ...(Array.isArray(row['madrasaIds']) ? row['madrasaIds'].map(String) : []),
-            ...(madrasaId ? [String(madrasaId)] : [])
+            ...(madrasaId ? [String(madrasaId)] : []),
+            ...groupMadrasaIds
           ]));
+
+          const madrasaNamesList = madrasas
+            .filter(m => madrasaIds.includes(String(m.id)))
+            .map(m => String(m['name'] || m.id))
+            .filter(Boolean);
+
+          const madrasaNames = Array.from(new Set(madrasaNamesList)).join(', ');
+
+          console.log(`🔥 [Staff Debug] ${row['displayName'] || row['name'] || row['email']}:`, {
+            possibleIds,
+            assignedGroupCount: assignedGroups.length,
+            assignedClassGroup,
+            assignedGroupDetails: assignedGroups.map(g => ({
+              id: g.id,
+              name: g['name'],
+              madrasaId: g['madrasaId'],
+              madrasaIds: g['madrasaIds'],
+              classId: g['classId']
+            })),
+            madrasaIds,
+            madrasaNames
+          });
 
           const resolvedRole = userRow['role'] || row['role'] || 'teacher';
           const rawRolesList = [
@@ -1637,17 +1701,10 @@ export class ManagementPage {
             organizationId,
             madrasaId: madrasaId || (madrasaIds.length > 0 ? madrasaIds[0] : null),
             madrasaIds,
+            madrasaNames: madrasaNames || undefined,
             credentialStatus: creds.status,
             temporaryPasswordDisplay: creds.display,
-            assignedClassGroup: (() => {
-              const possibleIds = [row.id, userRow.id, userRow['uid'], userRow['userId'], row['userId'], userRow['entityId'], row['email'], userRow['email']]
-                .map(v => String(v || '').trim())
-                .filter(Boolean);
-              return groups
-                .filter(g => Array.isArray(g['assignedStaffIds']) && possibleIds.some(id => (g['assignedStaffIds'] as any[]).map(String).includes(id)))
-                .map(g => g['name'] || 'Unnamed Class')
-                .join(', ');
-            })(),
+            assignedClassGroup,
           } as EntityRecord;
         });
       })
@@ -2121,7 +2178,9 @@ export class ManagementPage {
           courseName: title,
           courseCode: String(row['code'] || ''),
           madrasaIds,
-          madrasaNames
+          madrasaNames,
+          userId: String(row['uid'] || row['userId'] || row.id || ''),
+          user: row
         },
         width: '640px',
         maxWidth: '92vw',

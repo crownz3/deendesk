@@ -404,118 +404,164 @@
 
       <!-- Card Content: Custom Selected Fields -->
       <mat-card-content class="card-body">
-        <div class="card-field-row" *ngFor="let column of visibleCardColumns; trackBy: trackByColumn">
+        <div class="card-field-row" *ngFor="let column of visibleCardColumns; trackBy: trackByColumn" [class.multi-value-row]="isMultiValue(row, column)">
           <span class="field-label">{{ column.label }}:</span>
-          <div class="field-value">
-            <!-- Status Badge -->
-            <app-status-badge *ngIf="column.type === 'status'" [status]="text(row, column.key)"></app-status-badge>
 
-            <!-- Role Badge -->
-            <app-role-badge *ngIf="column.type === 'role'" [role]="text(row, column.key)"></app-role-badge>
-
-            <!-- Temporary Password / Credentials -->
-            <ng-container *ngIf="column.type === 'temporaryPassword' || column.type === 'credentialStatus'">
-              <span class="status-chip warning" *ngIf="row['credentialStatus'] === 'TEMP_PASSWORD_PENDING'">
-                {{ row['temporaryPasswordDisplay'] || 'Pending' }}
-              </span>
-              <span class="status-chip success" *ngIf="row['credentialStatus'] === 'PASSWORD_CHANGED'">Changed</span>
-              <span class="status-chip danger" *ngIf="!row['credentialStatus'] || row['credentialStatus'] === 'LOGIN_NOT_CREATED'">No Login</span>
-            </ng-container>
-
-            <!-- Date -->
-            <span *ngIf="column.type === 'date'">{{ (getDate(row, column.key) | date:'MMM d, yyyy, h:mm a') || 'N/A' }}</span>
-
-            <!-- Boolean -->
-            <ion-icon *ngIf="column.type === 'boolean'" [name]="row[column.key] ? 'checkmark-circle' : 'close-circle'" [color]="row[column.key] ? 'success' : 'medium'"></ion-icon>
-
-            <!-- Student Count -->
-            <span *ngIf="column.type === 'studentCount'" class="student-count-cell">
-              <button type="button"
-                      class="student-count-chip-btn"
-                      [class.has-students]="$any(row['studentCount'] || 0) > 0"
-                      (click)="viewStudents.emit(row); $event.stopPropagation()"
-                      [disabled]="!row['studentCount'] || row['studentCount'] === 0"
-                      matTooltip="Click to view assigned students">
-                <ion-icon name="people-outline"></ion-icon>
-                <span>{{ row['studentCount'] || 0 }} Students</span>
-              </button>
-            </span>
-
-            <!-- Madrasa Count -->
-            <span *ngIf="column.type === 'madrasaCount'" class="student-count-cell">
-              <button type="button"
-                      class="student-count-chip-btn"
-                      [class.has-students]="$any(row['madrasaCount'] || 0) > 0"
-                      (click)="viewMadrasas.emit(row); $event.stopPropagation()"
-                      [disabled]="!row['madrasaCount'] || row['madrasaCount'] === 0"
-                      matTooltip="Click to view madrasas">
-                <ion-icon name="business-outline"></ion-icon>
-                <span>{{ row['madrasaCount'] || 0 }} Madrasa(s)</span>
-              </button>
-            </span>
-
-            <!-- Class Count -->
-            <span *ngIf="column.type === 'classCount'" class="student-count-cell">
-              <span class="student-count-chip-btn" [class.has-students]="$any(row['classCount'] || 0) > 0">
-                <ion-icon name="easel-outline"></ion-icon>
-                <span>{{ row['classCount'] || 0 }} Class(es)</span>
-              </span>
-            </span>
-
-            <!-- Group Count -->
-            <span *ngIf="column.type === 'groupCount'" class="student-count-cell">
-              <span class="student-count-chip-btn" [class.has-students]="$any(row['groupCount'] || 0) > 0">
-                <ion-icon name="shapes-outline"></ion-icon>
-                <span>{{ row['groupCount'] || 0 }} Group(s)</span>
-              </span>
-            </span>
-
-            <!-- Staff Chips (Card View: Displayed as clean text) -->
-            <span *ngIf="column.type === 'staffChips'" class="staff-text-list">
-              <ng-container *ngIf="staffPeople(row, column.key).length; else noStaffAssignedCard">
-                <ng-container *ngFor="let person of staffPeople(row, column.key); let last = last">
-                  <ng-container *ngIf="isString(person); else objectStaffPerson">
-                    <app-name-with-copy [id]="person" type="staff"></app-name-with-copy>
+          <!-- MULTI-VALUE FIELD: CARD INSIDE CARD WITH BULLET POINTS -->
+          <div class="inner-card-container" *ngIf="isMultiValue(row, column); else singleFieldValue">
+            <mat-card class="inner-data-card">
+              <ul class="bullet-list">
+                <li *ngFor="let item of getCardMultiValues(row, column)">
+                  <!-- Role Badge inside bullet -->
+                  <ng-container *ngIf="column.type === 'role' || column.key === 'roles' || column.key === 'role' || column.key === 'otherRoles'">
+                    <app-role-badge [role]="item"></app-role-badge>
                   </ng-container>
-                  <ng-template #objectStaffPerson>
-                    <span class="staff-text-name">{{ person.name || person.displayName || person.email || person.id }}</span>
-                  </ng-template>
-                  <span *ngIf="!last">, </span>
-                </ng-container>
+
+                  <!-- Staff Chips inside bullet -->
+                  <ng-container *ngIf="column.type === 'staffChips'">
+                    <ng-container *ngIf="isString(item); else objectStaffPerson">
+                      <app-name-with-copy [id]="item" type="staff"></app-name-with-copy>
+                    </ng-container>
+                    <ng-template #objectStaffPerson>
+                      <span class="staff-text-name">{{ item.name || item.displayName || item.email || item.id }}</span>
+                    </ng-template>
+                  </ng-container>
+
+                  <!-- Stage Chips inside bullet -->
+                  <ng-container *ngIf="column.type === 'stageChips'">
+                    <span class="stage-chip">
+                      <ion-icon name="layers-outline" class="stage-icon"></ion-icon>
+                      <span>{{ item }}</span>
+                    </span>
+                  </ng-container>
+
+                  <!-- ID Ref inside bullet -->
+                  <ng-container *ngIf="column.type === 'idRef'">
+                    <app-name-with-copy [id]="$any(item)" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
+                  </ng-container>
+
+                  <!-- Default Text inside bullet -->
+                  <ng-container *ngIf="!['role', 'staffChips', 'stageChips', 'idRef'].includes(column.type || '') && !['roles', 'role', 'otherRoles'].includes(column.key || '')">
+                    <span>{{ getItemText(item) }}</span>
+                  </ng-container>
+                </li>
+              </ul>
+            </mat-card>
+          </div>
+
+          <!-- SINGLE FIELD VALUE (EXISTING VIEW) -->
+          <ng-template #singleFieldValue>
+            <div class="field-value">
+              <!-- Status Badge -->
+              <app-status-badge *ngIf="column.type === 'status'" [status]="text(row, column.key)"></app-status-badge>
+
+              <!-- Role Badge -->
+              <app-role-badge *ngIf="column.type === 'role'" [role]="text(row, column.key)"></app-role-badge>
+
+              <!-- Temporary Password / Credentials -->
+              <ng-container *ngIf="column.type === 'temporaryPassword' || column.type === 'credentialStatus'">
+                <span class="status-chip warning" *ngIf="row['credentialStatus'] === 'TEMP_PASSWORD_PENDING'">
+                  {{ row['temporaryPasswordDisplay'] || 'Pending' }}
+                </span>
+                <span class="status-chip success" *ngIf="row['credentialStatus'] === 'PASSWORD_CHANGED'">Changed</span>
+                <span class="status-chip danger" *ngIf="!row['credentialStatus'] || row['credentialStatus'] === 'LOGIN_NOT_CREATED'">No Login</span>
               </ng-container>
-              <ng-template #noStaffAssignedCard>
-                <span class="muted-text">No staff</span>
-              </ng-template>
-            </span>
 
-            <!-- Stage Chips -->
-            <span *ngIf="column.type === 'stageChips'" class="stage-chip-list">
-              <span class="stage-chip" *ngFor="let stage of getVisibleStages(row, column.key)">
-                <ion-icon name="layers-outline" class="stage-icon"></ion-icon>
-                <span>{{ stage }}</span>
+              <!-- Date -->
+              <span *ngIf="column.type === 'date'">{{ (getDate(row, column.key) | date:'MMM d, yyyy, h:mm a') || 'N/A' }}</span>
+
+              <!-- Boolean -->
+              <ion-icon *ngIf="column.type === 'boolean'" [name]="row[column.key] ? 'checkmark-circle' : 'close-circle'" [color]="row[column.key] ? 'success' : 'medium'"></ion-icon>
+
+              <!-- Student Count -->
+              <span *ngIf="column.type === 'studentCount'" class="student-count-cell">
+                <button type="button"
+                        class="student-count-chip-btn"
+                        [class.has-students]="$any(row['studentCount'] || 0) > 0"
+                        (click)="viewStudents.emit(row); $event.stopPropagation()"
+                        [disabled]="!row['studentCount'] || row['studentCount'] === 0"
+                        matTooltip="Click to view assigned students">
+                  <ion-icon name="people-outline"></ion-icon>
+                  <span>{{ row['studentCount'] || 0 }} Students</span>
+                </button>
               </span>
-            </span>
 
-            <!-- ID Reference with Name Resolver -->
-            <span *ngIf="column.type === 'idRef'">
-              <ng-container *ngIf="isArray(value(row, column.key)); else singleIdRefCard">
-                <span class="id-list">
-                  <ng-container *ngFor="let id of asArray(value(row, column.key)); let last = last">
-                    <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
+              <!-- Madrasa Count -->
+              <span *ngIf="column.type === 'madrasaCount'" class="student-count-cell">
+                <button type="button"
+                        class="student-count-chip-btn"
+                        [class.has-students]="$any(row['madrasaCount'] || 0) > 0"
+                        (click)="viewMadrasas.emit(row); $event.stopPropagation()"
+                        [disabled]="!row['madrasaCount'] || row['madrasaCount'] === 0"
+                        matTooltip="Click to view madrasas">
+                  <ion-icon name="business-outline"></ion-icon>
+                  <span>{{ row['madrasaCount'] || 0 }} Madrasa(s)</span>
+                </button>
+              </span>
+
+              <!-- Class Count -->
+              <span *ngIf="column.type === 'classCount'" class="student-count-cell">
+                <span class="student-count-chip-btn" [class.has-students]="$any(row['classCount'] || 0) > 0">
+                  <ion-icon name="easel-outline"></ion-icon>
+                  <span>{{ row['classCount'] || 0 }} Class(es)</span>
+                </span>
+              </span>
+
+              <!-- Group Count -->
+              <span *ngIf="column.type === 'groupCount'" class="student-count-cell">
+                <span class="student-count-chip-btn" [class.has-students]="$any(row['groupCount'] || 0) > 0">
+                  <ion-icon name="shapes-outline"></ion-icon>
+                  <span>{{ row['groupCount'] || 0 }} Group(s)</span>
+                </span>
+              </span>
+
+              <!-- Staff Chips (Card View: Displayed as clean text) -->
+              <span *ngIf="column.type === 'staffChips'" class="staff-text-list">
+                <ng-container *ngIf="staffPeople(row, column.key).length; else noStaffAssignedCard">
+                  <ng-container *ngFor="let person of staffPeople(row, column.key); let last = last">
+                    <ng-container *ngIf="isString(person); else objectStaffPerson">
+                      <app-name-with-copy [id]="person" type="staff"></app-name-with-copy>
+                    </ng-container>
+                    <ng-template #objectStaffPerson>
+                      <span class="staff-text-name">{{ person.name || person.displayName || person.email || person.id }}</span>
+                    </ng-template>
                     <span *ngIf="!last">, </span>
                   </ng-container>
-                </span>
-              </ng-container>
-              <ng-template #singleIdRefCard>
-                <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
-              </ng-template>
-            </span>
+                </ng-container>
+                <ng-template #noStaffAssignedCard>
+                  <span class="muted-text">No staff</span>
+                </ng-template>
+              </span>
 
-            <!-- Plain Text / Default (with Name Fallback) -->
-            <span *ngIf="!['status', 'role', 'temporaryPassword', 'credentialStatus', 'date', 'boolean', 'staffChips', 'stageChips', 'idRef', 'studentCount', 'madrasaCount', 'classCount', 'groupCount'].includes(column.type || '')">
-              {{ getCardFieldValue(row, column.key) }}
-            </span>
-          </div>
+              <!-- Stage Chips -->
+              <span *ngIf="column.type === 'stageChips'" class="stage-chip-list">
+                <span class="stage-chip" *ngFor="let stage of getVisibleStages(row, column.key)">
+                  <ion-icon name="layers-outline" class="stage-icon"></ion-icon>
+                  <span>{{ stage }}</span>
+                </span>
+              </span>
+
+              <!-- ID Reference with Name Resolver -->
+              <span *ngIf="column.type === 'idRef'">
+                <ng-container *ngIf="isArray(value(row, column.key)); else singleIdRefCard">
+                  <span class="id-list">
+                    <ng-container *ngFor="let id of asArray(value(row, column.key)); let last = last">
+                      <app-name-with-copy [id]="$any(id)" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
+                      <span *ngIf="!last">, </span>
+                    </ng-container>
+                  </span>
+                </ng-container>
+                <ng-template #singleIdRefCard>
+                  <app-name-with-copy [id]="$any(value(row, column.key))" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
+                </ng-template>
+              </span>
+
+              <!-- Plain Text / Default (with Name Fallback) -->
+              <span *ngIf="!['status', 'role', 'temporaryPassword', 'credentialStatus', 'date', 'boolean', 'staffChips', 'stageChips', 'idRef', 'studentCount', 'madrasaCount', 'classCount', 'groupCount'].includes(column.type || '')">
+                {{ getCardFieldValue(row, column.key) }}
+              </span>
+            </div>
+          </ng-template>
         </div>
       </mat-card-content>
 
@@ -526,7 +572,7 @@
         <!-- Madrasas Button -->
         <button type="button" class="card-action-btn" (click)="viewMadrasas.emit(row); $event.stopPropagation()" *ngIf="hasMadrasasButton(row)">
           <ion-icon name="business-outline"></ion-icon>
-          <span>{{ row['madrasaCount'] || 1 }} Madrasa(s)</span>
+          <span>{{ getMadrasaCountDisplay(row) }} Madrasa(s)</span>
         </button>
 
         <!-- Academic Details Button -->

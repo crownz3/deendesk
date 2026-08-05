@@ -246,6 +246,12 @@
                 </div>
               </div>
 
+              <!-- Main Stage Description -->
+              <div class="stage-desc-row" style="display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;">
+                <ion-icon name="document-text-outline" style="font-size: 16px; color: #64748b;"></ion-icon>
+                <input type="text" class="parent-desc-input" [(ngModel)]="item.description" placeholder="Syllabus description for {{ item.name }} (optional)" style="flex: 1; font-size: 12px; border: none; outline: none; background: transparent; padding: 4px 0;">
+              </div>
+
               <!-- Sub stages -->
               <div class="sub-stages-panel">
                 <div class="sub-title">
@@ -257,7 +263,18 @@
                   <div class="sub-item" *ngFor="let sub of item.subStages; let sj = index; trackBy: trackByIndex">
                     <ion-icon name="return-down-forward-outline" class="tree-branch"></ion-icon>
                     <input type="text" class="sub-input" [(ngModel)]="item.subStages[sj]" (ngModelChange)="syncStagesListFromHierarchy()" placeholder="Inner stage name">
-                    <button mat-icon-button color="warn" type="button" (click)="removeSubStage(i, sj)"><ion-icon name="close-circle-outline"></ion-icon></button>
+                    <input type="text" class="sub-desc-input" [ngModel]="getSubStageDescription(item, sub)" (ngModelChange)="setSubStageDescription(item, sub, $event)" placeholder="Sub-stage description (optional)">
+                    <div class="sub-actions">
+                      <button mat-icon-button type="button" (click)="moveSubStageUp(i, sj)" [disabled]="sj === 0" matTooltip="Move Sub-stage Up">
+                        <ion-icon name="arrow-up-outline"></ion-icon>
+                      </button>
+                      <button mat-icon-button type="button" (click)="moveSubStageDown(i, sj)" [disabled]="sj === item.subStages.length - 1" matTooltip="Move Sub-stage Down">
+                        <ion-icon name="arrow-down-outline"></ion-icon>
+                      </button>
+                      <button mat-icon-button color="warn" type="button" class="remove-sub-btn" (click)="removeSubStage(i, sj)" matTooltip="Remove Sub-stage">
+                        <ion-icon name="close-circle-outline"></ion-icon>
+                      </button>
+                    </div>
                   </div>
                 </div>
 

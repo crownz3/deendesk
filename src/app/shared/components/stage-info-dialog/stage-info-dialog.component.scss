@@ -120,34 +120,50 @@
           .substage-header {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
 
             .substage-num {
-              width: 20px;
-              height: 20px;
+              width: 26px;
+              height: 26px;
+              min-width: 26px;
+              min-height: 26px;
               border-radius: 50%;
-              background: var(--ion-color-primary-tint, #ebf3ff);
-              color: var(--ion-color-primary, #3880ff);
-              font-size: 0.75rem;
-              font-weight: 700;
+              background: #0284c7;
+              color: #ffffff !important;
+              font-size: 13px;
+              font-weight: 800;
               display: inline-flex;
               align-items: center;
               justify-content: center;
+              line-height: 1;
+              flex-shrink: 0;
+              box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
             }
 
             h4 {
               margin: 0;
-              font-size: 0.9rem;
-              font-weight: 600;
-              color: #1e293b;
+              font-size: 0.95rem;
+              font-weight: 700;
+              color: #0f172a;
             }
           }
 
           .substage-desc {
-            margin: 6px 0 0 28px;
-            font-size: 0.825rem;
-            color: #64748b;
+            margin: 8px 0 0 36px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #0f172a !important;
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 6px 10px;
             line-height: 1.4;
+
+            &::before {
+              content: 'Syllabus: ';
+              font-weight: 800;
+              color: #0284c7;
+            }
           }
         }
       }

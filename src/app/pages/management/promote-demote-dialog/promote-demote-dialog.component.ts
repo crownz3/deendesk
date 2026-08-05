@@ -185,68 +185,174 @@ export class PromoteDemoteDialogComponent implements OnInit {
     this.hasSubStagesForCourse = this.stageHierarchy.some(h => h.subStages.length > 0);
   }
 
+  getOrderedFullStages(): { main: string; sub: string; full: string }[] {
+    const list: { main: string; sub: string; full: string }[] = [];
+    if (this.stageHierarchy && this.stageHierarchy.length > 0) {
+      for (const h of this.stageHierarchy) {
+        if (h.subStages && h.subStages.length > 0) {
+          for (const sub of h.subStages) {
+            const full = this.formatStageWithHyphen(h.name, sub);
+            list.push({ main: h.name, sub, full });
+          }
+        } else {
+          list.push({ main: h.name, sub: '', full: h.name });
+        }
+      }
+    } else {
+      for (const st of this.availableStages) {
+        list.push({ main: st, sub: '', full: st });
+      }
+    }
+    return list;
+  }
+
   onActionChange() {
     this.autoSelectStage();
   }
 
   autoSelectStage() {
-    const current = String(this.firstStudent?.['stage'] || '').trim().toLowerCase();
-    let idx = this.availableStages.findIndex(s => s.toLowerCase() === current);
+    const currentRaw = String(this.firstStudent?.['stage'] || '').trim();
+    const current = currentRaw.toLowerCase();
+    const ordered = this.getOrderedFullStages();
 
-    if (idx === -1 && current) {
-      idx = this.availableStages.findIndex(s => 
-        s.toLowerCase().startsWith(current + ' ') || 
-        s.toLowerCase().startsWith(current + ' -') ||
-        s.toLowerCase().startsWith(current + ':')
-      );
+    if (ordered.length === 0) return;
+
+    let idx = -1;
+    if (current) {
+      idx = ordered.findIndex(item => {
+        const fullLower = item.full.toLowerCase();
+        const subLower = item.sub.toLowerCase();
+        const mainLower = item.main.toLowerCase();
+
+        return fullLower === current ||
+               subLower === current ||
+               fullLower.startsWith(current + ' ') ||
+               fullLower.startsWith(current + ' -') ||
+               current.startsWith(fullLower);
+      });
     }
 
+    let targetItem: { main: string; sub: string; full: string };
+
     if (this.action === 'promotion') {
-      if (idx >= 0 && idx < this.availableStages.length - 1) {
-        this.newStage = this.availableStages[idx + 1];
-      } else if (idx === -1 && this.availableStages.length > 0) {
-        this.newStage = this.availableStages[0];
-      } else if (this.availableStages.length > 0) {
-        this.newStage = this.availableStages[this.availableStages.length - 1];
+      if (idx >= 0 && idx < ordered.length - 1) {
+        targetItem = ordered[idx + 1];
+      } else if (idx === -1) {
+        targetItem = ordered[0];
+      } else {
+        targetItem = ordered[ordered.length - 1];
       }
     } else {
       // Demotion
       if (idx > 0) {
-        this.newStage = this.availableStages[idx - 1];
-      } else if (this.availableStages.length > 0) {
-        this.newStage = this.availableStages[0];
+        targetItem = ordered[idx - 1];
+      } else {
+        targetItem = ordered[0];
       }
     }
 
-    this.selectedStageOption = this.newStage;
+    this.selectedMainStage = targetItem.main;
+    this.selectedSubStage = targetItem.sub;
+    this.newStage = targetItem.full;
+    this.selectedStageOption = targetItem.full;
     this.isCustomStage = false;
+  }
 
-    this.syncMainAndSubStageFromNewStage(this.newStage);
+  getCurrentStageIndex(): number {
+    const currentRaw = String(this.firstStudent?.['stage'] || '').trim();
+    if (!currentRaw) return -1;
+    const current = currentRaw.toLowerCase();
+    const ordered = this.getOrderedFullStages();
+
+    return ordered.findIndex(item => {
+      const fullLower = item.full.toLowerCase();
+      const subLower = item.sub.toLowerCase();
+      return fullLower === current ||
+             subLower === current ||
+             fullLower.startsWith(current + ' ') ||
+             fullLower.startsWith(current + ' -') ||
+             current.startsWith(fullLower);
+    });
+  }
+
+  isStageItemDisabled(mainName: string, subName?: string): boolean {
+    if (this.targetStudents.length > 1) return false;
+    const currentIdx = this.getCurrentStageIndex();
+    if (currentIdx === -1) return false;
+
+    const ordered = this.getOrderedFullStages();
+    let targetIdx = -1;
+
+    if (subName) {
+      const fullTarget = this.formatStageWithHyphen(mainName, subName).toLowerCase();
+      targetIdx = ordered.findIndex(item =>
+        item.full.toLowerCase() === fullTarget ||
+        (item.main.toLowerCase() === mainName.toLowerCase() && item.sub.toLowerCase() === subName.toLowerCase())
+      );
+    } else {
+      const mainLower = mainName.toLowerCase();
+      targetIdx = ordered.findIndex(item => item.main.toLowerCase() === mainLower || item.full.toLowerCase() === mainLower);
+    }
+
+    if (targetIdx === -1) return false;
+
+    if (this.action === 'promotion') {
+      return targetIdx <= currentIdx;
+    } else {
+      return targetIdx >= currentIdx;
+    }
+  }
+
+  isMainStageDisabled(mainName: string): boolean {
+    if (this.targetStudents.length > 1) return false;
+    const item = this.stageHierarchy.find(h => h.name === mainName);
+    if (!item) return false;
+
+    if (item.subStages && item.subStages.length > 0) {
+      return item.subStages.every(sub => this.isStageItemDisabled(mainName, sub));
+    }
+
+    return this.isStageItemDisabled(mainName);
+  }
+
+  onMainStageChange(mainName: string) {
+    this.selectedMainStage = mainName;
+    const item = this.stageHierarchy.find(h => h.name === mainName);
+    if (item && item.subStages.length > 0) {
+      const allowedSubs = item.subStages.filter(sub => !this.isStageItemDisabled(mainName, sub));
+      if (allowedSubs.length > 0) {
+        this.selectedSubStage = this.action === 'demotion' ? allowedSubs[allowedSubs.length - 1] : allowedSubs[0];
+      } else {
+        this.selectedSubStage = item.subStages[0];
+      }
+      this.newStage = this.formatStageWithHyphen(mainName, this.selectedSubStage);
+    } else {
+      this.selectedSubStage = '';
+      this.newStage = mainName;
+    }
+    this.selectedStageOption = this.newStage;
   }
 
   syncMainAndSubStageFromNewStage(stageVal: string) {
     if (!stageVal) return;
     const lower = stageVal.trim().toLowerCase();
+    const ordered = this.getOrderedFullStages();
 
-    for (const h of this.stageHierarchy) {
-      if (h.name.toLowerCase() === lower) {
-        this.selectedMainStage = h.name;
-        this.selectedSubStage = h.subStages.length > 0 ? h.subStages[0] : '';
-        return;
-      }
-      for (const sub of h.subStages) {
-        if (sub.toLowerCase() === lower) {
-          this.selectedMainStage = h.name;
-          this.selectedSubStage = sub;
-          return;
-        }
-      }
-    }
+    const match = ordered.find(item =>
+      item.full.toLowerCase() === lower ||
+      item.sub.toLowerCase() === lower ||
+      item.main.toLowerCase() === lower
+    );
 
-    if (this.stageHierarchy.length > 0) {
+    if (match) {
+      this.selectedMainStage = match.main;
+      this.selectedSubStage = match.sub;
+      this.newStage = match.full;
+    } else if (this.stageHierarchy.length > 0) {
       this.selectedMainStage = this.stageHierarchy[0].name;
       const subs = this.stageHierarchy[0].subStages;
       this.selectedSubStage = subs.length > 0 ? subs[0] : '';
+      this.newStage = stageVal;
     }
   }
 
@@ -316,19 +422,6 @@ export class PromoteDemoteDialogComponent implements OnInit {
     return str;
   }
 
-  onMainStageChange(mainName: string) {
-    this.selectedMainStage = mainName;
-    const item = this.stageHierarchy.find(h => h.name === mainName);
-    if (item && item.subStages.length > 0) {
-      this.selectedSubStage = item.subStages[0];
-      this.newStage = this.formatStageWithHyphen(mainName, this.selectedSubStage);
-    } else {
-      this.selectedSubStage = '';
-      this.newStage = mainName;
-    }
-    this.selectedStageOption = this.newStage;
-  }
-
   onSubStageChange(subName: string) {
     this.selectedSubStage = subName;
     this.newStage = this.formatStageWithHyphen(this.selectedMainStage, subName);
@@ -384,11 +477,15 @@ export class PromoteDemoteDialogComponent implements OnInit {
       const actionDate = new Date().toISOString().slice(0, 10);
       const createdBy = profile?.displayName || profile?.email || 'System';
 
+      const madrasas = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
+
       for (const std of this.targetStudents) {
         const studentId = std.id || String(std['uid']);
         const studentName = String(std['name'] || std['displayName'] || 'Student');
         const orgId = std['organizationId'] || profile?.organizationId || '';
         const mdrId = std['madrasaId'] || (Array.isArray(std['madrasaIds']) ? std['madrasaIds'][0] : profile?.madrasaId || '');
+        const madrasaRecord = madrasas.find(m => String(m.id) === String(mdrId));
+        const madrasaName = madrasaRecord ? String(madrasaRecord['name'] || madrasaRecord.id) : '';
 
         await this.repo.update('students', studentId, {
           stage: this.newStage,
@@ -407,6 +504,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
           studentName: studentName,
           organizationId: orgId,
           madrasaId: mdrId,
+          madrasaName: madrasaName,
           previousCourseId: String(std['courseId'] ?? ''),
           previousStage: String(std['stage'] ?? ''),
           newCourseId: String(std['courseId'] ?? ''),
@@ -416,6 +514,10 @@ export class PromoteDemoteDialogComponent implements OnInit {
           actionDate: actionDate,
           status: 'active',
           createdBy: createdBy,
+          performedBy: createdBy,
+          performedByEmail: profile?.email || '',
+          createdAt: new Date().toISOString(),
+          createdAtMs: Date.now()
         }, profile).catch(e => console.warn('[Promotion History Log Warning]:', e));
 
         await this.repo.create('userLifecycleHistory', {
@@ -430,8 +532,10 @@ export class PromoteDemoteDialogComponent implements OnInit {
           effectiveDate: new Date().toISOString(),
           effectiveDateMs: Date.now(),
           performedBy: createdBy,
+          performedByEmail: profile?.email || '',
           organizationId: orgId,
           madrasaId: mdrId,
+          madrasaName: madrasaName,
           status: 'active',
           createdVia: 'promoteDialog'
         }, profile).catch(e => console.warn('[Lifecycle History Log Warning]:', e));

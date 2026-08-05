@@ -239,41 +239,56 @@
     align-items: center;
     gap: 8px;
     padding: 6px 14px;
-    background: #f1f5f9;
+    background: #ffffff;
     border-bottom: 1px solid #e2e8f0;
 
     .desc-icon {
       font-size: 16px;
-      color: #64748b;
+      color: #0284c7;
     }
 
     .parent-stage-desc-input {
       flex: 1;
-      font-size: 12px;
-      color: #334155;
-      background: transparent;
-      border: none;
+      font-size: 13px;
+      font-weight: 500;
+      color: #0f172a !important;
+      background-color: #ffffff !important;
+      -webkit-text-fill-color: #0f172a !important;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      padding: 6px 10px;
       outline: none;
-      padding: 4px 0;
 
       &::placeholder {
-        color: #94a3b8;
+        color: #94a3b8 !important;
+        -webkit-text-fill-color: #94a3b8 !important;
+      }
+
+      &:focus {
+        border-color: #0284c7;
       }
     }
   }
 
   .sub-stage-desc-input {
     flex: 1;
-    font-size: 11px;
-    color: #475569;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 4px;
-    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #0f172a !important;
+    background-color: #ffffff !important;
+    -webkit-text-fill-color: #0f172a !important;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
     outline: none;
 
+    &::placeholder {
+      color: #94a3b8 !important;
+      -webkit-text-fill-color: #94a3b8 !important;
+    }
+
     &:focus {
-      border-color: #3880ff;
+      border-color: #0284c7;
     }
   }
 

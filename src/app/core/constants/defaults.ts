@@ -9,7 +9,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   coordinator: 'Coordinator',
   madrasaIncharge: 'Madrasa Incharge',
   stageHead: 'Stage Head / Course Lead',
-  teacher: 'Teacher / Staff',
+  teacher: 'Teacher',
   student: 'Student',
   parent: 'Parent',
   qaTester: 'QA Tester',

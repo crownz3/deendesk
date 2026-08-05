@@ -151,7 +151,8 @@ export class CourseStagesDialogComponent implements OnInit {
   private buildHierarchyFromStagesList() {
     this.hierarchicalStages = [];
     const parentMap = new Map<string, StageHierarchyItem>();
-    const existingDesc = (this.selectedCourse?.['stageDescriptions'] as Record<string, string>) || {};
+    const existingDesc = (this.selectedCourse?.['stageDescriptions'] as Record<string, string>) ||
+                         (this.selectedCourseType?.['stageDescriptions'] as Record<string, string>) || {};
 
     for (const raw of this.stagesList) {
       const name = String(raw).trim();
@@ -218,11 +219,13 @@ export class CourseStagesDialogComponent implements OnInit {
           const sub = subRaw.trim();
           if (!sub) continue;
 
-          if (sub.toLowerCase().startsWith(parentName.toLowerCase())) {
-            list.push(sub);
-          } else {
-            list.push(`${parentName} - ${sub}`);
+          let cleanSub = sub;
+          if (cleanSub.toLowerCase().startsWith(parentName.toLowerCase())) {
+            cleanSub = cleanSub.substring(parentName.length).replace(/^[\s:-]+/, '').trim();
           }
+          if (!cleanSub) cleanSub = sub;
+
+          list.push(`${parentName} - ${cleanSub}`);
         }
       } else {
         list.push(parentName);
@@ -394,6 +397,27 @@ export class CourseStagesDialogComponent implements OnInit {
     this.stagesList[index + 1] = temp;
   }
 
+  moveSubStageUp(parentIndex: number, subIndex: number) {
+    if (subIndex <= 0) return;
+    const item = this.hierarchicalStages[parentIndex];
+    if (!item || !item.subStages) return;
+
+    const temp = item.subStages[subIndex];
+    item.subStages[subIndex] = item.subStages[subIndex - 1];
+    item.subStages[subIndex - 1] = temp;
+    this.syncStagesListFromHierarchy();
+  }
+
+  moveSubStageDown(parentIndex: number, subIndex: number) {
+    const item = this.hierarchicalStages[parentIndex];
+    if (!item || !item.subStages || subIndex >= item.subStages.length - 1) return;
+
+    const temp = item.subStages[subIndex];
+    item.subStages[subIndex] = item.subStages[subIndex + 1];
+    item.subStages[subIndex + 1] = temp;
+    this.syncStagesListFromHierarchy();
+  }
+
   removeStage(index: number) {
     this.stagesList.splice(index, 1);
   }
@@ -459,6 +483,7 @@ export class CourseStagesDialogComponent implements OnInit {
           stageDescriptions: stageDescriptions
         }, profile);
 
+        this.repo.clearCache('courses');
         this.selectedCourse['stages'] = cleanStages;
         this.selectedCourse['stageDescriptions'] = stageDescriptions;
         this.snackBar.open(`Stages & descriptions updated for course "${this.selectedCourse['name']}"`, 'Close', { duration: 3000 });
@@ -476,7 +501,8 @@ export class CourseStagesDialogComponent implements OnInit {
         // If it's a persistent document in Firestore, update it
         if (typeRecord && typeRecord.id && !this.builtInCourseTypes.some(b => b.id === typeRecord.id)) {
           await this.repo.update('courseTypes', String(typeRecord.id), {
-            defaultStages: cleanStages
+            defaultStages: cleanStages,
+            stageDescriptions: stageDescriptions
           }, profile);
         } else {
           // If built-in type or new type, save/upsert in courseTypes collection
@@ -484,10 +510,14 @@ export class CourseStagesDialogComponent implements OnInit {
             name: typeName,
             code: String(typeRecord?.['code'] || this.selectedCourseTypeId).toUpperCase(),
             defaultStages: cleanStages,
+            stageDescriptions: stageDescriptions,
             status: 'active',
             organizationId: profile?.organizationId || ''
           }, profile);
         }
+
+        this.repo.clearCache('courses');
+        this.repo.clearCache('courseTypes');
 
         // Update default stages fallback map in memory for current turn
         DEFAULT_STAGES_BY_COURSE_TYPE[this.selectedCourseTypeId.toLowerCase()] = cleanStages;

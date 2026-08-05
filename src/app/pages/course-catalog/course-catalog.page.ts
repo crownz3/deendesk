@@ -12,6 +12,8 @@ import { CourseMadrasasDialogComponent } from '../management/course-madrasas-dia
 export interface StageHierarchyItem {
   name: string;
   subStages: string[];
+  description?: string;
+  subStageDescriptions?: Record<string, string>;
   expanded?: boolean;
   subStageInput?: string;
 }
@@ -170,6 +172,8 @@ export class CourseCatalogPage implements OnInit {
   private buildHierarchyFromStagesList() {
     this.hierarchicalStages = [];
     const parentMap = new Map<string, StageHierarchyItem>();
+    const existingDesc = (this.selectedCourse?.['stageDescriptions'] as Record<string, string>) ||
+                         (this.selectedCourseType?.['stageDescriptions'] as Record<string, string>) || {};
 
     for (const raw of this.stagesList) {
       const name = String(raw).trim();
@@ -195,21 +199,34 @@ export class CourseCatalogPage implements OnInit {
         const key = parentName.toLowerCase();
         let item = parentMap.get(key);
         if (!item) {
-          item = { name: parentName, subStages: [], expanded: true };
+          item = { name: parentName, subStages: [], description: existingDesc[parentName] || '', subStageDescriptions: {}, expanded: true };
           parentMap.set(key, item);
           this.hierarchicalStages.push(item);
         }
         if (!Array.isArray(item.subStages)) item.subStages = [];
         item.subStages.push(subName);
+
+        const fullKey = `${parentName} - ${subName}`;
+        if (!item.subStageDescriptions) item.subStageDescriptions = {};
+        item.subStageDescriptions[subName] = existingDesc[fullKey] || existingDesc[subName] || '';
       } else {
         const key = name.toLowerCase();
         if (!parentMap.has(key)) {
-          const item: StageHierarchyItem = { name, subStages: [], expanded: true };
+          const item: StageHierarchyItem = { name, subStages: [], description: existingDesc[name] || '', subStageDescriptions: {}, expanded: true };
           parentMap.set(key, item);
           this.hierarchicalStages.push(item);
         }
       }
     }
+  }
+
+  getSubStageDescription(item: StageHierarchyItem, sub: string): string {
+    return item.subStageDescriptions?.[sub] || '';
+  }
+
+  setSubStageDescription(item: StageHierarchyItem, sub: string, desc: string): void {
+    if (!item.subStageDescriptions) item.subStageDescriptions = {};
+    item.subStageDescriptions[sub] = desc;
   }
 
   syncStagesListFromHierarchy() {
@@ -223,11 +240,13 @@ export class CourseCatalogPage implements OnInit {
           const sub = subRaw.trim();
           if (!sub) continue;
 
-          if (sub.toLowerCase().startsWith(parentName.toLowerCase())) {
-            list.push(sub);
-          } else {
-            list.push(`${parentName} - ${sub}`);
+          let cleanSub = sub;
+          if (cleanSub.toLowerCase().startsWith(parentName.toLowerCase())) {
+            cleanSub = cleanSub.substring(parentName.length).replace(/^[\s:-]+/, '').trim();
           }
+          if (!cleanSub) cleanSub = sub;
+
+          list.push(`${parentName} - ${cleanSub}`);
         }
       } else {
         list.push(parentName);
@@ -444,6 +463,27 @@ export class CourseCatalogPage implements OnInit {
     const temp = this.hierarchicalStages[index];
     this.hierarchicalStages[index] = this.hierarchicalStages[index + 1];
     this.hierarchicalStages[index + 1] = temp;
+    this.syncStagesListFromHierarchy();
+  }
+
+  moveSubStageUp(parentIndex: number, subIndex: number) {
+    if (subIndex <= 0) return;
+    const item = this.hierarchicalStages[parentIndex];
+    if (!item || !item.subStages) return;
+
+    const temp = item.subStages[subIndex];
+    item.subStages[subIndex] = item.subStages[subIndex - 1];
+    item.subStages[subIndex - 1] = temp;
+    this.syncStagesListFromHierarchy();
+  }
+
+  moveSubStageDown(parentIndex: number, subIndex: number) {
+    const item = this.hierarchicalStages[parentIndex];
+    if (!item || !item.subStages || subIndex >= item.subStages.length - 1) return;
+
+    const temp = item.subStages[subIndex];
+    item.subStages[subIndex] = item.subStages[subIndex + 1];
+    item.subStages[subIndex + 1] = temp;
     this.syncStagesListFromHierarchy();
   }
 
@@ -905,22 +945,59 @@ export class CourseCatalogPage implements OnInit {
         }, profile).catch(err => console.warn('Could not update org naming rules', err));
       }
 
+      const stageDescriptions: Record<string, string> = {};
+      for (const item of this.hierarchicalStages) {
+        const pName = (item.name || '').trim();
+        if (!pName) continue;
+        if (item.description?.trim()) {
+          stageDescriptions[pName] = item.description.trim();
+        }
+        if (item.subStages && item.subStages.length > 0 && item.subStageDescriptions) {
+          for (const sub of item.subStages) {
+            const subName = (sub || '').trim();
+            if (!subName) continue;
+            const fullKey = `${pName} - ${subName}`;
+            const desc = item.subStageDescriptions[subName];
+            if (desc?.trim()) {
+              stageDescriptions[fullKey] = desc.trim();
+              stageDescriptions[subName] = desc.trim();
+            }
+          }
+        }
+      }
+
       if (this.mode === 'course' && this.selectedCourseId) {
-        await this.repo.update('courses', this.selectedCourseId, { stages: cleanStages }, profile);
+        await this.repo.update('courses', this.selectedCourseId, { stages: cleanStages, stageDescriptions }, profile);
+        this.repo.clearCache('courses');
       } else if (this.selectedCourseTypeId) {
         const typeRecord = this.courseTypes.find(t => String(t.id).toLowerCase() === this.selectedCourseTypeId.toLowerCase());
         const typeName = typeRecord ? (typeRecord['name'] || typeRecord.id) : this.selectedCourseTypeId;
         if (typeRecord && typeRecord.id && !this.builtInCourseTypes.some(b => b.id === typeRecord.id)) {
-          await this.repo.update('courseTypes', String(typeRecord.id), { defaultStages: cleanStages }, profile);
+          await this.repo.update('courseTypes', String(typeRecord.id), { defaultStages: cleanStages, stageDescriptions }, profile);
         } else {
           await this.repo.create('courseTypes', {
             name: typeName,
             code: String(typeRecord?.['code'] || this.selectedCourseTypeId).toUpperCase(),
             defaultStages: cleanStages,
+            stageDescriptions: stageDescriptions,
             status: 'active',
             organizationId: profile?.organizationId || ''
           }, profile);
         }
+
+        // Also update all courses matching this course type with the new stage descriptions
+        const matchingCourses = this.courses.filter(c => {
+          const ct = String(c['type'] || c['courseType'] || '').toLowerCase();
+          return ct === String(this.selectedCourseTypeId).toLowerCase() || ct === String(typeName).toLowerCase();
+        });
+        for (const c of matchingCourses) {
+          if (c.id) {
+            await this.repo.update('courses', String(c.id), { stages: cleanStages, stageDescriptions }, profile).catch(() => {});
+          }
+        }
+
+        this.repo.clearCache('courses');
+        this.repo.clearCache('courseTypes');
       }
 
       this.snackBar.open('Course Catalog & Naming Rules updated successfully!', 'Close', { duration: 3500 });

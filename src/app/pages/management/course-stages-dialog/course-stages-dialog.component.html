@@ -127,9 +127,17 @@
                   <ion-icon name="return-down-forward-outline" class="sub-icon"></ion-icon>
                   <input type="text" class="sub-stage-input" [(ngModel)]="item.subStages[sj]" (ngModelChange)="syncStagesListFromHierarchy()" placeholder="Sub-stage Name">
                   <input type="text" class="sub-stage-desc-input" [ngModel]="getSubStageDescription(item, sub)" (ngModelChange)="setSubStageDescription(item, sub, $event)" placeholder="Sub-stage description (optional)">
-                  <button mat-icon-button color="warn" type="button" (click)="removeSubStage(i, sj)" matTooltip="Remove Inner Stage">
-                    <ion-icon name="close-circle-outline"></ion-icon>
-                  </button>
+                  <div class="sub-stage-actions" style="display: flex; align-items: center; gap: 2px;">
+                    <button mat-icon-button type="button" (click)="moveSubStageUp(i, sj)" [disabled]="sj === 0" matTooltip="Move Sub-stage Up">
+                      <ion-icon name="arrow-up-outline"></ion-icon>
+                    </button>
+                    <button mat-icon-button type="button" (click)="moveSubStageDown(i, sj)" [disabled]="sj === item.subStages.length - 1" matTooltip="Move Sub-stage Down">
+                      <ion-icon name="arrow-down-outline"></ion-icon>
+                    </button>
+                    <button mat-icon-button color="warn" type="button" (click)="removeSubStage(i, sj)" matTooltip="Remove Inner Stage">
+                      <ion-icon name="close-circle-outline"></ion-icon>
+                    </button>
+                  </div>
                 </div>
               </div>
 

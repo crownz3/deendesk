@@ -248,16 +248,24 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   getFallbackName(row: EntityRecord, key: string): string | undefined {
+    const idVal = this.value(row, key);
+    if (this.isArray(idVal)) return undefined;
+
     const val = this.getCardFieldValue(row, key);
-    if (val && val !== 'N/A' && val !== '-' && val !== String(row[key]) && val !== String(this.value(row, key))) {
+    if (val && val !== 'N/A' && val !== '-' && val !== String(row[key]) && val !== String(idVal)) {
+      if (key.toLowerCase().includes('madrasa') && idVal && String(idVal) !== String(row['madrasaId'])) {
+        return undefined;
+      }
       return val;
     }
     return undefined;
   }
 
   getCardFieldValue(row: EntityRecord, key: string): string {
-    if (key === 'madrasaId' || key === 'madrasaIds') {
-      const val = row['madrasaNames'] || row['madrasaName'] || row['madrasa'];
+    if (key === 'madrasaId' || key === 'madrasaIds' || key === 'madrasa' || key === 'madrasas' || key === 'madrasaName' || key === 'madrasaNames') {
+      const directVal = row[key];
+      if (directVal && directVal !== '-') return String(directVal);
+      const val = row['madrasaNames'] || row['madrasaName'] || row['madrasa'] || row['assignedMadrasas'] || row['assignedMadrasaNames'];
       if (val && val !== '-') return String(val);
     }
     if (key === 'organizationId') {
@@ -314,9 +322,24 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
     return parts.slice(0, 2).map(p => p.charAt(0).toUpperCase()).join('') || '?';
   }
 
+  getMadrasaCountDisplay(row: EntityRecord): number {
+    if (row['madrasaCount'] !== undefined && row['madrasaCount'] !== null && row['madrasaCount'] !== '') {
+      return Number(row['madrasaCount']) || 0;
+    }
+    const madrasas = row['madrasaIds'] || row['madrasaNames'] || row['madrasas'] || row['assignedMadrasas'];
+    if (Array.isArray(madrasas)) return madrasas.length || 1;
+    if (typeof madrasas === 'string' && madrasas.includes(',')) {
+      return madrasas.split(',').map(s => s.trim()).filter(Boolean).length || 1;
+    }
+    return 1;
+  }
+
   hasMadrasasButton(row: EntityRecord): boolean {
     if (this.resourceKey === 'students' || this.resourceKey === 'student') return false;
-    return Boolean(row['madrasaCount'] || row['madrasaId'] || row['madrasaIds'] || row['madrasas']);
+    if (row['madrasaCount'] !== undefined || row['madrasaId'] || row['madrasaIds'] || row['madrasas'] || row['madrasaName'] || row['madrasaNames'] || row['madrasa'] || row['assignedMadrasas']) {
+      return true;
+    }
+    return Boolean(this.allowEdit || this.allowDetails || ['users', 'staff', 'incharges', 'coordinators', 'management', 'teacher'].includes(this.resourceKey || ''));
   }
 
   hasStudentsButton(row: EntityRecord): boolean {
@@ -328,6 +351,85 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   hasAcademicButton(row: EntityRecord): boolean {
     if (this.resourceKey === 'students' || this.resourceKey === 'student') return false;
     return Boolean(row['classId'] || row['className'] || row['stage'] || row['groupId'] || row['classGroup']);
+  }
+
+  isMultiValue(row: EntityRecord, column: TableColumn): boolean {
+    const items = this.getCardMultiValues(row, column);
+    return Array.isArray(items) && items.length > 1;
+  }
+
+  getCardMultiValues(row: EntityRecord, column: TableColumn): any[] {
+    if (!column || !row) return [];
+
+    if (column.type === 'role' || column.key === 'roles' || column.key === 'role' || column.key === 'otherRoles') {
+      const rawVal = row[column.key];
+      let roles: string[] = [];
+      if (Array.isArray(rawVal)) {
+        roles = rawVal.map(r => String(r).trim());
+      } else if (typeof rawVal === 'string') {
+        roles = rawVal.split(',').map(r => r.trim());
+      }
+
+      if (roles.length > 0) {
+        if (roles.some(r => ['teacher', 'ustadh', 'madrasaincharge', 'stagehead', 'coordinator', 'headteacher'].includes(r.toLowerCase()))) {
+          roles = roles.filter(r => r.toLowerCase() !== 'staff');
+        }
+        roles = Array.from(new Set(roles));
+        if (roles.length > 1) return roles;
+        return [];
+      }
+    }
+
+    if (column.type === 'staffChips') {
+      const staff = this.staffPeople(row, column.key);
+      if (staff && staff.length > 1) return staff;
+    }
+
+    if (column.type === 'stageChips') {
+      const stages = this.getVisibleStages(row, column.key);
+      if (stages && stages.length > 1) return stages;
+    }
+
+    if (column.type === 'idRef') {
+      const val = this.value(row, column.key);
+      if (this.isArray(val)) {
+        const arr = this.asArray(val);
+        if (arr.length > 1) return arr;
+      }
+    }
+
+    const rawVal = row[column.key];
+    if (Array.isArray(rawVal) && rawVal.length > 1) {
+      return rawVal;
+    }
+
+    if (typeof rawVal === 'string' && rawVal.includes(',')) {
+      const items = rawVal.split(',').map(s => s.trim()).filter(Boolean);
+      if (items.length > 1) return items;
+    }
+
+    const cardVal = this.getCardFieldValue(row, column.key);
+    if (cardVal && cardVal !== 'N/A' && cardVal.includes(',')) {
+      const items = cardVal.split(',').map(s => s.trim()).filter(Boolean);
+      if (items.length > 1) return items;
+    }
+
+    return [];
+  }
+
+  getItemText(item: any): string {
+    if (item === null || item === undefined) return '';
+    if (typeof item === 'object') {
+      return item.name || item.title || item.label || item.displayName || item.email || item.id || String(item);
+    }
+    const str = String(item);
+    if (str in ROLE_LABELS) {
+      return ROLE_LABELS[str as keyof typeof ROLE_LABELS];
+    }
+    if (str.replace(/([A-Z])/g, ' $1') !== str) {
+      return str.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
+    }
+    return str;
   }
 
   ngAfterViewInit(): void {
@@ -618,7 +720,10 @@ Please login and change your password immediately.`;
 
   formatRole(roleRaw: any): string {
     if (!roleRaw) return '';
-    const roles = String(roleRaw).split(',').map(r => r.trim());
+    let roles = String(roleRaw).split(',').map(r => r.trim());
+    if (roles.some(r => ['teacher', 'ustadh', 'madrasaincharge', 'stagehead', 'coordinator', 'headteacher'].includes(r.toLowerCase()))) {
+      roles = roles.filter(r => r.toLowerCase() !== 'staff');
+    }
     return roles.map(r => r in ROLE_LABELS ? ROLE_LABELS[r as keyof typeof ROLE_LABELS] : (r.charAt(0).toUpperCase() + r.slice(1).replace('_', ' '))).join(', ');
   }
 }

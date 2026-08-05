@@ -74,7 +74,12 @@ export class UserDetailsDialogComponent implements OnInit {
 
   private extractAllStrings(val: any): string[] {
     if (!val) return [];
-    if (typeof val === 'string') return [val.trim()];
+    if (typeof val === 'string') {
+      if (val.includes(',')) {
+        return val.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      return [val.trim()];
+    }
     if (typeof val === 'number') return [String(val)];
     if (Array.isArray(val)) {
       return val.flatMap(item => this.extractAllStrings(item));
@@ -90,6 +95,20 @@ export class UserDetailsDialogComponent implements OnInit {
       return ids;
     }
     return [];
+  }
+
+  private addSplitNames(val: any, targetSet: Set<string>): void {
+    if (!val) return;
+    if (typeof val === 'string') {
+      if (val.includes(',')) {
+        val.split(',').map(s => s.trim()).filter(Boolean).forEach(name => targetSet.add(name));
+      } else {
+        const trimmed = val.trim();
+        if (trimmed) targetSet.add(trimmed);
+      }
+    } else if (Array.isArray(val)) {
+      val.forEach(item => this.addSplitNames(item, targetSet));
+    }
   }
 
   async loadAcademicDetails() {
@@ -199,12 +218,12 @@ export class UserDetailsDialogComponent implements OnInit {
       const clNamesSet = new Set<string>();
       const gNamesSet = new Set<string>();
 
-      if (this.user['name'] && (isClassGroupDoc || this.user['assignedStaffIds'])) {
-        gNamesSet.add(String(this.user['name']));
+      if (this.user['name'] && isClassGroupDoc) {
+        this.addSplitNames(this.user['name'], gNamesSet);
       }
 
       matchedGroups.forEach(g => {
-        if (g['name']) gNamesSet.add(String(g['name']));
+        if (g['name']) this.addSplitNames(g['name'], gNamesSet);
         if (g['courseId'] && courseMap.has(g['courseId'])) cNamesSet.add(courseMap.get(g['courseId'])!);
         if (g['classId'] && classMap.has(g['classId'])) clNamesSet.add(classMap.get(g['classId'])!);
       });
@@ -212,22 +231,22 @@ export class UserDetailsDialogComponent implements OnInit {
       // Direct group / course / class references on user object
       userGroupIds.forEach(gid => {
         if (groupMap.has(gid)) {
-          gNamesSet.add(groupMap.get(gid)!);
+          this.addSplitNames(groupMap.get(gid)!, gNamesSet);
         } else if (gid && !this.isUid(gid)) {
-          gNamesSet.add(gid);
+          this.addSplitNames(gid, gNamesSet);
         }
       });
 
       const directGroupRef = this.user['assignedClassGroup'] || this.user['groupName'] || this.user['group'] || this.user['section'];
-      if (directGroupRef && typeof directGroupRef === 'string') {
-        gNamesSet.add(directGroupRef);
+      if (directGroupRef) {
+        this.addSplitNames(directGroupRef, gNamesSet);
       }
 
       // Fallback: If groupNames is still empty BUT user has classId, find matching class groups by classId
       if (gNamesSet.size === 0 && userClassIds.length > 0) {
         allGroups.forEach(g => {
           if (g['classId'] && userClassIds.includes(String(g['classId']).trim())) {
-            if (g['name']) gNamesSet.add(String(g['name']));
+            if (g['name']) this.addSplitNames(g['name'], gNamesSet);
             if (!matchedGroups.some(mg => mg.id === g.id)) matchedGroups.push(g);
           }
         });

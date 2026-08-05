@@ -10,6 +10,8 @@ export interface CourseMadrasasDialogData {
   courseCode?: string;
   madrasaIds?: string[];
   madrasaNames?: string[];
+  userId?: string;
+  user?: EntityRecord;
 }
 
 export interface MadrasaGroupDetail {
@@ -71,16 +73,49 @@ export class CourseMadrasasDialogComponent implements OnInit {
       const allUsers = await this.repo.getAllOnce<EntityRecord>('users', profile);
       const allStaff = await this.repo.getAllOnce<EntityRecord>('staff', profile).catch(() => []);
 
-function extractId(val: any): string {
-  if (!val) return '';
-  if (typeof val === 'string') return val.trim();
-  if (typeof val === 'object') return String(val.id || val.uid || val.docId || val._id || '').trim();
-  return String(val).trim();
-}
+      function extractId(val: any): string {
+        if (!val) return '';
+        if (typeof val === 'string') return val.trim();
+        if (typeof val === 'object') return String(val.id || val.uid || val.docId || val._id || '').trim();
+        return String(val).trim();
+      }
+
+      function extractAllStrings(val: any): string[] {
+        if (!val) return [];
+        if (typeof val === 'string') {
+          if (val.includes(',')) return val.split(',').map(s => s.trim()).filter(Boolean);
+          return [val.trim()];
+        }
+        if (Array.isArray(val)) return val.flatMap(item => extractAllStrings(item));
+        return [];
+      }
 
       const targetName = String(this.data.courseName || '').trim().toLowerCase();
       const targetCode = String(this.data.courseCode || '').trim().toLowerCase();
       const targetId = extractId(this.data.courseId);
+
+      const targetUserIds = [
+        extractId(this.data.userId),
+        extractId(this.data.user?.id),
+        extractId(this.data.user?.['uid']),
+        extractId(this.data.user?.['userId']),
+        extractId(this.data.user?.['docId']),
+      ].filter(Boolean);
+
+      const targetUserGroupIds = this.data.user ? [
+        ...extractAllStrings(this.data.user['groupId']),
+        ...extractAllStrings(this.data.user['classGroupId']),
+        ...extractAllStrings(this.data.user['groupIds']),
+        ...extractAllStrings(this.data.user['classGroupIds']),
+        ...extractAllStrings(this.data.user['assignedClassGroup']),
+      ].map(extractId).filter(Boolean) : [];
+
+      const targetUserGroupNames = this.data.user ? [
+        ...extractAllStrings(this.data.user['assignedClassGroup']),
+        ...extractAllStrings(this.data.user['groupName']),
+        ...extractAllStrings(this.data.user['group']),
+        ...extractAllStrings(this.data.user['section']),
+      ].map(s => s.toLowerCase()).filter(Boolean) : [];
 
       // Find all madrasa course instances for this course
       const matchingMadrasaCourses = allCourses.filter(c => {
@@ -94,6 +129,47 @@ function extractId(val: any): string {
                (targetCode && cCode === targetCode) ||
                (targetName && cName === targetName);
       });
+
+      const isCourseMode = matchingMadrasaCourses.length > 0 || allCourses.some(c => {
+        const cId = extractId(c.id);
+        const cName = String(c['name'] || '').trim().toLowerCase();
+        return (targetId && cId === targetId) || (targetName && cName === targetName);
+      });
+
+      const isUserMode = targetUserIds.length > 0 && !isCourseMode;
+
+      function isGroupAssignedToTargetUser(grp: EntityRecord): boolean {
+        if (!isUserMode) return true;
+
+        const grpId = extractId(grp.id || grp['docId']);
+        if (grpId && targetUserGroupIds.includes(grpId)) return true;
+
+        const grpName = String(grp['name'] || grp['groupName'] || grp['title'] || '').trim().toLowerCase();
+        if (grpName && targetUserGroupNames.includes(grpName)) return true;
+
+        const staffTokens = [
+          ...extractAllStrings(grp['assignedStaffIds']),
+          ...extractAllStrings(grp['assignedStaff']),
+          ...extractAllStrings(grp['staffIds']),
+          ...extractAllStrings(grp['teacherIds']),
+          ...extractAllStrings(grp['teachers']),
+          ...extractAllStrings(grp['staff']),
+          ...extractAllStrings(grp['groupStaff']),
+        ].map(extractId);
+
+        if (targetUserIds.some(id => staffTokens.includes(id))) return true;
+
+        const studentTokens = [
+          ...extractAllStrings(grp['assignedStudentIds']),
+          ...extractAllStrings(grp['assignedStudents']),
+          ...extractAllStrings(grp['studentIds']),
+          ...extractAllStrings(grp['students']),
+        ].map(extractId);
+
+        if (targetUserIds.some(id => studentTokens.includes(id))) return true;
+
+        return false;
+      }
 
       const detailsList: MadrasaCourseDetail[] = [];
       const madrasaIdSet = new Set<string>();
@@ -160,20 +236,51 @@ function extractId(val: any): string {
         const rawAdded = courseDoc ? (courseDoc['createdAt'] || courseDoc['updatedAt']) : null;
         const addedAt = rawAdded ? (typeof (rawAdded as any)?.toDate === 'function' ? (rawAdded as any).toDate() : rawAdded) : null;
 
-        const mClasses = allClasses.filter(cls => {
+        let mClasses = allClasses.filter(cls => {
           const clsMadrasa = extractId(cls['madrasaId']);
           if (clsMadrasa && clsMadrasa !== realMadrasaId && clsMadrasa !== mId) return false;
 
-          const clsCourseId = extractId(cls['courseId'] || cls['course']);
-          const clsCourseCode = String(cls['courseCode'] || '').toLowerCase();
-          const clsCourseName = String(cls['courseName'] || cls['course'] || cls['name'] || cls['title'] || '').trim().toLowerCase();
+          if (isCourseMode) {
+            const clsCourseId = extractId(cls['courseId'] || cls['course']);
+            const clsCourseCode = String(cls['courseCode'] || '').toLowerCase();
+            const clsCourseName = String(cls['courseName'] || cls['course'] || cls['name'] || cls['title'] || '').trim().toLowerCase();
 
-          return (targetId && clsCourseId === targetId) ||
-                 (targetCode && clsCourseCode === targetCode) ||
-                 (targetName && clsCourseName === targetName) ||
-                 (targetName && clsCourseName.includes(targetName)) ||
-                 (courseDoc && clsCourseId === extractId(courseDoc.id));
+            return (targetId && clsCourseId === targetId) ||
+                   (targetCode && clsCourseCode === targetCode) ||
+                   (targetName && clsCourseName === targetName) ||
+                   (targetName && clsCourseName.includes(targetName)) ||
+                   (courseDoc && clsCourseId === extractId(courseDoc.id));
+          }
+
+          return true;
         });
+
+        if (mClasses.length === 0) {
+          const madrasaGroups = allGroups.filter(g => {
+            const gMadrasa = extractId(g['madrasaId']);
+            const matchesMadrasa = gMadrasa === realMadrasaId || gMadrasa === mId || !gMadrasa;
+            if (!matchesMadrasa) return false;
+            return isGroupAssignedToTargetUser(g);
+          });
+
+          if (madrasaGroups.length > 0) {
+            const grpByClassMap = new Map<string, { id: string; name: string }>();
+            madrasaGroups.forEach(grp => {
+              const cId = extractId(grp['classId'] || grp['class']) || 'default_class';
+              const cName = String(grp['className'] || grp['class'] || grp['courseName'] || 'General Class');
+              if (!grpByClassMap.has(cId)) {
+                grpByClassMap.set(cId, { id: cId, name: cName });
+              }
+            });
+
+            mClasses = Array.from(grpByClassMap.values()).map(c => ({
+              id: c.id,
+              name: c.name,
+              title: c.name,
+              madrasaId: realMadrasaId
+            }));
+          }
+        }
 
         const classDetails: MadrasaClassDetail[] = [];
 
@@ -181,11 +288,20 @@ function extractId(val: any): string {
           const clsId = String(cls.id);
           const clsName = String(cls['name'] || cls['title'] || 'Class');
 
-          const grps = allGroups.filter(g => String(g['classId']) === clsId || (String(g['madrasaId']) === mId && String(g['className']) === clsName));
+          const grps = allGroups.filter(g => {
+            const gClass = extractId(g['classId'] || g['class']);
+            const gMadrasa = extractId(g['madrasaId']);
+            const gClassName = String(g['className'] || g['class'] || '');
+            const matchesClass = gClass === clsId || (gMadrasa === realMadrasaId && gClassName.toLowerCase() === clsName.toLowerCase()) || (clsId === 'default_class' && (gMadrasa === realMadrasaId || gMadrasa === mId));
+
+            if (!matchesClass) return false;
+
+            return isGroupAssignedToTargetUser(g);
+          });
 
           const groupDetails: MadrasaGroupDetail[] = [];
 
-          if (grps.length === 0) {
+          if (grps.length === 0 && !isUserMode) {
             const rawClsStudents = allStudents.filter(st => {
               if (String(st['status'] || 'active').toLowerCase() === 'inactive') return false;
               return String(st['classId'] || st['class']) === clsId;
@@ -256,21 +372,25 @@ function extractId(val: any): string {
             }
           }
 
-          classDetails.push({
-            classId: clsId,
-            className: clsName,
-            groups: groupDetails
-          });
+          if (groupDetails.length > 0) {
+            classDetails.push({
+              classId: clsId,
+              className: clsName,
+              groups: groupDetails
+            });
+          }
         }
 
-        detailsList.push({
-          madrasaId: mId,
-          madrasaName: mName,
-          madrasaCode: mCode,
-          addedAt,
-          expanded: true,
-          classes: classDetails
-        });
+        if (!isUserMode || classDetails.length > 0) {
+          detailsList.push({
+            madrasaId: mId,
+            madrasaName: mName,
+            madrasaCode: mCode,
+            addedAt,
+            expanded: true,
+            classes: classDetails
+          });
+        }
       }
 
       this.madrasaDetails = detailsList;
