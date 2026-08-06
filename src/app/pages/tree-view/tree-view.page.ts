@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { BehaviorSubject, combineLatest, map, of, startWith, switchMap, catchError } from 'rxjs';
 import { ROLE_LABELS } from '../../core/constants/defaults';
+import { AppUser } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { MatDialog } from '@angular/material/dialog';
 import { TemplateRef } from '@angular/core';
@@ -55,6 +56,7 @@ interface TreeVm {
   parents: EntityRecord[];
   staff: EntityRecord[];
   academicTree?: AcademicTreeNode[];
+  profile?: AppUser | null;
 }
 
 @Component({
@@ -323,7 +325,7 @@ export class TreeViewPage {
             };
           }),
           map((data): PageState<TreeVm> => ({
-            data: { type, ...data },
+            data: { type, profile, ...data },
             loading: false,
           })),
           startWith({ loading: true } as PageState<TreeVm>),
@@ -1301,5 +1303,19 @@ export class TreeViewPage {
       case 'subject': return 'book-outline';
       default: return 'folder-outline';
     }
+  }
+
+  canAddCourse(profile: any): boolean {
+    if (!profile) return false;
+    const role = String(profile.role || '').toLowerCase();
+    if (role === 'superadmin' || role === 'organizationadmin') return true;
+    return Array.isArray(profile.permissions) && profile.permissions.includes('manageCourses');
+  }
+
+  canAddMadrasa(profile: any): boolean {
+    if (!profile) return false;
+    const role = String(profile.role || '').toLowerCase();
+    if (role === 'superadmin' || role === 'organizationadmin') return true;
+    return Array.isArray(profile.permissions) && profile.permissions.includes('manageMadrasas');
   }
 }

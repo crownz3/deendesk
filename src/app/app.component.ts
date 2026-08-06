@@ -77,13 +77,13 @@ export class AppComponent {
         { label: 'My Assignments', route: '/my-assignments', icon: 'calendar-number-outline' },
         { label: 'Notifications', route: '/notifications', icon: 'notifications-outline' },
         { label: 'Help & Support', route: '/help-support', icon: 'help-buoy-outline' },
-        { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', permissionsAny: ['manageOrganizations'] },
+        { label: 'Activity Logs', route: '/activity-logs', icon: 'list-outline', rolesAny: ['superAdmin', 'organizationAdmin'] },
       ]
     },
     {
       label: 'Administration',
       items: [
-        { label: 'Organizations', route: '/organizations', icon: 'business-outline', permission: 'manageOrganizations', roleRequired: 'superAdmin' },
+        { label: 'Organizations', route: '/organizations', icon: 'business-outline', roleRequired: 'superAdmin' },
         { label: 'Subscriptions & Billing', route: '/subscriptions', icon: 'card-outline', roleRequired: 'superAdmin' },
         { label: 'Madrasas', route: '/madrasas', icon: 'school-outline', permission: 'manageMadrasas' },
         { label: 'Roles', route: '/roles-permissions', icon: 'shield-checkmark-outline', permission: 'managePermissions' },
@@ -108,11 +108,11 @@ export class AppComponent {
     {
       label: 'Academic Management',
       items: [
-        { label: 'Course Catalog & Stages', route: '/course-catalog', icon: 'journal-outline', permissionsAny: ['manageCourses'] },
-        { label: 'Courses', route: '/courses', icon: 'ribbon-outline', permissionsAny: ['manageCourses'] },
-        { label: 'Classes', route: '/classes', icon: 'easel-outline', permissionsAny: ['manageClasses'] },
-        { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permissionsAny: ['manageClasses'] },
-        { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', permissionsAny: ['manageCourses', 'manageClasses'] },
+        { label: 'Course Catalog & Stages', route: '/course-catalog', icon: 'journal-outline', permissionsAny: ['viewCourses', 'addCourses', 'editCourses', 'manageCourses'] },
+        { label: 'Courses', route: '/courses', icon: 'ribbon-outline', permissionsAny: ['viewCourses', 'addCourses', 'editCourses', 'manageCourses'] },
+        { label: 'Classes', route: '/classes', icon: 'easel-outline', permissionsAny: ['viewClasses', 'addClasses', 'editClasses', 'manageClasses'] },
+        { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permissionsAny: ['viewClassGroups', 'addClassGroups', 'editClassGroups', 'viewClasses', 'addClasses', 'editClasses', 'manageClasses'] },
+        { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', permissionsAny: ['viewCourses', 'viewClasses', 'manageCourses', 'manageClasses'] },
         { label: 'Stage Heads', route: '/stage-heads', icon: 'person-add-outline', permission: 'manageStageHeads' },
         { label: 'Subjects & Syllabus', route: '/subjects', icon: 'book-outline', permissionsAny: ['manageSubjects'] },
         { label: 'Class Plans & Timetables', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans'] },

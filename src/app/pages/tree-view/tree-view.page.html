@@ -357,8 +357,8 @@
             message="No records found matching your current filters or search, or the hierarchy is empty."
           >
             <div actions>
-              <button mat-stroked-button routerLink="/management/madrasas">Add Madrasa</button>
-              <button mat-stroked-button routerLink="/management/courses">Add Course</button>
+              <button *ngIf="canAddMadrasa(vm.profile)" mat-stroked-button routerLink="/management/madrasas">Add Madrasa</button>
+              <button *ngIf="canAddCourse(vm.profile)" mat-stroked-button routerLink="/management/courses">Add Course</button>
             </div>
           </app-empty-state>
         </ng-template>

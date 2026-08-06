@@ -36,6 +36,8 @@ export class CourseCatalogPage implements OnInit {
   allMadrasas: EntityRecord[] = [];
   courseTypes: EntityRecord[] = [];
   isOrgAdminOrCoordinator = false;
+  canAddCourse = false;
+  canEditCourse = false;
 
   selectedCourseId = '';
   selectedCourseTypeId = '';
@@ -94,8 +96,11 @@ export class CourseCatalogPage implements OnInit {
       const fetchedTypes = await this.repo.getAllOnce<EntityRecord>('courseTypes', profile);
       this.allMadrasas = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
 
-      const role = profile?.role;
-      this.isOrgAdminOrCoordinator = role === 'organizationAdmin' || role === 'superAdmin' || role === 'coordinator';
+      const role = String(profile?.role || '').toLowerCase();
+      const userPermissions = Array.isArray(profile?.permissions) ? profile!.permissions : [];
+      this.isOrgAdminOrCoordinator = role === 'organizationadmin' || role === 'superadmin' || role === 'coordinator';
+      this.canAddCourse = role === 'superadmin' || role === 'organizationadmin' || userPermissions.includes('addCourses') || userPermissions.includes('manageCourses');
+      this.canEditCourse = role === 'superadmin' || role === 'organizationadmin' || userPermissions.includes('editCourses') || userPermissions.includes('manageCourses');
 
       const scopedCourses = isSuperAdmin ? allCourses : allCourses.filter(c => !c['organizationId'] || c['organizationId'] === orgId);
       this.courses = scopedCourses;

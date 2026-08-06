@@ -25,7 +25,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     label: 'Organization & Settings',
     icon: 'business-outline',
-    permissions: ['manageOrganizations', 'manageMadrasas', 'manageSettings', 'managePermissions', 'manageBrandingAndMenu'],
+    permissions: ['manageMadrasas', 'manageSettings', 'managePermissions', 'manageBrandingAndMenu'],
   },
   {
     label: 'Users & Access',
@@ -35,7 +35,12 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   {
     label: 'Academic Structure',
     icon: 'library-outline',
-    permissions: ['manageCourses', 'manageClasses', 'manageSubjects', 'manageAcademicPlans', 'manageClassPlans', 'managePromotions'],
+    permissions: [
+      'viewCourses', 'addCourses', 'editCourses',
+      'viewClasses', 'addClasses', 'editClasses',
+      'viewClassGroups', 'addClassGroups', 'editClassGroups',
+      'manageSubjects', 'manageAcademicPlans', 'manageClassPlans', 'managePromotions'
+    ],
   },
   {
     label: 'Attendance',
@@ -123,6 +128,7 @@ export class PermissionsPage implements OnInit {
 
   expandedGroups: Set<string> = new Set(PERMISSION_GROUPS.map(g => g.label));
   permissionSearch = '';
+  currentOrgId = '';
 
   get filteredPermissionGroups(): PermissionGroup[] {
     const q = this.permissionSearch.trim().toLowerCase();
@@ -146,13 +152,13 @@ export class PermissionsPage implements OnInit {
   ) {}
 
   async ngOnInit() {
-    // Load templates from Firestore first (restores custom roles + overrides)
-    await this.rolePermissionsService.loadTemplates();
-
-    this.auth.profile$.subscribe(profile => {
+    this.auth.profile$.subscribe(async profile => {
       this.currentUserRole = profile?.role;
       this.isSuperAdmin = profile?.role === 'superAdmin';
+      this.currentOrgId = profile?.organizationId || '';
       this.canAddRoles = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin';
+
+      await this.rolePermissionsService.loadTemplates(this.currentOrgId);
 
       const systemRoles: string[] = ROLE_ORDER.filter(role => {
         if (this.isSuperAdmin) return true;
@@ -165,17 +171,13 @@ export class PermissionsPage implements OnInit {
 
       // Load permissions for system roles
       systemRoles.forEach(role => {
-        if (!this.selected[role]) {
-          this.selected[role] = [...this.rolePermissionsService.getPermissionsForRole(role as UserRole)];
-        }
+        this.selected[role] = [...this.rolePermissionsService.getPermissionsForRole(role as UserRole, undefined, this.currentOrgId)];
       });
 
       // Append custom roles saved in Firestore
       const customRoles = this.rolePermissionsService.getCustomRoleKeys();
       customRoles.forEach(role => {
-        if (!this.selected[role]) {
-          this.selected[role] = [...this.rolePermissionsService.getPermissionsForRole(role)];
-        }
+        this.selected[role] = [...this.rolePermissionsService.getPermissionsForRole(role, undefined, this.currentOrgId)];
       });
 
       this.roles = [...systemRoles, ...customRoles];
@@ -233,11 +235,10 @@ export class PermissionsPage implements OnInit {
   toggleAllInGroup(role: string, group: PermissionGroup, checked: boolean): void {
     if (!this.canEdit(role)) return;
     const current = this.selected[role] ?? [];
-    if (checked) {
-      this.selected[role] = Array.from(new Set([...current, ...group.permissions]));
-    } else {
-      this.selected[role] = current.filter(p => !group.permissions.includes(p));
-    }
+    const groupPerms = group.permissions;
+    this.selected[role] = checked
+      ? Array.from(new Set([...current, ...groupPerms]))
+      : current.filter(item => !groupPerms.includes(item));
   }
 
   isGroupAllChecked(role: string, group: PermissionGroup): boolean {
@@ -257,9 +258,9 @@ export class PermissionsPage implements OnInit {
     if (!this.canEdit(role)) return;
     try {
       await this.loader.withLoader('Saving permissions...', async () => {
-        await this.rolePermissionsService.saveTemplate(role as UserRole, this.selected[role] ?? []);
+        await this.rolePermissionsService.saveTemplate(role, this.selected[role] ?? [], undefined, this.currentOrgId);
       });
-      this.snackBar.open(`${this.getRoleLabel(role)} permissions saved.`, 'Close', { duration: 3000 });
+      this.snackBar.open(`${this.getRoleLabel(role)} permissions saved for your organization.`, 'Close', { duration: 3000 });
     } catch (e) {
       this.snackBar.open('Unable to save permissions. Please try again.', 'Close', { duration: 4000 });
     }
@@ -330,7 +331,7 @@ export class PermissionsPage implements OnInit {
 
     try {
       await this.loader.withLoader('Creating role...', async () => {
-        await this.rolePermissionsService.saveTemplate(roleKey, basePermissions, rawName);
+        await this.rolePermissionsService.saveTemplate(roleKey, basePermissions, rawName, this.currentOrgId);
       });
 
       // Add to local state
@@ -373,7 +374,7 @@ export class PermissionsPage implements OnInit {
     try {
       let affectedCount = 0;
       await this.loader.withLoader(`Deleting role ${roleName}...`, async () => {
-        const result = await this.rolePermissionsService.deleteTemplate(role);
+        const result = await this.rolePermissionsService.deleteTemplate(role, this.currentOrgId);
         affectedCount = result.affectedUserIds.length;
       });
 

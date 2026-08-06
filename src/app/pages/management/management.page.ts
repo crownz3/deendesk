@@ -2190,17 +2190,61 @@ export class ManagementPage {
   }
 
   canCreateResource(config: ManagementConfig, profile: AppUser | null): boolean {
-    if (config.resource === 'courses') {
-      const role = String(profile?.role || '').toLowerCase();
-      return role === 'superadmin' || role === 'organizationadmin';
+    if (!profile) return false;
+    const role = String(profile.role || '').toLowerCase();
+    if (config.resource === 'organizations') {
+      return role === 'superadmin';
     }
-    return true;
+    if (role === 'superadmin' || role === 'organizationadmin') return true;
+
+    const resourceAddPermissionMap: Record<string, PermissionKey[]> = {
+      courses: ['addCourses', 'manageCourses'],
+      classes: ['addClasses', 'manageClasses'],
+      classGroups: ['addClassGroups', 'manageClassGroups', 'addClasses', 'manageClasses'],
+      madrasas: ['manageMadrasas'],
+      staff: ['manageStaff'],
+      students: ['manageStudents'],
+      parents: ['manageParents'],
+      subjects: ['manageSubjects']
+    };
+
+    const allowedPermissions = resourceAddPermissionMap[config.resource];
+    if (!allowedPermissions) return true;
+
+    const userPermissions = Array.isArray(profile.permissions) ? profile.permissions : [];
+    return allowedPermissions.some(p => userPermissions.includes(p));
+  }
+
+  canEditResource(config: ManagementConfig, profile: AppUser | null): boolean {
+    if (!profile) return false;
+    const role = String(profile.role || '').toLowerCase();
+    if (config.resource === 'organizations') {
+      return role === 'superadmin';
+    }
+    if (role === 'superadmin' || role === 'organizationadmin') return true;
+
+    const resourceEditPermissionMap: Record<string, PermissionKey[]> = {
+      courses: ['editCourses', 'manageCourses'],
+      classes: ['editClasses', 'manageClasses'],
+      classGroups: ['editClassGroups', 'manageClassGroups', 'editClasses', 'manageClasses'],
+      madrasas: ['manageMadrasas'],
+      staff: ['manageStaff'],
+      students: ['manageStudents'],
+      parents: ['manageParents'],
+      subjects: ['manageSubjects']
+    };
+
+    const allowedPermissions = resourceEditPermissionMap[config.resource];
+    if (!allowedPermissions) return true;
+
+    const userPermissions = Array.isArray(profile.permissions) ? profile.permissions : [];
+    return allowedPermissions.some(p => userPermissions.includes(p));
   }
 
   async openCreate(config: ManagementConfig): Promise<void> {
     const profile = await firstValueFrom(this.auth.profile$);
     if (!this.canCreateResource(config, profile)) {
-      this.snackBar.open('Only Organization Admins can add courses.', 'Close', { duration: 4000 });
+      this.snackBar.open(`You do not have permission to add ${config.title.toLowerCase()}.`, 'Close', { duration: 4000 });
       return;
     }
     await this.openEditor(config);
@@ -2208,8 +2252,8 @@ export class ManagementPage {
 
   async edit(config: ManagementConfig, row: EntityRecord): Promise<void> {
     const profile = await firstValueFrom(this.auth.profile$);
-    if (config.resource === 'courses' && !this.canCreateResource(config, profile)) {
-      this.snackBar.open('Only Organization Admins can edit courses.', 'Close', { duration: 4000 });
+    if (!this.canEditResource(config, profile)) {
+      this.snackBar.open(`You do not have permission to edit ${config.title.toLowerCase()}.`, 'Close', { duration: 4000 });
       return;
     }
     await this.openEditor(config, row);

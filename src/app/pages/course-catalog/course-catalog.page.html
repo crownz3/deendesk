@@ -13,7 +13,7 @@
         <button mat-stroked-button color="primary" type="button" (click)="loadData()">
           <ion-icon name="refresh-outline"></ion-icon> Refresh Catalog
         </button>
-        <button mat-flat-button color="primary" type="button" (click)="openAddCourse()">
+        <button *ngIf="canAddCourse" mat-flat-button color="primary" type="button" (click)="openAddCourse()">
           <ion-icon name="add-outline"></ion-icon> Add Course
         </button>
       </div>
@@ -65,7 +65,7 @@
                   </div>
                 </div>
                 <div class="type-header-actions">
-                  <button mat-stroked-button color="primary" type="button" (click)="openAddCourseForType(type)" matTooltip="Add a course under this type" *ngIf="getCoursesForType(type).length === 0">
+                  <button mat-stroked-button color="primary" type="button" (click)="openAddCourseForType(type)" matTooltip="Add a course under this type" *ngIf="canAddCourse && getCoursesForType(type).length === 0">
                     <ion-icon name="add-outline"></ion-icon> Add Course
                   </button>
                   <button mat-icon-button color="warn" type="button" (click)="deleteCourseType(type)" matTooltip="Delete Course Type">
@@ -110,7 +110,7 @@
                 <div class="type-courses-empty" *ngIf="getCoursesForType(type).length === 0">
                   <ion-icon name="alert-circle-outline"></ion-icon>
                   <span>No courses configured for this type yet.</span>
-                  <button mat-stroked-button color="primary" type="button" (click)="openAddCourseForType(type)">
+                  <button *ngIf="canAddCourse" mat-stroked-button color="primary" type="button" (click)="openAddCourseForType(type)">
                     <ion-icon name="add-outline"></ion-icon> Create First Course
                   </button>
                 </div>
@@ -122,7 +122,7 @@
                         <strong>{{ course['name'] }}</strong>
                         <span class="course-code">{{ course['code'] }}</span>
                       </div>
-                      <div class="header-actions">
+                      <div class="header-actions" *ngIf="canEditCourse">
                         <button mat-icon-button color="primary" type="button" (click)="openEditCourse(course)" matTooltip="Edit Course">
                           <ion-icon name="create-outline"></ion-icon>
                         </button>

@@ -98,7 +98,21 @@ export class AuthService {
               return of(baseProfile);
             }),
             switchMap(profileWithEntity => {
-              if (!profileWithEntity || profileWithEntity.role === 'superAdmin' || (profileWithEntity.role as string) === 'superadmin') {
+              if (!profileWithEntity) return of(profileWithEntity);
+
+              if (profileWithEntity.role && profileWithEntity.role !== 'superAdmin' && (profileWithEntity.role as string) !== 'superadmin') {
+                const dynamicPerms = this.rolePermissionsService.getPermissionsForRole(
+                  profileWithEntity.role,
+                  (profileWithEntity as any).customPermissions,
+                  profileWithEntity.organizationId
+                );
+                profileWithEntity = {
+                  ...profileWithEntity,
+                  permissions: dynamicPerms
+                };
+              }
+
+              if (profileWithEntity.role === 'superAdmin' || (profileWithEntity.role as string) === 'superadmin') {
                 return of(profileWithEntity);
               }
               return from(this.enrichEffectiveMadrasaIds(profileWithEntity)).pipe(
