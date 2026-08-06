@@ -97,6 +97,17 @@ export class AuthService {
               }
               return of(baseProfile);
             }),
+            switchMap(profileWithEntity => {
+              if (!profileWithEntity || profileWithEntity.role === 'superAdmin' || (profileWithEntity.role as string) === 'superadmin') {
+                return of(profileWithEntity);
+              }
+              return from(this.enrichEffectiveMadrasaIds(profileWithEntity)).pipe(
+                catchError(err => {
+                  console.warn('[Auth] Failed to enrich effective madrasaIds:', err);
+                  return of(profileWithEntity);
+                })
+              );
+            }),
             catchError(error => {
               console.error('[Auth] profile$ snapshot failed:', error);
               return of(null);
@@ -567,6 +578,114 @@ export class AuthService {
     } catch (error) {
       console.error('[Auth] Failed to resolve profile:', error);
       return null;
+    }
+  }
+
+  private async enrichEffectiveMadrasaIds(profile: AppUser): Promise<AppUser> {
+    if (!profile || !profile.organizationId) return profile;
+
+    try {
+      const orgId = profile.organizationId;
+      const userTokens = Array.from(new Set([
+        profile.id,
+        profile.uid,
+        profile.entityId,
+        profile.email,
+        ...(Array.isArray((profile as any).studentIds) ? (profile as any).studentIds : [])
+      ].map(v => String(v || '').trim()).filter(Boolean)));
+
+      // 1. Fetch madrasas collection in organization to build a Code -> DocID map
+      const madrasasRef = collection(this.firestore, 'madrasas');
+      const qMadrasas = query(madrasasRef, where('organizationId', '==', orgId));
+      const madrasasSnap = await getDocs(qMadrasas);
+
+      const codeToIdMap = new Map<string, string>();
+      const extraMadrasaDocIds = new Set<string>();
+
+      madrasasSnap.forEach(docSnap => {
+        const mData = docSnap.data();
+        const docId = docSnap.id;
+        codeToIdMap.set(docId, docId);
+        if (mData['code']) {
+          codeToIdMap.set(String(mData['code']), docId);
+        }
+
+        const incharges = Array.isArray(mData['inchargeIds']) ? mData['inchargeIds'].map(String) : [];
+        const coordinators = Array.isArray(mData['coordinatorIds']) ? mData['coordinatorIds'].map(String) : [];
+        if (incharges.some(id => userTokens.includes(id)) || coordinators.some(id => userTokens.includes(id))) {
+          extraMadrasaDocIds.add(docId);
+        }
+      });
+
+      // 2. Check classGroups collection in organization where assignedStaffIds contains user tokens
+      const classGroupsRef = collection(this.firestore, 'classGroups');
+      const qGroups = query(classGroupsRef, where('organizationId', '==', orgId));
+      const groupsSnap = await getDocs(qGroups);
+
+      groupsSnap.forEach(docSnap => {
+        const gData = docSnap.data();
+        const staffIds = [
+          ...(Array.isArray(gData['assignedStaffIds']) ? gData['assignedStaffIds'] : []),
+          ...(Array.isArray(gData['staffIds']) ? gData['staffIds'] : []),
+          ...(Array.isArray(gData['teacherIds']) ? gData['teacherIds'] : []),
+          ...(gData['teacherId'] ? [gData['teacherId']] : []),
+          ...(gData['staffId'] ? [gData['staffId']] : [])
+        ].map(v => String(v || '').trim()).filter(Boolean);
+
+        if (staffIds.some(id => userTokens.includes(id))) {
+          const rawMId = String(gData['madrasaId'] || '');
+          if (rawMId) {
+            const resolved = codeToIdMap.get(rawMId) || (madrasasSnap.docs.some(d => d.id === rawMId) ? rawMId : null);
+            if (resolved) extraMadrasaDocIds.add(resolved);
+          }
+          if (Array.isArray(gData['madrasaIds'])) {
+            gData['madrasaIds'].forEach((m: any) => {
+              const r = codeToIdMap.get(String(m)) || (madrasasSnap.docs.some(d => d.id === String(m)) ? String(m) : null);
+              if (r) extraMadrasaDocIds.add(r);
+            });
+          }
+        }
+      });
+
+      // Resolve existing madrasaIds as well so codes get translated to real doc IDs
+      const rawExisting = Array.isArray(profile.madrasaIds)
+        ? profile.madrasaIds.map(String)
+        : (profile.madrasaId ? [String(profile.madrasaId)] : []);
+      
+      const resolvedDocIds = new Set<string>();
+      rawExisting.forEach(item => {
+        const resolved = codeToIdMap.get(item);
+        if (resolved) resolvedDocIds.add(resolved);
+      });
+      extraMadrasaDocIds.forEach(id => resolvedDocIds.add(id));
+
+      const finalMadrasaIds = Array.from(resolvedDocIds);
+
+      console.log('🔍 [AuthService] Enriched Profile MadrasaIds Debug:', {
+        uid: profile.uid,
+        userTokens,
+        rawExisting,
+        finalMadrasaIds
+      });
+
+      // Persist cleaned doc IDs back to Firestore if different or enlarged
+      if (finalMadrasaIds.length > 0 && JSON.stringify(finalMadrasaIds) !== JSON.stringify(rawExisting)) {
+        const userRef = doc(this.firestore, `users/${profile.uid}`);
+        await updateDoc(userRef, { madrasaIds: finalMadrasaIds, madrasaId: finalMadrasaIds[0] }).catch(e => console.warn('[AuthService] Failed to sync updated madrasaIds to users doc:', e));
+        if (profile.entityId && profile.entityType === 'staff') {
+          const staffRef = doc(this.firestore, `staff/${profile.entityId}`);
+          await updateDoc(staffRef, { madrasaIds: finalMadrasaIds, madrasaId: finalMadrasaIds[0] }).catch(e => console.warn('[AuthService] Failed to sync updated madrasaIds to staff doc:', e));
+        }
+      }
+
+      return {
+        ...profile,
+        madrasaIds: finalMadrasaIds,
+        madrasaId: finalMadrasaIds[0] || profile.madrasaId || ''
+      };
+    } catch (e) {
+      console.warn('[AuthService] enrichEffectiveMadrasaIds warning:', e);
+      return profile;
     }
   }
 }

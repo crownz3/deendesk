@@ -61,36 +61,48 @@
           <!-- Highlighted Assignments Breakdown Box (Shown on i icon click) -->
           <div class="highlighted-madrasas-card" *ngIf="vm.assignedAssignments.length > 1 && showMadrasaDetails">
             <div class="highlight-card-header">
-              <ion-icon name="shield-checkmark-outline"></ion-icon>
-              <span>Your Assigned Class Groups & Madrasas ({{ vm.assignedAssignments.length }})</span>
+              <div class="header-left">
+                <div class="header-icon-badge">
+                  <ion-icon name="shield-checkmark"></ion-icon>
+                </div>
+                <div class="header-titles">
+                  <span class="header-title">Your Assigned Class Groups & Madrasas</span>
+                  <span class="header-subtitle">Active placements ({{ vm.assignedAssignments.length }})</span>
+                </div>
+              </div>
+              <button type="button" class="close-details-btn" (click)="toggleMadrasaDetails()" title="Close details">
+                <ion-icon name="close-outline"></ion-icon>
+              </button>
             </div>
             
             <div class="assignment-cards-grid">
               <div class="assignment-card" *ngFor="let item of vm.assignedAssignments; let i = index">
                 <div class="assignment-card-header">
-                  <span class="badge-num">#{{ i + 1 }}</span>
-                  <span class="group-title">{{ item.groupName }}</span>
+                  <div class="header-group-info">
+                    <span class="badge-num">#{{ i + 1 }}</span>
+                    <h4 class="group-title">{{ item.groupName }}</h4>
+                  </div>
+                  <span class="course-pill-badge" [class.hifz]="(item.courseName || '').toLowerCase().includes('hifz')">
+                    <ion-icon name="book-outline"></ion-icon>
+                    {{ item.courseName }}
+                  </span>
                 </div>
-                <div class="assignment-details-list">
-                  <div class="detail-row">
-                    <ion-icon name="library-outline" class="detail-icon course-icon"></ion-icon>
-                    <span class="detail-label">Course:</span>
-                    <strong class="detail-value">{{ item.courseName }}</strong>
+
+                <div class="assignment-card-body">
+                  <div class="info-block class-block">
+                    <div class="info-block-header">
+                      <ion-icon name="easel-outline" class="info-icon class-icon"></ion-icon>
+                      <span class="info-label">Class</span>
+                    </div>
+                    <div class="info-value">{{ item.className }}</div>
                   </div>
-                  <div class="detail-row">
-                    <ion-icon name="easel-outline" class="detail-icon class-icon"></ion-icon>
-                    <span class="detail-label">Class:</span>
-                    <strong class="detail-value">{{ item.className }}</strong>
-                  </div>
-                  <div class="detail-row">
-                    <ion-icon name="people-circle-outline" class="detail-icon group-icon"></ion-icon>
-                    <span class="detail-label">Class Group:</span>
-                    <strong class="detail-value">{{ item.groupName }}</strong>
-                  </div>
-                  <div class="detail-row">
-                    <ion-icon name="school-outline" class="detail-icon madrasa-icon"></ion-icon>
-                    <span class="detail-label">Assigned Madrasa:</span>
-                    <strong class="detail-value madrasa-highlight-name">{{ item.madrasaName }}</strong>
+
+                  <div class="info-block madrasa-block">
+                    <div class="info-block-header">
+                      <ion-icon name="school-outline" class="info-icon madrasa-icon"></ion-icon>
+                      <span class="info-label">Assigned Madrasa</span>
+                    </div>
+                    <div class="info-value madrasa-name">{{ item.madrasaName }}</div>
                   </div>
                 </div>
               </div>

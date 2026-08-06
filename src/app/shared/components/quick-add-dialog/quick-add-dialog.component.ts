@@ -515,21 +515,48 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       }
       this.extractAllStrings([profAny?.['madrasaId'], profAny?.['madrasaIds'], profAny?.['primaryMadrasaId']]).forEach(id => assignedMadrasaIds.add(id));
 
+      const userMadrasaIds = new Set(this.extractAllStrings([
+        profAny?.['madrasaId'],
+        profAny?.['madrasaIds'],
+        profAny?.['primaryMadrasaId']
+      ]));
+
+      const isUserMadrasaDoc = (data: any): boolean => {
+        if (!data) return false;
+        const mId = String(data['madrasaId'] || data['parentMadrasaId'] || '');
+        if (mId && userMadrasaIds.has(mId)) return true;
+        const mIds = Array.isArray(data['madrasaIds']) ? data['madrasaIds'].map(String) : [];
+        if (mIds.some(id => userMadrasaIds.has(id))) return true;
+        return false;
+      };
+
       if (field.key === 'groupId' || field.key === 'groupIds') {
         if (assignedGroupIds.size > 0) {
-          options = options.filter((opt: any) => assignedGroupIds.has(String(opt.value || opt.data?.id)));
+          options = options.filter((opt: any) => {
+            const val = String(opt.value || opt.data?.id || '');
+            return assignedGroupIds.has(val) || isUserMadrasaDoc(opt.data);
+          });
         }
       } else if (field.key === 'classId' || field.key === 'classIds') {
         if (assignedClassIds.size > 0) {
-          options = options.filter((opt: any) => assignedClassIds.has(String(opt.value || opt.data?.id)));
+          options = options.filter((opt: any) => {
+            const val = String(opt.value || opt.data?.id || '');
+            return assignedClassIds.has(val) || isUserMadrasaDoc(opt.data);
+          });
         }
       } else if (field.key === 'courseId' || field.key === 'newCourseId' || field.key === 'courseIds') {
         if (assignedCourseIds.size > 0) {
-          options = options.filter((opt: any) => assignedCourseIds.has(String(opt.value || opt.data?.id)));
+          options = options.filter((opt: any) => {
+            const val = String(opt.value || opt.data?.id || '');
+            return assignedCourseIds.has(val) || isUserMadrasaDoc(opt.data);
+          });
         }
       } else if (field.key === 'madrasaId' || field.key === 'madrasaIds') {
         if (assignedMadrasaIds.size > 0) {
-          options = options.filter((opt: any) => assignedMadrasaIds.has(String(opt.value || opt.data?.id)));
+          options = options.filter((opt: any) => {
+            const val = String(opt.value || opt.data?.id || '');
+            return assignedMadrasaIds.has(val) || userMadrasaIds.has(val);
+          });
         }
       }
     }
@@ -542,26 +569,6 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
           return data.organizationId ? data.organizationId === organizationId : true;
         });
       }
-    } else if (field.key === 'classId' || field.key === 'classIds') {
-      const courseId = this.form.get('courseId')?.value || this.form.get('newCourseId')?.value;
-
-      options = options.filter((opt: any) => {
-        const data = opt.data;
-        if (!data) return true;
-
-        const sameCourse = courseId ? (data.courseId === courseId || (Array.isArray(data.courseIds) && data.courseIds.includes(courseId))) : true;
-        const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
-        const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
-
-        const hasCourseControl = this.form.contains('courseId') || this.form.contains('newCourseId');
-        
-        if (hasCourseControl) {
-          if (!courseId) return false;
-          if (!sameCourse) return false;
-        }
-
-        return sameOrg && sameMadrasa;
-      });
     } else if (field.key === 'courseId' || field.key === 'newCourseId' || field.key === 'courseIds') {
       if (organizationId || madrasaId) {
         options = options.filter((opt: any) => {
@@ -569,7 +576,12 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
           if (!data) return true;
 
           const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
-          const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
+          const sameMadrasa = madrasaId ? (
+            String(data.madrasaId) === madrasaId ||
+            String(data.parentMadrasaId) === madrasaId ||
+            (Array.isArray(data.madrasaIds) && data.madrasaIds.map(String).includes(madrasaId)) ||
+            (!data.madrasaId && (!data.madrasaIds || data.madrasaIds.length === 0))
+          ) : true;
 
           return sameOrg && sameMadrasa;
         });
@@ -583,6 +595,31 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         }
         seenLabels.add(label);
         return true;
+      });
+    } else if (field.key === 'classId' || field.key === 'classIds') {
+      const courseId = this.form.get('courseId')?.value || this.form.get('newCourseId')?.value;
+
+      options = options.filter((opt: any) => {
+        const data = opt.data;
+        if (!data) return true;
+
+        const sameCourse = courseId ? (data.courseId === courseId || (Array.isArray(data.courseIds) && data.courseIds.includes(courseId))) : true;
+        const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
+        const sameMadrasa = madrasaId ? (
+          String(data.madrasaId) === madrasaId ||
+          String(data.parentMadrasaId) === madrasaId ||
+          (Array.isArray(data.madrasaIds) && data.madrasaIds.map(String).includes(madrasaId)) ||
+          (!data.madrasaId && (!data.madrasaIds || data.madrasaIds.length === 0))
+        ) : true;
+
+        const hasCourseControl = this.form.contains('courseId') || this.form.contains('newCourseId');
+        
+        if (hasCourseControl) {
+          if (!courseId) return false;
+          if (!sameCourse) return false;
+        }
+
+        return sameOrg && sameMadrasa;
       });
     } else if (field.key === 'subjectId' || field.key === 'subjectIds') {
       const courseId = this.form.get('courseId')?.value || this.form.get('newCourseId')?.value;
@@ -651,6 +688,19 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         return matchesSearch || isSelected;
       });
     }
+
+    console.log('🔍 [QuickAdd Options Filter Debug]', {
+      fieldKey: field.key,
+      isOrgAdminOrSuper: !this.currentUserProfile || ['superAdmin', 'superadmin', 'organizationAdmin', 'organizationadmin'].includes(this.currentUserProfile.role as string),
+      organizationId: this.form.get('organizationId')?.value,
+      madrasaId: this.form.get('madrasaId')?.value || (Array.isArray(this.form.get('madrasaIds')?.value) && this.form.get('madrasaIds')?.value[0]),
+      userRole: this.currentUserProfile?.role,
+      userMadrasaId: this.currentUserProfile?.madrasaId,
+      userMadrasaIds: this.currentUserProfile?.madrasaIds,
+      inputOptionsCount: field.options?.length || 0,
+      filteredOptionsCount: options.length,
+      finalOptions: options.map((o: any) => ({ value: o.value, label: o.label, madrasaId: o.data?.madrasaId, madrasaIds: o.data?.madrasaIds }))
+    });
 
     return options;
   }

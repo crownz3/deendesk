@@ -433,7 +433,7 @@ export class DashboardPage {
         const courseId = group.courseId || classObj?.['courseId'];
         const courseObj = coursesList.find((c) => c.id === courseId);
         const madrasaId = classObj?.['madrasaId'] || courseObj?.['madrasaId'] || group['madrasaId'] || profile.madrasaId;
-        const madrasaObj = madrasasList.find((m) => m.id === madrasaId);
+        const madrasaObj = madrasasList.find((m) => String(m.id) === String(madrasaId) || String(m['code']) === String(madrasaId));
 
         return {
           groupId: group.id,
@@ -442,26 +442,46 @@ export class DashboardPage {
           className: classObj?.['name'] || 'Class',
           courseId,
           courseName: courseObj?.['name'] || 'Course',
-          madrasaId,
-          madrasaName: madrasaObj?.['name'] || 'Madrasa',
-        };
-      });
-    } else {
-      const madrasaIds = Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0
-        ? profile.madrasaIds
-        : (profile.madrasaId ? [profile.madrasaId] : []);
-
-      assignedAssignments = madrasaIds.map((mId) => {
-        const madrasaObj = madrasasList.find((m) => m.id === mId);
-        return {
-          groupName: 'General Assignment',
-          className: 'All Classes',
-          courseName: 'All Courses',
-          madrasaId: mId,
+          madrasaId: String(madrasaId || ''),
           madrasaName: madrasaObj?.['name'] || 'Madrasa',
         };
       });
     }
+
+    const allMadrasaIds = Array.from(new Set([
+      ...(Array.isArray(profile.madrasaIds) ? profile.madrasaIds : []),
+      ...(profile.madrasaId ? [profile.madrasaId] : [])
+    ].map(v => String(v || '').trim()).filter(Boolean)));
+
+    const coveredMadrasaIds = new Set(assignedAssignments.map(a => String(a.madrasaId || '')).filter(Boolean));
+
+    allMadrasaIds.forEach((mId) => {
+      const madrasaObj = madrasasList.find((m) => String(m.id) === mId || String(m['code']) === mId);
+      const actualMadrasaId = madrasaObj ? String(madrasaObj.id) : mId;
+
+      if (!coveredMadrasaIds.has(mId) && !coveredMadrasaIds.has(actualMadrasaId)) {
+        assignedAssignments.push({
+          groupName: 'General Assignment',
+          className: 'All Classes',
+          courseName: 'All Courses',
+          madrasaId: actualMadrasaId,
+          madrasaName: madrasaObj?.['name'] || 'Madrasa',
+        });
+        coveredMadrasaIds.add(mId);
+        coveredMadrasaIds.add(actualMadrasaId);
+      }
+    });
+
+    console.log('🔍 [Dashboard Build VM Debug]', {
+      uid: profile.uid,
+      role: profile.role,
+      profileMadrasaId: profile.madrasaId,
+      profileMadrasaIds: profile.madrasaIds,
+      allMadrasaIds,
+      loadedMadrasas: madrasasList.map(m => ({ id: m.id, name: m['name'], code: m['code'] })),
+      assignedGroupEntities: assignedGroupEntities.map(g => ({ id: g.id, name: g['name'], madrasaId: g['madrasaId'], assignedStaffIds: g['assignedStaffIds'] })),
+      finalAssignedAssignments: assignedAssignments
+    });
 
     return {
       displayName: this.getDisplayName(profile),
