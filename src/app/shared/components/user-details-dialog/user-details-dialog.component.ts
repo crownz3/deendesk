@@ -180,7 +180,7 @@ export class UserDetailsDialogComponent implements OnInit {
         const currentGroup = allGroups.find(g => g.id === this.user.id) || this.user;
         matchedGroups = [currentGroup];
       } else {
-        matchedGroups = allGroups.filter(g => {
+        const explicitGroups = allGroups.filter(g => {
           const gId = String(g.id || g['docId'] || '').trim();
           
           if (userGroupIds.includes(gId)) return true;
@@ -203,12 +203,19 @@ export class UserDetailsDialogComponent implements OnInit {
           ];
           if (userStaffIds.some(id => studentTokens.includes(id))) return true;
 
-          if (g['classId'] && userClassIds.includes(String(g['classId']).trim())) {
-            return true;
-          }
-
           return false;
         });
+
+        if (explicitGroups.length > 0) {
+          matchedGroups = explicitGroups;
+        } else {
+          matchedGroups = allGroups.filter(g => {
+            if (g['classId'] && userClassIds.includes(String(g['classId']).trim())) {
+              return true;
+            }
+            return false;
+          });
+        }
       }
 
       this.assignedGroups = matchedGroups;
@@ -311,14 +318,17 @@ export class UserDetailsDialogComponent implements OnInit {
         fetchQueries.push(getDocs(query(usersRef, where('role', '==', 'student'), where('classGroupId', '==', gid))));
       }
 
-      const classIdsToQuery = Array.from(new Set([
-        ...matchedGroups.map(g => String(g['classId'] || '')),
-        ...userClassIds
-      ])).filter(Boolean);
+      // Only query class-wide students if no specific group assignments exist for the user
+      if (groupIdsToQuery.length === 0) {
+        const classIdsToQuery = Array.from(new Set([
+          ...matchedGroups.map(g => String(g['classId'] || '')),
+          ...userClassIds
+        ])).filter(Boolean);
 
-      for (const cid of classIdsToQuery) {
-        fetchQueries.push(getDocs(query(studentsRef, where('classId', '==', cid))));
-        fetchQueries.push(getDocs(query(usersRef, where('role', '==', 'student'), where('classId', '==', cid))));
+        for (const cid of classIdsToQuery) {
+          fetchQueries.push(getDocs(query(studentsRef, where('classId', '==', cid))));
+          fetchQueries.push(getDocs(query(usersRef, where('role', '==', 'student'), where('classId', '==', cid))));
+        }
       }
 
       const explicitStudentIds = [
@@ -350,7 +360,29 @@ export class UserDetailsDialogComponent implements OnInit {
         }
       });
 
-      this.assignedStudents = Array.from(uniqueStudentsMap.values());
+      let allFetchedStudents = Array.from(uniqueStudentsMap.values());
+
+      // If user is assigned to specific group(s), strictly filter out students belonging to other groups
+      if (groupIdsToQuery.length > 0) {
+        const groupSet = new Set(groupIdsToQuery);
+        const explicitSet = new Set(explicitStudentIds);
+
+        allFetchedStudents = allFetchedStudents.filter(st => {
+          if (st.id && explicitSet.has(st.id)) return true;
+
+          const stGroupTokens = [
+            ...this.extractAllStrings(st['groupId']),
+            ...this.extractAllStrings(st['classGroupId']),
+            ...this.extractAllStrings(st['groupIds']),
+            ...this.extractAllStrings(st['classGroupIds']),
+            ...this.extractAllStrings(st['assignedGroupId']),
+          ];
+
+          return stGroupTokens.some(gid => groupSet.has(gid));
+        });
+      }
+
+      this.assignedStudents = allFetchedStudents;
     } catch (e) {
       console.error('Failed to load academic details', e);
     } finally {

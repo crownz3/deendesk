@@ -135,13 +135,19 @@ export class DashboardPage {
   getCounts(filter: 'all' | 'active' | 'inactive', vm: DashboardVm | null): number {
     if (!vm) return 0;
     const rawData = vm._rawData || {};
-    
-    // Primary collection for dashboard status overview (users -> students -> madrasas)
+    const role = vm.profile?.role || '';
+    const isScopedRole = ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'stageHead', 'student'].includes(role) || (role as string) === 'staff';
+
+    // Primary collection for dashboard status overview (students -> users -> madrasas)
     let primaryItems: EntityRecord[] = [];
-    if (Array.isArray(rawData['users']) && rawData['users'].length > 0) {
+    if (isScopedRole && Array.isArray(rawData['students']) && rawData['students'].length > 0) {
+      primaryItems = rawData['students'];
+    } else if (Array.isArray(rawData['users']) && rawData['users'].length > 1) {
       primaryItems = rawData['users'];
     } else if (Array.isArray(rawData['students']) && rawData['students'].length > 0) {
       primaryItems = rawData['students'];
+    } else if (Array.isArray(rawData['users']) && rawData['users'].length > 0) {
+      primaryItems = rawData['users'];
     } else if (Array.isArray(rawData['madrasas']) && rawData['madrasas'].length > 0) {
       primaryItems = rawData['madrasas'];
     }
@@ -235,19 +241,11 @@ export class DashboardPage {
               reqs.madrasas = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('madrasas', profile, [where(documentId(), 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
             } else reqs.madrasas = of([]);
             
-            if (classIds.length > 0) {
-              const chunks = this.chunkArray(classIds, 10);
-              reqs.studentsByClass = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('students', profile, [where('classId', 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
-            } else reqs.studentsByClass = of([]);
-            
-            if (groupIds.length > 0) {
-              const chunks = this.chunkArray(groupIds, 10);
-              reqs.studentsByGroup = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('students', profile, [where('groupId', 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
-            } else reqs.studentsByGroup = of([]);
+            reqs.allStudents = this.repo.list<EntityRecord>('students', profile).pipe(catchError(() => of([])));
             
             return combineLatest(reqs).pipe(
               map((fetched: any) => {
-                const allStudents = [...fetched.studentsByClass, ...fetched.studentsByGroup];
+                const allStudents = fetched.allStudents || [];
                 const uniqueStudents = Array.from(new Map(allStudents.map((s: any) => [s.id, s])).values());
 
                 const profAny = profile as Record<string, any>;
@@ -276,9 +274,18 @@ export class DashboardPage {
                   ...this.extractAllStrings([profAny['classId'], profAny['classIds'], profAny['assignedClassId'], profAny['assignedClassIds']])
                 ]);
 
+                const isTeacherOrStaff = profile.role === 'teacher' || (profile.role as string) === 'staff';
+
                 const scopedStudents = uniqueStudents.filter((s: any) => {
+                  const sTeacherTokens = this.extractAllStrings([s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']]);
+                  if (sTeacherTokens.some(tok => staffTokens.has(tok))) return true;
+
                   const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
                   if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+                  if (assignedGroupIds.size > 0) {
+                    return false;
+                  }
 
                   const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
                   if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
@@ -286,12 +293,16 @@ export class DashboardPage {
                   return false;
                 });
 
+                const finalStudents = isTeacherOrStaff
+                  ? ((assignedGroupIds.size > 0 || assignedClassIds.size > 0) ? scopedStudents : uniqueStudents)
+                  : uniqueStudents;
+
                 return {
                   ...initialData,
                   classPlans: fetched.classPlans,
                   courses: fetched.courses,
                   madrasas: fetched.madrasas,
-                  students: scopedStudents.length > 0 ? scopedStudents : (assignedGroupIds.size > 0 || assignedClassIds.size > 0 ? scopedStudents : uniqueStudents),
+                  students: finalStudents,
                   organizations: [] // Teachers don't need full org data for stats
                 };
               })

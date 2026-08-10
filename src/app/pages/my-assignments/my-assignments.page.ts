@@ -104,7 +104,7 @@ export class MyAssignmentsPage {
       if (plan) {
         const planGroupIds = Array.isArray(plan.groupIds) ? plan.groupIds : (plan.groupId ? [plan.groupId] : []);
         if (planGroupIds.some(gId => userGroupIds.includes(gId))) return true;
-        if (plan.classId && userClassIds.includes(plan.classId)) return true;
+        if (planGroupIds.length === 0 && plan.classId && userClassIds.includes(plan.classId)) return true;
       }
       // Admins/Incharges see all entries
       return profile.role === 'organizationAdmin' || profile.role === 'superAdmin' || profile.role === 'madrasaIncharge';

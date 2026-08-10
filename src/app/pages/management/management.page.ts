@@ -938,11 +938,101 @@ export class ManagementPage {
              if (['users', 'incharges', 'coordinators', 'staff'].includes(config.resource)) {
                filteredRows = filteredRows.map(row => {
                  const roles = this.getEffectiveRoles(row, madrasas);
-                 const sIds = [row.id, row['uid'], row['userId'], row['email']].map(v => String(v || '').trim()).filter(Boolean);
-                 const assignedGroupIds = classGroups
-                   .filter(g => Array.isArray(g['assignedStaffIds']) && sIds.some(id => (g['assignedStaffIds'] as unknown[]).map(String).includes(id)))
-                   .map(g => String(g.id));
-                 const count = students.filter(s => assignedGroupIds.includes(String(s['groupId'])) && s['status'] !== 'inactive').length;
+
+                 const sTokens = [
+                   row.id,
+                   row['id'],
+                   row['uid'],
+                   row['userId'],
+                   row['entityId'],
+                   row['staffId'],
+                   row['docId'],
+                   row['email']
+                 ].map(v => String(v || '').trim()).filter(Boolean);
+
+                 const directGroupIds = [
+                   row['groupId'],
+                   row['classGroupId'],
+                   row['assignedGroupId'],
+                   ...(Array.isArray(row['groupIds']) ? row['groupIds'] : []),
+                   ...(Array.isArray(row['classGroupIds']) ? row['classGroupIds'] : [])
+                 ].map(v => String(v || '').trim()).filter(Boolean);
+
+                 const matchedGroupIds = classGroups.filter(g => {
+                   const gId = String(g.id || g['docId'] || '').trim();
+                   if (directGroupIds.includes(gId)) return true;
+
+                   const gStaffTokens = [
+                     ...this.extractAllStrings(g['assignedStaffIds']),
+                     ...this.extractAllStrings(g['assignedStaff']),
+                     ...this.extractAllStrings(g['staffIds']),
+                     ...this.extractAllStrings(g['teacherIds']),
+                     ...this.extractAllStrings(g['teachers']),
+                     ...this.extractAllStrings(g['staff']),
+                     ...this.extractAllStrings(g['groupStaff'])
+                   ];
+                   return sTokens.some(tok => gStaffTokens.includes(tok));
+                 }).map(g => String(g.id).trim());
+
+                 const assignedGroupIds = new Set<string>([...directGroupIds, ...matchedGroupIds]);
+
+                 const directClassIds = [
+                   row['classId'],
+                   row['assignedClassId'],
+                   ...(Array.isArray(row['classIds']) ? row['classIds'] : [])
+                 ].map(v => String(v || '').trim()).filter(Boolean);
+
+                 const matchedClassIds = classes.filter(c => {
+                   const cStaffTokens = [
+                     ...this.extractAllStrings(c['assignedStaffIds']),
+                     ...this.extractAllStrings(c['assignedStaff']),
+                     ...this.extractAllStrings(c['staffIds']),
+                     ...this.extractAllStrings(c['teacherIds']),
+                     ...this.extractAllStrings(c['teachers']),
+                     ...this.extractAllStrings(c['staff'])
+                   ];
+                   return sTokens.some(tok => cStaffTokens.includes(tok));
+                 }).map(c => String(c.id).trim());
+
+                 const assignedClassIds = new Set<string>([
+                   ...matchedGroupIds.map(gId => {
+                     const grp = classGroups.find(g => String(g.id) === gId);
+                     return grp ? String(grp['classId'] || '') : '';
+                   }).filter(Boolean),
+                   ...directClassIds,
+                   ...matchedClassIds
+                 ]);
+
+                 const count = students.filter(s => {
+                   const sStatus = String(s['status'] || s['state'] || '').toLowerCase();
+                   if (['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(sStatus)) return false;
+
+                   const sTeacherTokens = [
+                     s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']
+                   ].map(v => String(v || '').trim()).filter(Boolean);
+
+                   if (sTeacherTokens.some(tok => sTokens.includes(tok))) return true;
+
+                   const sGroupTokens = [
+                     s['groupId'], s['classGroupId'], s['assignedGroupId'],
+                     ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
+                     ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : [])
+                   ].map(v => String(v || '').trim()).filter(Boolean);
+
+                   if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+                   if (assignedGroupIds.size > 0) return false;
+
+                   const sClassTokens = [
+                     s['classId'], s['assignedClassId'],
+                     ...(Array.isArray(s['classIds']) ? s['classIds'] : [])
+                   ].map(v => String(v || '').trim()).filter(Boolean);
+
+                   if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+
+                   return false;
+                 }).length;
+
                  return { ...row, roles, studentCount: count };
                });
              }
@@ -965,6 +1055,64 @@ export class ManagementPage {
               if (config.resource === 'staff') {
                 console.log('🔍 [VM Staff Step 1 - reqRoles] Remaining:', filteredRows.length);
               }
+            }
+
+            if (config.resource === 'students' && (profile?.role === 'teacher' || (profile?.role as string) === 'staff')) {
+              const teacherIdentities = [
+                profile.uid,
+                profile.entityId,
+                (profile as any).userId,
+                profile.email
+              ].filter(Boolean).map(s => String(s).trim());
+
+              const assignedGroups = classGroups.filter(g => {
+                const assigned = Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'].map(String) : [];
+                const staff = Array.isArray(g['assignedStaff']) ? g['assignedStaff'].map(String) : [];
+                const staffIds = Array.isArray(g['staffIds']) ? g['staffIds'].map(String) : [];
+                const teacherIds = Array.isArray(g['teacherIds']) ? g['teacherIds'].map(String) : [];
+                const groupStaff = Array.isArray(g['groupStaff']) ? g['groupStaff'].map(String) : [];
+                const allStaff = [...assigned, ...staff, ...staffIds, ...teacherIds, ...groupStaff];
+                return allStaff.some(id => teacherIdentities.includes(id));
+              });
+
+              const assignedGroupIds = new Set<string>([
+                ...assignedGroups.map(g => String(g.id)),
+                ...[(profile as any).groupId, (profile as any).groupIds, (profile as any).classGroupId, (profile as any).classGroupIds, (profile as any).assignedGroupId].flat().filter(Boolean).map(String)
+              ]);
+
+              const assignedClasses = classes.filter(c => {
+                const assigned = Array.isArray(c['assignedStaffIds']) ? c['assignedStaffIds'].map(String) : [];
+                const teacherIds = Array.isArray(c['teacherIds']) ? c['teacherIds'].map(String) : [];
+                const staffIds = Array.isArray(c['staffIds']) ? c['staffIds'].map(String) : [];
+                const allStaff = [...assigned, ...teacherIds, ...staffIds];
+                return allStaff.some(id => teacherIdentities.includes(id));
+              });
+
+              const assignedClassIds = new Set<string>([
+                ...assignedGroups.map(g => String(g['classId'] || '')).filter(Boolean),
+                ...assignedClasses.map(c => String(c.id)),
+                ...[(profile as any).classId, (profile as any).classIds, (profile as any).assignedClassId, (profile as any).assignedClassIds].flat().filter(Boolean).map(String)
+              ]);
+
+              filteredRows = filteredRows.filter(s => {
+                const sTeacherIds = [s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']].filter(Boolean).map(String);
+                if (sTeacherIds.some(id => teacherIdentities.includes(id))) return true;
+
+                const sGroupId = String(s['groupId'] || s['classGroupId'] || s['assignedGroupId'] || '').trim();
+                const sGroupIds = Array.isArray(s['groupIds']) ? s['groupIds'].map(String) : (sGroupId ? [sGroupId] : []);
+
+                if (sGroupIds.some(gId => assignedGroupIds.has(gId))) return true;
+
+                if (assignedGroupIds.size > 0) {
+                  return false;
+                }
+
+                const sClassId = String(s['classId'] || s['assignedClassId'] || '').trim();
+                const sClassIds = Array.isArray(s['classIds']) ? s['classIds'].map(String) : (sClassId ? [sClassId] : []);
+                if (sClassIds.some(cId => assignedClassIds.has(cId))) return true;
+
+                return false;
+              });
             }
            
              if (['students', 'classGroups', 'classes'].includes(config.resource)) {
