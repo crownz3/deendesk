@@ -115,20 +115,21 @@ export class UserDetailsDialogComponent implements OnInit {
     this.loadingStudents = true;
     try {
       const firestore = getFirestore(getDeenDeskFirebaseApp());
-      const studentsRef = collection(firestore, 'students');
-      const usersRef = collection(firestore, 'users');
       
-      const [groupsSnap, classesSnap, coursesSnap, usersSnap] = await Promise.all([
+      const [groupsSnap, classesSnap, coursesSnap, usersSnap, studentsSnap] = await Promise.all([
         getDocs(collection(firestore, 'classGroups')),
         getDocs(collection(firestore, 'classes')),
         getDocs(collection(firestore, 'courses')),
-        getDocs(collection(firestore, 'users'))
+        getDocs(collection(firestore, 'users')),
+        getDocs(collection(firestore, 'students'))
       ]);
 
       const allGroups = groupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
       const allClasses = classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
       const allCourses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
       const allUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
+      const directStudents = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
+      const userStudents = allUsers.filter(u => u['role'] === 'student');
 
       const userMap = new Map<string, EntityRecord>();
       allUsers.forEach(u => {
@@ -302,34 +303,31 @@ export class UserDetailsDialogComponent implements OnInit {
       this.assignedStaffList = staffList;
       this.assignedStaffNames = Array.from(staffNamesSet);
 
-      // 2. Load students in assigned groups across both 'students' and 'users' collections
-      const uniqueStudentsMap = new Map<string, EntityRecord>();
-      const groupIdsToQuery = Array.from(new Set([
-        ...matchedGroups.map(g => String(g.id)),
-        ...(isClassGroupDoc ? [String(this.user.id)] : [])
-      ])).filter(Boolean);
+      // 2. Load and filter assigned students across both 'students' and 'users' collections
+      const studentMap = new Map<string, EntityRecord>();
+      [...directStudents, ...userStudents].forEach(st => {
+        const nameStr = String(st['displayName'] || st['name'] || st['studentName'] || '').trim().toLowerCase();
+        const emailStr = String(st['email'] || '').trim().toLowerCase();
+        const uidStr = String(st['uid'] || st['userId'] || st['studentId'] || '').trim();
+        const docId = String(st.id || '').trim();
 
-      const fetchQueries: Promise<any>[] = [];
-
-      for (const gid of groupIdsToQuery) {
-        fetchQueries.push(getDocs(query(studentsRef, where('groupId', '==', gid))));
-        fetchQueries.push(getDocs(query(studentsRef, where('classGroupId', '==', gid))));
-        fetchQueries.push(getDocs(query(usersRef, where('role', '==', 'student'), where('groupId', '==', gid))));
-        fetchQueries.push(getDocs(query(usersRef, where('role', '==', 'student'), where('classGroupId', '==', gid))));
-      }
-
-      // Only query class-wide students if no specific group assignments exist for the user
-      if (groupIdsToQuery.length === 0) {
-        const classIdsToQuery = Array.from(new Set([
-          ...matchedGroups.map(g => String(g['classId'] || '')),
-          ...userClassIds
-        ])).filter(Boolean);
-
-        for (const cid of classIdsToQuery) {
-          fetchQueries.push(getDocs(query(studentsRef, where('classId', '==', cid))));
-          fetchQueries.push(getDocs(query(usersRef, where('role', '==', 'student'), where('classId', '==', cid))));
+        const key = nameStr || uidStr || (emailStr && emailStr !== 'n/a' ? emailStr : '') || docId;
+        if (key) {
+          const existing = studentMap.get(key) || {};
+          studentMap.set(key, { ...existing, ...st });
         }
-      }
+      });
+      const allStudents = Array.from(studentMap.values());
+
+      const groupIdsSet = new Set([
+        ...matchedGroups.map(g => String(g.id).trim()),
+        ...(isClassGroupDoc ? [String(this.user.id).trim()] : [])
+      ].filter(Boolean));
+
+      const classIdsSet = new Set([
+        ...matchedGroups.map(g => String(g['classId'] || '').trim()).filter(Boolean),
+        ...userClassIds
+      ]);
 
       const explicitStudentIds = [
         ...this.extractAllStrings(this.user['assignedStudentIds']),
@@ -339,50 +337,44 @@ export class UserDetailsDialogComponent implements OnInit {
           ...this.extractAllStrings(g['studentIds'])
         ])
       ];
+      const explicitSet = new Set(explicitStudentIds);
 
-      explicitStudentIds.forEach(sid => {
-        if (userMap.has(sid)) {
-          const studentDoc = userMap.get(sid)!;
-          if (studentDoc.id) uniqueStudentsMap.set(studentDoc.id, studentDoc);
-        }
+      this.assignedStudents = allStudents.filter(st => {
+        const sStatus = String(st['status'] || st['state'] || '').toLowerCase();
+        if (['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(sStatus)) return false;
+
+        if (st.id && explicitSet.has(st.id)) return true;
+
+        const stTeacherTokens = [
+          ...this.extractAllStrings(st['teacherId']),
+          ...this.extractAllStrings(st['assignedStaffId']),
+          ...this.extractAllStrings(st['staffId']),
+          ...this.extractAllStrings(st['teacherUid']),
+          ...this.extractAllStrings(st['assignedTeacherId']),
+        ];
+        if (stTeacherTokens.some(tok => userStaffIds.includes(tok))) return true;
+
+        const stGroupTokens = [
+          ...this.extractAllStrings(st['groupId']),
+          ...this.extractAllStrings(st['classGroupId']),
+          ...this.extractAllStrings(st['group']),
+          ...this.extractAllStrings(st['groupIds']),
+          ...this.extractAllStrings(st['classGroupIds']),
+          ...this.extractAllStrings(st['assignedGroupId']),
+        ];
+        if (stGroupTokens.some(gid => groupIdsSet.has(gid))) return true;
+
+        if (groupIdsSet.size > 0) return false;
+
+        const stClassTokens = [
+          ...this.extractAllStrings(st['classId']),
+          ...this.extractAllStrings(st['assignedClassId']),
+          ...this.extractAllStrings(st['classIds']),
+        ];
+        if (stClassTokens.some(cid => classIdsSet.has(cid))) return true;
+
+        return false;
       });
-
-      const snaps = await Promise.all(fetchQueries);
-      snaps.forEach(snap => {
-        if (snap && snap.docs) {
-          snap.docs.forEach((doc: any) => {
-            const data = doc.data();
-            const id = doc.id;
-            if (id && !uniqueStudentsMap.has(id)) {
-              uniqueStudentsMap.set(id, { id, ...data });
-            }
-          });
-        }
-      });
-
-      let allFetchedStudents = Array.from(uniqueStudentsMap.values());
-
-      // If user is assigned to specific group(s), strictly filter out students belonging to other groups
-      if (groupIdsToQuery.length > 0) {
-        const groupSet = new Set(groupIdsToQuery);
-        const explicitSet = new Set(explicitStudentIds);
-
-        allFetchedStudents = allFetchedStudents.filter(st => {
-          if (st.id && explicitSet.has(st.id)) return true;
-
-          const stGroupTokens = [
-            ...this.extractAllStrings(st['groupId']),
-            ...this.extractAllStrings(st['classGroupId']),
-            ...this.extractAllStrings(st['groupIds']),
-            ...this.extractAllStrings(st['classGroupIds']),
-            ...this.extractAllStrings(st['assignedGroupId']),
-          ];
-
-          return stGroupTokens.some(gid => groupSet.has(gid));
-        });
-      }
-
-      this.assignedStudents = allFetchedStudents;
     } catch (e) {
       console.error('Failed to load academic details', e);
     } finally {
