@@ -36,6 +36,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatStepperModule } from '@angular/material/stepper';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
@@ -105,6 +106,7 @@ import { AddUserInputColumnDialogComponent } from './pages/reports/components/ad
 import { SaveReportDialogComponent } from './pages/reports/components/save-report-dialog.component';
 import { ManageReportsDialogComponent } from './pages/reports/components/manage-reports-dialog.component';
 import { ReportTemplatesDialogComponent } from './pages/reports/components/report-templates-dialog.component';
+import { OverallStrengthReportDialogComponent } from './pages/reports/components/overall-strength-report-dialog.component';
 import { ResolveNamePipe } from './shared/pipes/resolve-name.pipe';
 import { FeesPage } from './pages/fees/fees.page';
 import { FeePlanFormDialogComponent } from './pages/fees/fee-plan-form-dialog.component';
@@ -190,6 +192,7 @@ import { TicketDetailDialogComponent } from './pages/help-support/ticket-detail-
 import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
 import { SubscriptionEditDialogComponent } from './pages/subscriptions/subscription-edit-dialog.component';
 import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
+import { ShiftClassGroupsDialogComponent } from './pages/course-catalog/shift-class-groups-dialog.component';
 
 @NgModule({
   declarations: [
@@ -208,6 +211,7 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     ChangePasswordPage,
     ManagementPage,
     CourseCatalogPage,
+    ShiftClassGroupsDialogComponent,
     StageHeadsPage,
     StageHeadDialogComponent,
     NotificationsPage,
@@ -269,6 +273,7 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     SaveReportDialogComponent,
     ManageReportsDialogComponent,
     ReportTemplatesDialogComponent,
+    OverallStrengthReportDialogComponent,
     ResolveNamePipe,
     FeesPage,
     FeePlanFormDialogComponent,
@@ -374,7 +379,8 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
     MatTabsModule,
     MatChipsModule,
     MatIconModule,
-    MatStepperModule
+    MatStepperModule,
+    MatSlideToggleModule,
   ],
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
   bootstrap: [AppComponent],

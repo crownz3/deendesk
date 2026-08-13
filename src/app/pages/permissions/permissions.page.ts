@@ -36,6 +36,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
     label: 'Academic Structure',
     icon: 'library-outline',
     permissions: [
+      'viewCourseCatalog', 'manageCourseCatalog',
       'viewCourses', 'addCourses', 'editCourses',
       'viewClasses', 'addClasses', 'editClasses',
       'viewClassGroups', 'addClassGroups', 'editClassGroups',

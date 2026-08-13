@@ -794,3 +794,92 @@ table.responsive-table,
     margin-bottom: 34px !important;
   }
 }
+
+/* Global Print Styles - Multi-page Print Support for Dialogs & Reports */
+@media print {
+  .no-print,
+  .cdk-overlay-backdrop,
+  ion-menu,
+  ion-header,
+  ion-footer,
+  .app-header,
+  .app-sidebar {
+    display: none !important;
+  }
+
+  body.printing-full-report > *:not(#report-print-area) {
+    display: none !important;
+  }
+
+  body.printing-full-report #report-print-area {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.printing-full-report #report-print-area .report-paper-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  html, body, ion-app, ion-router-outlet, #main-content {
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .cdk-overlay-container,
+  .cdk-overlay-pane,
+  mat-dialog-container,
+  .mat-mdc-dialog-container,
+  .mat-dialog-container,
+  .overall-strength-dialog-panel {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .matrix-report-dialog-content {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .unregistered-section-box {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

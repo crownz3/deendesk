@@ -152,10 +152,30 @@
                     </ng-template>
                   </ng-template>
                 </td>
+                <td mat-footer-cell *matFooterCellDef style="font-weight: 700; background: #f8fafc; color: #0f172a; border-top: 2px solid #cbd5e1;">
+                  <ng-container *ngIf="isTotalColumnSelected(col.key); else footerPlaceholder">
+                    <span style="color: #2563eb; font-weight: 800; font-size: 14px;">{{ getColumnSum(col.key) }}</span>
+                  </ng-container>
+                  <ng-template #footerPlaceholder>
+                    <span *ngIf="col.key === selectedColumns[0]?.key" style="font-weight: 800; color: #0f172a;">Total Summary</span>
+                  </ng-template>
+                </td>
+              </ng-container>
+
+              <!-- Optional Row Total Summary Column -->
+              <ng-container matColumnDef="row_total_summary">
+                <th mat-header-cell *matHeaderCellDef style="font-weight: 700; color: #0284c7; text-align: center; background: #f0f9ff;">Row Total</th>
+                <td mat-cell *matCellDef="let element" style="font-weight: 700; color: #0369a1; text-align: center; background: #f8fafc;">
+                  {{ getRowTotal(element) }}
+                </td>
+                <td mat-footer-cell *matFooterCellDef style="font-weight: 800; font-size: 15px; color: #0284c7; text-align: center; background: #e0f2fe; border-top: 2px solid #0284c7;">
+                  {{ getGrandTotalSum() }}
+                </td>
               </ng-container>
 
               <tr mat-header-row *matHeaderRowDef="displayColumns; sticky: true"></tr>
               <tr mat-row *matRowDef="let row; columns: displayColumns;"></tr>
+              <tr mat-footer-row *matFooterRowDef="enableTotalSummary ? displayColumns : []; sticky: true" style="background: #f1f5f9;"></tr>
               
               <!-- Empty state -->
               <tr class="mat-row" *matNoDataRow>
@@ -240,6 +260,43 @@
                  [currentFilters]="state?.filters || []"
                  (filtersApplied)="builder.updateFilters($event)">
               </app-report-filter-builder>
+            </div>
+          </mat-tab>
+
+          <!-- Totals & Aggregations -->
+          <mat-tab label="Totals">
+            <div class="settings-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+              <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Totals & Summary Settings</h4>
+              <p class="hint" style="margin: 0; font-size: 12.5px; color: #64748b;">Configure bottom column totals and row-wise summary calculations.</p>
+
+              <div class="setting-box" style="background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <mat-slide-toggle [checked]="enableTotalSummary" (change)="enableTotalSummary = $event.checked; updateDisplayColumns()" color="primary">
+                  <span style="font-weight: 600; font-size: 13.5px;">Enable Bottom Total Summary Row</span>
+                </mat-slide-toggle>
+              </div>
+
+              <div class="setting-box" style="background: #f0f9ff; padding: 14px; border-radius: 8px; border: 1px solid #bae6fd;" *ngIf="enableTotalSummary">
+                <mat-slide-toggle [checked]="showRowTotalColumn" (change)="showRowTotalColumn = $event.checked; updateDisplayColumns()" color="accent">
+                  <span style="font-weight: 600; font-size: 13.5px; color: #0369a1;">Show Row-wise Total Column</span>
+                </mat-slide-toggle>
+              </div>
+
+              <div class="total-columns-picker" *ngIf="enableTotalSummary" style="display: flex; flex-direction: column; gap: 10px;">
+                <h5 style="margin: 0; font-size: 13px; font-weight: 700; color: #334155;">Select Columns to Calculate Total:</h5>
+                <div class="checkbox-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                  <div *ngFor="let col of selectedColumns" style="padding: 6px 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+                    <mat-checkbox 
+                      [checked]="isTotalColumnSelected(col.key)"
+                      (change)="toggleTotalColumn(col.key)"
+                      color="primary">
+                      {{ col.label }}
+                    </mat-checkbox>
+                    <span *ngIf="isNumericKey(col.key)" style="font-size: 11px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;">
+                      Numeric
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           </mat-tab>
 

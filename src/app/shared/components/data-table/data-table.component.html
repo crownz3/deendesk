@@ -423,7 +423,12 @@
                       <app-name-with-copy [id]="item" type="staff"></app-name-with-copy>
                     </ng-container>
                     <ng-template #objectStaffPerson>
-                      <span class="staff-text-name">{{ item.name || item.displayName || item.email || item.id }}</span>
+                      <div class="staff-person-card-item">
+                        <span class="staff-text-name">{{ item.name || item.displayName || item.email || item.id }}</span>
+                        <div class="staff-group-subtext" *ngIf="item.groupName">
+                          <span class="group-name-text">{{ item.groupName }}</span>
+                        </div>
+                      </div>
                     </ng-template>
                   </ng-container>
 
@@ -523,7 +528,10 @@
                       <app-name-with-copy [id]="person" type="staff"></app-name-with-copy>
                     </ng-container>
                     <ng-template #objectStaffPerson>
-                      <span class="staff-text-name">{{ person.name || person.displayName || person.email || person.id }}</span>
+                      <span class="staff-person-inline">
+                        <span class="staff-text-name">{{ person.name || person.displayName || person.email || person.id }}</span>
+                        <span class="staff-group-subtext-inline" *ngIf="person.groupName"> ({{ person.groupName }})</span>
+                      </span>
                     </ng-template>
                     <span *ngIf="!last">, </span>
                   </ng-container>

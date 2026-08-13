@@ -617,6 +617,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'madrasaId', label: 'Madrasa', type: 'idRef', referenceType: 'madrasa' },
       { key: 'courseId', label: 'Course', type: 'idRef', referenceType: 'course' },
       { key: 'classId', label: 'Class', type: 'idRef', referenceType: 'class' },
+      { key: 'shiftName', label: 'Shift / Session' },
       { key: 'assignedStaffIds', label: 'Assigned Staff', type: 'idRef', referenceType: 'staff' },
       { key: 'studentCount', label: 'Students', type: 'studentCount' },
       { key: 'status', label: 'Status', type: 'status' },
@@ -626,6 +627,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'madrasaId', label: 'Madrasa', type: 'select', required: true, quickAddResource: 'madrasas' },
       { key: 'courseId', label: 'Course', type: 'select', quickAddResource: 'courses' },
       { key: 'classId', label: 'Class', type: 'select', required: true, quickAddResource: 'classes' },
+      { key: 'shiftId', label: 'Shift / Session', type: 'select' },
       { key: 'name', label: 'Group name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text' },
       { key: 'capacity', label: 'Capacity', type: 'text' },
@@ -802,9 +804,10 @@ export class ManagementPage {
         this.repo.list<EntityRecord>('users', profile).pipe(catchError(() => of([]))),
         profile?.role === 'superAdmin'
           ? this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(() => of([])))
-          : of([] as EntityRecord[])
+          : of([] as EntityRecord[]),
+        this.repo.list<EntityRecord>('shifts', profile).pipe(catchError(() => of([])))
       ]).pipe(
-        map(([rows, madrasas, courses, classes, students, classGroups, staffRows, usersRows, organizations]) => {
+        map(([rows, madrasas, courses, classes, students, classGroups, staffRows, usersRows, organizations, shifts]) => {
            const allStaffRows = [...staffRows, ...usersRows];
            let filteredRows = this.decorateRows(config, this.filterRows(config, rows));
            let displayMadrasas = madrasas;
@@ -841,14 +844,23 @@ export class ManagementPage {
            });
            displayCourses = Array.from(courseMap.values());
             
-           if (config.resource === 'classGroups') {
-             filteredRows = filteredRows.map(group => {
-               const count = students.filter(s => String(s['groupId']) === String(group.id) && s['status'] !== 'inactive').length;
-               return { ...group, studentCount: count };
-             });
-           }
+            if (config.resource === 'classGroups') {
+              filteredRows = this.getScopedClassGroups(filteredRows, classes, profile);
+              const shiftMap = new Map<string, string>();
+              shifts.forEach(s => {
+                if (s.id && s['name']) shiftMap.set(String(s.id), String(s['name']));
+              });
+
+              filteredRows = filteredRows.map(group => {
+                const count = students.filter(s => String(s['groupId']) === String(group.id) && s['status'] !== 'inactive').length;
+                const sId = String(group['shiftId'] || group['shift'] || '');
+                const sName = shiftMap.get(sId) || group['shiftName'] || group['shift'] || group['shiftId'] || '-';
+                return { ...group, studentCount: count, shiftName: sName };
+              });
+            }
 
             if (config.resource === 'classes') {
+              filteredRows = this.getScopedClasses(filteredRows, classGroups, profile);
               filteredRows = filteredRows.map(cls => {
                 const clsIdStr = extractId(cls.id);
                 const groupsInClass = new Set(
@@ -2232,6 +2244,192 @@ export class ManagementPage {
     return String(value || '').trim().toLowerCase();
   }
 
+  private getScopedClassGroups(
+    classGroups: EntityRecord[],
+    classes: EntityRecord[],
+    profile: AppUser | null
+  ): EntityRecord[] {
+    if (!profile) return classGroups;
+
+    const role = String(profile.role || '').toLowerCase();
+    const isSuperOrOrgAdmin = ['superadmin', 'organizationadmin', 'super_admin', 'orgadmin'].includes(role);
+    if (isSuperOrOrgAdmin) return classGroups;
+
+    const userIdentities = [
+      profile.uid,
+      profile.entityId,
+      (profile as any).userId,
+      (profile as any).docId,
+      (profile as any).staffId,
+      profile.email
+    ].filter(Boolean).map(s => String(s).trim().toLowerCase());
+
+    const isMadrasaIncharge = role === 'madrasaincharge' ||
+      role === 'madrasa_incharge' ||
+      role === 'incharge' ||
+      (Array.isArray((profile as any).roles) && (profile as any).roles.some((r: string) => String(r).toLowerCase().includes('incharge')));
+
+    // 1. Check if user is explicitly assigned to specific class groups
+    const assignedClassGroups = classGroups.filter(g => {
+      const gId = String(g.id || '').trim();
+
+      const profileGroupIds = [
+        (profile as any).groupId,
+        (profile as any).classGroupId,
+        (profile as any).assignedGroupId,
+        ...((profile as any).groupIds || []),
+        ...((profile as any).classGroupIds || []),
+        ...((profile as any).assignedGroupIds || [])
+      ].filter(Boolean).map(s => String(s).trim());
+
+      if (profileGroupIds.includes(gId)) return true;
+
+      const groupStaffTokens = [
+        ...this.extractAllStrings(g['assignedStaffIds']),
+        ...this.extractAllStrings(g['assignedStaff']),
+        ...this.extractAllStrings(g['staffIds']),
+        ...this.extractAllStrings(g['teacherIds']),
+        ...this.extractAllStrings(g['teachers']),
+        ...this.extractAllStrings(g['staff']),
+        ...this.extractAllStrings(g['groupStaff'])
+      ].map(s => s.toLowerCase());
+
+      return userIdentities.some(id => groupStaffTokens.includes(id));
+    });
+
+    // If user has specific assigned class groups, return ONLY those assigned class groups!
+    if (assignedClassGroups.length > 0) {
+      return assignedClassGroups;
+    }
+
+    // 2. If user is Madrasa Incharge (or has madrasa scope)
+    const profileMadrasaIds = new Set([
+      (profile as any).madrasaId,
+      ...((profile as any).madrasaIds || []),
+      (profile as any).assignedMadrasaId
+    ].filter(Boolean).map(s => String(s).trim()));
+
+    if (isMadrasaIncharge || profileMadrasaIds.size > 0) {
+      const madrasaClasses = new Set(
+        classes.filter(c => {
+          const cMadId = String(c['madrasaId'] || '').trim();
+          const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
+          return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
+        }).map(c => String(c.id).trim())
+      );
+
+      const madrasaGroups = classGroups.filter(g => {
+        const gMadId = String(g['madrasaId'] || '').trim();
+        const gClassId = String(g['classId'] || g['class'] || '').trim();
+        return (gMadId && profileMadrasaIds.has(gMadId)) || (gClassId && madrasaClasses.has(gClassId));
+      });
+
+      if (madrasaGroups.length > 0) {
+        return madrasaGroups;
+      }
+    }
+
+    // Fallback: If user is assigned to a specific class (classId), return class groups under that class
+    const profileClassIds = new Set([
+      (profile as any).classId,
+      ...((profile as any).classIds || []),
+      (profile as any).assignedClassId
+    ].filter(Boolean).map(s => String(s).trim()));
+
+    if (profileClassIds.size > 0) {
+      const classGroupsUnderClass = classGroups.filter(g => {
+        const gClassId = String(g['classId'] || g['class'] || '').trim();
+        return gClassId && profileClassIds.has(gClassId);
+      });
+      if (classGroupsUnderClass.length > 0) {
+        return classGroupsUnderClass;
+      }
+    }
+
+    return classGroups;
+  }
+
+  private getScopedClasses(
+    classes: EntityRecord[],
+    classGroups: EntityRecord[],
+    profile: AppUser | null
+  ): EntityRecord[] {
+    if (!profile) return classes;
+
+    const role = String(profile.role || '').toLowerCase();
+    const isSuperOrOrgAdmin = ['superadmin', 'organizationadmin', 'super_admin', 'orgadmin'].includes(role);
+    if (isSuperOrOrgAdmin) return classes;
+
+    const userIdentities = [
+      profile.uid,
+      profile.entityId,
+      (profile as any).userId,
+      (profile as any).docId,
+      (profile as any).staffId,
+      profile.email
+    ].filter(Boolean).map(s => String(s).trim().toLowerCase());
+
+    const isMadrasaIncharge = role === 'madrasaincharge' ||
+      role === 'madrasa_incharge' ||
+      role === 'incharge' ||
+      (Array.isArray((profile as any).roles) && (profile as any).roles.some((r: string) => String(r).toLowerCase().includes('incharge')));
+
+    // 1. Check direct class assignments or classes containing assigned class groups
+    const profileClassIds = new Set([
+      (profile as any).classId,
+      (profile as any).assignedClassId,
+      ...((profile as any).classIds || []),
+      ...((profile as any).assignedClassIds || [])
+    ].filter(Boolean).map(s => String(s).trim()));
+
+    const assignedClassGroups = this.getScopedClassGroups(classGroups, classes, profile);
+    const assignedGroupClassIds = new Set(
+      assignedClassGroups.map(g => String(g['classId'] || g['class'] || '').trim()).filter(Boolean)
+    );
+
+    const assignedClasses = classes.filter(c => {
+      const cId = String(c.id || '').trim();
+
+      if (profileClassIds.has(cId) || assignedGroupClassIds.has(cId)) return true;
+
+      const classStaffTokens = [
+        ...this.extractAllStrings(c['assignedStaffIds']),
+        ...this.extractAllStrings(c['assignedStaff']),
+        ...this.extractAllStrings(c['staffIds']),
+        ...this.extractAllStrings(c['teacherIds']),
+        ...this.extractAllStrings(c['teachers']),
+        ...this.extractAllStrings(c['staff'])
+      ].map(s => s.toLowerCase());
+
+      return userIdentities.some(id => classStaffTokens.includes(id));
+    });
+
+    if (assignedClasses.length > 0) {
+      return assignedClasses;
+    }
+
+    // 2. If user is Madrasa Incharge (or has madrasa scope)
+    const profileMadrasaIds = new Set([
+      (profile as any).madrasaId,
+      ...((profile as any).madrasaIds || []),
+      (profile as any).assignedMadrasaId
+    ].filter(Boolean).map(s => String(s).trim()));
+
+    if (isMadrasaIncharge || profileMadrasaIds.size > 0) {
+      const madrasaClasses = classes.filter(c => {
+        const cMadId = String(c['madrasaId'] || '').trim();
+        const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
+        return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
+      });
+
+      if (madrasaClasses.length > 0) {
+        return madrasaClasses;
+      }
+    }
+
+    return classes;
+  }
+
   private uniqueStrings(values: unknown[]): string[] {
     return Array.from(new Set(values.map((value) => String(value || '').trim()).filter(Boolean)));
   }
@@ -2263,7 +2461,7 @@ export class ManagementPage {
     });
 
     return classes.map((classRow) => {
-      const groups = classGroups.filter((group) => String(group['classId'] || '') === String(classRow.id || ''));
+      const groups = classGroups.filter((group) => String(group['classId'] || group['class'] || '') === String(classRow.id || ''));
       
       const directStaffIds = this.uniqueStrings([
         ...(Array.isArray(classRow['assignedStaffIds']) ? classRow['assignedStaffIds'] : []),
@@ -2293,11 +2491,44 @@ export class ManagementPage {
       const groupStaff = staffIds.map((id) => {
         const staff = staffById.get(id);
         if (!staff) return null;
+
+        const staffTokens = this.recordIdentityValues(staff).map(s => s.toLowerCase());
+
+        // Find which class groups under this class this staff member is assigned to
+        const assignedGroupsForStaff = groups.filter((g) => {
+          const gStaffTokens = [
+            ...this.extractAllStrings(g['assignedStaffIds']),
+            ...this.extractAllStrings(g['assignedStaff']),
+            ...this.extractAllStrings(g['staffIds']),
+            ...this.extractAllStrings(g['teacherIds']),
+            ...this.extractAllStrings(g['teachers']),
+            ...this.extractAllStrings(g['staff']),
+            ...this.extractAllStrings(g['groupStaff'])
+          ].map(s => s.toLowerCase());
+
+          const staffGroupIds = [
+            ...this.extractAllStrings(staff['groupId']),
+            ...this.extractAllStrings(staff['classGroupId']),
+            ...this.extractAllStrings(staff['groupIds']),
+            ...this.extractAllStrings(staff['classGroupIds']),
+            ...this.extractAllStrings(staff['assignedGroupId'])
+          ];
+
+          return staffTokens.some(tok => gStaffTokens.includes(tok)) || staffGroupIds.includes(String(g.id));
+        });
+
+        const assignedGroupNames = assignedGroupsForStaff
+          .map(g => String(g['name'] || g['title'] || '').trim())
+          .filter(Boolean);
+
+        const groupName = Array.from(new Set(assignedGroupNames)).join(', ');
+
         return {
           id,
           name: String(staff['displayName'] || staff['name'] || staff['email'] || id),
           email: staff['email'] || '',
           photoURL: staff['photoURL'] || '',
+          groupName: groupName || undefined,
         };
       }).filter(s => !!s && !!s.name);
 
@@ -4393,13 +4624,19 @@ export class ManagementPage {
     }
 
     if (hasField('classId') || hasField('classIds')) {
-      const classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
+      let classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
+      const classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
+      classes = this.getScopedClasses(classes, classGroups, profile);
+
       options['classId'] = this.toOptions(classes, 'name');
       options['classIds'] = this.toOptions(classes, 'name');
     }
 
     if (hasField('groupId') || hasField('groupIds')) {
-      const classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
+      let classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
+      const classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
+      classGroups = this.getScopedClassGroups(classGroups, classes, profile);
+
       const groupOptions = classGroups.map(g => ({
         label: g['name'] as string,
         value: g.id as string,
@@ -4408,6 +4645,20 @@ export class ManagementPage {
       }));
       if (hasField('groupId')) options['groupId'] = groupOptions;
       if (hasField('groupIds')) options['groupIds'] = groupOptions;
+    }
+
+    if (hasField('shiftId')) {
+      const shifts = await this.repo.getAllOnce<EntityRecord>('shifts', profile).catch(() => []);
+      if (shifts.length === 0) {
+        const defaultNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
+        options['shiftId'] = defaultNames.map(n => ({ label: n, value: n }));
+      } else {
+        options['shiftId'] = shifts.map(s => ({
+          label: String(s['name']),
+          value: String(s.id || s['name']),
+          data: s
+        }));
+      }
     }
 
     if (hasField('subjectIds')) {

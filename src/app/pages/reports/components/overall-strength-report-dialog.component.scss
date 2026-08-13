@@ -1,0 +1,318 @@
+.matrix-report-dialog-content {
+  padding: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: 90vh;
+  overflow-y: auto;
+
+  @media (max-width: 600px) {
+    padding: 12px 8px;
+    gap: 10px;
+  }
+}
+
+.dialog-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f1f5f9;
+
+  .header-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    
+    .header-icon {
+      font-size: 22px;
+      height: 22px;
+      width: 22px;
+    }
+
+    .header-text {
+      font-size: 18px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+  }
+
+  .close-btn {
+    color: #64748b;
+    &:hover {
+      color: #0f172a;
+    }
+  }
+}
+
+.dialog-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+
+  .filter-fields {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    .control-field {
+      margin-bottom: -1.25em;
+
+      &.basis-field {
+        width: 190px;
+      }
+      &.month-field {
+        width: 130px;
+      }
+      &.year-field {
+        width: 100px;
+      }
+      &.madrasa-field {
+        width: 160px;
+      }
+    }
+
+    .consolidate-chk {
+      font-size: 13px;
+      color: #334155;
+      font-weight: 600;
+      margin-left: 4px;
+    }
+  }
+
+  .action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    .cust-menu-btn, .print-btn {
+      height: 40px;
+      border-radius: 8px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .filter-fields {
+      width: 100%;
+      .control-field {
+        &.basis-field { width: 100%; }
+        &.month-field { width: calc(50% - 5px); }
+        &.year-field { width: calc(50% - 5px); }
+        &.madrasa-field { width: 100%; }
+      }
+    }
+    .action-buttons {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+}
+
+
+.pdf-custom-menu {
+  padding: 8px 12px;
+
+  .menu-header-title {
+    font-weight: 700;
+    font-size: 13px;
+    color: #475569;
+    padding: 6px 8px;
+    border-bottom: 1px solid #e2e8f0;
+    margin-bottom: 6px;
+  }
+
+  .menu-checkbox-item {
+    padding: 4px 8px;
+  }
+}
+
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  gap: 12px;
+  color: #64748b;
+}
+
+.report-paper-container {
+  background: #ffffff;
+  padding: 24px 32px;
+  color: #000000;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.bismillah-header {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  font-family: 'Traditional Arabic', 'Amiri', serif;
+  margin-bottom: 8px;
+}
+
+.institution-header-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: #000000;
+  margin: 0 0 4px 0;
+  letter-spacing: 0.5px;
+}
+
+.report-header-subtitle {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: #000000;
+  margin: 0 0 16px 0;
+}
+
+.report-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid #000000;
+  margin-bottom: 24px;
+
+  th, td {
+    border: 1px solid #000000;
+    padding: 6px 10px;
+    font-size: 13.5px;
+    color: #000000;
+  }
+
+  th {
+    font-weight: 700;
+    text-align: center;
+    background-color: #f8fafc;
+  }
+
+  .col-sno {
+    width: 50px;
+    text-align: center;
+  }
+
+  .col-division {
+    text-align: left;
+    font-weight: 500;
+  }
+
+  .col-session {
+    text-align: center;
+    min-width: 90px;
+  }
+
+  .col-total {
+    text-align: center;
+    width: 90px;
+  }
+
+  .bold-cell {
+    font-weight: 700;
+  }
+
+  .total-summary-row {
+    td {
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .total-label-cell {
+      text-align: center;
+    }
+    .grand-total-cell {
+      font-size: 15px;
+    }
+  }
+}
+
+.unregistered-section-box {
+  border: 1.5px solid #64748b;
+  border-radius: 2px;
+
+  .unregistered-box-header {
+    background: #f1f5f9;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 8px;
+    border-bottom: 1px solid #64748b;
+    color: #000000;
+  }
+
+  .unregistered-box-body {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .unregistered-row {
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 6px;
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+
+  .red-text {
+    color: #dc2626;
+    font-size: 13.5px;
+  }
+}
+
+.app-branding-footer {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 11px;
+  color: #64748b;
+  font-style: italic;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 8px;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .matrix-report-dialog-content {
+    padding: 0 !important;
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .report-paper-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .unregistered-matharasa-box {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+}

@@ -35,6 +35,8 @@ export type PermissionKey =
   | 'viewCourses'
   | 'addCourses'
   | 'editCourses'
+  | 'viewCourseCatalog'
+  | 'manageCourseCatalog'
   | 'manageClasses'
   | 'viewClasses'
   | 'addClasses'
@@ -288,12 +290,21 @@ export interface AcademicClass extends ScopedEntity {
   stageOrLevel?: string;
 }
 
+export interface Shift extends ScopedEntity {
+  name: string;
+  code?: string;
+  displayOrder?: number;
+  description?: string;
+}
+
 export interface ClassGroup extends ScopedEntity {
   name: string;
   code?: string;
   description?: string;
   classId: string;
   courseId?: string;
+  shiftId?: string;
+  shiftName?: string;
   assignedStaffIds: string[];
   studentCount: number;
   capacity?: number;

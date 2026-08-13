@@ -108,7 +108,7 @@ export class AppComponent {
     {
       label: 'Academic Management',
       items: [
-        { label: 'Course Catalog & Stages', route: '/course-catalog', icon: 'journal-outline', permissionsAny: ['viewCourses', 'addCourses', 'editCourses', 'manageCourses'] },
+        { label: 'Course Catalog & Stages', route: '/course-catalog', icon: 'journal-outline', permissionsAny: ['viewCourseCatalog', 'manageCourseCatalog'] },
         { label: 'Courses', route: '/courses', icon: 'ribbon-outline', permissionsAny: ['viewCourses', 'addCourses', 'editCourses', 'manageCourses'] },
         { label: 'Classes', route: '/classes', icon: 'easel-outline', permissionsAny: ['viewClasses', 'addClasses', 'editClasses', 'manageClasses'] },
         { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permissionsAny: ['viewClassGroups', 'addClassGroups', 'editClassGroups', 'viewClasses', 'addClasses', 'editClasses', 'manageClasses'] },

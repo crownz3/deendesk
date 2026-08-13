@@ -1,0 +1,159 @@
+<div class="matrix-report-dialog-content">
+  <!-- Dialog Top Header Bar -->
+  <div class="dialog-header-bar no-print">
+    <div class="header-title">
+      <mat-icon color="primary" class="header-icon">table_chart</mat-icon>
+      <span class="header-text">Overall Strength Report</span>
+    </div>
+    <button mat-icon-button mat-dialog-close class="close-btn" type="button" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Dialog Filter Toolbar & Actions (screen only) -->
+  <div class="dialog-filter-bar no-print">
+    <div class="filter-fields">
+      <!-- Report Grouping Basis Selector -->
+      <mat-form-field appearance="outline" density="compact" class="control-field basis-field">
+        <mat-label>Group By</mat-label>
+        <mat-select [(ngModel)]="reportBasis" (selectionChange)="calculateMatrix()">
+          <mat-option value="course">Course / Division-wise</mat-option>
+          <mat-option value="class">Class-wise</mat-option>
+          <mat-option value="classGroup">Class Group-wise</mat-option>
+          <mat-option value="madrasa">Madrasa-wise</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" density="compact" class="control-field month-field">
+        <mat-label>Month</mat-label>
+        <mat-select [(ngModel)]="selectedMonth" (selectionChange)="calculateMatrix()">
+          <mat-option *ngFor="let m of months" [value]="m">{{ m }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" density="compact" class="control-field year-field">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="selectedYear" (selectionChange)="calculateMatrix()">
+          <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" density="compact" class="control-field madrasa-field" *ngIf="madrasas.length > 0">
+        <mat-label>Madrasa</mat-label>
+        <mat-select [(ngModel)]="selectedMadrasaId" (selectionChange)="calculateMatrix()">
+          <mat-option value="all">All Madrasas</mat-option>
+          <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Option to Consolidate / Group Similar Names -->
+      <mat-checkbox
+        [(ngModel)]="consolidateGroupNames"
+        (change)="calculateMatrix()"
+        color="primary"
+        class="consolidate-chk"
+        matTooltip="Combine similar names (e.g. Evening Hifz & Evening Hifz - 2) into one summary row">
+        Consolidate Similar Names
+      </mat-checkbox>
+    </div>
+
+    <div class="action-buttons">
+      <!-- Advanced PDF Customization Menu -->
+      <button mat-stroked-button [matMenuTriggerFor]="pdfCustomMenu" type="button" class="cust-menu-btn">
+        <mat-icon color="accent">tune</mat-icon> PDF Options
+      </button>
+
+      <mat-menu #pdfCustomMenu="matMenu" class="pdf-custom-menu">
+        <div class="menu-header-title">PDF / Print Header Options</div>
+        <div class="menu-checkbox-item" (click)="$event.stopPropagation()">
+          <mat-checkbox [checked]="includeBismillah" (change)="includeBismillah = $event.checked" color="primary">Include Arabic Bismillah</mat-checkbox>
+        </div>
+        <div class="menu-checkbox-item" (click)="$event.stopPropagation()">
+          <mat-checkbox [checked]="includeOrgName" (change)="includeOrgName = $event.checked" color="primary">Include Organization Name</mat-checkbox>
+        </div>
+        <div class="menu-checkbox-item" (click)="$event.stopPropagation()">
+          <mat-checkbox [checked]="showAppNameBranding" (change)="showAppNameBranding = $event.checked" color="primary">Show App Name / Branding</mat-checkbox>
+        </div>
+        <div class="menu-checkbox-item" (click)="$event.stopPropagation()">
+          <mat-checkbox [checked]="includeUnregisteredMatharasa" (change)="includeUnregisteredMatharasa = $event.checked" color="primary">Include Unregistered Matharasa List</mat-checkbox>
+        </div>
+      </mat-menu>
+
+      <button mat-flat-button color="primary" (click)="printReport()" type="button" class="print-btn">
+        <mat-icon>print</mat-icon> Print Report
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="loading-box no-print" *ngIf="loading">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Calculating Overall Strength Matrix Report...</p>
+  </div>
+
+  <!-- Printable Report Document -->
+  <div class="report-paper-container" *ngIf="!loading">
+    
+    <!-- Optional Arabic Bismillah Header -->
+    <div class="bismillah-header" *ngIf="includeBismillah">بسم الله الرحمن الرحيم</div>
+
+    <!-- Optional Institution Title -->
+    <h1 class="institution-header-title" *ngIf="includeOrgName">{{ organizationName | uppercase }}</h1>
+    
+    <!-- Report Title Subtitle -->
+    <h2 class="report-header-subtitle">
+      Overall Strength {{ selectedMonth }} {{ selectedYear }} ({{ getBasisLabel() }} Shift Matrix)
+    </h2>
+
+    <!-- Primary Dynamic Matrix Table -->
+    <table class="report-matrix-table">
+      <thead>
+        <tr>
+          <th class="col-sno">S.No</th>
+          <th class="col-division">{{ getBasisLabel() }}</th>
+          <th class="col-session" *ngFor="let col of shiftColumns">{{ col.name }}</th>
+          <th class="col-total">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of matrixRows">
+          <td class="col-sno">{{ row.sNo }}</td>
+          <td class="col-division">{{ row.rowTitle }}</td>
+          <td class="col-session" *ngFor="let col of shiftColumns">
+            {{ row.shiftCounts[col.key] || '' }}
+          </td>
+          <td class="col-total bold-cell">{{ row.total || '' }}</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr class="total-summary-row">
+          <td colspan="2" class="total-label-cell">Total</td>
+          <td class="col-session bold-cell" *ngFor="let col of shiftColumns">
+            {{ shiftTotals[col.key] || 0 }}
+          </td>
+          <td class="col-total bold-cell grand-total-cell">{{ grandTotal }}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Optional Strength Unregistered Matharasa List Box -->
+    <div class="unregistered-section-box" *ngIf="includeUnregisteredMatharasa">
+      <div class="unregistered-box-header">
+        Strength Unregistered Matharasa List
+      </div>
+      <div class="unregistered-box-body">
+        <div class="unregistered-row" *ngFor="let item of unregisteredMatharasaList">
+          <span class="unregistered-text red-text">
+            <strong>{{ item.title }} - {{ item.subtitle }}</strong>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Optional App Branding Footer (Only shown if showAppNameBranding === true) -->
+    <div class="app-branding-footer" *ngIf="showAppNameBranding">
+      Generated via Deendesk School Management Application
+    </div>
+
+  </div>
+</div>

@@ -41,6 +41,23 @@
 
   <!-- Dialog Body: Scrollable Templates Grid -->
   <div class="dialog-body">
+    
+    <!-- Featured Overall Strength Matrix Report -->
+    <div class="featured-matrix-banner" (click)="selectTemplate('overall-strength-report')">
+      <div class="banner-left">
+        <div class="banner-icon-box">
+          <mat-icon>table_chart</mat-icon>
+        </div>
+        <div class="banner-info">
+          <h4>Overall Strength Shift Matrix Report</h4>
+          <p>Generate multi-level shift matrix reports (Course-wise, Class-wise, Class Group-wise, Madrasa-wise) with custom PDF headers and branding controls.</p>
+        </div>
+      </div>
+      <button mat-flat-button color="accent" class="banner-btn" type="button">
+        <mat-icon>visibility</mat-icon> View Matrix Report
+      </button>
+    </div>
+
     <!-- Saved Custom Reports Section -->
     <div class="template-section" *ngIf="filteredSavedReports.length > 0">
       <div class="section-title">

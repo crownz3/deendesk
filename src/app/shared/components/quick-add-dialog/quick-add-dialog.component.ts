@@ -534,7 +534,7 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         if (assignedGroupIds.size > 0) {
           options = options.filter((opt: any) => {
             const val = String(opt.value || opt.data?.id || '');
-            return assignedGroupIds.has(val) || isUserMadrasaDoc(opt.data);
+            return assignedGroupIds.has(val);
           });
         }
       } else if (field.key === 'classId' || field.key === 'classIds') {

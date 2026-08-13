@@ -1,0 +1,104 @@
+<div class="dialog-title">
+  <div class="title-left">
+    <div class="shift-badge">
+      <mat-icon style="font-size: 18px; height: 18px; width: 18px;">schedule</mat-icon>
+    </div>
+    <div>
+      <div style="font-size: 17px; font-weight: 700; color: #0f172a;">Link Class Groups</div>
+      <div style="font-size: 12px; color: #64748b; font-weight: 400; margin-top: 2px;">
+        Shift: <strong style="color: #2563eb;">{{ shift['name'] }}</strong>
+        <span *ngIf="shift['code']" style="margin-left: 6px; background: #eff6ff; color: #2563eb; border-radius: 4px; padding: 1px 6px; font-size: 11px;">{{ shift['code'] }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="selected-count-badge" *ngIf="selectedCount > 0">
+    {{ selectedCount }} Selected
+  </div>
+</div>
+
+<mat-dialog-content class="dialog-content">
+
+  <!-- Search & Select All Bar -->
+  <div class="controls-bar">
+    <mat-form-field appearance="outline" class="search-field" style="margin-bottom: -1.25em; flex: 1;">
+      <mat-label>Search class groups...</mat-label>
+      <mat-icon matPrefix style="color: #94a3b8; margin-right: 4px;">search</mat-icon>
+      <input matInput [(ngModel)]="searchQuery" (ngModelChange)="applyFilter()" placeholder="By name, madrasa, or course" />
+      <button matSuffix mat-icon-button *ngIf="searchQuery" (click)="searchQuery = ''; applyFilter()" style="margin-right: -8px;">
+        <mat-icon style="font-size: 18px;">close</mat-icon>
+      </button>
+    </mat-form-field>
+
+    <button mat-stroked-button (click)="toggleAll()" style="min-width: 130px; height: 40px; align-self: center;">
+      <mat-icon style="font-size: 17px;">
+        {{ allSelected ? 'deselect' : 'select_all' }}
+      </mat-icon>
+      {{ allSelected ? 'Deselect All' : 'Select All' }}
+    </button>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="stats-row" *ngIf="rows.length > 0">
+    <span class="stat-chip total">{{ filteredRows.length }} class groups</span>
+    <span class="stat-chip selected" *ngIf="selectedCount > 0">{{ selectedCount }} selected</span>
+    <span class="stat-chip none" *ngIf="selectedCount === 0">None selected</span>
+    <span class="stat-chip unassigned" *ngIf="unassignedCount > 0">{{ unassignedCount }} unassigned</span>
+  </div>
+
+  <!-- Class Groups List -->
+  <div class="groups-list" *ngIf="filteredRows.length > 0; else emptyState">
+    <div
+      class="group-row"
+      *ngFor="let row of filteredRows"
+      [class.is-selected]="row.selected"
+      (click)="toggleRow(row)"
+    >
+      <mat-checkbox
+        [checked]="row.selected"
+        (change)="row.selected = $event.checked"
+        (click)="$event.stopPropagation()"
+        color="primary"
+        class="row-checkbox">
+      </mat-checkbox>
+
+      <div class="group-info">
+        <div class="group-name">{{ row.group['name'] || row.group.id }}</div>
+        <div class="group-meta">
+          <span *ngIf="row.madrasaName" class="meta-chip madrasa">
+            <mat-icon style="font-size: 12px; height: 12px; width: 12px;">school</mat-icon>
+            {{ row.madrasaName }}
+          </span>
+        </div>
+      </div>
+
+      <div class="current-shift-badge" *ngIf="row.group['shiftId'] && row.group['shiftId'] !== shift.id">
+        <mat-icon style="font-size: 12px; height: 12px; width: 12px; color: #f59e0b;">schedule</mat-icon>
+        <span style="font-size: 11px; color: #f59e0b; font-weight: 600;">{{ row.group['shiftName'] || 'Other Shift' }}</span>
+      </div>
+
+      <div class="unassigned-badge" *ngIf="isUnassigned(row) && !row.selected">
+        <mat-icon style="font-size: 12px; height: 12px; width: 12px; color: #dc2626;">link_off</mat-icon>
+        <span style="font-size: 11px; color: #dc2626; font-weight: 600;">Unassigned</span>
+      </div>
+
+      <mat-icon class="selected-icon" *ngIf="row.selected">check_circle</mat-icon>
+    </div>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="empty-state">
+      <mat-icon style="font-size: 40px; height: 40px; width: 40px; color: #cbd5e1;">group_work</mat-icon>
+      <p style="color: #64748b; margin-top: 8px;">No class groups found</p>
+    </div>
+  </ng-template>
+
+</mat-dialog-content>
+
+<mat-dialog-actions class="dialog-actions">
+  <button mat-stroked-button (click)="cancel()" [disabled]="saving">Cancel</button>
+  <button mat-flat-button color="primary" (click)="saveAssignments()" [disabled]="saving">
+    <mat-icon *ngIf="!saving">save</mat-icon>
+    <mat-progress-spinner *ngIf="saving" mode="indeterminate" diameter="18" style="margin-right: 6px;"></mat-progress-spinner>
+    {{ saving ? 'Saving...' : 'Save Linked Groups (' + selectedCount + ')' }}
+  </button>
+</mat-dialog-actions>

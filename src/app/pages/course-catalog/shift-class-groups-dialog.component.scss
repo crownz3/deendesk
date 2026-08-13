@@ -1,0 +1,169 @@
+.dialog-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin: 0 !important;
+
+  .title-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .shift-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #2563eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .selected-count-badge {
+    background: #2563eb;
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+}
+
+.dialog-content {
+  padding: 16px 20px !important;
+  max-height: 480px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.controls-bar {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.stats-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+
+  .stat-chip {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+
+    &.total { background: #f1f5f9; color: #475569; }
+    &.selected { background: #eff6ff; color: #2563eb; }
+    &.none { background: #fef9c3; color: #a16207; }
+    &.unassigned { background: #fee2e2; color: #dc2626; }
+  }
+}
+
+.groups-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.group-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  background: #ffffff;
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #bfdbfe;
+  }
+
+  &.is-selected {
+    background: #eff6ff;
+    border-color: #93c5fd;
+  }
+
+  .group-info {
+    flex: 1;
+
+    .group-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .group-meta {
+      display: flex;
+      gap: 6px;
+      margin-top: 3px;
+
+      .meta-chip {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 11px;
+        padding: 2px 7px;
+        border-radius: 4px;
+
+        &.madrasa { background: #f0fdf4; color: #15803d; }
+        &.course { background: #fdf4ff; color: #9333ea; }
+      }
+    }
+  }
+
+  .current-shift-badge {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    background: #fef3c7;
+    border-radius: 4px;
+  }
+
+  .unassigned-badge {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    background: #fee2e2;
+    border-radius: 4px;
+  }
+
+  .selected-icon {
+    color: #2563eb;
+    font-size: 20px;
+    height: 20px;
+    width: 20px;
+    flex-shrink: 0;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.dialog-actions {
+  padding: 12px 20px 16px;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

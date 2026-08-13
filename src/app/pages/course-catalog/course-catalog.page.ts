@@ -8,6 +8,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { QuickAddDialogComponent } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { CourseMadrasasDialogComponent } from '../management/course-madrasas-dialog/course-madrasas-dialog.component';
+import { ShiftClassGroupsDialogComponent } from './shift-class-groups-dialog.component';
 
 export interface StageHierarchyItem {
   name: string;
@@ -28,7 +29,11 @@ export class CourseCatalogPage implements OnInit {
   loading = true;
   saving = false;
 
-  activeTab: 'catalog' | 'stages' | 'naming' = 'catalog';
+  activeTab: 'catalog' | 'stages' | 'shifts' | 'naming' = 'catalog';
+  shifts: EntityRecord[] = [];
+  allClassGroups: EntityRecord[] = [];
+  newShiftName = '';
+  newShiftCode = '';
 
   courses: EntityRecord[] = [];
   masterCourses: EntityRecord[] = [];
@@ -99,8 +104,8 @@ export class CourseCatalogPage implements OnInit {
       const role = String(profile?.role || '').toLowerCase();
       const userPermissions = Array.isArray(profile?.permissions) ? profile!.permissions : [];
       this.isOrgAdminOrCoordinator = role === 'organizationadmin' || role === 'superadmin' || role === 'coordinator';
-      this.canAddCourse = role === 'superadmin' || role === 'organizationadmin' || userPermissions.includes('addCourses') || userPermissions.includes('manageCourses');
-      this.canEditCourse = role === 'superadmin' || role === 'organizationadmin' || userPermissions.includes('editCourses') || userPermissions.includes('manageCourses');
+      this.canAddCourse = role === 'superadmin' || role === 'organizationadmin' || userPermissions.includes('addCourses') || userPermissions.includes('manageCourses') || userPermissions.includes('manageCourseCatalog');
+      this.canEditCourse = role === 'superadmin' || role === 'organizationadmin' || userPermissions.includes('editCourses') || userPermissions.includes('manageCourses') || userPermissions.includes('manageCourseCatalog');
 
       const scopedCourses = isSuperAdmin ? allCourses : allCourses.filter(c => !c['organizationId'] || c['organizationId'] === orgId);
       this.courses = scopedCourses;
@@ -139,6 +144,21 @@ export class CourseCatalogPage implements OnInit {
       if (this.courses.length > 0) {
         this.selectedCourseId = String(this.courses[0].id);
       }
+
+      const fetchedShifts = await this.repo.getAllOnce<EntityRecord>('shifts', profile).catch(() => []);
+      if (fetchedShifts.length === 0) {
+        const defaultShiftNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
+        this.shifts = defaultShiftNames.map((name, idx) => ({
+          id: name.toLowerCase().replace(/\s+/g, '-'),
+          name,
+          code: name.toUpperCase().replace(/\s+/g, '_'),
+          displayOrder: idx + 1
+        }));
+      } else {
+        this.shifts = fetchedShifts.sort((a, b) => (Number(a['displayOrder'] || 0) - Number(b['displayOrder'] || 0)));
+      }
+
+      this.allClassGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []);
 
       // Fetch org naming rules if available
       if (profile?.organizationId) {
@@ -288,7 +308,7 @@ export class CourseCatalogPage implements OnInit {
     }
   }
 
-  addShift() {
+  addShiftPreset() {
     const shift = this.newShiftInput.trim();
     if (!shift) return;
     if (!this.standardShifts.map(s => s.toLowerCase()).includes(shift.toLowerCase())) {
@@ -1013,5 +1033,74 @@ export class CourseCatalogPage implements OnInit {
     } finally {
       this.saving = false;
     }
+  }
+
+  async addShift() {
+    if (!this.newShiftName.trim()) return;
+    const profile = await firstValueFrom(this.auth.profile$);
+    const newShiftData = {
+      name: this.newShiftName.trim(),
+      code: (this.newShiftCode || this.newShiftName).trim().toUpperCase().replace(/\s+/g, '_'),
+      displayOrder: this.shifts.length + 1,
+      organizationId: profile?.organizationId || ''
+    };
+
+    try {
+      this.saving = true;
+      const newId = await this.repo.create('shifts', newShiftData, profile);
+      const created: EntityRecord = { id: newId, ...newShiftData };
+      this.shifts.push(created);
+      this.newShiftName = '';
+      this.newShiftCode = '';
+      this.repo.clearCache('shifts');
+      this.snackBar.open('Shift created successfully!', 'Close', { duration: 3000 });
+    } catch (err: any) {
+      this.snackBar.open('Error creating shift: ' + (err?.message || err), 'Close', { duration: 4000 });
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  async deleteShift(shift: EntityRecord) {
+    if (!shift.id) return;
+    const profile = await firstValueFrom(this.auth.profile$);
+    try {
+      this.saving = true;
+      await this.repo.remove('shifts', String(shift.id));
+      this.shifts = this.shifts.filter(s => s.id !== shift.id);
+      this.repo.clearCache('shifts');
+      this.snackBar.open('Shift removed successfully.', 'Close', { duration: 3000 });
+    } catch (err: any) {
+      this.snackBar.open('Error removing shift: ' + (err?.message || err), 'Close', { duration: 4000 });
+    } finally {
+      this.saving = false;
+    }
+  }
+
+  getLinkedCount(shift: EntityRecord): number {
+    return this.allClassGroups.filter(g => String(g['shiftId'] || '') === String(shift.id || '')).length;
+  }
+
+  getUnassignedCount(): number {
+    return this.allClassGroups.filter(g => !g['shiftId']).length;
+  }
+
+  async openLinkClassGroupsDialog(shift: EntityRecord): Promise<void> {
+    const dialogRef = this.dialog.open(ShiftClassGroupsDialogComponent, {
+      width: '620px',
+      maxWidth: '94vw',
+      maxHeight: '90vh',
+      data: { shift, allClassGroups: this.allClassGroups }
+    });
+    dialogRef.afterClosed().subscribe(result => {
+      if (result?.updated) {
+        // Reload class groups after bulk save to refresh counts
+        firstValueFrom(this.auth.profile$).then(profile => {
+          this.repo.getAllOnce<EntityRecord>('classGroups', profile).then(groups => {
+            this.allClassGroups = groups;
+          }).catch(() => {});
+        });
+      }
+    });
   }
 }

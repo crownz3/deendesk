@@ -14,6 +14,7 @@ import { AddUserInputColumnDialogComponent } from './components/add-user-input-c
 import { SaveReportDialogComponent } from './components/save-report-dialog.component';
 import { ManageReportsDialogComponent } from './components/manage-reports-dialog.component';
 import { ReportTemplatesDialogComponent } from './components/report-templates-dialog.component';
+import { OverallStrengthReportDialogComponent } from './components/overall-strength-report-dialog.component';
 import { RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -105,8 +106,66 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public dataSource = new MatTableDataSource<any>([]);
   public state?: ReportState;
   
-  public rightSidebarTab: 'columns' | 'filters' | 'sorting' | 'grouping' | 'export' = 'columns';
+  public rightSidebarTab: 'columns' | 'filters' | 'totals' | 'export' = 'columns';
   public visualizationMode: 'table' | 'bar' = 'table';
+
+  // Totals & Aggregation Settings
+  public enableTotalSummary = false;
+  public showRowTotalColumn = false;
+  public selectedTotalColumnKeys: string[] = [];
+
+  public updateDisplayColumns(): void {
+    let keys = this.selectedColumns.map(c => c.key);
+    if (this.enableTotalSummary && this.showRowTotalColumn) {
+      keys = [...keys, 'row_total_summary'];
+    }
+    this.displayColumns = keys;
+  }
+
+  public isTotalColumnSelected(key: string): boolean {
+    return this.selectedTotalColumnKeys.includes(key);
+  }
+
+  public toggleTotalColumn(key: string): void {
+    if (this.isTotalColumnSelected(key)) {
+      this.selectedTotalColumnKeys = this.selectedTotalColumnKeys.filter(k => k !== key);
+    } else {
+      this.selectedTotalColumnKeys.push(key);
+    }
+    this.updateDisplayColumns();
+  }
+
+  public isNumericKey(key: string): boolean {
+    const k = (key || '').toLowerCase();
+    return k.includes('count') || k.includes('amount') || k.includes('score') || k.includes('total') ||
+           k.includes('capacity') || k.includes('order') || k.includes('fee') || k.includes('paid') ||
+           k.includes('due') || k.includes('balance') || k.includes('age');
+  }
+
+  public getColumnSum(key: string): number {
+    if (!this.dataSource || !this.dataSource.filteredData) return 0;
+    return this.dataSource.filteredData.reduce((acc, row) => {
+      const val = parseFloat(row[key]);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+  }
+
+  public getRowTotal(row: any): number {
+    if (!row) return 0;
+    const keysToSum = this.selectedTotalColumnKeys.length > 0
+      ? this.selectedTotalColumnKeys
+      : this.selectedColumns.map(c => c.key).filter(k => this.isNumericKey(k));
+
+    return keysToSum.reduce((acc, key) => {
+      const val = parseFloat(row[key]);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+  }
+
+  public getGrandTotalSum(): number {
+    if (!this.dataSource || !this.dataSource.filteredData) return 0;
+    return this.dataSource.filteredData.reduce((acc, row) => acc + this.getRowTotal(row), 0);
+  }
   
   public isLeftSidebarVisible = true;
   public isRightSidebarVisible = true;
@@ -186,7 +245,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
         if (this.tableSearchQuery) {
           this.dataSource.filter = this.tableSearchQuery.trim().toLowerCase();
         }
-        this.displayColumns = this.selectedColumns.map(c => c.key);
+        this.updateDisplayColumns();
         if (this._paginator) {
           this.dataSource.paginator = this._paginator;
         }
@@ -280,8 +339,21 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
 
     dialogRef.afterClosed().subscribe((selectedReportId: string | undefined) => {
       if (selectedReportId) {
-        this.selectReport(selectedReportId);
+        if (selectedReportId === 'overall-strength-report') {
+          this.openOverallStrengthReportDialog();
+        } else {
+          this.selectReport(selectedReportId);
+        }
       }
+    });
+  }
+
+  public openOverallStrengthReportDialog() {
+    this.dialog.open(OverallStrengthReportDialogComponent, {
+      width: '95vw',
+      maxWidth: '1100px',
+      autoFocus: false,
+      panelClass: 'overall-strength-dialog-panel'
     });
   }
 

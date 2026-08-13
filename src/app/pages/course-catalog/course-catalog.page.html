@@ -29,9 +29,13 @@
         <ion-icon name="git-network-outline"></ion-icon>
         <span>2. Nested Stages Tree</span>
       </button>
+      <button type="button" class="nav-tab-btn" [class.active]="activeTab === 'shifts'" (click)="activeTab = 'shifts'">
+        <ion-icon name="time-outline"></ion-icon>
+        <span>3. Manage Shifts ({{ shifts.length }})</span>
+      </button>
       <button type="button" class="nav-tab-btn" [class.active]="activeTab === 'naming'" (click)="activeTab = 'naming'">
         <ion-icon name="text-outline"></ion-icon>
-        <span>3. Catalog Naming Rules & Shifts</span>
+        <span>4. Catalog Naming Rules</span>
       </button>
     </div>
 
@@ -302,7 +306,84 @@
 
       </div>
 
-      <!-- TAB 3: CATALOG NAMING RULES -->
+      <!-- TAB 3: MANAGE INSTITUTION SHIFTS -->
+      <div *ngIf="activeTab === 'shifts'" class="tab-panel">
+        <div class="catalog-section">
+          <div class="section-title-bar" style="margin-bottom: 20px;">
+            <div>
+              <h3 style="margin: 0; font-size: 18px; font-weight: 700; color: #0f172a;">Institution Shifts & Sessions</h3>
+              <p class="subtitle" style="margin: 4px 0 0 0; font-size: 13px; color: #64748b;">Create and manage shift categories (e.g. Morning, Evening, After Maghrib, Night) to link class groups for accurate strength matrix reporting.</p>
+            </div>
+          </div>
+
+          <!-- Add New Shift Bar -->
+          <div class="add-shift-bar" style="background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; display: flex; gap: 12px; align-items: center; margin-bottom: 24px;">
+            <mat-form-field appearance="outline" density="compact" style="flex: 1; margin-bottom: -1.25em;">
+              <mat-label>Shift Name</mat-label>
+              <input matInput [(ngModel)]="newShiftName" placeholder="e.g. Morning, Evening, After Maghrib, Night" />
+            </mat-form-field>
+            <mat-form-field appearance="outline" density="compact" style="width: 180px; margin-bottom: -1.25em;">
+              <mat-label>Shift Code (Optional)</mat-label>
+              <input matInput [(ngModel)]="newShiftCode" placeholder="e.g. MORNING" />
+            </mat-form-field>
+            <button mat-flat-button color="primary" (click)="addShift()" [disabled]="!newShiftName.trim() || saving">
+              <mat-icon>add</mat-icon> Add Shift
+            </button>
+          </div>
+
+          <!-- Unassigned Class Groups Banner -->
+          <div *ngIf="getUnassignedCount() > 0" style="display: flex; align-items: center; gap: 10px; background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;">
+            <mat-icon style="color: #ca8a04; font-size: 20px; height: 20px; width: 20px; flex-shrink: 0;">warning_amber</mat-icon>
+            <span style="font-size: 13px; color: #92400e;">
+              <strong>{{ getUnassignedCount() }}</strong> class group(s) are not linked to any shift. Open a shift and assign them.
+            </span>
+          </div>
+
+          <!-- Existing Shifts Grid -->
+          <div class="shifts-list-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+            <div class="shift-card" *ngFor="let shift of shifts; let idx = index"
+              style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  <div style="width: 38px; height: 38px; border-radius: 50%; background: #eff6ff; color: #2563eb; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    {{ idx + 1 }}
+                  </div>
+                  <div>
+                    <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">{{ shift['name'] }}</h4>
+                    <span style="font-size: 12px; color: #64748b;">Code: {{ shift['code'] || shift['name'] }}</span>
+                  </div>
+                </div>
+                <button mat-icon-button color="warn" (click)="deleteShift(shift)" matTooltip="Delete Shift">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </div>
+
+              <!-- Shift ID -->
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 10px; padding: 5px 8px; background: #f8fafc; border-radius: 6px; border: 1px dashed #e2e8f0;">
+                <mat-icon style="font-size: 13px; height: 13px; width: 13px; color: #94a3b8;">fingerprint</mat-icon>
+                <span style="font-size: 11px; color: #94a3b8; font-family: monospace; user-select: all;" matTooltip="Shift ID (click to copy)">{{ shift.id }}</span>
+              </div>
+
+              <!-- Linked Count -->
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
+                <div style="flex: 1; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 5px 10px; display: flex; align-items: center; gap: 6px;">
+                  <mat-icon style="font-size: 14px; height: 14px; width: 14px; color: #16a34a;">link</mat-icon>
+                  <span style="font-size: 12px; color: #15803d; font-weight: 700;">{{ getLinkedCount(shift) }}</span>
+                  <span style="font-size: 11px; color: #16a34a;">linked</span>
+                </div>
+               
+              </div>
+
+              <button mat-stroked-button color="primary" style="width: 100%; font-size: 12.5px;" (click)="openLinkClassGroupsDialog(shift)">
+                <mat-icon style="font-size: 16px; height: 16px; width: 16px;">group_add</mat-icon>
+                Link Class Groups
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: CATALOG NAMING RULES -->
       <div *ngIf="activeTab === 'naming'" class="tab-panel">
 
         <div class="naming-card">
