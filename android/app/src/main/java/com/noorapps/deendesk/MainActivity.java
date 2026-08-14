@@ -1,4 +1,4 @@
-package io.ionic.starter;
+package com.noorapps.deendesk;
 
 import android.graphics.Color;
 import android.os.Build;
@@ -41,6 +41,11 @@ public class MainActivity extends BridgeActivity {
         }
 
         super.onCreate(savedInstanceState);
+
+        // Ensure Android WebView revalidates deployments automatically on startup
+        if (this.bridge != null && this.bridge.getWebView() != null) {
+            this.bridge.getWebView().getSettings().setCacheMode(android.webkit.WebSettings.LOAD_DEFAULT);
+        }
 
         // Ensure root view fits system windows so app layout stays strictly above the Android bottom navigation bar
         View contentView = findViewById(android.R.id.content);

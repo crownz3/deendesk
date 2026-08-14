@@ -44,43 +44,56 @@
     }
 
     .selector-wrapper {
+      width: 100%;
+
       .template-selector-btn {
         display: flex;
         align-items: center;
-        gap: 8px;
-        height: 42px;
-        padding: 0 14px;
-        border-radius: 8px;
-        border: 1px solid #cbd5e1;
-        background: #f8fafc;
+        height: 44px !important;
+        padding: 0 12px !important;
+        border-radius: 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        background: #f8fafc !important;
         transition: all 0.2s ease-in-out;
         text-align: left;
+        width: 100%;
+
+        ::ng-deep .mdc-button__label {
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          width: 100% !important;
+          gap: 10px !important;
+        }
 
         &:hover {
-          background: #ffffff;
-          border-color: var(--ion-color-primary, #3880ff);
+          background: #ffffff !important;
+          border-color: var(--ion-color-primary, #3880ff) !important;
           box-shadow: 0 2px 8px rgba(56, 128, 255, 0.15);
         }
 
         .btn-icon {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
           color: var(--ion-color-primary, #3880ff);
+          flex-shrink: 0;
         }
 
         .btn-content {
           display: flex;
           flex-direction: column;
-          line-height: 1.15;
-          max-width: 220px;
+          align-items: flex-start;
+          line-height: 1.2;
+          flex: 1;
+          min-width: 0;
 
           .btn-label {
-            font-size: 0.68rem;
+            font-size: 0.65rem;
             text-transform: uppercase;
-            letter-spacing: 0.4px;
+            letter-spacing: 0.5px;
             color: #64748b;
-            font-weight: 600;
+            font-weight: 700;
           }
 
           .btn-value {
@@ -90,15 +103,17 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            max-width: 100%;
           }
         }
 
         .btn-chevron {
-          font-size: 20px;
-          width: 20px;
-          height: 20px;
+          font-size: 22px;
+          width: 22px;
+          height: 22px;
           color: #64748b;
-          margin-left: 4px;
+          flex-shrink: 0;
+          margin-left: auto;
         }
       }
     }
@@ -497,29 +512,63 @@
   
   .report-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     gap: 12px;
-    padding: 12px 16px;
+    padding: 12px 14px;
     
-    .header-title {
+    .header-left {
       width: 100%;
       flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-      
-      .report-selector {
+      align-items: stretch;
+      gap: 10px;
+
+      .brand-title {
+        justify-content: flex-start;
+      }
+
+      .selector-wrapper {
         width: 100%;
+
+        .template-selector-btn {
+          width: 100%;
+          justify-content: space-between;
+
+          .btn-content {
+            max-width: none;
+            flex: 1;
+          }
+        }
       }
     }
-    
-    .header-actions {
+
+    .header-center {
       width: 100%;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      justify-content: flex-start;
-      
-      button {
-        flex-shrink: 0;
+
+      .pill-group {
+        width: 100%;
+        display: flex;
+
+        .pill-btn {
+          flex: 1;
+          justify-content: center;
+        }
+      }
+    }
+
+    .header-right {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .action-save-btn {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .action-manage-btn {
+        flex: 1;
+        justify-content: center;
       }
     }
   }
