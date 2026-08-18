@@ -548,7 +548,7 @@ export class DashboardPage {
       displayName: this.getDisplayName(profile),
       formattedRole: this.formatRole(profile.role),
       roleTitle: ROLE_LABELS[profile.role],
-      isSuperAdmin: profile.role === 'superAdmin',
+      isSuperAdmin: ['superadmin', 'super_admin'].includes(String(profile.role || '').toLowerCase()),
       isOrgAdmin: profile.role === 'organizationAdmin',
       organizationId: profile.organizationId,
       madrasaIds: Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0 ? profile.madrasaIds : (profile.madrasaId ? [profile.madrasaId] : []),
