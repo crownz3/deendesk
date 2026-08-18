@@ -636,54 +636,47 @@ export class AuthService {
         }
       });
 
-      // 2. For non-administrative roles (teachers/staff), check classGroups collection
-      // where assignedStaffIds contains user tokens so teachers get their teaching madrasas.
-      // Administrative roles (madrasaIncharge, coordinator) should NOT expand their administrative
-      // scope into madrasas where they are only teaching staff.
-      if (!isAdministrativeRole) {
-        const classGroupsRef = collection(this.firestore, 'classGroups');
-        const qGroups = query(classGroupsRef, where('organizationId', '==', orgId));
-        const groupsSnap = await getDocs(qGroups);
+      // 2. Check classGroups collection for assigned staff IDs so teaching madrasas are included
+      const classGroupsRef = collection(this.firestore, 'classGroups');
+      const qGroups = query(classGroupsRef, where('organizationId', '==', orgId));
+      const groupsSnap = await getDocs(qGroups);
 
-        groupsSnap.forEach(docSnap => {
-          const gData = docSnap.data();
-          const staffIds = [
-            ...(Array.isArray(gData['assignedStaffIds']) ? gData['assignedStaffIds'] : []),
-            ...(Array.isArray(gData['staffIds']) ? gData['staffIds'] : []),
-            ...(Array.isArray(gData['teacherIds']) ? gData['teacherIds'] : []),
-            ...(gData['teacherId'] ? [gData['teacherId']] : []),
-            ...(gData['staffId'] ? [gData['staffId']] : [])
-          ].map(v => String(v || '').trim()).filter(Boolean);
+      groupsSnap.forEach(docSnap => {
+        const gData = docSnap.data();
+        const staffIds = [
+          ...(Array.isArray(gData['assignedStaffIds']) ? gData['assignedStaffIds'] : []),
+          ...(Array.isArray(gData['staffIds']) ? gData['staffIds'] : []),
+          ...(Array.isArray(gData['teacherIds']) ? gData['teacherIds'] : []),
+          ...(gData['teacherId'] ? [gData['teacherId']] : []),
+          ...(gData['staffId'] ? [gData['staffId']] : [])
+        ].map(v => String(v || '').trim()).filter(Boolean);
 
-          if (staffIds.some(id => userTokens.includes(id))) {
-            const rawMId = String(gData['madrasaId'] || '');
-            if (rawMId) {
-              const resolved = codeToIdMap.get(rawMId) || (madrasasSnap.docs.some(d => d.id === rawMId) ? rawMId : null);
-              if (resolved) extraMadrasaDocIds.add(resolved);
-            }
-            if (Array.isArray(gData['madrasaIds'])) {
-              gData['madrasaIds'].forEach((m: any) => {
-                const r = codeToIdMap.get(String(m)) || (madrasasSnap.docs.some(d => d.id === String(m)) ? String(m) : null);
-                if (r) extraMadrasaDocIds.add(r);
-              });
-            }
+        if (staffIds.some(id => userTokens.includes(id))) {
+          const rawMId = String(gData['madrasaId'] || '');
+          if (rawMId) {
+            const resolved = codeToIdMap.get(rawMId) || (madrasasSnap.docs.some(d => d.id === rawMId) ? rawMId : null);
+            if (resolved) extraMadrasaDocIds.add(resolved);
           }
-        });
-      }
+          if (Array.isArray(gData['madrasaIds'])) {
+            gData['madrasaIds'].forEach((m: any) => {
+              const r = codeToIdMap.get(String(m)) || (madrasasSnap.docs.some(d => d.id === String(m)) ? String(m) : null);
+              if (r) extraMadrasaDocIds.add(r);
+            });
+          }
+        }
+      });
 
-      // Resolve existing madrasaIds as well so codes get translated to real doc IDs
-      const rawExisting = Array.isArray(profile.madrasaIds)
-        ? profile.madrasaIds.map(String)
-        : (profile.madrasaId ? [String(profile.madrasaId)] : []);
+      // 3. Resolve existing madrasaIds as well so codes get translated to real doc IDs
+      const rawExisting = Array.from(new Set([
+        ...(Array.isArray(profile.madrasaIds) ? profile.madrasaIds : []),
+        ...(Array.isArray((profile as any).assignedMadrasaIds) ? (profile as any).assignedMadrasaIds : []),
+        ...(profile.madrasaId ? [profile.madrasaId] : [])
+      ].map(String).filter(Boolean)));
       
       const resolvedDocIds = new Set<string>();
       rawExisting.forEach(item => {
         const resolved = codeToIdMap.get(item) || item;
         if (resolved) {
-          // If administrative role and we found explicit incharge madrasas, do not keep madrasas where user is not incharge
-          if (isAdministrativeRole && explicitInchargeMadrasaIds.size > 0 && !explicitInchargeMadrasaIds.has(resolved)) {
-            return;
-          }
           resolvedDocIds.add(resolved);
         }
       });
@@ -691,11 +684,18 @@ export class AuthService {
 
       const finalMadrasaIds = Array.from(resolvedDocIds);
 
+      const finalInchargeMadrasaIds = explicitInchargeMadrasaIds.size > 0
+        ? Array.from(explicitInchargeMadrasaIds)
+        : (normalizedRole === 'madrasaincharge' || normalizedRole === 'coordinator'
+          ? (finalMadrasaIds.length > 0 ? finalMadrasaIds : (profile.madrasaId ? [String(profile.madrasaId)] : []))
+          : []);
+
       console.log('🔍 [AuthService] Enriched Profile MadrasaIds Debug:', {
         uid: profile.uid,
         userTokens,
         rawExisting,
-        finalMadrasaIds
+        finalMadrasaIds,
+        finalInchargeMadrasaIds
       });
 
       // Persist cleaned doc IDs back to Firestore if different or enlarged
@@ -711,6 +711,7 @@ export class AuthService {
       return {
         ...profile,
         madrasaIds: finalMadrasaIds,
+        inchargeMadrasaIds: finalInchargeMadrasaIds,
         madrasaId: finalMadrasaIds[0] || profile.madrasaId || ''
       };
     } catch (e) {

@@ -29,6 +29,13 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
     this.filteredStudents = this.data.students || [];
   }
 
+  getStudentStage(student: any): string {
+    if (!student) return 'N/A';
+    const val = student.stage || student.level || student.stageOrLevel || student.stageName || student.currentStage || student.stageDisplay || '';
+    if (!val || val === 'N/A' || val === '-') return 'N/A';
+    return String(val).trim();
+  }
+
   onSearch(): void {
     const q = this.searchQuery.toLowerCase().trim();
     if (!q) {
@@ -41,8 +48,9 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
       const email = (s.email || '').toLowerCase();
       const parentName = (s.fatherName || s.parentName || s.guardianName || '').toLowerCase();
       const parentEmail = (s.parentEmail || '').toLowerCase();
+      const stage = this.getStudentStage(s).toLowerCase();
 
-      return name.includes(q) || email.includes(q) || parentName.includes(q) || parentEmail.includes(q);
+      return name.includes(q) || email.includes(q) || parentName.includes(q) || parentEmail.includes(q) || stage.includes(q);
     });
   }
 

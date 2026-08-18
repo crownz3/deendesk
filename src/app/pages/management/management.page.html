@@ -228,6 +228,20 @@
           </mat-select>
         </mat-form-field>
 
+        <!-- Class Group Filter (Students only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
+          <mat-label>Class Group</mat-label>
+          <mat-select [ngModel]="classGroupFilter$ | async" (ngModelChange)="classGroupFilter$.next($event); pageIndex$.next(0)">
+            <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">
+              <input type="text" matInput placeholder="Search Groups..." [(ngModel)]="classGroupSearch" (keydown)="$event.stopPropagation()" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+            <mat-option value="all">All Groups</mat-option>
+            <mat-option *ngFor="let grp of getFilteredClassGroups(vm.classGroups || [])" [value]="grp.id">
+              {{ grp['name'] }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
         <!-- Stage Filter (Students only) -->
         <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
           <mat-label>Stage</mat-label>

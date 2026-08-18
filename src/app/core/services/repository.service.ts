@@ -851,6 +851,9 @@ export class RepositoryService {
       const allowedMadrasas = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
         ? user.madrasaIds 
         : (user.madrasaId ? [user.madrasaId] : []);
+      const allowedInchargeMadrasas = Array.isArray(user.inchargeMadrasaIds) && user.inchargeMadrasaIds.length > 0
+        ? user.inchargeMadrasaIds
+        : allowedMadrasas;
       const allowedClasses = user.classIds || [];
       const allowedSubjects = user.subjectIds || [];
       
@@ -865,14 +868,17 @@ export class RepositoryService {
           return allowedMadrasas.includes(doc.id || '');
         }
 
+        const isStaffUserDoc = collectionName === 'staff' || (collectionName === 'users' && (['teacher', 'staff', 'madrasaIncharge', 'coordinator'].includes(String(doc['role'])) || ['madrasaincharge', 'coordinator'].includes(role)));
+        const targetScopeMadrasas = isStaffUserDoc ? allowedInchargeMadrasas : allowedMadrasas;
+
         const hasCourseStageAssignments = Array.isArray(user.assignedCourseStages) && user.assignedCourseStages.length > 0;
         if (role === 'stagehead' || hasCourseStageAssignments) {
           // 1. Check madrasa match
           let madrasaMatch = true;
           if (doc['madrasaId']) {
-            madrasaMatch = allowedMadrasas.includes(String(doc['madrasaId']));
+            madrasaMatch = targetScopeMadrasas.includes(String(doc['madrasaId']));
           } else if (Array.isArray(doc['madrasaIds'])) {
-            madrasaMatch = (doc['madrasaIds'] as string[]).some(id => allowedMadrasas.includes(id));
+            madrasaMatch = (doc['madrasaIds'] as string[]).some(id => targetScopeMadrasas.includes(id));
           }
           if (!madrasaMatch) return false;
 
@@ -932,13 +938,13 @@ export class RepositoryService {
 
         if (doc['madrasaId']) {
           checked = true;
-          if (allowedMadrasas.includes(String(doc['madrasaId']))) hasMatch = true;
+          if (targetScopeMadrasas.includes(String(doc['madrasaId']))) hasMatch = true;
         }
 
         if (Array.isArray(doc['madrasaIds'])) {
           checked = true;
           const docMadrasas = doc['madrasaIds'] as string[];
-          if (docMadrasas.some(id => allowedMadrasas.includes(id))) hasMatch = true;
+          if (docMadrasas.some(id => targetScopeMadrasas.includes(id))) hasMatch = true;
         }
 
         if (!doc['madrasaId'] && !doc['madrasaIds'] && ['courses', 'classes', 'classGroups', 'subjects', 'classPlans', 'classPlanExceptions'].includes(collectionName)) {
@@ -1065,9 +1071,25 @@ export class RepositoryService {
 
     if (['coordinator', 'madrasaincharge', 'stagehead'].includes(role)) {
       const orgId = user.organizationId;
-      const madrasaScope = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
+      const allMadrasaScope = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
         ? user.madrasaIds 
         : (user.madrasaId ? [user.madrasaId] : []);
+      const inchargeMadrasaScope = Array.isArray(user.inchargeMadrasaIds) && user.inchargeMadrasaIds.length > 0
+        ? user.inchargeMadrasaIds
+        : allMadrasaScope;
+
+      const isStaffQuery = collectionName === 'staff' || (collectionName === 'users' && (options?.roles?.some(r => ['teacher', 'staff', 'madrasaIncharge', 'coordinator'].includes(r)) || ['madrasaincharge', 'coordinator'].includes(role)));
+      const madrasaScope = isStaffQuery ? inchargeMadrasaScope : allMadrasaScope;
+
+      console.log('🔍 [Repository Scope] Calculation:', {
+        collectionName,
+        userRole: user.role,
+        isStaffQuery,
+        requestedRoles: options?.roles,
+        allMadrasaScope,
+        inchargeMadrasaScope,
+        selectedMadrasaScope: madrasaScope
+      });
 
       if (!orgId || madrasaScope.length === 0) {
         console.warn('[Repository Users Scope Empty]', { role, orgId, madrasaScope });

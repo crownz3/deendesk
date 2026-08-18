@@ -208,6 +208,7 @@ export interface AppUser extends ScopedEntity {
   
   // These fields are merged in from the business entity after login
   madrasaIds?: string[];
+  inchargeMadrasaIds?: string[];
   assignedCourseIds?: string[];
   assignedStages?: string[];
   assignedCourseStages?: CourseStageAssignment[];

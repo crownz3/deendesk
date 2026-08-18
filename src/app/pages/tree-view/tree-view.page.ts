@@ -276,7 +276,22 @@ export class TreeViewPage {
                  }
                });
 
-               staffUsers = this.uniqueUsers(mergedStaffList);
+               let finalStaffList = this.uniqueUsers(mergedStaffList);
+               const inchargeMIds = profile?.inchargeMadrasaIds || [];
+               console.log('🔍 [TreeView Staff Debug] inchargeMIds:', inchargeMIds, 'before filter count:', finalStaffList.length);
+               if (inchargeMIds.length > 0 && profile?.role !== 'superAdmin' && profile?.role !== 'organizationAdmin') {
+                 finalStaffList = finalStaffList.filter((s: any) => {
+                   const sMId = String(s.madrasaId || '').trim();
+                   const sMIds = Array.isArray(s.madrasaIds) ? s.madrasaIds.map(String) : [];
+                   const sAssigned = Array.isArray(s.assignedMadrasaIds) ? s.assignedMadrasaIds.map(String) : [];
+                   const sSet = new Set<string>([...(sMId ? [sMId] : []), ...sMIds, ...sAssigned]);
+                   const match = Array.from(sSet).some(id => inchargeMIds.includes(id));
+                   console.log(`  👉 [TreeView Staff Check] name="${s.name || s.displayName}", madrasas=[${Array.from(sSet).join(', ')}], matched=${match}`);
+                   return match;
+                 });
+               }
+               console.log('🔍 [TreeView Staff Debug] after filter count:', finalStaffList.length);
+               staffUsers = finalStaffList;
                
                console.log('[Academic Tree Role Filter Debug]', {
                  totalUsersLoadedForStudents: rawStudents?.length || 0,

@@ -4,6 +4,7 @@
       <div>
         <p class="eyebrow">{{ vm.roleTitle }} Dashboard</p>
         <h1>Operational overview</h1>
+        <span *ngIf="vm.isSuperAdmin" class="super-admin-version-badge" style="display: inline-block; margin-top: 4px; font-size: 13px; font-weight: 600; color: #10b981; background: rgba(16, 185, 129, 0.1); padding: 4px 10px; border-radius: 20px; border: 1px solid rgba(16, 185, 129, 0.3);">live code deployed 1.1</span>
       </div>
       <div class="header-right-actions">
         <button *ngIf="vm.isSuperAdmin" mat-flat-button color="primary" routerLink="/firebase-usage" class="header-action-btn usage-btn">
@@ -28,7 +29,21 @@
       </div>
       <div *ngIf="!vm.isOrgAdmin">
         <p class="welcome-eyebrow">Welcome back</p>
-        <h2>Hi {{ vm.displayName }}, you are {{ vm.formattedRole }}!</h2>
+        <div class="welcome-title-row">
+          <h2>Hi {{ vm.displayName }}!</h2>
+          <span class="role-pill-badge">{{ vm.formattedRole }}</span>
+        </div>
+
+        <!-- Managed Madrasas Badges -->
+        <div *ngIf="vm.inchargeMadrasaNames && vm.inchargeMadrasaNames.length > 0" class="incharge-madrasas-container">
+          <span class="incharge-label">Incharge for:</span>
+          <div class="incharge-chips-list">
+            <div class="incharge-madrasa-chip" *ngFor="let name of vm.inchargeMadrasaNames">
+              <ion-icon name="business-outline" class="chip-icon"></ion-icon>
+              <span class="chip-name">{{ name }}</span>
+            </div>
+          </div>
+        </div>
         
         <!-- Assigned Class Groups & Madrasas Information -->
         <div *ngIf="vm.assignedAssignments && vm.assignedAssignments.length > 0" class="welcome-madrasa-wrapper">

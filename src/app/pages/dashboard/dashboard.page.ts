@@ -71,6 +71,8 @@ interface DashboardVm {
   isOrgAdmin: boolean;
   organizationId?: string;
   madrasaIds?: string[];
+  inchargeMadrasaNames?: string[];
+  inchargeMadrasasText?: string;
   assignedAssignments?: AssignedAssignmentDetail[];
   stats: DashboardStat[];
   courseDistribution: ChartSlice[];
@@ -459,8 +461,54 @@ export class DashboardPage {
       });
     }
 
+    const userTokens = [
+      profile.uid,
+      profile.id,
+      profile.entityId,
+      profile.email
+    ].map(v => String(v || '').trim()).filter(Boolean);
+
+    const inchargeMadrasaEntities = madrasasList.filter(m => {
+      const mIncharges = [
+        ...(Array.isArray(m['inchargeIds']) ? m['inchargeIds'] : []),
+        ...(m['inchargeId'] ? [m['inchargeId']] : []),
+        ...(m['incharge'] ? [m['incharge']] : []),
+        ...(Array.isArray(m['coordinatorIds']) ? m['coordinatorIds'] : []),
+        ...(m['coordinatorId'] ? [m['coordinatorId']] : []),
+        ...(m['coordinator'] ? [m['coordinator']] : [])
+      ].map(v => String(v || '').trim()).filter(Boolean);
+
+      if (mIncharges.some(id => userTokens.includes(id))) return true;
+
+      const mId = String(m.id);
+      const mCode = String(m['code'] || '');
+      const inchargeIds = Array.isArray(profile.inchargeMadrasaIds) ? profile.inchargeMadrasaIds.map(String) : [];
+      if (inchargeIds.includes(mId) || (mCode && inchargeIds.includes(mCode))) return true;
+
+      return false;
+    });
+
+    if (inchargeMadrasaEntities.length === 0 && (profile.role === 'madrasaIncharge' || profile.role === 'coordinator')) {
+      const pMadrasaIds = Array.from(new Set([
+        ...(Array.isArray(profile.madrasaIds) ? profile.madrasaIds : []),
+        ...(profile.madrasaId ? [profile.madrasaId] : [])
+      ].map(String).filter(Boolean)));
+
+      pMadrasaIds.forEach(id => {
+        const mObj = madrasasList.find(m => String(m.id) === id || String(m['code']) === id);
+        if (mObj && !inchargeMadrasaEntities.some(existing => existing.id === mObj.id)) {
+          inchargeMadrasaEntities.push(mObj);
+        }
+      });
+    }
+
+    const inchargeMadrasaNames = inchargeMadrasaEntities.map(m => String(m['name'] || m['title'] || m['code'] || m.id));
+    const inchargeMadrasasText = inchargeMadrasaNames.length > 0 ? inchargeMadrasaNames.join(' & ') : '';
+
     const allMadrasaIds = Array.from(new Set([
+      ...inchargeMadrasaEntities.map(m => String(m.id)),
       ...(Array.isArray(profile.madrasaIds) ? profile.madrasaIds : []),
+      ...(Array.isArray(profile.inchargeMadrasaIds) ? profile.inchargeMadrasaIds : []),
       ...(profile.madrasaId ? [profile.madrasaId] : [])
     ].map(v => String(v || '').trim()).filter(Boolean)));
 
@@ -488,6 +536,8 @@ export class DashboardPage {
       role: profile.role,
       profileMadrasaId: profile.madrasaId,
       profileMadrasaIds: profile.madrasaIds,
+      inchargeMadrasaNames,
+      inchargeMadrasasText,
       allMadrasaIds,
       loadedMadrasas: madrasasList.map(m => ({ id: m.id, name: m['name'], code: m['code'] })),
       assignedGroupEntities: assignedGroupEntities.map(g => ({ id: g.id, name: g['name'], madrasaId: g['madrasaId'], assignedStaffIds: g['assignedStaffIds'] })),
@@ -502,6 +552,8 @@ export class DashboardPage {
       isOrgAdmin: profile.role === 'organizationAdmin',
       organizationId: profile.organizationId,
       madrasaIds: Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0 ? profile.madrasaIds : (profile.madrasaId ? [profile.madrasaId] : []),
+      inchargeMadrasaNames,
+      inchargeMadrasasText,
       assignedAssignments,
       stats,
       attendance,

@@ -205,13 +205,89 @@ h2 {
     text-transform: uppercase;
   }
 
-  h2 {
-    color: var(--app-text-main);
-    font-weight: 800;
-    margin: 0 0 8px;
-    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
-    word-break: break-word;
-    overflow-wrap: anywhere;
+  .welcome-title-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+
+    h2 {
+      color: var(--app-text-main);
+      font-weight: 800;
+      margin: 0;
+      font-size: clamp(1.2rem, 3.5vw, 1.7rem);
+      word-break: break-word;
+      overflow-wrap: anywhere;
+    }
+
+    .role-pill-badge {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      font-size: 0.82rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+      letter-spacing: 0.2px;
+      display: inline-flex;
+      align-items: center;
+      box-shadow: 0 1px 2px rgba(37, 99, 235, 0.08);
+    }
+  }
+
+  .incharge-madrasas-container {
+    margin-top: 10px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+
+    .incharge-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .incharge-chips-list {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .incharge-madrasa-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 6px 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      }
+
+      .chip-icon {
+        font-size: 1.15rem;
+        color: #2563eb;
+      }
+
+      .chip-name {
+        font-size: 0.875rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+    }
   }
 
   p {

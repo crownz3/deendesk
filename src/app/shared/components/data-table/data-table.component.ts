@@ -217,8 +217,7 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   get pagedRows(): EntityRecord[] {
-    const start = this.pageIndex * this.pageSize;
-    return (this.rows || []).slice(start, start + this.pageSize);
+    return this.rows || [];
   }
 
   formatStageDisplay(val: string): string {

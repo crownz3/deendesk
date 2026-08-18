@@ -18,7 +18,7 @@
     <div class="students-toolbar">
       <div class="search-box">
         <ion-icon name="search-outline"></ion-icon>
-        <input type="text" placeholder="Search students by name, email, or parent name" [(ngModel)]="searchQuery" (input)="onSearch()" />
+        <input type="text" placeholder="Search students by name, email, parent, or stage..." [(ngModel)]="searchQuery" (input)="onSearch()" />
       </div>
     </div>
 
@@ -55,6 +55,16 @@
             <span class="meta-subvalue">
               Group: <strong>{{ (student.groupName && student.groupName !== 'N/A') ? student.groupName : (student.group || student.groupId || 'N/A') }}</strong>
               <span *ngIf="student.assignedStaffName && student.assignedStaffName !== 'None'"> (Staff: {{ student.assignedStaffName }})</span>
+            </span>
+          </div>
+
+          <div class="meta-group">
+            <span class="meta-label">Stage / Level</span>
+            <span class="meta-value">
+              <span class="stage-chip" [class.has-stage]="getStudentStage(student) !== 'N/A'">
+                <ion-icon name="layers-outline"></ion-icon>
+                <span>{{ getStudentStage(student) }}</span>
+              </span>
             </span>
           </div>
         </div>

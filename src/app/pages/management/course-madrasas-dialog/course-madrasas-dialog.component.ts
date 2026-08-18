@@ -136,7 +136,7 @@ export class CourseMadrasasDialogComponent implements OnInit {
         return (targetId && cId === targetId) || (targetName && cName === targetName);
       });
 
-      const isUserMode = targetUserIds.length > 0 && !isCourseMode;
+      const isUserMode = targetUserIds.length > 0;
 
       function isGroupAssignedToTargetUser(grp: EntityRecord): boolean {
         if (!isUserMode) return true;
@@ -167,6 +167,22 @@ export class CourseMadrasasDialogComponent implements OnInit {
         ].map(extractId);
 
         if (targetUserIds.some(id => studentTokens.includes(id))) return true;
+
+        const grpMId = extractId(grp['madrasaId']);
+        if (grpMId) {
+          const mDoc = allMadrasas.find(m => extractId(m.id) === grpMId);
+          if (mDoc) {
+            const mIncharges = [
+              ...(Array.isArray(mDoc['inchargeIds']) ? mDoc['inchargeIds'] : []),
+              ...(mDoc['inchargeId'] ? [mDoc['inchargeId']] : []),
+              ...(mDoc['incharge'] ? [mDoc['incharge']] : []),
+              ...(Array.isArray(mDoc['coordinatorIds']) ? mDoc['coordinatorIds'] : []),
+              ...(mDoc['coordinatorId'] ? [mDoc['coordinatorId']] : []),
+              ...(mDoc['coordinator'] ? [mDoc['coordinator']] : [])
+            ].map(extractId);
+            if (targetUserIds.some(id => mIncharges.includes(id))) return true;
+          }
+        }
 
         return false;
       }
@@ -349,8 +365,10 @@ export class CourseMadrasasDialogComponent implements OnInit {
 
               const rawGrpStudents = allStudents.filter(st => {
                 if (String(st['status'] || 'active').toLowerCase() === 'inactive') return false;
-                return String(st['groupId'] || st['classGroupId'] || st['group']) === grpId ||
-                       (String(st['madrasaId']) === mId && String(st['classId']) === clsId);
+                const stGroup = String(st['groupId'] || st['classGroupId'] || st['group'] || '').trim();
+                const stClass = String(st['classId'] || st['class'] || '').trim();
+                if (stGroup) return stGroup === grpId;
+                return (stClass && stClass === clsId && grpId === 'default_class');
               });
 
               const grpStudentMap = new Map<string, EntityRecord>();
