@@ -137,7 +137,10 @@
                     {{col.label}}
                   </div>
                 </th>
-                <td mat-cell *matCellDef="let element"> 
+                <td mat-cell *matCellDef="let element; let i = index"
+                    [attr.rowspan]="getGroupRowSpan(element, col.key, i)"
+                    [style.display]="shouldShowCell(element, col.key, i) ? '' : 'none'"
+                    [class.grouped-cell-merged]="isGroupField(col.key)"> 
                   <ng-container *ngIf="col.isUserInput; else standardData">
                     <mat-form-field appearance="outline" style="width: 100%; min-width: 120px; margin-bottom: -1.25em;">
                       <input matInput [(ngModel)]="element[col.key]" placeholder="Enter value" (click)="$event.stopPropagation()">
@@ -145,10 +148,12 @@
                   </ng-container>
                   <ng-template #standardData>
                     <ng-container *ngIf="guessTypeForKey(col.key, element[col.key]) as type; else plainValue">
-                       <span class="resolved-name">{{ (element[col.key] | resolveName:type | async) || '-' }}</span>
+                       <span class="resolved-name" [class.grouped-header-text]="isGroupField(col.key)">{{ (element[col.key] | resolveName:type | async) || '-' }}</span>
                     </ng-container>
                     <ng-template #plainValue>
-                      {{ element[col.key] !== undefined && element[col.key] !== null && element[col.key] !== '' ? element[col.key] : '-' }} 
+                      <span [class.grouped-header-text]="isGroupField(col.key)">
+                        {{ element[col.key] !== undefined && element[col.key] !== null && element[col.key] !== '' ? element[col.key] : '-' }} 
+                      </span>
                     </ng-template>
                   </ng-template>
                 </td>
@@ -174,7 +179,7 @@
               </ng-container>
 
               <tr mat-header-row *matHeaderRowDef="displayColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayColumns;"></tr>
+              <tr mat-row *matRowDef="let row; let i = index; columns: displayColumns;" [class.new-group-row]="isNewGroupRow(i)"></tr>
               <tr mat-footer-row *matFooterRowDef="enableTotalSummary ? displayColumns : []; sticky: true" style="background: #f1f5f9;"></tr>
               
               <!-- Empty state -->
@@ -263,16 +268,47 @@
             </div>
           </mat-tab>
 
+          <!-- Grouping -->
+          <mat-tab label="Grouping">
+            <div class="settings-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+              <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Group By Field</h4>
+              <p class="hint" style="margin: 0; font-size: 12.5px; color: #64748b;">Group report records by Madrasa or any selected column field.</p>
+
+              <mat-form-field appearance="outline" style="width: 100%;">
+                <mat-label>Group By Field</mat-label>
+                <mat-select [value]="selectedGroupField" (selectionChange)="setGroupField($event.value)">
+                  <mat-option value="">None (No Grouping)</mat-option>
+                  <mat-option *ngFor="let col of selectedColumns" [value]="col.key">
+                    {{ col.label }}
+                  </mat-option>
+                </mat-select>
+              </mat-form-field>
+            </div>
+          </mat-tab>
+
           <!-- Totals & Aggregations -->
           <mat-tab label="Totals">
             <div class="settings-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
               <h4 style="margin: 0; font-size: 15px; font-weight: 700; color: #0f172a;">Totals & Summary Settings</h4>
-              <p class="hint" style="margin: 0; font-size: 12.5px; color: #64748b;">Configure bottom column totals and row-wise summary calculations.</p>
+              <p class="hint" style="margin: 0; font-size: 12.5px; color: #64748b;">Configure bottom column totals, row counts, and summary display scope for reports and PDF exports.</p>
 
               <div class="setting-box" style="background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <mat-slide-toggle [checked]="enableTotalSummary" (change)="enableTotalSummary = $event.checked; updateDisplayColumns()" color="primary">
                   <span style="font-weight: 600; font-size: 13.5px;">Enable Bottom Total Summary Row</span>
                 </mat-slide-toggle>
+              </div>
+
+              <!-- Total Summary Display Location (Scope) -->
+              <div class="setting-box" *ngIf="enableTotalSummary" style="background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #cbd5e1; display: flex; flex-direction: column; gap: 8px;">
+                <label style="font-weight: 700; font-size: 13px; color: #0f172a;">Total Summary Scope (PDF & Printed Reports):</label>
+                <mat-radio-group [(ngModel)]="totalDisplayScope" color="primary" style="display: flex; gap: 20px;">
+                  <mat-radio-button value="lastPage">
+                    <span style="font-size: 13px; font-weight: 600;">Last Page Only (Overall Total)</span>
+                  </mat-radio-button>
+                  <mat-radio-button value="everyPage">
+                    <span style="font-size: 13px; font-weight: 600;">Every Page (Page Totals)</span>
+                  </mat-radio-button>
+                </mat-radio-group>
               </div>
 
               <div class="setting-box" style="background: #f0f9ff; padding: 14px; border-radius: 8px; border: 1px solid #bae6fd;" *ngIf="enableTotalSummary">
@@ -282,18 +318,23 @@
               </div>
 
               <div class="total-columns-picker" *ngIf="enableTotalSummary" style="display: flex; flex-direction: column; gap: 10px;">
-                <h5 style="margin: 0; font-size: 13px; font-weight: 700; color: #334155;">Select Columns to Calculate Total:</h5>
-                <div class="checkbox-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
-                  <div *ngFor="let col of selectedColumns" style="padding: 6px 10px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+                <h5 style="margin: 0; font-size: 13px; font-weight: 700; color: #334155;">Select Columns to Calculate Total / Row Count:</h5>
+                <div class="checkbox-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto; padding-right: 4px;">
+                  <div *ngFor="let col of selectedColumns" style="padding: 8px 12px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
                     <mat-checkbox 
                       [checked]="isTotalColumnSelected(col.key)"
                       (change)="toggleTotalColumn(col.key)"
                       color="primary">
-                      {{ col.label }}
+                      <span style="font-weight: 600; font-size: 13px;">{{ col.label }}</span>
                     </mat-checkbox>
-                    <span *ngIf="isNumericKey(col.key)" style="font-size: 11px; font-weight: 700; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 4px;">
-                      Numeric
-                    </span>
+
+                    <div *ngIf="isTotalColumnSelected(col.key)" style="display: flex; align-items: center; gap: 8px;">
+                      <label style="font-size: 11.5px; color: #64748b; font-weight: 600;">Mode:</label>
+                      <mat-select [value]="getColumnTotalMode(col.key)" (selectionChange)="setColumnTotalMode(col.key, $event.value)" style="width: 115px; font-size: 12px; background: #f1f5f9; padding: 2px 8px; border-radius: 4px;">
+                        <mat-option value="sum" *ngIf="isNumericKey(col.key)">Sum</mat-option>
+                        <mat-option value="count">Row Count</mat-option>
+                      </mat-select>
+                    </div>
                   </div>
                 </div>
               </div>

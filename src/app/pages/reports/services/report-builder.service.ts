@@ -243,6 +243,12 @@ export class ReportBuilderService {
     } else {
       // 4. Dynamic Grouping and Aggregations (from UI)
       if (this.state.value.grouping.length > 0) {
+        const gField = this.state.value.grouping[0];
+        processed = [...processed].sort((a, b) => {
+          const valA = String(a[gField] || '').toLowerCase();
+          const valB = String(b[gField] || '').toLowerCase();
+          return valA.localeCompare(valB);
+        });
         processed = this.applyGroupingAndAggregation(processed, this.state.value.grouping, this.state.value.aggregations);
       }
     }
@@ -495,6 +501,113 @@ export class ReportBuilderService {
 
       const resolvedPersonName = row.displayName || row.name || user.displayName || user.name || matchingStaffDoc.name || matchingStaffDoc.displayName || row.email || user.email || '-';
 
+      const inchargeUserNames: string[] = [];
+      if (refs.users) {
+        const targetMadrasaIdStr = String(madrasaId || '').trim().toLowerCase();
+        refs.users.forEach((u: any) => {
+          const uRole = String(u.role || u.roles || '').toLowerCase();
+          if (uRole.includes('incharge') || uRole.includes('madrasaincharge')) {
+            const uMadrasas = [
+              ...extractTokens(u.madrasaId), ...extractTokens(u.madrasaIds), ...extractTokens(u.assignedMadrasas)
+            ].map(s => s.toLowerCase());
+            if (targetMadrasaIdStr && uMadrasas.includes(targetMadrasaIdStr)) {
+              const uName = u.displayName || u.name || u.email;
+              if (uName) inchargeUserNames.push(uName);
+            }
+          }
+        });
+      }
+      if (madrasa?.inchargeName) inchargeUserNames.push(madrasa.inchargeName);
+      if (madrasa?.inchargeDisplay) inchargeUserNames.push(madrasa.inchargeDisplay);
+      if (madrasa?.incharge && typeof madrasa.incharge === 'string') inchargeUserNames.push(madrasa.incharge);
+
+      const uniqueInchargeNames = Array.from(new Set(inchargeUserNames.filter(Boolean)));
+      const resolvedMadrasaInchargeDisplay = uniqueInchargeNames.length > 0 ? uniqueInchargeNames.join(', ') : '-';
+
+      const resolvedPhone = row.mobileNumber || row.phone || row.mobile || row.phoneNumber || row.contactNumber ||
+                             user.mobileNumber || user.phone || user.mobile || user.phoneNumber || user.contactNumber ||
+                             matchingStaffDoc.mobileNumber || matchingStaffDoc.phone || matchingStaffDoc.mobile || matchingStaffDoc.phoneNumber || '-';
+
+      const resolvedGender = row.gender || user.gender || matchingStaffDoc.gender || '-';
+      const resolvedQualification = row.qualification || user.qualification || matchingStaffDoc.qualification || '-';
+      const resolvedAddress = row.address || user.address || matchingStaffDoc.address || '-';
+      const resolvedDesignation = row.designation || user.designation || matchingStaffDoc.designation || '-';
+
+      // Comprehensive resolution of assigned teacher / staff names across ALL references
+      const teacherTokens = new Set<string>([
+        ...extractTokens(row.assignedStaffIds), ...extractTokens(row.assignedStaff), ...extractTokens(row.assignedStaffNames),
+        ...extractTokens(row.teacherId), ...extractTokens(row.teacherIds), ...extractTokens(row.teacherName), ...extractTokens(row.teacherNames),
+        ...extractTokens(user.assignedStaffIds), ...extractTokens(user.assignedStaff), ...extractTokens(user.assignedStaffNames),
+        ...extractTokens(user.teacherId), ...extractTokens(user.teacherIds), ...extractTokens(user.teacherName), ...extractTokens(user.teacherNames),
+        ...extractTokens(matchingStaffDoc.assignedStaffIds), ...extractTokens(matchingStaffDoc.assignedStaff),
+        ...extractTokens(cls['assignedStaffIds']), ...extractTokens(cls['assignedStaff']), ...extractTokens(cls['staffIds']), ...extractTokens(cls['teacherIds']),
+        ...extractTokens(cls['assignedStaffNames']), ...extractTokens(cls['teacherName'])
+      ]);
+
+      if (matchedGroupDocs.length > 0) {
+        matchedGroupDocs.forEach((g: any) => {
+          extractTokens(g.assignedStaffIds).forEach(t => teacherTokens.add(t));
+          extractTokens(g.assignedStaff).forEach(t => teacherTokens.add(t));
+          extractTokens(g.staffIds).forEach(t => teacherTokens.add(t));
+          extractTokens(g.teacherIds).forEach(t => teacherTokens.add(t));
+          extractTokens(g.groupStaff).forEach(t => teacherTokens.add(t));
+          extractTokens(g.assignedStaffNames).forEach(t => teacherTokens.add(t));
+          extractTokens(g.staffNames).forEach(t => teacherTokens.add(t));
+          extractTokens(g.teacherNames).forEach(t => teacherTokens.add(t));
+          extractTokens(g.teacher).forEach(t => teacherTokens.add(t));
+          extractTokens(g.teachers).forEach(t => teacherTokens.add(t));
+        });
+      }
+
+      // Fallback search by specific studentClassId ONLY if matchedGroupDocs is empty
+      const studentClassId = String(classId || '').trim().toLowerCase();
+      if (matchedGroupDocs.length === 0 && studentClassId && allClassGroups.length > 0) {
+        allClassGroups.forEach((g: any) => {
+          const gClassId = String(g.classId || g.class || '').trim().toLowerCase();
+          if (gClassId === studentClassId) {
+            extractTokens(g.assignedStaffIds).forEach(t => teacherTokens.add(t));
+            extractTokens(g.assignedStaff).forEach(t => teacherTokens.add(t));
+            extractTokens(g.staffIds).forEach(t => teacherTokens.add(t));
+            extractTokens(g.teacherIds).forEach(t => teacherTokens.add(t));
+            extractTokens(g.assignedStaffNames).forEach(t => teacherTokens.add(t));
+            extractTokens(g.teacherNames).forEach(t => teacherTokens.add(t));
+          }
+        });
+      }
+
+      const teacherNamesList: string[] = [];
+      teacherTokens.forEach(tok => {
+        if (!tok || tok === '-' || tok === 'null' || tok === 'undefined') return;
+        
+        // Direct name string
+        if (tok.length > 2 && !tok.match(/^[a-zA-Z0-9_-]{15,30}$/) && !tok.includes('@')) {
+          teacherNamesList.push(tok);
+          return;
+        }
+
+        const cleanTok = tok.toLowerCase();
+
+        // Search in refs.users map
+        const uObj = refs.users?.get(tok) || refs.users?.get(cleanTok);
+        if (uObj) {
+          teacherNamesList.push(uObj.displayName || uObj.name || uObj.email || tok);
+          return;
+        }
+
+        // Search in allStaffDocs array
+        const sObj = allStaffDocs.find((s: any) =>
+          String(s.id || s.docId || s.userId || s.uid || '').trim().toLowerCase() === cleanTok ||
+          (s.email && String(s.email).trim().toLowerCase() === cleanTok)
+        );
+        if (sObj) {
+          teacherNamesList.push(sObj.displayName || sObj.name || sObj.email || tok);
+          return;
+        }
+      });
+
+      const uniqueTeacherNames = Array.from(new Set(teacherNamesList.filter(Boolean)));
+      const resolvedAssignedStaffNamesDisplay = uniqueTeacherNames.length > 0 ? uniqueTeacherNames.join(', ') : (row.assignedStaffNames || row.teacherName || user.teacherName || '-');
+
       const merged = {
         ...organization,
         ...madrasa,
@@ -505,6 +618,13 @@ export class ReportBuilderService {
         name: resolvedPersonName,
         staffNameDisplay: resolvedPersonName,
         displayName: resolvedPersonName,
+        phoneDisplay: resolvedPhone,
+        mobileNumber: resolvedPhone !== '-' ? resolvedPhone : '',
+        phone: resolvedPhone !== '-' ? resolvedPhone : '',
+        gender: resolvedGender,
+        qualification: resolvedQualification,
+        address: resolvedAddress,
+        designation: resolvedDesignation,
         admissionDate: formattedAdmission,
         organizationNameDisplay: row.organizationName || organization?.name || organization?.displayName || '-',
         studentNameDisplay: row.studentName || row.name || user.name || user.displayName || '-',
@@ -512,10 +632,11 @@ export class ReportBuilderService {
         parentNameDisplay: row.parentName || parent?.name || parent?.displayName || '-',
         studentEmailDisplay: row.email || user.email || '-',
         madrasaNameDisplay: resolvedMadrasaNameDisplay,
+        madrasaInchargeDisplay: resolvedMadrasaInchargeDisplay,
         courseNameDisplay: row.courseName || course?.name || '-',
         classNameDisplay: row.className || cls?.name || '-',
         stageDisplay: row.stageLevel || row.stage || user.stageLevel || user.stage || '-',
-        assignedStaffNamesDisplay: row.assignedStaffNames || '-',
+        assignedStaffNamesDisplay: resolvedAssignedStaffNamesDisplay,
         assignedClassGroupDisplay: resolvedClassGroupDisplay
       };
 
@@ -713,8 +834,17 @@ export class ReportBuilderService {
   }
 
   private applyGroupingAndAggregation(data: any[], grouping: string[], aggregations: any): any[] {
-    // TODO: Implement grouping logic and compute aggregates per group
-    return data;
+    if (!grouping || grouping.length === 0) return data;
+
+    return [...data].sort((a, b) => {
+      for (const groupKey of grouping) {
+        const valA = String(a[groupKey] || '').toLowerCase();
+        const valB = String(b[groupKey] || '').toLowerCase();
+        if (valA < valB) return -1;
+        if (valA > valB) return 1;
+      }
+      return 0;
+    });
   }
 
   private applySorting(data: any[], sorting: { key: string, direction: 'asc' | 'desc' }[]): any[] {

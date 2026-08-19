@@ -29,6 +29,7 @@ export type FilterType =
   | 'dateRange'
   | 'admissionDateRange'
   | 'status'
+  | 'role'
   | 'search'
   | 'stage'
   | 'feePlan'

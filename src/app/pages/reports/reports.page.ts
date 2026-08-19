@@ -106,13 +106,116 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public dataSource = new MatTableDataSource<any>([]);
   public state?: ReportState;
   
-  public rightSidebarTab: 'columns' | 'filters' | 'totals' | 'export' = 'columns';
+  public rightSidebarTab: 'columns' | 'filters' | 'grouping' | 'totals' | 'export' = 'columns';
   public visualizationMode: 'table' | 'bar' = 'table';
+
+  get selectedGroupField(): string {
+    return (this.state?.grouping && this.state.grouping.length > 0) ? this.state.grouping[0] : '';
+  }
+
+  setGroupField(fieldKey: string): void {
+    const grouping = fieldKey ? [fieldKey] : [];
+    this.builder.updateGrouping(grouping);
+  }
+
+  isGroupField(colKey: string): boolean {
+    if (!this.state?.grouping || this.state.grouping.length === 0) return false;
+    const groupField = this.state.grouping[0];
+    return colKey === groupField ||
+      (groupField === 'madrasaNameDisplay' && colKey === 'madrasaInchargeDisplay') ||
+      (groupField === 'madrasaId' && (colKey === 'madrasaNameDisplay' || colKey === 'madrasaInchargeDisplay'));
+  }
+
+  getAbsoluteIndex(pageIndexOnScreen: number): number {
+    if (this._paginator) {
+      const pageIndex = this._paginator.pageIndex || 0;
+      const pageSize = this._paginator.pageSize || 20;
+      return (pageIndex * pageSize) + pageIndexOnScreen;
+    }
+    return pageIndexOnScreen;
+  }
+
+  shouldShowCell(element: any, colKey: string, pageIndexOnScreen: number): boolean {
+    if (!this.state?.grouping || this.state.grouping.length === 0) {
+      return true;
+    }
+    if (!this.isGroupField(colKey)) {
+      return true;
+    }
+    const absIndex = this.getAbsoluteIndex(pageIndexOnScreen);
+    if (absIndex === 0) return true;
+
+    const data = this.dataSource.filteredData;
+    const groupField = this.state.grouping[0];
+    const prevElement = data[absIndex - 1];
+    if (!prevElement) return true;
+
+    const currentVal = String(element[groupField] || '').trim().toLowerCase();
+    const prevVal = String(prevElement[groupField] || '').trim().toLowerCase();
+
+    return currentVal !== prevVal;
+  }
+
+  isNewGroupRow(pageIndexOnScreen: number): boolean {
+    if (!this.state?.grouping || this.state.grouping.length === 0) {
+      return false;
+    }
+    const absIndex = this.getAbsoluteIndex(pageIndexOnScreen);
+    if (absIndex === 0) return false;
+
+    const data = this.dataSource.filteredData;
+    const groupField = this.state.grouping[0];
+    const prevElement = data[absIndex - 1];
+    if (!prevElement) return false;
+
+    const currentVal = String(data[absIndex]?.[groupField] || '').trim().toLowerCase();
+    const prevVal = String(prevElement?.[groupField] || '').trim().toLowerCase();
+
+    return currentVal !== prevVal;
+  }
+
+  getGroupRowSpan(element: any, colKey: string, pageIndexOnScreen: number): number | null {
+    if (!this.state?.grouping || this.state.grouping.length === 0 || !this.isGroupField(colKey)) {
+      return 1;
+    }
+    
+    if (!this.shouldShowCell(element, colKey, pageIndexOnScreen)) {
+      return null;
+    }
+
+    const absIndex = this.getAbsoluteIndex(pageIndexOnScreen);
+    const data = this.dataSource.filteredData;
+    const groupField = this.state.grouping[0];
+    const currentVal = String(element[groupField] || '').trim().toLowerCase();
+
+    let span = 1;
+    for (let k = absIndex + 1; k < data.length; k++) {
+      const nextVal = String(data[k]?.[groupField] || '').trim().toLowerCase();
+      if (nextVal === currentVal) {
+        span++;
+      } else {
+        break;
+      }
+    }
+
+    if (this._paginator) {
+      const pageSize = this._paginator.pageSize || 20;
+      const indexInPage = pageIndexOnScreen % pageSize;
+      const remainingOnPage = pageSize - indexInPage;
+      if (span > remainingOnPage) {
+        span = remainingOnPage;
+      }
+    }
+
+    return span > 1 ? span : 1;
+  }
 
   // Totals & Aggregation Settings
   public enableTotalSummary = false;
   public showRowTotalColumn = false;
   public selectedTotalColumnKeys: string[] = [];
+  public totalDisplayScope: 'lastPage' | 'everyPage' = 'lastPage';
+  public columnTotalModes: { [key: string]: 'sum' | 'count' } = {};
 
   public updateDisplayColumns(): void {
     let keys = this.selectedColumns.map(c => c.key);
@@ -135,6 +238,15 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     this.updateDisplayColumns();
   }
 
+  public getColumnTotalMode(key: string): 'sum' | 'count' {
+    if (this.columnTotalModes[key]) return this.columnTotalModes[key];
+    return this.isNumericKey(key) ? 'sum' : 'count';
+  }
+
+  public setColumnTotalMode(key: string, mode: 'sum' | 'count'): void {
+    this.columnTotalModes[key] = mode;
+  }
+
   public isNumericKey(key: string): boolean {
     const k = (key || '').toLowerCase();
     return k.includes('count') || k.includes('amount') || k.includes('score') || k.includes('total') ||
@@ -142,12 +254,24 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
            k.includes('due') || k.includes('balance') || k.includes('age');
   }
 
-  public getColumnSum(key: string): number {
+  public getColumnSum(key: string): string | number {
     if (!this.dataSource || !this.dataSource.filteredData) return 0;
-    return this.dataSource.filteredData.reduce((acc, row) => {
+    const mode = this.getColumnTotalMode(key);
+
+    if (mode === 'count') {
+      const count = this.dataSource.filteredData.filter(row => {
+        const val = row[key];
+        return val !== null && val !== undefined && val !== '' && val !== '-';
+      }).length;
+      return `${count} count`;
+    }
+
+    const sum = this.dataSource.filteredData.reduce((acc, row) => {
       const val = parseFloat(row[key]);
       return acc + (isNaN(val) ? 0 : val);
     }, 0);
+
+    return Number.isInteger(sum) ? sum : parseFloat(sum.toFixed(2));
   }
 
   public getRowTotal(row: any): number {
@@ -593,7 +717,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     const opts: PdfExportOptions = {
       orientation: 'landscape',
       pageSize: 'A4',
-      theme: 'striped',
+      theme: 'grid',
       showLogo: true,
       showPageNumbers: true,
       repeatHeader: true,
@@ -601,13 +725,20 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
       headerTitle: reportTitle,
       headerColor: '#3f51b5',
       alignColumns: 'center',
-      highlightRows: true
+      highlightRows: true,
+      grouping: this.state?.grouping || [],
+      enableTotalSummary: this.enableTotalSummary,
+      totalDisplayScope: this.enableTotalSummary ? this.totalDisplayScope : 'none',
+      selectedTotalColumnKeys: this.enableTotalSummary ? this.selectedTotalColumnKeys : [],
+      columnTotalModes: this.columnTotalModes
     };
-    this.exportService.exportToPdf(this.state?.data || [], this.selectedColumns, reportTitle, opts);
+    const exportData = this.dataSource.filteredData.length > 0 ? this.dataSource.filteredData : (this.state?.data || []);
+    this.exportService.exportToPdf(exportData, this.selectedColumns, reportTitle, opts);
   }
 
   public exportExcel() {
-    this.exportService.exportToExcel(this.state?.data || [], this.selectedColumns, this.state?.baseDefinition?.name || 'Report');
+    const exportData = this.dataSource.filteredData.length > 0 ? this.dataSource.filteredData : (this.state?.data || []);
+    this.exportService.exportToExcel(exportData, this.selectedColumns, this.state?.baseDefinition?.name || 'Report', this.state?.grouping || []);
   }
 
   public openExportWizard() {
@@ -626,14 +757,22 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
-        const data = this.state?.data || [];
+        const data = this.dataSource.filteredData.length > 0 ? this.dataSource.filteredData : (this.state?.data || []);
         const baseTitle = this.state?.baseDefinition?.name || 'Report';
         if (result.format === 'pdf') {
-          this.exportService.exportToPdf(data, result.columns, baseTitle, result.pdfOptions);
+          const pdfOpts: PdfExportOptions = {
+            ...result.pdfOptions,
+            grouping: this.state?.grouping || [],
+            enableTotalSummary: this.enableTotalSummary,
+            totalDisplayScope: this.enableTotalSummary ? this.totalDisplayScope : 'none',
+            selectedTotalColumnKeys: this.enableTotalSummary ? this.selectedTotalColumnKeys : [],
+            columnTotalModes: this.columnTotalModes
+          };
+          this.exportService.exportToPdf(data, result.columns, baseTitle, pdfOpts);
         } else if (result.format === 'excel') {
-          this.exportService.exportToExcel(data, result.columns, baseTitle);
+          this.exportService.exportToExcel(data, result.columns, baseTitle, this.state?.grouping || []);
         } else if (result.format === 'csv') {
-          this.exportService.exportToCsv(data, result.columns, baseTitle);
+          this.exportService.exportToCsv(data, result.columns, baseTitle, this.state?.grouping || []);
         }
       }
     });
