@@ -35,14 +35,14 @@ import { ReportFieldMetadata } from '../../../core/models/report.model';
         </mat-form-field>
 
         <mat-form-field appearance="outline" *ngIf="filter.operator !== 'between' && filter.operator !== 'isEmpty' && filter.operator !== 'isNotEmpty'">
-          <input matInput [type]="filter.fieldKey === 'month' ? 'month' : 'text'" [(ngModel)]="filter.value1" [placeholder]="filter.fieldKey === 'month' ? 'Select Month & Year' : 'Value'">
+          <input matInput [(ngModel)]="filter.value1" placeholder="Value">
         </mat-form-field>
         
         <mat-form-field appearance="outline" *ngIf="filter.operator === 'between'">
-          <input matInput [type]="filter.fieldKey === 'month' ? 'month' : 'text'" [(ngModel)]="filter.value1" placeholder="Min Value">
+          <input matInput [(ngModel)]="filter.value1" placeholder="Min Value">
         </mat-form-field>
         <mat-form-field appearance="outline" *ngIf="filter.operator === 'between'">
-          <input matInput [type]="filter.fieldKey === 'month' ? 'month' : 'text'" [(ngModel)]="filter.value2" placeholder="Max Value">
+          <input matInput [(ngModel)]="filter.value2" placeholder="Max Value">
         </mat-form-field>
       </div>
 

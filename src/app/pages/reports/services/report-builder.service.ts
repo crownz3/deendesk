@@ -188,16 +188,7 @@ export class ReportBuilderService {
         queryOptions.roles = definition.roles;
       }
       
-      let data = await firstValueFrom(this.repo.list<EntityRecord>(definition.collection, profile, [], queryOptions)).catch(() => []);
-
-      // If querying student report and data is sparse, merge with users collection (role: student)
-      if (definition.collection === 'students' || definition.category === 'student') {
-        const studentUsers = await firstValueFrom(this.repo.list<EntityRecord>('users', profile, [], { roles: ['student'] })).catch(() => []);
-        if (studentUsers && studentUsers.length > 0) {
-          data = [...data, ...studentUsers];
-        }
-      }
-
+      const data = await firstValueFrom(this.repo.list<EntityRecord>(definition.collection, profile, [], queryOptions));
       this.processData(data);
     } catch (e) {
       console.error(e);
@@ -243,12 +234,8 @@ export class ReportBuilderService {
     // 2. Computed Columns evaluation
     processed = this.evaluateComputedColumns(processed, this.state.value.columns);
 
-    // 3. Built-in Report Aggregation & Special Reports
+    // 3. Built-in Report Aggregation
     const definition = this.state.value.baseDefinition;
-    if (definition?.id === 'monthly-student-movement-strength-report') {
-      processed = this.applyMonthlyStudentMovement(processed, this.state.value.filters);
-    }
-
     if (definition?.aggregationLogic === 'count-by-field' && definition.groupByField) {
       processed = this.applyCountAggregation(processed, definition.groupByField);
     } else if (definition?.aggregationLogic === 'sum-by-field' && definition.groupByField) {
@@ -277,7 +264,7 @@ export class ReportBuilderService {
 
     return data.filter(row => {
       return filters.every(f => {
-        if (!f.fieldKey || f.fieldKey === 'month') return true;
+        if (!f.fieldKey) return true;
         
         let rowValue = row[f.fieldKey];
         const val1 = f.value1;
@@ -872,125 +859,6 @@ export class ReportBuilderService {
         if (valA > valB) return sort.direction === 'asc' ? 1 : -1;
       }
       return 0;
-    });
-  }
-
-  private applyMonthlyStudentMovement(data: any[], filters: any[]): any[] {
-    // 1. Determine Target Month & Year from filters or current date
-    const monthFilter = filters?.find(f => f.fieldKey === 'month' || f.fieldKey === 'admissionDateRange' || f.fieldKey === 'dateRange');
-    let targetYear = new Date().getFullYear();
-    let targetMonth = new Date().getMonth(); // 0-indexed (0 = Jan, 7 = Aug)
-
-    if (monthFilter && monthFilter.value1) {
-      const valStr = String(monthFilter.value1).trim();
-      const parsedDate = new Date(valStr);
-      if (!isNaN(parsedDate.getTime())) {
-        targetYear = parsedDate.getFullYear();
-        targetMonth = parsedDate.getMonth();
-      } else if (valStr.includes('-')) {
-        const parts = valStr.split('-');
-        if (parts.length >= 2) {
-          targetYear = parseInt(parts[0], 10) || targetYear;
-          targetMonth = (parseInt(parts[1], 10) - 1) || targetMonth;
-        }
-      }
-    }
-
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const monthDisplay = `${monthNames[targetMonth]} ${targetYear}`;
-
-    const currentMonthStart = new Date(targetYear, targetMonth, 1, 0, 0, 0, 0);
-    const currentMonthEnd = new Date(targetYear, targetMonth + 1, 0, 23, 59, 59, 999);
-
-    const prevMonthEnd = new Date(targetYear, targetMonth, 0, 23, 59, 59, 999);
-
-    // 2. Classify each student row's movement status for the selected month
-    const processedRows = data.map(row => {
-      let admissionDateObj: Date | null = null;
-      if (row.admissionDate) {
-        if (typeof row.admissionDate === 'string') admissionDateObj = new Date(row.admissionDate);
-        else if (row.admissionDate instanceof Date) admissionDateObj = row.admissionDate;
-        else if (typeof row.admissionDate === 'object' && 'toDate' in row.admissionDate) admissionDateObj = row.admissionDate.toDate();
-      } else if (row.createdAt) {
-        if (typeof row.createdAt === 'string') admissionDateObj = new Date(row.createdAt);
-        else if (row.createdAt instanceof Date) admissionDateObj = row.createdAt;
-        else if (typeof row.createdAt === 'object' && 'toDate' in row.createdAt) admissionDateObj = row.createdAt.toDate();
-      }
-
-      let movementTag = 'Existing';
-
-      const isNewAdmission = admissionDateObj && admissionDateObj >= currentMonthStart && admissionDateObj <= currentMonthEnd;
-      const isInactive = (row.status === 'inactive' || row.status === 'dropped' || row.status === 'archived');
-      const isPromoted = String(row.action || row.movementType || '').toLowerCase().includes('promote');
-      const isDemoted = String(row.action || row.movementType || '').toLowerCase().includes('demote');
-      const isTransferred = String(row.action || row.movementType || '').toLowerCase().includes('transfer');
-
-      if (isNewAdmission) movementTag = 'New Admission';
-      else if (isInactive) movementTag = 'Inactive';
-      else if (isPromoted) movementTag = 'Promoted';
-      else if (isDemoted) movementTag = 'Demoted';
-      else if (isTransferred) movementTag = 'Transferred';
-
-      return {
-        ...row,
-        selectedMonthDisplay: monthDisplay,
-        movementStatusDisplay: movementTag,
-        _admissionDateObj: admissionDateObj
-      };
-    });
-
-    // 3. Compute group-level strength metrics by Madrasa & Class Group
-    const groupMetricsMap = new Map<string, {
-      prevCount: number;
-      currentCount: number;
-      newAdmissions: number;
-      inactives: number;
-      promoteDemotes: number;
-      transfers: number;
-    }>();
-
-    processedRows.forEach(row => {
-      const gKey = `${row.madrasaNameDisplay || 'Madrasa'}___${row.assignedClassGroupDisplay || row.classNameDisplay || 'Group'}`;
-      let metrics = groupMetricsMap.get(gKey);
-      if (!metrics) {
-        metrics = { prevCount: 0, currentCount: 0, newAdmissions: 0, inactives: 0, promoteDemotes: 0, transfers: 0 };
-        groupMetricsMap.set(gKey, metrics);
-      }
-
-      const admDate = row._admissionDateObj;
-      const isActive = row.status !== 'inactive' && row.status !== 'dropped' && row.status !== 'archived';
-
-      // Current Month Count
-      if (isActive) metrics.currentCount++;
-
-      // Previous Month Count: Enrolled on or before prevMonthEnd and not inactive prior to current month
-      if (admDate && admDate <= prevMonthEnd && isActive) {
-        metrics.prevCount++;
-      } else if (!admDate && isActive) {
-        metrics.prevCount++;
-      }
-
-      // Movement Metrics
-      if (row.movementStatusDisplay === 'New Admission') metrics.newAdmissions++;
-      if (row.movementStatusDisplay === 'Inactive') metrics.inactives++;
-      if (row.movementStatusDisplay === 'Promoted' || row.movementStatusDisplay === 'Demoted') metrics.promoteDemotes++;
-      if (row.movementStatusDisplay === 'Transferred') metrics.transfers++;
-    });
-
-    // 4. Attach computed strength counts to each student row
-    return processedRows.map(row => {
-      const gKey = `${row.madrasaNameDisplay || 'Madrasa'}___${row.assignedClassGroupDisplay || row.classNameDisplay || 'Group'}`;
-      const metrics = groupMetricsMap.get(gKey) || { prevCount: 0, currentCount: 0, newAdmissions: 0, inactives: 0, promoteDemotes: 0, transfers: 0 };
-
-      return {
-        ...row,
-        prevMonthStudentCount: metrics.prevCount,
-        currentMonthStudentCount: metrics.currentCount,
-        newAdmissionCount: metrics.newAdmissions,
-        inactiveCount: metrics.inactives,
-        promoteDemoteCount: metrics.promoteDemotes,
-        transferCount: metrics.transfers
-      };
     });
   }
 

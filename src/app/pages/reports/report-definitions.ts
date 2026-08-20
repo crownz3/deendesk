@@ -52,33 +52,7 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
     ]
   },
 
-  {
-    id: 'monthly-student-movement-strength-report',
-    name: 'Monthly Student Movement & Strength Report (மாதாந்திர மாணவர்கள் அறிக்கை)',
-    category: 'student',
-    collection: 'students',
-    requiredFilters: ['madrasa', 'course', 'class', 'month', 'status', 'search'],
-    defaultGroup: ['madrasaNameDisplay', 'assignedClassGroupDisplay'],
-    emptyText: 'No student records or monthly movement data found for the selected criteria.',
-    columns: [
-      { key: 'madrasaNameDisplay', label: 'Madrasa Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'assignedClassGroupDisplay', label: 'Class Group / Batch', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'assignedStaffNamesDisplay', label: 'Usthadh / Teacher Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'courseNameDisplay', label: 'Timing / Shift', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'studentNameDisplay', label: 'Student Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'fatherNameDisplay', label: 'Father Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'stageDisplay', label: 'Stage / Level', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'movementStatusDisplay', label: 'Movement Tag', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'prevMonthStudentCount', label: 'Prev Month Count', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'currentMonthStudentCount', label: 'Current Month Count', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'newAdmissionCount', label: 'New Admissions', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'inactiveCount', label: 'Inactive / Dropouts', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'promoteDemoteCount', label: 'Promote / Demote', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'transferCount', label: 'Transfers', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'admissionDate', label: 'Admission Date', type: 'date', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
-      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
-    ]
-  },
+  // --- STUDENT REPORTS ---
   {
     id: 'student-list',
     name: 'Student List',
