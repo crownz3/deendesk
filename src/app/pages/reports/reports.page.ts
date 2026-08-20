@@ -109,21 +109,37 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public rightSidebarTab: 'columns' | 'filters' | 'grouping' | 'totals' | 'export' = 'columns';
   public visualizationMode: 'table' | 'bar' = 'table';
 
-  get selectedGroupField(): string {
-    return (this.state?.grouping && this.state.grouping.length > 0) ? this.state.grouping[0] : '';
+  get selectedGroupFields(): string[] {
+    return this.state?.grouping || [];
   }
 
-  setGroupField(fieldKey: string): void {
-    const grouping = fieldKey ? [fieldKey] : [];
+  setGroupFields(fieldKeys: string[]): void {
+    const grouping = Array.isArray(fieldKeys) ? fieldKeys.filter(Boolean) : [];
     this.builder.updateGrouping(grouping);
   }
 
   isGroupField(colKey: string): boolean {
     if (!this.state?.grouping || this.state.grouping.length === 0) return false;
-    const groupField = this.state.grouping[0];
-    return colKey === groupField ||
-      (groupField === 'madrasaNameDisplay' && colKey === 'madrasaInchargeDisplay') ||
-      (groupField === 'madrasaId' && (colKey === 'madrasaNameDisplay' || colKey === 'madrasaInchargeDisplay'));
+    const grouping = this.state.grouping;
+    return grouping.includes(colKey) ||
+      (grouping.includes('madrasaNameDisplay') && colKey === 'madrasaInchargeDisplay') ||
+      (grouping.includes('madrasaId') && (colKey === 'madrasaNameDisplay' || colKey === 'madrasaInchargeDisplay'));
+  }
+
+  private isMultiLevelMatch(rowA: any, rowB: any, colKey: string): boolean {
+    if (!rowA || !rowB || !this.state?.grouping || this.state.grouping.length === 0) return false;
+    const grouping = this.state.grouping;
+    let targetIndex = grouping.indexOf(colKey);
+    if (targetIndex === -1 && colKey === 'madrasaInchargeDisplay') {
+      targetIndex = grouping.indexOf('madrasaNameDisplay');
+    }
+    const keysToCheck = targetIndex >= 0 ? grouping.slice(0, targetIndex + 1) : [colKey];
+
+    return keysToCheck.every(key => {
+      const valA = String(rowA[key] || '').trim().toLowerCase();
+      const valB = String(rowB[key] || '').trim().toLowerCase();
+      return valA === valB;
+    });
   }
 
   getAbsoluteIndex(pageIndexOnScreen: number): number {
@@ -146,14 +162,10 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     if (absIndex === 0) return true;
 
     const data = this.dataSource.filteredData;
-    const groupField = this.state.grouping[0];
     const prevElement = data[absIndex - 1];
     if (!prevElement) return true;
 
-    const currentVal = String(element[groupField] || '').trim().toLowerCase();
-    const prevVal = String(prevElement[groupField] || '').trim().toLowerCase();
-
-    return currentVal !== prevVal;
+    return !this.isMultiLevelMatch(element, prevElement, colKey);
   }
 
   isNewGroupRow(pageIndexOnScreen: number): boolean {
@@ -164,12 +176,13 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     if (absIndex === 0) return false;
 
     const data = this.dataSource.filteredData;
-    const groupField = this.state.grouping[0];
+    const currentElem = data[absIndex];
     const prevElement = data[absIndex - 1];
-    if (!prevElement) return false;
+    if (!currentElem || !prevElement) return false;
 
-    const currentVal = String(data[absIndex]?.[groupField] || '').trim().toLowerCase();
-    const prevVal = String(prevElement?.[groupField] || '').trim().toLowerCase();
+    const primaryGroupKey = this.state.grouping[0];
+    const currentVal = String(currentElem[primaryGroupKey] || '').trim().toLowerCase();
+    const prevVal = String(prevElement[primaryGroupKey] || '').trim().toLowerCase();
 
     return currentVal !== prevVal;
   }
@@ -185,13 +198,10 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
 
     const absIndex = this.getAbsoluteIndex(pageIndexOnScreen);
     const data = this.dataSource.filteredData;
-    const groupField = this.state.grouping[0];
-    const currentVal = String(element[groupField] || '').trim().toLowerCase();
 
     let span = 1;
     for (let k = absIndex + 1; k < data.length; k++) {
-      const nextVal = String(data[k]?.[groupField] || '').trim().toLowerCase();
-      if (nextVal === currentVal) {
+      if (this.isMultiLevelMatch(element, data[k], colKey)) {
         span++;
       } else {
         break;

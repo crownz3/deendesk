@@ -78,10 +78,23 @@ export class ReportExportService {
       const primaryGroupKey = grouping.length > 0 ? grouping[0] : null;
 
       const isGroupedKey = (key: string) => {
-        if (!primaryGroupKey) return false;
-        return key === primaryGroupKey ||
-          (primaryGroupKey === 'madrasaNameDisplay' && key === 'madrasaInchargeDisplay') ||
-          (primaryGroupKey === 'madrasaId' && (key === 'madrasaNameDisplay' || key === 'madrasaInchargeDisplay'));
+        if (grouping.length === 0) return false;
+        return grouping.includes(key) ||
+          (grouping.includes('madrasaNameDisplay') && key === 'madrasaInchargeDisplay') ||
+          (grouping.includes('madrasaId') && (key === 'madrasaNameDisplay' || key === 'madrasaInchargeDisplay'));
+      };
+
+      const isMultiGroupMatch = (rowA: any, rowB: any, targetKey: string) => {
+        let lvl = grouping.indexOf(targetKey);
+        if (lvl === -1 && targetKey === 'madrasaInchargeDisplay') {
+          lvl = grouping.indexOf('madrasaNameDisplay');
+        }
+        const keysToCheck = lvl >= 0 ? grouping.slice(0, lvl + 1) : [targetKey];
+        return keysToCheck.every(k => {
+          const valA = String(rowA[k] || '').trim().toLowerCase();
+          const valB = String(rowB[k] || '').trim().toLowerCase();
+          return valA === valB;
+        });
       };
 
       const alignment = options.alignColumns || 'center';
@@ -89,7 +102,7 @@ export class ReportExportService {
 
       const tableData: any[] = [];
 
-      if (primaryGroupKey && N > 0) {
+      if (grouping.length > 0 && N > 0) {
         // Calculate page height and estimated capacities to prevent rowSpan overflow
         const pageHeight = options.orientation === 'landscape'
           ? (options.pageSize === 'Legal' ? 216 : 210)
@@ -162,9 +175,7 @@ export class ReportExportService {
                 } else {
                   let span = 1;
                   for (let k = i + 1; k <= range.end; k++) {
-                    const nextVal = String(exportData[k][primaryGroupKey] || '').trim().toLowerCase();
-                    const currVal = String(row[primaryGroupKey] || '').trim().toLowerCase();
-                    if (nextVal === currVal) span++;
+                    if (isMultiGroupMatch(row, exportData[k], key)) span++;
                     else break;
                   }
 
