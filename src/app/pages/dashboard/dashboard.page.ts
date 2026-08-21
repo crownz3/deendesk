@@ -169,7 +169,7 @@ export class DashboardPage {
         return of(null);
       }
 
-      if (profile.role === 'teacher') {
+      if (['teacher', 'staff', 'ustadh', 'teacher_assistant'].includes(String(profile.role || '').toLowerCase())) {
         return this.loadTeacherData(profile).pipe(
           map(data => this.buildDashboardVm(profile, data))
         );
@@ -299,11 +299,14 @@ export class DashboardPage {
                   ? ((assignedGroupIds.size > 0 || assignedClassIds.size > 0) ? scopedStudents : uniqueStudents)
                   : uniqueStudents;
 
+                const scopedClasses = initialData.classes.filter((c: any) => assignedClassIds.has(String(c.id)));
+
                 return {
                   ...initialData,
                   classPlans: fetched.classPlans,
                   courses: fetched.courses,
                   madrasas: fetched.madrasas,
+                  classes: scopedClasses,
                   students: finalStudents,
                   organizations: [] // Teachers don't need full org data for stats
                 };
