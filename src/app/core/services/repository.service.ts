@@ -1035,7 +1035,7 @@ export class RepositoryService {
 
     if (role === 'superadmin') {
       if (collectionName === 'users' && options?.roles?.length) {
-        return options.roles.map(r => [where('role', '==', r)]);
+        return options.roles.map(r => user?.organizationId ? [where('organizationId', '==', user.organizationId), where('role', '==', r)] : [where('role', '==', r)]);
       }
       return [[]]; // No constraints
     }
@@ -1069,7 +1069,7 @@ export class RepositoryService {
       return [];
     }
 
-    if (['coordinator', 'madrasaincharge', 'stagehead'].includes(role)) {
+    if (['coordinator', 'madrasaincharge', 'stagehead', 'teacher', 'staff', 'ustadh', 'teacher_assistant'].includes(role)) {
       const orgId = user.organizationId;
       const allMadrasaScope = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
         ? user.madrasaIds 
@@ -1212,10 +1212,23 @@ export class RepositoryService {
       // However, we restrict the base scopes to only what's explicitly assigned.
 
       if (collectionName === 'users') {
-        // Teachers shouldn't query the entire users collection broadly anymore without specific IDs.
-        // If extra constraints provide `documentId() in [...]` (e.g. fetching students), we allow it.
-        // Otherwise, they can only query themselves.
-        return [[where(documentId(), '==', user.uid)]];
+        const allowedMadrasas = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
+          ? user.madrasaIds 
+          : (user.madrasaId ? [user.madrasaId] : []);
+
+        if (options?.roles?.length) {
+          const userGroups: QueryConstraint[][] = [];
+          options.roles.forEach(r => {
+            userGroups.push([where('organizationId', '==', orgId), where('role', '==', r)]);
+          });
+          allowedMadrasas.forEach(mId => {
+            userGroups.push([where('organizationId', '==', orgId), where('madrasaId', '==', mId)]);
+            userGroups.push([where('organizationId', '==', orgId), where('madrasaIds', 'array-contains', mId)]);
+          });
+          userGroups.push([where('organizationId', '==', orgId)]);
+          return userGroups;
+        }
+        return [[where('organizationId', '==', orgId)]];
       }
 
       if (collectionName === 'students' || collectionName === 'attendance') {

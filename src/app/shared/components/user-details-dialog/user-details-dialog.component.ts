@@ -375,6 +375,14 @@ export class UserDetailsDialogComponent implements OnInit {
 
         return false;
       });
+
+      console.log('🔍 [UserDetailsDialog StudentScoping Debug]', {
+        staffName: this.user?.['displayName'] || this.user?.['name'] || this.user?.['email'],
+        staffRole: this.user?.['role'],
+        groupIdsSet: Array.from(groupIdsSet),
+        classIdsSet: Array.from(classIdsSet),
+        totalAssignedStudents: this.assignedStudents.length
+      });
     } catch (e) {
       console.error('Failed to load academic details', e);
     } finally {

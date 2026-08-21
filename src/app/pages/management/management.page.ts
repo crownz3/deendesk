@@ -787,7 +787,7 @@ export class ManagementPage {
 
   readonly searchQuery$ = new BehaviorSubject<string>('');
   readonly pageIndex$ = new BehaviorSubject<number>(0);
-  readonly pageSize$ = new BehaviorSubject<number>(10);
+  readonly pageSize$ = new BehaviorSubject<number>(50);
 
   readonly refresh$ = new BehaviorSubject<void>(undefined);
 
@@ -818,19 +818,91 @@ export class ManagementPage {
         this.repo.list<EntityRecord>('students', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('staff', profile).pipe(catchError(() => of([]))),
-        this.repo.list<EntityRecord>('users', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('users', profile, [], { roles: ['student', 'teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'] }).pipe(catchError(() => of([]))),
         profile?.role === 'superAdmin'
           ? this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(() => of([])))
           : of([] as EntityRecord[]),
         this.repo.list<EntityRecord>('shifts', profile).pipe(catchError(() => of([])))
       ]).pipe(
         map(([rows, madrasas, courses, classes, students, classGroups, staffRows, usersRows, organizations, shifts]) => {
-           const allStaffRows = [...staffRows, ...usersRows];
-           let filteredRows = this.decorateRows(config, this.filterRows(config, rows));
-           let displayMadrasas = madrasas;
-           const _isOrgAdmin = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin';
-           let displayClasses = _isOrgAdmin ? classes : this.getScopedClasses(classes, classGroups, profile);
-           let displayClassGroups = _isOrgAdmin ? classGroups : this.getScopedClassGroups(classGroups, classes, profile);
+            const allStaffRows = [...staffRows, ...usersRows];
+            let filteredRows = this.decorateRows(config, this.filterRows(config, rows));
+            let displayMadrasas = madrasas;
+            const _isOrgAdmin = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin';
+            let displayClasses = _isOrgAdmin ? classes : this.getScopedClasses(classes, classGroups, profile, madrasas);
+            let displayClassGroups = _isOrgAdmin ? classGroups : this.getScopedClassGroups(classGroups, classes, profile, madrasas);
+
+            // Build unified active students list from 'students' collection AND 'users' collection (student role)
+            const studentUserRows = usersRows.filter(u => {
+              const r = String(u['role'] || '').toLowerCase();
+              const rs = Array.isArray(u['roles']) ? u['roles'].map(x => String(x).toLowerCase()) : [];
+              return r === 'student' || rs.includes('student');
+            });
+
+            const allStudentsMap = new Map<string, EntityRecord>();
+            (students || []).forEach(s => {
+              const uid = extractId(s['uid'] || s['userId'] || s.id);
+              if (uid) allStudentsMap.set(uid, s);
+            });
+            studentUserRows.forEach(u => {
+              const uid = extractId(u['uid'] || u['userId'] || u.id);
+              if (uid) {
+                if (allStudentsMap.has(uid)) {
+                  const s = allStudentsMap.get(uid)!;
+                  allStudentsMap.set(uid, {
+                    ...s,
+                    ...u,
+                    groupId: u['groupId'] || u['classGroupId'] || s['groupId'] || s['classGroupId'],
+                    classGroupId: u['classGroupId'] || u['groupId'] || s['classGroupId'] || s['groupId'],
+                    classId: u['classId'] || s['classId'],
+                    courseId: u['courseId'] || s['courseId'],
+                    madrasaId: u['madrasaId'] || s['madrasaId'],
+                    organizationId: u['organizationId'] || s['organizationId'],
+                  });
+                } else {
+                  allStudentsMap.set(uid, u);
+                }
+              }
+            });
+
+            const allActiveStudents: EntityRecord[] = Array.from(allStudentsMap.values()).filter(s => {
+              const status = String(s['status'] || s['state'] || '').toLowerCase();
+              return !['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(status);
+            });
+
+            console.log('🔍 [Madrasa Incharge Student Pool Origin Debug]', {
+              currentUserRole: profile?.role,
+              currentUserName: profile?.displayName || profile?.email,
+              currentPageResource: config.resource,
+              rawStudentsCollectionCount: (students || []).length,
+              rawUsersCollectionStudentRoleCount: studentUserRows.length,
+              allActiveStudentsTotalMerged: allActiveStudents.length,
+              studentsCollectionSample: (students || []).slice(0, 3).map(s => ({ id: s.id, name: s['displayName'] || s['name'] || s['studentName'], groupId: s['groupId'] })),
+              userCollectionStudentsSample: studentUserRows.slice(0, 3).map(u => ({ id: u.id, uid: u['uid'], name: u['displayName'] || u['name'], role: u['role'] }))
+            });
+
+            const getStudentGroupTokens = (s: EntityRecord): Set<string> => {
+              const tokens = new Set<string>();
+              const add = (val: unknown) => {
+                if (Array.isArray(val)) {
+                  val.forEach(v => { const id = extractId(v); if (id) tokens.add(id); });
+                } else {
+                  const id = extractId(val); if (id) tokens.add(id);
+                }
+              };
+              add(s['groupId']);
+              add(s['classGroupId']);
+              add(s['assignedGroupId']);
+              add(s['group']);
+              add(s['sectionId']);
+              add(s['section']);
+              add(s['groupIds']);
+              add(s['classGroupIds']);
+              add(s['assignedGroupIds']);
+              add(s['groups']);
+              add(s['sections']);
+              return tokens;
+            };
 
            // For non-admin users, include courses linked to their madrasa, master courses, or courses referenced by students
            const _myMadrasaId = (profile as any)?.madrasaId || (profile as any)?.primaryMadrasaId || '';
@@ -863,7 +935,7 @@ export class ManagementPage {
            displayCourses = Array.from(courseMap.values());
             
             if (config.resource === 'classGroups') {
-              filteredRows = this.getScopedClassGroups(filteredRows, classes, profile);
+              filteredRows = this.getScopedClassGroups(filteredRows, classes, profile, madrasas);
               const shiftMap = new Map<string, string>();
               shifts.forEach(s => {
                 if (s.id && s['name']) shiftMap.set(String(s.id), String(s['name']));
@@ -878,7 +950,7 @@ export class ManagementPage {
             }
 
             if (config.resource === 'classes') {
-              filteredRows = this.getScopedClasses(filteredRows, classGroups, profile);
+              filteredRows = this.getScopedClasses(filteredRows, classGroups, profile, madrasas);
               filteredRows = filteredRows.map(cls => {
                 const clsIdStr = extractId(cls.id);
                 const groupsInClass = new Set(
@@ -979,19 +1051,20 @@ export class ManagementPage {
                    row['staffId'],
                    row['docId'],
                    row['email']
-                 ].map(v => String(v || '').trim()).filter(Boolean);
+                 ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
 
                  const directGroupIds = [
                    row['groupId'],
                    row['classGroupId'],
                    row['assignedGroupId'],
                    ...(Array.isArray(row['groupIds']) ? row['groupIds'] : []),
-                   ...(Array.isArray(row['classGroupIds']) ? row['classGroupIds'] : [])
-                 ].map(v => String(v || '').trim()).filter(Boolean);
+                   ...(Array.isArray(row['classGroupIds']) ? row['classGroupIds'] : []),
+                   ...(Array.isArray(row['assignedGroupIds']) ? row['assignedGroupIds'] : [])
+                 ].map(v => extractId(v)).filter(Boolean);
 
                  const matchedGroupIds = classGroups.filter(g => {
-                   const gId = String(g.id || g['docId'] || '').trim();
-                   if (directGroupIds.includes(gId)) return true;
+                   const gId = extractId(g.id || g['docId']);
+                   if (gId && directGroupIds.includes(gId)) return true;
 
                    const gStaffTokens = [
                      ...this.extractAllStrings(g['assignedStaffIds']),
@@ -1001,17 +1074,19 @@ export class ManagementPage {
                      ...this.extractAllStrings(g['teachers']),
                      ...this.extractAllStrings(g['staff']),
                      ...this.extractAllStrings(g['groupStaff'])
-                   ];
+                   ].map(v => v.toLowerCase());
+
                    return sTokens.some(tok => gStaffTokens.includes(tok));
-                 }).map(g => String(g.id).trim());
+                 }).map(g => extractId(g.id)).filter(Boolean);
 
                  const assignedGroupIds = new Set<string>([...directGroupIds, ...matchedGroupIds]);
 
                  const directClassIds = [
                    row['classId'],
                    row['assignedClassId'],
-                   ...(Array.isArray(row['classIds']) ? row['classIds'] : [])
-                 ].map(v => String(v || '').trim()).filter(Boolean);
+                   ...(Array.isArray(row['classIds']) ? row['classIds'] : []),
+                   ...(Array.isArray(row['assignedClassIds']) ? row['assignedClassIds'] : [])
+                 ].map(v => extractId(v)).filter(Boolean);
 
                  const matchedClassIds = classes.filter(c => {
                    const cStaffTokens = [
@@ -1021,48 +1096,103 @@ export class ManagementPage {
                      ...this.extractAllStrings(c['teacherIds']),
                      ...this.extractAllStrings(c['teachers']),
                      ...this.extractAllStrings(c['staff'])
-                   ];
+                   ].map(v => v.toLowerCase());
                    return sTokens.some(tok => cStaffTokens.includes(tok));
-                 }).map(c => String(c.id).trim());
+                 }).map(c => extractId(c.id)).filter(Boolean);
+
+                 const explicitClassIds = new Set<string>([...directClassIds, ...matchedClassIds]);
 
                  const assignedClassIds = new Set<string>([
                    ...matchedGroupIds.map(gId => {
-                     const grp = classGroups.find(g => String(g.id) === gId);
-                     return grp ? String(grp['classId'] || '') : '';
+                     const grp = classGroups.find(g => extractId(g.id) === gId);
+                     return grp ? extractId(grp['classId'] || grp['class']) : '';
                    }).filter(Boolean),
                    ...directClassIds,
                    ...matchedClassIds
                  ]);
 
-                 const count = students.filter(s => {
-                   const sStatus = String(s['status'] || s['state'] || '').toLowerCase();
-                   if (['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(sStatus)) return false;
+                 const staffGroupStudentTokens = new Set<string>();
+                 classGroups.filter(g => assignedGroupIds.has(extractId(g.id))).forEach(g => {
+                   [
+                     ...this.extractAllStrings(g['assignedStudentIds']),
+                     ...this.extractAllStrings(g['assignedStudents']),
+                     ...this.extractAllStrings(g['studentIds']),
+                     ...this.extractAllStrings(g['students']),
+                     ...this.extractAllStrings(g['assignedStudentId']),
+                     ...this.extractAllStrings(g['studentId'])
+                   ].forEach(id => staffGroupStudentTokens.add(id.toLowerCase()));
+                 });
+                  const matchingStudentsDetails: any[] = [];
+                  const count = allActiveStudents.filter(s => {
+                    const sTeacherTokens = [
+                      s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'],
+                      s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
+                    ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
 
-                   const sTeacherTokens = [
-                     s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']
-                   ].map(v => String(v || '').trim()).filter(Boolean);
+                    let isMatch = false;
+                    let matchReason = '';
 
-                   if (sTeacherTokens.some(tok => sTokens.includes(tok))) return true;
+                    if (sTeacherTokens.some(tok => sTokens.includes(tok))) {
+                      isMatch = true;
+                      matchReason = 'teacherToken';
+                    } else {
+                      const sIdentities = [
+                        s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+                      ].filter(Boolean).map(v => String(v).trim().toLowerCase());
 
-                   const sGroupTokens = [
-                     s['groupId'], s['classGroupId'], s['assignedGroupId'],
-                     ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
-                     ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : [])
-                   ].map(v => String(v || '').trim()).filter(Boolean);
+                      if (sIdentities.some(id => staffGroupStudentTokens.has(id))) {
+                        isMatch = true;
+                        matchReason = 'assignedStudentInGroup';
+                      } else {
+                        const sGroupTokens = getStudentGroupTokens(s);
+                        const sClassTokens = [
+                          extractId(s['classId']), extractId(s['assignedClassId']), extractId(s['class']),
+                          ...(Array.isArray(s['classIds']) ? s['classIds'].map(extractId) : [])
+                        ].filter(Boolean);
 
-                   if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+                        if (Array.from(sGroupTokens).some((gId: any) => assignedGroupIds.has(String(gId)))) {
+                          isMatch = true;
+                          matchReason = 'groupId';
+                        } else if (sClassTokens.some(cId => explicitClassIds.has(cId))) {
+                          isMatch = true;
+                          matchReason = 'explicitClassId';
+                        } else if (assignedGroupIds.size === 0 && sClassTokens.some(cId => assignedClassIds.has(cId))) {
+                          isMatch = true;
+                          matchReason = 'classIdFallback';
+                        }
+                      }
+                    }
 
-                   if (assignedGroupIds.size > 0) return false;
+                    if (isMatch) {
+                      matchingStudentsDetails.push({
+                        name: s['displayName'] || s['name'] || s['studentName'] || s.id,
+                        id: s.id,
+                        uid: s['uid'] || '',
+                        collection: s['_sourceCollection'] || (s['role'] === 'student' ? 'users' : 'students'),
+                        matchReason,
+                        groupId: s['groupId'] || s['classGroupId'] || ''
+                      });
+                    }
 
-                   const sClassTokens = [
-                     s['classId'], s['assignedClassId'],
-                     ...(Array.isArray(s['classIds']) ? s['classIds'] : [])
-                   ].map(v => String(v || '').trim()).filter(Boolean);
+                    return isMatch;
+                  }).length;
 
-                   if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
-
-                   return false;
-                 }).length;
+                  if (config.resource === 'staff') {
+                    console.log('🔍 [Staff Row Student Count Debug]', {
+                      staffName: row['displayName'] || row['name'] || row['email'],
+                      staffRole: row['role'],
+                      directGroupIds,
+                      matchedGroupIds: Array.from(matchedGroupIds),
+                      assignedGroupIds: Array.from(assignedGroupIds),
+                      directClassIds,
+                      matchedClassIds: Array.from(matchedClassIds),
+                      assignedClassIds: Array.from(assignedClassIds),
+                      explicitClassIds: Array.from(explicitClassIds),
+                      calculatedStudentCount: count,
+                      allActiveStudentsTotal: allActiveStudents.length,
+                      matchingStudentsDetails
+                    });
+                  }
 
                  return { ...row, roles, studentCount: count };
                });
@@ -1088,61 +1218,97 @@ export class ManagementPage {
               }
             }
 
-            if (config.resource === 'students' && (profile?.role === 'teacher' || (profile?.role as string) === 'staff')) {
-              const teacherIdentities = [
-                profile.uid,
-                profile.entityId,
-                (profile as any).userId,
-                profile.email
-              ].filter(Boolean).map(s => String(s).trim());
+            if (config.resource === 'students' && profile && ['teacher', 'staff', 'ustadh', 'teacher_assistant'].includes(String(profile.role).toLowerCase()) && !['superadmin', 'organizationadmin', 'super_admin', 'orgadmin', 'madrasaincharge', 'coordinator'].includes(String(profile.role).toLowerCase())) {
+              const profAny = profile as Record<string, any>;
+              const teacherIdentities = new Set<string>([
+                ...this.extractAllStrings(profAny?.['id']),
+                ...this.extractAllStrings(profAny?.['uid']),
+                ...this.extractAllStrings(profAny?.['entityId']),
+                ...this.extractAllStrings(profAny?.['staffId']),
+                ...this.extractAllStrings(profAny?.['email'])
+              ].map(v => v.toLowerCase()));
 
               const assignedGroups = classGroups.filter(g => {
-                const assigned = Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'].map(String) : [];
-                const staff = Array.isArray(g['assignedStaff']) ? g['assignedStaff'].map(String) : [];
-                const staffIds = Array.isArray(g['staffIds']) ? g['staffIds'].map(String) : [];
-                const teacherIds = Array.isArray(g['teacherIds']) ? g['teacherIds'].map(String) : [];
-                const groupStaff = Array.isArray(g['groupStaff']) ? g['groupStaff'].map(String) : [];
-                const allStaff = [...assigned, ...staff, ...staffIds, ...teacherIds, ...groupStaff];
-                return allStaff.some(id => teacherIdentities.includes(id));
+                const allStaff = this.extractAllStrings([
+                  g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['teachers'], g['staff'], g['groupStaff'], g['teacherId'], g['staffId']
+                ]).map(v => v.toLowerCase());
+                return allStaff.some(id => teacherIdentities.has(id));
               });
 
               const assignedGroupIds = new Set<string>([
-                ...assignedGroups.map(g => String(g.id)),
-                ...[(profile as any).groupId, (profile as any).groupIds, (profile as any).classGroupId, (profile as any).classGroupIds, (profile as any).assignedGroupId].flat().filter(Boolean).map(String)
-              ]);
+                ...assignedGroups.map(g => extractId(g.id)),
+                ...this.extractAllStrings([profAny?.['groupId'], profAny?.['groupIds'], profAny?.['classGroupId'], profAny?.['classGroupIds'], profAny?.['assignedGroupId'], profAny?.['assignedGroupIds']]).map(extractId)
+              ].filter(Boolean));
 
               const assignedClasses = classes.filter(c => {
-                const assigned = Array.isArray(c['assignedStaffIds']) ? c['assignedStaffIds'].map(String) : [];
-                const teacherIds = Array.isArray(c['teacherIds']) ? c['teacherIds'].map(String) : [];
-                const staffIds = Array.isArray(c['staffIds']) ? c['staffIds'].map(String) : [];
-                const allStaff = [...assigned, ...teacherIds, ...staffIds];
-                return allStaff.some(id => teacherIdentities.includes(id));
+                const allStaff = this.extractAllStrings([
+                  c['assignedStaffIds'], c['assignedStaff'], c['staffIds'], c['teacherIds'], c['teachers'], c['staff']
+                ]).map(v => v.toLowerCase());
+                return allStaff.some(id => teacherIdentities.has(id));
               });
 
               const assignedClassIds = new Set<string>([
-                ...assignedGroups.map(g => String(g['classId'] || '')).filter(Boolean),
-                ...assignedClasses.map(c => String(c.id)),
-                ...[(profile as any).classId, (profile as any).classIds, (profile as any).assignedClassId, (profile as any).assignedClassIds].flat().filter(Boolean).map(String)
-              ]);
+                ...assignedGroups.map(g => extractId(g['classId'] || g['class'])),
+                ...assignedClasses.map(c => extractId(c.id)),
+                ...this.extractAllStrings([profAny?.['classId'], profAny?.['classIds'], profAny?.['assignedClassId'], profAny?.['assignedClassIds']]).map(extractId)
+              ].filter(Boolean));
+
+              const staffGroupStudentTokens = new Set<string>();
+              classGroups.filter(g => assignedGroupIds.has(extractId(g.id))).forEach(g => {
+                [
+                  ...this.extractAllStrings(g['assignedStudentIds']),
+                  ...this.extractAllStrings(g['assignedStudents']),
+                  ...this.extractAllStrings(g['studentIds']),
+                  ...this.extractAllStrings(g['students']),
+                  ...this.extractAllStrings(g['assignedStudentId']),
+                  ...this.extractAllStrings(g['studentId'])
+                ].forEach(id => staffGroupStudentTokens.add(id.toLowerCase()));
+              });
+
+              const inputCount = filteredRows.length;
+              const rejectedStudents: any[] = [];
 
               filteredRows = filteredRows.filter(s => {
-                const sTeacherIds = [s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']].filter(Boolean).map(String);
-                if (sTeacherIds.some(id => teacherIdentities.includes(id))) return true;
+                const status = String(s['status'] || s['state'] || '').toLowerCase();
+                if (['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(status)) return false;
 
-                const sGroupId = String(s['groupId'] || s['classGroupId'] || s['assignedGroupId'] || '').trim();
-                const sGroupIds = Array.isArray(s['groupIds']) ? s['groupIds'].map(String) : (sGroupId ? [sGroupId] : []);
+                const sTeacherIds = this.extractAllStrings([
+                  s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'], s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
+                ]).map(v => v.toLowerCase());
+                if (sTeacherIds.some(id => teacherIdentities.has(id))) return true;
 
-                if (sGroupIds.some(gId => assignedGroupIds.has(gId))) return true;
+                const sIdentities = [
+                  s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+                ].filter(Boolean).map(v => String(v).trim().toLowerCase());
+                if (sIdentities.some(id => staffGroupStudentTokens.has(id))) return true;
 
-                if (assignedGroupIds.size > 0) {
-                  return false;
+                const sGroupTokens = getStudentGroupTokens(s);
+                if (Array.from(sGroupTokens).some((gId: any) => assignedGroupIds.has(String(gId)))) return true;
+
+                if (assignedGroupIds.size === 0) {
+                  const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds']]).map(extractId);
+                  if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
                 }
 
-                const sClassId = String(s['classId'] || s['assignedClassId'] || '').trim();
-                const sClassIds = Array.isArray(s['classIds']) ? s['classIds'].map(String) : (sClassId ? [sClassId] : []);
-                if (sClassIds.some(cId => assignedClassIds.has(cId))) return true;
-
+                rejectedStudents.push({
+                  name: s['displayName'] || s['name'] || s['studentName'] || s.id,
+                  id: s.id,
+                  uid: s['uid'] || '',
+                  groupId: s['groupId'] || s['classGroupId'] || '',
+                  sGroupTokens: Array.from(sGroupTokens)
+                });
                 return false;
+              });
+
+              console.log('🔍 [VM Student Rows Teacher Scoping Debug]', {
+                teacherName: profile.displayName || profile.email,
+                teacherUid: profile.uid,
+                assignedGroupIds: Array.from(assignedGroupIds),
+                assignedClassIds: Array.from(assignedClassIds),
+                inputStudentsTotal: inputCount,
+                resultStudentsCount: filteredRows.length,
+                rejectedStudentsCount: rejectedStudents.length,
+                rejectedStudentsSample: rejectedStudents.slice(0, 10)
               });
             }
            
@@ -1194,7 +1360,15 @@ export class ManagementPage {
                      });
 
                      displayClasses = madrasaClasses;
-                     displayClassGroups = displayClassGroups.filter(g => extractId(g['madrasaId']) === madrasaFilter || (Array.isArray(g['madrasaIds']) && g['madrasaIds'].map(extractId).includes(madrasaFilter)));
+                     const madrasaClassIds = new Set(madrasaClasses.map(cls => extractId(cls.id)).filter(Boolean));
+                     displayClassGroups = displayClassGroups.filter(g => {
+                       const gMadId = extractId(g['madrasaId']);
+                       const gMadIds = Array.isArray(g['madrasaIds']) ? g['madrasaIds'].map(extractId) : [];
+                       const gClassId = extractId(g['classId'] || g['class']);
+                       return (gMadId && gMadId === madrasaFilter) ||
+                              gMadIds.includes(madrasaFilter) ||
+                              (gClassId && madrasaClassIds.has(gClassId));
+                     });
                    }
 
                   if (['staff', 'incharges', 'coordinators'].includes(config.resource)) {
@@ -1281,8 +1455,11 @@ export class ManagementPage {
              if (statusFilter !== 'all') {
                const sf = statusFilter.toLowerCase();
                filteredRows = filteredRows.filter(r => {
-                 const rawStatus = r['status'] ? String(r['status']).toLowerCase() : 'active';
-                 return rawStatus === sf;
+                 const raw = String(r['status'] || r['state'] || '').toLowerCase();
+                 if (sf === 'active') {
+                   return !['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(raw);
+                 }
+                 return raw === sf;
                });
              }
              if (config.resource === 'staff') {
@@ -1579,6 +1756,10 @@ export class ManagementPage {
       effective.add('teacher');
     }
 
+    if (!primary || primary === 'student' || row['classId'] || row['groupId'] || row['studentId'] || row['admissionNumber'] || row['rollNumber'] || row['fatherName'] || row['parentName']) {
+      effective.add('student');
+    }
+
     return Array.from(effective);
   }
 
@@ -1647,7 +1828,10 @@ export class ManagementPage {
 
   private studentRows(studentsObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
     return combineLatest([
-      studentsObs$,
+      studentsObs$.pipe(catchError((e) => {
+        console.warn('[Students] Students collection load failed:', e);
+        return of([] as EntityRecord[]);
+      })),
       this.repo.list<EntityRecord>('courses', profile).pipe(catchError((e) => {
         console.warn('[Students] Courses load failed:', e);
         return of([] as EntityRecord[]);
@@ -1664,8 +1848,14 @@ export class ManagementPage {
         console.warn('[Students] Parents load failed:', e);
         return of([] as EntityRecord[]);
       })),
-      this.repo.list<EntityRecord>('users', profile, [], undefined).pipe(
-        map(rows => rows.filter(r => r['role'] === 'student')),
+      this.repo.list<EntityRecord>('users', profile, [], { roles: ['student', 'user', 'parent', 'teacher', 'staff'] }).pipe(
+        map(rows => rows.filter(r => {
+          const role = String(r['role'] || '').toLowerCase();
+          const roles = Array.isArray(r['roles']) ? r['roles'].map(x => String(x).toLowerCase()) : [];
+          const isStud = role === 'student' || roles.includes('student');
+          const hasStudFields = !!(r['classGroupId'] || r['groupId'] || r['studentId'] || r['admissionNumber'] || r['rollNumber'] || r['parentName'] || r['fatherName'] || r['classId']);
+          return isStud || hasStudFields || (!role && !r['permissions']);
+        })),
         catchError((e) => {
           console.warn('[Students] Users load failed:', e);
           return of([] as EntityRecord[]);
@@ -1685,6 +1875,12 @@ export class ManagementPage {
       })),
     ]).pipe(
       map(([students, courses, classes, classGroups, parents, userRows, madrasas, staffRows, allUsersRows]) => {
+        console.log('📢 [StudentRows Executed]', {
+          profileRole: profile?.role,
+          profileName: profile?.displayName || profile?.email,
+          studentsCollectionCount: (students || []).length,
+          userRowsCount: (userRows || []).length
+        });
         const staffRolesList = ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin', 'ustadh', 'stageHead', 'headTeacher', 'teacher_assistant'];
         const staffById = new Map<string, EntityRecord>();
         const processStaffRecord = (staffDoc: EntityRecord) => {
@@ -1700,6 +1896,43 @@ export class ManagementPage {
         };
         staffRows.forEach(processStaffRecord);
         allUsersRows.forEach(processStaffRecord);
+
+        const allStudentsMap = new Map<string, EntityRecord>();
+        (students || []).forEach(s => {
+          const uid = extractId(s['uid'] || s['userId'] || s.id);
+          if (uid) allStudentsMap.set(uid, s);
+        });
+        (userRows || []).forEach(u => {
+          const uid = extractId(u['uid'] || u['userId'] || u.id);
+          if (uid) {
+            if (allStudentsMap.has(uid)) {
+              const s = allStudentsMap.get(uid)!;
+              allStudentsMap.set(uid, {
+                ...s,
+                ...u,
+                groupId: u['groupId'] || u['classGroupId'] || s['groupId'] || s['classGroupId'],
+                classGroupId: u['classGroupId'] || u['groupId'] || s['classGroupId'] || s['groupId'],
+                classId: u['classId'] || s['classId'],
+                courseId: u['courseId'] || s['courseId'],
+                madrasaId: u['madrasaId'] || s['madrasaId'],
+                organizationId: u['organizationId'] || s['organizationId'],
+              });
+            } else {
+              allStudentsMap.set(uid, u);
+            }
+          }
+        });
+        let targetStudents: EntityRecord[] = Array.from(allStudentsMap.values());
+
+        console.log('🔍 [Student Origin Debug]', {
+          currentUserRole: profile?.role,
+          currentUserName: profile?.displayName || profile?.email,
+          studentsCollectionLoadedCount: (students || []).length,
+          usersCollectionStudentRoleCount: (userRows || []).length,
+          mergedStudentPoolTotal: targetStudents.length,
+          studentsCollectionSample: (students || []).slice(0, 3).map(s => ({ id: s.id, name: s['displayName'] || s['name'] || s['studentName'], groupId: s['groupId'], classGroupId: s['classGroupId'] })),
+          usersCollectionSample: (userRows || []).slice(0, 3).map(u => ({ id: u.id, uid: u['uid'], name: u['displayName'] || u['name'], role: u['role'] }))
+        });
 
         if (profile?.role === 'teacher' || (profile?.role as string) === 'staff') {
           const profAny = profile as Record<string, any>;
@@ -1737,20 +1970,55 @@ export class ManagementPage {
           });
           this.extractAllStrings([profAny?.['courseId'], profAny?.['courseIds'], profAny?.['assignedCourseId'], profAny?.['assignedCourseIds']]).forEach(id => assignedCourseIds.add(id));
 
-          students = students.filter(s => {
-            const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
+          const staffGroupStudentTokens = new Set<string>();
+          classGroups.filter(g => assignedGroupIds.has(extractId(g.id))).forEach(g => {
+            [
+              ...this.extractAllStrings(g['assignedStudentIds']),
+              ...this.extractAllStrings(g['assignedStudents']),
+              ...this.extractAllStrings(g['studentIds']),
+              ...this.extractAllStrings(g['students']),
+              ...this.extractAllStrings(g['assignedStudentId']),
+              ...this.extractAllStrings(g['studentId'])
+            ].forEach(id => staffGroupStudentTokens.add(id.toLowerCase()));
+          });
+
+          targetStudents = targetStudents.filter(s => {
+            const sTeacherIds = this.extractAllStrings([
+              s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'], s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
+            ]).map(v => v.toLowerCase());
+            if (sTeacherIds.some(id => staffTokens.has(id))) return true;
+
+            const sIdentities = [
+              s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+            ].filter(Boolean).map(v => String(v).trim().toLowerCase());
+            if (sIdentities.some(id => staffGroupStudentTokens.has(id))) return true;
+
+            const sGroupTokens = this.extractAllStrings([
+              s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'], s['section'],
+              s['groupIds'], s['classGroupIds'], s['assignedGroupIds'], s['groups'], s['sections']
+            ]);
             if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
 
-            const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
-            if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+            if (assignedGroupIds.size === 0) {
+              const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds']]);
+              if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
 
-            const sCourseTokens = this.extractAllStrings([s['courseId'], s['assignedCourseId'], s['courseIds'], s['assignedCourseIds']]);
-            if (sCourseTokens.some(crsId => assignedCourseIds.has(crsId))) return true;
+              const sCourseTokens = this.extractAllStrings([s['courseId'], s['assignedCourseId'], s['courseIds'], s['assignedCourseIds']]);
+              if (sCourseTokens.some(crsId => assignedCourseIds.has(crsId))) return true;
+            }
 
             return false;
           });
+
+          console.log('🔍 [Staff Login StudentScoping Debug]', {
+            profileRole: profile?.role,
+            profileDisplayName: profile?.displayName || profile?.email,
+            assignedGroupIds: Array.from(assignedGroupIds),
+            staffGroupStudentTokensCount: staffGroupStudentTokens.size,
+            filteredStudentsCount: targetStudents.length
+          });
         }
-        return students.map((row) => {
+        return targetStudents.map((row) => {
         const studentUserId = this.recordId(row);
         const userRow = userRows.find(u => u['uid'] === studentUserId || u.id === studentUserId || u['entityId'] === row.id) || row;
         const creds = this.credentialService.getCredentialStatus(userRow);
@@ -2384,7 +2652,8 @@ export class ManagementPage {
   private getScopedClassGroups(
     classGroups: EntityRecord[],
     classes: EntityRecord[],
-    profile: AppUser | null
+    profile: AppUser | null,
+    madrasas?: EntityRecord[]
   ): EntityRecord[] {
     if (!profile) return classGroups;
 
@@ -2394,6 +2663,7 @@ export class ManagementPage {
 
     const userIdentities = [
       profile.uid,
+      profile.id,
       profile.entityId,
       (profile as any).userId,
       (profile as any).docId,
@@ -2404,9 +2674,50 @@ export class ManagementPage {
     const isMadrasaIncharge = role === 'madrasaincharge' ||
       role === 'madrasa_incharge' ||
       role === 'incharge' ||
+      role === 'coordinator' ||
       (Array.isArray((profile as any).roles) && (profile as any).roles.some((r: string) => String(r).toLowerCase().includes('incharge')));
 
-    // 1. Check if user is explicitly assigned to specific class groups
+    const profileMadrasaIds = new Set([
+      (profile as any).madrasaId,
+      ...((profile as any).madrasaIds || []),
+      ...((profile as any).inchargeMadrasaIds || []),
+      (profile as any).assignedMadrasaId,
+      ...((profile as any).assignedMadrasaIds || []),
+      (profile as any).primaryMadrasaId
+    ].filter(Boolean).map(s => String(s).trim()));
+
+    if (madrasas && madrasas.length > 0) {
+      const inchargeIdsFromMadrasas = this.getInchargeMadrasaIdsForUser(profile, madrasas);
+      inchargeIdsFromMadrasas.forEach(id => profileMadrasaIds.add(id));
+    }
+
+    const hasMadrasaScope = isMadrasaIncharge || profileMadrasaIds.size > 0 || (Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0);
+
+    // 1. If user is Madrasa Incharge / Coordinator (or has madrasa scope), check madrasa class groups FIRST!
+    if (hasMadrasaScope && profileMadrasaIds.size > 0) {
+      const madrasaClasses = new Set(
+        classes.filter(c => {
+          const cMadId = String(c['madrasaId'] || '').trim();
+          const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
+          return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
+        }).map(c => String(c.id).trim())
+      );
+
+      const madrasaGroups = classGroups.filter(g => {
+        const gMadId = String(g['madrasaId'] || '').trim();
+        const gMadIds = Array.isArray(g['madrasaIds']) ? g['madrasaIds'].map(String) : [];
+        const gClassId = String(g['classId'] || g['class'] || '').trim();
+        return (gMadId && profileMadrasaIds.has(gMadId)) ||
+               gMadIds.some(id => profileMadrasaIds.has(id)) ||
+               (gClassId && madrasaClasses.has(gClassId));
+      });
+
+      if (madrasaGroups.length > 0) {
+        return madrasaGroups;
+      }
+    }
+
+    // 2. Check if user is explicitly assigned to specific class groups as staff/teacher
     const assignedClassGroups = classGroups.filter(g => {
       const gId = String(g.id || '').trim();
 
@@ -2434,40 +2745,11 @@ export class ManagementPage {
       return userIdentities.some(id => groupStaffTokens.includes(id));
     });
 
-    // 1. If user has specific assigned class groups, return ONLY those assigned class groups!
     if (assignedClassGroups.length > 0) {
       return assignedClassGroups;
     }
 
-    // 2. Fallback for pure Madrasa Incharge / Coordinator without direct group assignments:
-    const profileMadrasaIds = new Set([
-      (profile as any).madrasaId,
-      ...((profile as any).madrasaIds || []),
-      ...((profile as any).inchargeMadrasaIds || []),
-      (profile as any).assignedMadrasaId
-    ].filter(Boolean).map(s => String(s).trim()));
-
-    if (isMadrasaIncharge || profileMadrasaIds.size > 0) {
-      const madrasaClasses = new Set(
-        classes.filter(c => {
-          const cMadId = String(c['madrasaId'] || '').trim();
-          const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
-          return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
-        }).map(c => String(c.id).trim())
-      );
-
-      const madrasaGroups = classGroups.filter(g => {
-        const gMadId = String(g['madrasaId'] || '').trim();
-        const gClassId = String(g['classId'] || g['class'] || '').trim();
-        return (gMadId && profileMadrasaIds.has(gMadId)) || (gClassId && madrasaClasses.has(gClassId));
-      });
-
-      if (madrasaGroups.length > 0) {
-        return madrasaGroups;
-      }
-    }
-
-    // Fallback: If user is assigned to a specific class (classId), return class groups under that class
+    // 3. Fallback: If user is assigned to a specific class (classId), return class groups under that class
     const profileClassIds = new Set([
       (profile as any).classId,
       ...((profile as any).classIds || []),
@@ -2490,7 +2772,8 @@ export class ManagementPage {
   private getScopedClasses(
     classes: EntityRecord[],
     classGroups: EntityRecord[],
-    profile: AppUser | null
+    profile: AppUser | null,
+    madrasas?: EntityRecord[]
   ): EntityRecord[] {
     if (!profile) return classes;
 
@@ -2500,6 +2783,7 @@ export class ManagementPage {
 
     const userIdentities = [
       profile.uid,
+      profile.id,
       profile.entityId,
       (profile as any).userId,
       (profile as any).docId,
@@ -2510,9 +2794,39 @@ export class ManagementPage {
     const isMadrasaIncharge = role === 'madrasaincharge' ||
       role === 'madrasa_incharge' ||
       role === 'incharge' ||
+      role === 'coordinator' ||
       (Array.isArray((profile as any).roles) && (profile as any).roles.some((r: string) => String(r).toLowerCase().includes('incharge')));
 
-    // 1. Check direct class assignments or classes containing assigned class groups
+    const profileMadrasaIds = new Set([
+      (profile as any).madrasaId,
+      ...((profile as any).madrasaIds || []),
+      ...((profile as any).inchargeMadrasaIds || []),
+      (profile as any).assignedMadrasaId,
+      ...((profile as any).assignedMadrasaIds || []),
+      (profile as any).primaryMadrasaId
+    ].filter(Boolean).map(s => String(s).trim()));
+
+    if (madrasas && madrasas.length > 0) {
+      const inchargeIdsFromMadrasas = this.getInchargeMadrasaIdsForUser(profile, madrasas);
+      inchargeIdsFromMadrasas.forEach(id => profileMadrasaIds.add(id));
+    }
+
+    const hasMadrasaScope = isMadrasaIncharge || profileMadrasaIds.size > 0 || (Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0);
+
+    // 1. If user is Madrasa Incharge / Coordinator (or has madrasa scope), return ALL classes for their madrasas FIRST!
+    if (hasMadrasaScope && profileMadrasaIds.size > 0) {
+      const madrasaClasses = classes.filter(c => {
+        const cMadId = String(c['madrasaId'] || '').trim();
+        const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
+        return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
+      });
+
+      if (madrasaClasses.length > 0) {
+        return madrasaClasses;
+      }
+    }
+
+    // 2. Check direct class assignments or classes containing assigned class groups
     const profileClassIds = new Set([
       (profile as any).classId,
       (profile as any).assignedClassId,
@@ -2520,7 +2834,7 @@ export class ManagementPage {
       ...((profile as any).assignedClassIds || [])
     ].filter(Boolean).map(s => String(s).trim()));
 
-    const assignedClassGroups = this.getScopedClassGroups(classGroups, classes, profile);
+    const assignedClassGroups = this.getScopedClassGroups(classGroups, classes, profile, madrasas);
     const assignedGroupClassIds = new Set(
       assignedClassGroups.map(g => String(g['classId'] || g['class'] || '').trim()).filter(Boolean)
     );
@@ -2544,25 +2858,6 @@ export class ManagementPage {
 
     if (assignedClasses.length > 0) {
       return assignedClasses;
-    }
-
-    // 2. If user is Madrasa Incharge (or has madrasa scope)
-    const profileMadrasaIds = new Set([
-      (profile as any).madrasaId,
-      ...((profile as any).madrasaIds || []),
-      (profile as any).assignedMadrasaId
-    ].filter(Boolean).map(s => String(s).trim()));
-
-    if (isMadrasaIncharge || profileMadrasaIds.size > 0) {
-      const madrasaClasses = classes.filter(c => {
-        const cMadId = String(c['madrasaId'] || '').trim();
-        const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
-        return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
-      });
-
-      if (madrasaClasses.length > 0) {
-        return madrasaClasses;
-      }
     }
 
     return classes;
@@ -3010,7 +3305,8 @@ export class ManagementPage {
           row['classGroupId'],
           row['assignedGroupId'],
           ...(Array.isArray(row['groupIds']) ? row['groupIds'] : []),
-          ...(Array.isArray(row['classGroupIds']) ? row['classGroupIds'] : [])
+          ...(Array.isArray(row['classGroupIds']) ? row['classGroupIds'] : []),
+          ...(Array.isArray(row['assignedGroupIds']) ? row['assignedGroupIds'] : [])
         ].map(v => String(v || '').trim()).filter(Boolean);
 
         const matchedGroupIds = classGroupDocs.filter(g => {
@@ -3025,8 +3321,8 @@ export class ManagementPage {
             ...this.extractAllStrings(g['teachers']),
             ...this.extractAllStrings(g['staff']),
             ...this.extractAllStrings(g['groupStaff'])
-          ];
-          return sTokens.some(tok => gStaffTokens.includes(tok));
+          ].map(v => v.toLowerCase());
+          return sTokens.some(tok => gStaffTokens.includes(tok.toLowerCase()));
         }).map(g => String(g.id).trim());
 
         const assignedGroupIds = new Set<string>([...directGroupIds, ...matchedGroupIds]);
@@ -3034,7 +3330,8 @@ export class ManagementPage {
         const directClassIds = [
           row['classId'],
           row['assignedClassId'],
-          ...(Array.isArray(row['classIds']) ? row['classIds'] : [])
+          ...(Array.isArray(row['classIds']) ? row['classIds'] : []),
+          ...(Array.isArray(row['assignedClassIds']) ? row['assignedClassIds'] : [])
         ].map(v => String(v || '').trim()).filter(Boolean);
 
         const matchedClassIds = allClasses.filter(c => {
@@ -3045,9 +3342,11 @@ export class ManagementPage {
             ...this.extractAllStrings(c['teacherIds']),
             ...this.extractAllStrings(c['teachers']),
             ...this.extractAllStrings(c['staff'])
-          ];
-          return sTokens.some(tok => cStaffTokens.includes(tok));
+          ].map(v => v.toLowerCase());
+          return sTokens.some(tok => cStaffTokens.includes(tok.toLowerCase()));
         }).map(c => String(c.id).trim());
+
+        const explicitClassIds = new Set<string>([...directClassIds, ...matchedClassIds]);
 
         const assignedClassIds = new Set<string>([
           ...matchedGroupIds.map(gId => {
@@ -3058,15 +3357,36 @@ export class ManagementPage {
           ...matchedClassIds
         ]);
 
+        const staffGroupStudentTokens = new Set<string>();
+        classGroupDocs.filter(g => assignedGroupIds.has(String(g.id).trim())).forEach(g => {
+          [
+            ...this.extractAllStrings(g['assignedStudentIds']),
+            ...this.extractAllStrings(g['assignedStudents']),
+            ...this.extractAllStrings(g['studentIds']),
+            ...this.extractAllStrings(g['students']),
+            ...this.extractAllStrings(g['assignedStudentId']),
+            ...this.extractAllStrings(g['studentId'])
+          ].forEach(id => staffGroupStudentTokens.add(id.toLowerCase()));
+        });
+
         studentsList = allStudents.filter(s => {
           const sStatus = String(s['status'] || s['state'] || '').toLowerCase();
           if (['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(sStatus)) return false;
 
           const sTeacherTokens = [
-            s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']
-          ].map(v => String(v || '').trim()).filter(Boolean);
+            s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'],
+            s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
+          ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
 
-          if (sTeacherTokens.some(tok => sTokens.includes(tok))) return true;
+          const sTokensLower = sTokens.map(t => t.toLowerCase());
+
+          if (sTeacherTokens.some(tok => sTokensLower.includes(tok))) return true;
+
+          const sIdentities = [
+            s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+          ].filter(Boolean).map(v => String(v).trim().toLowerCase());
+
+          if (sIdentities.some(id => staffGroupStudentTokens.has(id))) return true;
 
           const sGroupTokens = [
             s['groupId'], s['classGroupId'], s['assignedGroupId'],
@@ -3076,17 +3396,27 @@ export class ManagementPage {
 
           if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
 
-          if (assignedGroupIds.size > 0) return false;
-
           const sClassTokens = [
-            s['classId'], s['assignedClassId'],
-            ...(Array.isArray(s['classIds']) ? s['classIds'] : [])
+            s['classId'], s['assignedClassId'], s['class'],
+            ...(Array.isArray(s['classIds']) ? s['classIds'].map(extractId) : [])
           ].map(v => String(v || '').trim()).filter(Boolean);
 
-          if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+          if (sClassTokens.some(cId => explicitClassIds.has(cId))) return true;
+
+          if (assignedGroupIds.size === 0 && sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
 
           return false;
         });
+
+        if (config.resource === 'staff') {
+          console.log('🔍 [showRowStudents Staff Debug]', {
+            staffName: row['displayName'] || row['name'] || row['email'],
+            assignedGroupIds: Array.from(assignedGroupIds),
+            assignedClassIds: Array.from(assignedClassIds),
+            explicitClassIds: Array.from(explicitClassIds),
+            matchedStudentsCount: studentsList.length
+          });
+        }
       }
 
       // Deduplicate studentsList by student name / email / UID so no student appears twice in the dialog
@@ -4760,7 +5090,8 @@ export class ManagementPage {
     if (hasField('classId') || hasField('classIds')) {
       let classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
       const classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
-      classes = this.getScopedClasses(classes, classGroups, profile);
+      const mads = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
+      classes = this.getScopedClasses(classes, classGroups, profile, mads);
 
       options['classId'] = this.toOptions(classes, 'name');
       options['classIds'] = this.toOptions(classes, 'name');
@@ -4769,7 +5100,8 @@ export class ManagementPage {
     if (hasField('groupId') || hasField('groupIds')) {
       let classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
       const classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
-      classGroups = this.getScopedClassGroups(classGroups, classes, profile);
+      const mads = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
+      classGroups = this.getScopedClassGroups(classGroups, classes, profile, mads);
 
       const groupOptions = classGroups.map(g => ({
         label: g['name'] as string,
