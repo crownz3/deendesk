@@ -14,91 +14,22 @@ export const permissionGuard: CanActivateFn = (route, state) => {
   return auth.profile$.pipe(
     take(1),
     map((profile): boolean | UrlTree => {
-      console.log('[Madrasa Incharge Profile Validation]', {
-        uid: profile?.uid,
-        email: profile?.email,
-        status: profile?.status,
-        organizationId: profile?.organizationId,
-        madrasaId: profile?.madrasaId,
-        madrasaIds: profile?.madrasaIds,
-        permissions: profile?.permissions,
-        hasOrganizationId: Boolean(profile?.organizationId),
-        hasMadrasaIds: Array.isArray(profile?.madrasaIds) && profile.madrasaIds.length > 0,
-        canViewDashboard: profile?.permissions?.includes('viewDashboard'),
-        canManageStaff: profile?.permissions?.includes('manageStaff'),
-        canManageStudents: profile?.permissions?.includes('manageStudents'),
-        canManageParents: profile?.permissions?.includes('manageParents'),
-        canManageCourses: profile?.permissions?.includes('manageCourses'),
-        canManageClasses: profile?.permissions?.includes('manageClasses'),
-        canManageSubjects: profile?.permissions?.includes('manageSubjects'),
-        canManageAcademicPlans: profile?.permissions?.includes('manageAcademicPlans'),
-      });
-
       if (profile?.status !== 'active' && profile?.role !== 'superAdmin') {
-         console.warn('[Route Permission Failed Reason]', {
-          url: state.url,
-          role: profile?.role,
-          requiredPermission,
-          permissionsAny,
-          userPermissions: profile?.permissions ?? [],
-          reason: 'User profile is not active',
-        });
         return router.createUrlTree(['/dashboard']);
       }
 
       if (roleRequired && profile?.role !== roleRequired) {
-        console.warn('[Route Permission Failed Reason]', {
-          url: state.url,
-          role: profile?.role,
-          requiredPermission,
-          permissionsAny,
-          userPermissions: profile?.permissions ?? [],
-          reason: 'Missing required role',
-        });
         return router.createUrlTree(['/dashboard']);
       }
 
-      const userPermissions = profile?.permissions ?? [];
       const hasSingle = requiredPermission ? auth.hasAnyPermission(profile, Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission]) : true;
       const hasAny = permissionsAny && permissionsAny.length > 0 ? auth.hasAnyPermission(profile, permissionsAny) : true;
 
       const allowed = hasSingle && hasAny;
 
-      console.log('[Route Guard Debug]', {
-        url: state.url,
-        role: profile?.role,
-        status: profile?.status,
-        permissions: profile?.permissions,
-        requiredPermission: route.data?.['permission'],
-        requiredPermissionsAny: route.data?.['permissionsAny'],
-        organizationId: profile?.organizationId,
-        madrasaId: profile?.madrasaId,
-        madrasaIds: profile?.madrasaIds,
-        allowed,
-      });
-
-      console.log('[Route Permission Result]', {
-        url: state.url,
-        role: profile?.role,
-        requiredPermission,
-        permissionsAny,
-        userPermissions: profile?.permissions ?? [],
-        hasSingle,
-        hasAny,
-        allowed,
-      });
-
       if (allowed) {
          return true;
       } else {
-        console.warn('[Route Permission Failed Reason]', {
-          url: state.url,
-          role: profile?.role,
-          requiredPermission,
-          permissionsAny,
-          userPermissions: profile?.permissions ?? [],
-          reason: 'No matching permissions',
-        });
         return router.createUrlTree(['/dashboard']);
       }
     }),

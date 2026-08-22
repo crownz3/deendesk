@@ -92,6 +92,8 @@ export type PermissionKey =
   | 'generateLifecycleReports'
   | 'viewFirebaseUsage'
   | 'manageFirebaseUsage'
+  | 'viewArchitectureExplorer'
+  | 'manageArchitectureExplorer'
   | 'manageExternalActivities'
   | 'viewExternalActivities'
   | 'manageStudyTime'

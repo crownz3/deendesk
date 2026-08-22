@@ -342,6 +342,8 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   }
 
   hasStudentsButton(row: EntityRecord): boolean {
+    const role = String(row['role'] || '').toLowerCase();
+    if (role === 'student' || this.resourceKey === 'students' || this.resourceKey === 'student') return false;
     const count = Number(row['studentCount']);
     if (!isNaN(count) && count > 0) return true;
     return Boolean(this.allowAssignStudents);

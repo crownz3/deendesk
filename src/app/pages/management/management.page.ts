@@ -2,8 +2,8 @@ import { Component } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
-import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, BehaviorSubject, take, tap, scan } from 'rxjs';
-import { CollectionReference, DocumentData, collection, getFirestore, query, where, getDocs, limit, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, BehaviorSubject, take, tap, scan, debounceTime, distinctUntilChanged } from 'rxjs';
+import { CollectionReference, DocumentData, collection, getFirestore, query, where, QueryConstraint, getDocs, limit, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
 import { DEFAULT_STAGES_BY_COURSE_TYPE, PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
@@ -786,8 +786,12 @@ export class ManagementPage {
   readonly genderFilter$ = new BehaviorSubject<string>('all');
 
   readonly searchQuery$ = new BehaviorSubject<string>('');
+  readonly debouncedSearchQuery$ = this.searchQuery$.pipe(
+    debounceTime(400),
+    distinctUntilChanged()
+  );
   readonly pageIndex$ = new BehaviorSubject<number>(0);
-  readonly pageSize$ = new BehaviorSubject<number>(50);
+  readonly pageSize$ = new BehaviorSubject<number>(10);
 
   readonly refresh$ = new BehaviorSubject<void>(undefined);
 
@@ -798,7 +802,7 @@ export class ManagementPage {
     this.madrasaFilter$,
     this.roleFilter$,
     this.organizationFilter$,
-    this.searchQuery$,
+    this.debouncedSearchQuery$,
     this.genderFilter$,
     this.pageIndex$,
     this.pageSize$,
@@ -810,15 +814,24 @@ export class ManagementPage {
           loading: true,
         } as PageState<ManagementVm>);
       }
+      const studentExtraConstraints: QueryConstraint[] = [];
+      if (madrasaFilter && madrasaFilter !== 'all') {
+        studentExtraConstraints.push(where('madrasaId', '==', madrasaFilter));
+      } else if (organizationFilter && organizationFilter !== 'all') {
+        studentExtraConstraints.push(where('organizationId', '==', organizationFilter));
+      } else if (profile?.organizationId && profile?.role !== 'superAdmin') {
+        studentExtraConstraints.push(where('organizationId', '==', profile.organizationId));
+      }
+
       return combineLatest([
         this.rowsForConfig(config, profile, madrasaFilter, roleFilter),
         this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('courses', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('classes', profile).pipe(catchError(() => of([]))),
-        this.repo.list<EntityRecord>('students', profile).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('students', profile, studentExtraConstraints).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('staff', profile).pipe(catchError(() => of([]))),
-        this.repo.list<EntityRecord>('users', profile, [], { roles: ['student', 'teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'] }).pipe(catchError(() => of([]))),
+        this.repo.list<EntityRecord>('users', profile, studentExtraConstraints, { roles: ['student', 'teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'] }).pipe(catchError(() => of([]))),
         profile?.role === 'superAdmin'
           ? this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(() => of([])))
           : of([] as EntityRecord[]),
@@ -832,53 +845,107 @@ export class ManagementPage {
             let displayClasses = _isOrgAdmin ? classes : this.getScopedClasses(classes, classGroups, profile, madrasas);
             let displayClassGroups = _isOrgAdmin ? classGroups : this.getScopedClassGroups(classGroups, classes, profile, madrasas);
 
-            // Build unified active students list from 'students' collection AND 'users' collection (student role)
             const studentUserRows = usersRows.filter(u => {
               const r = String(u['role'] || '').toLowerCase();
               const rs = Array.isArray(u['roles']) ? u['roles'].map(x => String(x).toLowerCase()) : [];
               return r === 'student' || rs.includes('student');
             });
 
+            console.log('🚨 [Data Load Debug]', {
+              role: profile?.role,
+              userOrgId: profile?.organizationId,
+              userMadrasaId: profile?.madrasaId,
+              organizationFilter,
+              madrasaFilter,
+              resource: config.resource,
+              rawStudentsCount: students?.length || 0,
+              rawStudentUserRowsCount: studentUserRows?.length || 0,
+              rawClassGroupsCount: classGroups?.length || 0,
+              rawClassesCount: classes?.length || 0
+            });
+
             const allStudentsMap = new Map<string, EntityRecord>();
             (students || []).forEach(s => {
-              const uid = extractId(s['uid'] || s['userId'] || s.id);
-              if (uid) allStudentsMap.set(uid, s);
+              const ids = [
+                extractId(s.id),
+                extractId(s['uid']),
+                extractId(s['userId']),
+                extractId(s['studentId'])
+              ].filter(Boolean);
+
+              ids.forEach(id => {
+                if (!allStudentsMap.has(id)) {
+                  allStudentsMap.set(id, s);
+                }
+              });
             });
+
             studentUserRows.forEach(u => {
-              const uid = extractId(u['uid'] || u['userId'] || u.id);
-              if (uid) {
-                if (allStudentsMap.has(uid)) {
-                  const s = allStudentsMap.get(uid)!;
-                  allStudentsMap.set(uid, {
-                    ...s,
-                    ...u,
-                    groupId: u['groupId'] || u['classGroupId'] || s['groupId'] || s['classGroupId'],
-                    classGroupId: u['classGroupId'] || u['groupId'] || s['classGroupId'] || s['groupId'],
-                    classId: u['classId'] || s['classId'],
-                    courseId: u['courseId'] || s['courseId'],
-                    madrasaId: u['madrasaId'] || s['madrasaId'],
-                    organizationId: u['organizationId'] || s['organizationId'],
-                  });
-                } else {
-                  allStudentsMap.set(uid, u);
+              const ids = [
+                extractId(u.id),
+                extractId(u['uid']),
+                extractId(u['userId']),
+                extractId(u['studentId'])
+              ].filter(Boolean);
+
+              const existingKey = ids.find(id => allStudentsMap.has(id));
+              if (existingKey) {
+                const s = allStudentsMap.get(existingKey)!;
+                const merged: EntityRecord = {
+                  ...u,
+                  ...s,
+                  displayName: s['displayName'] || s['name'] || u['displayName'] || u['name'] || '',
+                  name: s['name'] || s['displayName'] || u['name'] || u['displayName'] || '',
+                  email: s['email'] || u['email'] || '',
+                  groupId: s['groupId'] || s['classGroupId'] || u['groupId'] || u['classGroupId'] || '',
+                  classGroupId: s['classGroupId'] || s['groupId'] || u['classGroupId'] || u['groupId'] || '',
+                  classId: s['classId'] || u['classId'] || '',
+                  courseId: s['courseId'] || u['courseId'] || '',
+                  madrasaId: s['madrasaId'] || u['madrasaId'] || '',
+                  organizationId: s['organizationId'] || u['organizationId'] || '',
+                };
+                ids.forEach(id => allStudentsMap.set(id, merged));
+              } else {
+                const newKey = ids[0];
+                if (newKey) {
+                  allStudentsMap.set(newKey, u);
                 }
               }
             });
 
-            const allActiveStudents: EntityRecord[] = Array.from(allStudentsMap.values()).filter(s => {
+            const allActiveStudents: EntityRecord[] = Array.from(allStudentsMap.values()).map(s => {
+              let updated = { ...s };
+              if (!updated['madrasaId'] || !updated['organizationId']) {
+                const sGId = extractId(updated['groupId'] || updated['classGroupId']);
+                const gDoc = classGroups.find(g => extractId(g.id) === sGId);
+                const sCId = extractId(updated['classId']);
+                const clsDoc = classes.find(c => extractId(c.id) === sCId);
+                const sMId = extractId(updated['madrasaId']) || extractId(gDoc?.['madrasaId']) || extractId(clsDoc?.['madrasaId']);
+                const mDoc = madrasas.find(m => extractId(m.id) === sMId);
+
+                if (!updated['madrasaId'] && sMId) {
+                  updated['madrasaId'] = sMId;
+                }
+                if (!updated['organizationId']) {
+                  updated['organizationId'] = mDoc?.['organizationId'] || gDoc?.['organizationId'] || clsDoc?.['organizationId'] || '';
+                }
+              }
+              return updated;
+            }).filter(s => {
               const status = String(s['status'] || s['state'] || '').toLowerCase();
               return !['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(status);
             });
 
-            console.log('🔍 [Madrasa Incharge Student Pool Origin Debug]', {
-              currentUserRole: profile?.role,
-              currentUserName: profile?.displayName || profile?.email,
-              currentPageResource: config.resource,
-              rawStudentsCollectionCount: (students || []).length,
-              rawUsersCollectionStudentRoleCount: studentUserRows.length,
-              allActiveStudentsTotalMerged: allActiveStudents.length,
-              studentsCollectionSample: (students || []).slice(0, 3).map(s => ({ id: s.id, name: s['displayName'] || s['name'] || s['studentName'], groupId: s['groupId'] })),
-              userCollectionStudentsSample: studentUserRows.slice(0, 3).map(u => ({ id: u.id, uid: u['uid'], name: u['displayName'] || u['name'], role: u['role'] }))
+            const groupDistribution: Record<string, number> = {};
+            allActiveStudents.forEach(st => {
+              const gId = extractId(st['groupId'] || st['classGroupId']) || 'NO_GROUP';
+              groupDistribution[gId] = (groupDistribution[gId] || 0) + 1;
+            });
+
+            console.log('📊 [Master Active Students Distribution Debug]', {
+              role: profile?.role,
+              totalMasterActiveStudents: allActiveStudents.length,
+              groupCounts: groupDistribution
             });
 
             const getStudentGroupTokens = (s: EntityRecord): Set<string> => {
@@ -942,10 +1009,16 @@ export class ManagementPage {
               });
 
               filteredRows = filteredRows.map(group => {
-                const count = students.filter(s => String(s['groupId']) === String(group.id) && s['status'] !== 'inactive').length;
+                const gIdStr = extractId(group.id);
+
+                const matchingStudents = this.getStudentsForScope(allActiveStudents, madrasas, {
+                  groupId: gIdStr,
+                  groupDoc: group
+                });
+
                 const sId = String(group['shiftId'] || group['shift'] || '');
                 const sName = shiftMap.get(sId) || group['shiftName'] || group['shift'] || group['shiftId'] || '-';
-                return { ...group, studentCount: count, shiftName: sName };
+                return { ...group, studentCount: matchingStudents.length, shiftName: sName };
               });
             }
 
@@ -953,16 +1026,10 @@ export class ManagementPage {
               filteredRows = this.getScopedClasses(filteredRows, classGroups, profile, madrasas);
               filteredRows = filteredRows.map(cls => {
                 const clsIdStr = extractId(cls.id);
-                const groupsInClass = new Set(
-                  classGroups.filter(g => extractId(g['classId'] || g['class']) === clsIdStr).map(g => extractId(g.id))
-                );
-                const count = students.filter(s => {
-                  if (s['status'] === 'inactive') return false;
-                  const sClassId = extractId(s['classId'] || s['class']);
-                  const sGroupId = extractId(s['groupId'] || s['classGroupId'] || s['group'] || s['sectionId'] || s['section']);
-                  return sClassId === clsIdStr || (sGroupId && groupsInClass.has(sGroupId));
-                }).length;
-                return { ...cls, studentCount: count };
+                const matchingStudents = this.getStudentsForScope(allActiveStudents, madrasas, {
+                  classId: clsIdStr
+                });
+                return { ...cls, studentCount: matchingStudents.length };
               });
               filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
             }
@@ -1079,144 +1146,56 @@ export class ManagementPage {
                    return sTokens.some(tok => gStaffTokens.includes(tok));
                  }).map(g => extractId(g.id)).filter(Boolean);
 
-                 const assignedGroupIds = new Set<string>([...directGroupIds, ...matchedGroupIds]);
+                 const assignedGroupIds = Array.from(new Set([...directGroupIds, ...matchedGroupIds]));
 
-                 const directClassIds = [
-                   row['classId'],
-                   row['assignedClassId'],
-                   ...(Array.isArray(row['classIds']) ? row['classIds'] : []),
-                   ...(Array.isArray(row['assignedClassIds']) ? row['assignedClassIds'] : [])
-                 ].map(v => extractId(v)).filter(Boolean);
+                 const staffStudentsMap = new Map<string, EntityRecord>();
 
-                 const matchedClassIds = classes.filter(c => {
-                   const cStaffTokens = [
-                     ...this.extractAllStrings(c['assignedStaffIds']),
-                     ...this.extractAllStrings(c['assignedStaff']),
-                     ...this.extractAllStrings(c['staffIds']),
-                     ...this.extractAllStrings(c['teacherIds']),
-                     ...this.extractAllStrings(c['teachers']),
-                     ...this.extractAllStrings(c['staff'])
-                   ].map(v => v.toLowerCase());
-                   return sTokens.some(tok => cStaffTokens.includes(tok));
-                 }).map(c => extractId(c.id)).filter(Boolean);
-
-                 const explicitClassIds = new Set<string>([...directClassIds, ...matchedClassIds]);
-
-                 const assignedClassIds = new Set<string>([
-                   ...matchedGroupIds.map(gId => {
-                     const grp = classGroups.find(g => extractId(g.id) === gId);
-                     return grp ? extractId(grp['classId'] || grp['class']) : '';
-                   }).filter(Boolean),
-                   ...directClassIds,
-                   ...matchedClassIds
-                 ]);
-
-                 const staffGroupStudentTokens = new Set<string>();
-                 classGroups.filter(g => assignedGroupIds.has(extractId(g.id))).forEach(g => {
-                   [
-                     ...this.extractAllStrings(g['assignedStudentIds']),
-                     ...this.extractAllStrings(g['assignedStudents']),
-                     ...this.extractAllStrings(g['studentIds']),
-                     ...this.extractAllStrings(g['students']),
-                     ...this.extractAllStrings(g['assignedStudentId']),
-                     ...this.extractAllStrings(g['studentId'])
-                   ].forEach(id => staffGroupStudentTokens.add(id.toLowerCase()));
+                 assignedGroupIds.forEach(gId => {
+                   const grpDoc = classGroups.find(g => extractId(g.id) === gId);
+                   const groupStudents = this.getStudentsForScope(allActiveStudents, madrasas, {
+                     groupId: gId,
+                     groupDoc: grpDoc
+                   });
+                   groupStudents.forEach(st => {
+                     const stKey = extractId(st.id || st['uid'] || st['userId']);
+                     if (stKey && !staffStudentsMap.has(stKey)) {
+                       staffStudentsMap.set(stKey, st);
+                     }
+                   });
                  });
-                  const matchingStudentsDetails: any[] = [];
-                  const count = allActiveStudents.filter(s => {
-                    const sTeacherTokens = [
-                      s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'],
-                      s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
-                    ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
 
-                    let isMatch = false;
-                    let matchReason = '';
+                 allActiveStudents.forEach(st => {
+                   const sTeacherTokens = [
+                     st['teacherId'], st['assignedStaffId'], st['staffId'], st['teacherUid'], st['assignedTeacherId'],
+                     st['ustadhId'], st['teacher'], st['staff'], st['assignedStaff']
+                   ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
 
-                    if (sTeacherTokens.some(tok => sTokens.includes(tok))) {
-                      isMatch = true;
-                      matchReason = 'teacherToken';
-                    } else {
-                      const sIdentities = [
-                        s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
-                      ].filter(Boolean).map(v => String(v).trim().toLowerCase());
+                   if (sTeacherTokens.some(tok => sTokens.includes(tok))) {
+                     const stKey = extractId(st.id || st['uid'] || st['userId']);
+                     if (stKey && !staffStudentsMap.has(stKey)) {
+                       staffStudentsMap.set(stKey, st);
+                     }
+                   }
+                 });
 
-                      if (sIdentities.some(id => staffGroupStudentTokens.has(id))) {
-                        isMatch = true;
-                        matchReason = 'assignedStudentInGroup';
-                      } else {
-                        const sGroupTokens = getStudentGroupTokens(s);
-                        const sClassTokens = [
-                          extractId(s['classId']), extractId(s['assignedClassId']), extractId(s['class']),
-                          ...(Array.isArray(s['classIds']) ? s['classIds'].map(extractId) : [])
-                        ].filter(Boolean);
-
-                        if (Array.from(sGroupTokens).some((gId: any) => assignedGroupIds.has(String(gId)))) {
-                          isMatch = true;
-                          matchReason = 'groupId';
-                        } else if (sClassTokens.some(cId => explicitClassIds.has(cId))) {
-                          isMatch = true;
-                          matchReason = 'explicitClassId';
-                        } else if (assignedGroupIds.size === 0 && sClassTokens.some(cId => assignedClassIds.has(cId))) {
-                          isMatch = true;
-                          matchReason = 'classIdFallback';
-                        }
-                      }
-                    }
-
-                    if (isMatch) {
-                      matchingStudentsDetails.push({
-                        name: s['displayName'] || s['name'] || s['studentName'] || s.id,
-                        id: s.id,
-                        uid: s['uid'] || '',
-                        collection: s['_sourceCollection'] || (s['role'] === 'student' ? 'users' : 'students'),
-                        matchReason,
-                        groupId: s['groupId'] || s['classGroupId'] || ''
-                      });
-                    }
-
-                    return isMatch;
-                  }).length;
-
-                  if (config.resource === 'staff') {
-                    console.log('🔍 [Staff Row Student Count Debug]', {
-                      staffName: row['displayName'] || row['name'] || row['email'],
-                      staffRole: row['role'],
-                      directGroupIds,
-                      matchedGroupIds: Array.from(matchedGroupIds),
-                      assignedGroupIds: Array.from(assignedGroupIds),
-                      directClassIds,
-                      matchedClassIds: Array.from(matchedClassIds),
-                      assignedClassIds: Array.from(assignedClassIds),
-                      explicitClassIds: Array.from(explicitClassIds),
-                      calculatedStudentCount: count,
-                      allActiveStudentsTotal: allActiveStudents.length,
-                      matchingStudentsDetails
-                    });
-                  }
-
+                 const isPureStudent = row['role'] === 'student' || (roles.includes('student') && !roles.some(r => ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'].includes(r)));
+                 const count = isPureStudent ? undefined : staffStudentsMap.size;
                  return { ...row, roles, studentCount: count };
                });
              }
 
-             if (config.resource === 'staff') {
-               console.log('🔍 [VM Staff Step 0] Start count:', filteredRows.length);
+             // Resource-level role filtering using effective roles:
+             // e.g. 'incharges' page shows anyone holding 'madrasaIncharge' role (primary, secondary, or derived from madrasa doc)
+             // 'coordinators' page shows anyone holding 'coordinator' role
+             if (['incharges', 'coordinators', 'staff', 'students', 'parents'].includes(config.resource)) {
+               const reqRoles = this.rolesForResource(config.resource);
+               if (reqRoles && reqRoles.length > 0) {
+                 filteredRows = filteredRows.filter(r => {
+                   const userRoles = this.getEffectiveRoles(r, madrasas);
+                   return reqRoles.some(req => userRoles.includes(req));
+                 });
+               }
              }
-
-            // Resource-level role filtering using effective roles:
-            // e.g. 'incharges' page shows anyone holding 'madrasaIncharge' role (primary, secondary, or derived from madrasa doc)
-            // 'coordinators' page shows anyone holding 'coordinator' role
-            if (['incharges', 'coordinators', 'staff', 'students', 'parents'].includes(config.resource)) {
-              const reqRoles = this.rolesForResource(config.resource);
-              if (reqRoles && reqRoles.length > 0) {
-                filteredRows = filteredRows.filter(r => {
-                  const userRoles = this.getEffectiveRoles(r, madrasas);
-                  return reqRoles.some(req => userRoles.includes(req));
-                });
-              }
-              if (config.resource === 'staff') {
-                console.log('🔍 [VM Staff Step 1 - reqRoles] Remaining:', filteredRows.length);
-              }
-            }
 
             if (config.resource === 'students' && profile && ['teacher', 'staff', 'ustadh', 'teacher_assistant'].includes(String(profile.role).toLowerCase()) && !['superadmin', 'organizationadmin', 'super_admin', 'orgadmin', 'madrasaincharge', 'coordinator'].includes(String(profile.role).toLowerCase())) {
               const profAny = profile as Record<string, any>;
@@ -1285,10 +1264,8 @@ export class ManagementPage {
                 const sGroupTokens = getStudentGroupTokens(s);
                 if (Array.from(sGroupTokens).some((gId: any) => assignedGroupIds.has(String(gId)))) return true;
 
-                if (assignedGroupIds.size === 0) {
-                  const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds']]).map(extractId);
-                  if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
-                }
+                const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds']]).map(extractId);
+                if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
 
                 rejectedStudents.push({
                   name: s['displayName'] || s['name'] || s['studentName'] || s.id,
@@ -1329,10 +1306,29 @@ export class ManagementPage {
                    displayClassGroups = displayClassGroups.filter(g => matchingClassIds.includes(g['classId']) || g['classId'] === classFilter);
                  }
                  if (classGroupFilter !== 'all' && config.resource === 'students') {
+                   const selectedGroupDoc = classGroups.find(g => extractId(g.id) === classGroupFilter);
+                   const groupExplicitStudentSet = new Set<string>([
+                     ...(selectedGroupDoc ? [
+                       ...this.extractAllStrings(selectedGroupDoc['assignedStudentIds']),
+                       ...this.extractAllStrings(selectedGroupDoc['assignedStudents']),
+                       ...this.extractAllStrings(selectedGroupDoc['studentIds']),
+                       ...this.extractAllStrings(selectedGroupDoc['students']),
+                       ...this.extractAllStrings(selectedGroupDoc['assignedStudentId']),
+                       ...this.extractAllStrings(selectedGroupDoc['studentId'])
+                     ] : [])
+                   ].map(s => String(s).toLowerCase().trim()));
+
                    filteredRows = filteredRows.filter(r => {
-                     const gId = String(r['groupId'] || r['classGroupId'] || r['assignedGroupId'] || r['group'] || r['sectionId'] || r['section'] || '').trim();
-                     const gIds = Array.isArray(r['groupIds']) ? r['groupIds'].map(String) : (gId ? [gId] : []);
-                     return gIds.includes(classGroupFilter);
+                     const sGroupTokens = getStudentGroupTokens(r);
+                     if (Array.from(sGroupTokens).some(gId => String(gId).trim() === classGroupFilter)) return true;
+
+                     const rIdentities = [
+                       r.id, r['uid'], r['userId'], r['entityId'], r['docId'], r['studentId'], r['email']
+                     ].filter(Boolean).map(v => String(v).toLowerCase().trim());
+
+                     if (rIdentities.some(id => groupExplicitStudentSet.has(id))) return true;
+
+                     return false;
                    });
                  }
                  if (stageFilter !== 'all' && config.resource === 'students') {
@@ -1423,11 +1419,9 @@ export class ManagementPage {
                           isMatch = isLinkedToTargetMadrasa;
                         }
 
-                        console.log(`  👉 [VM Staff Check] name="${rName}", userId="${userId}", rowMadrasas=[${Array.from(rowMadrasaSet).join(', ')}], matchedTarget=${isMatch}`);
                         return isMatch;
                       });
                     }
-                    console.log('🔍 [VM Staff Filter Debug] countAfter:', filteredRows.length);
                   } else if (madrasaFilter !== 'all') {
                     const selectedMadrasa = madrasas.find(m => extractId(m.id) === madrasaFilter);
                     const madrasaInchargeIds: string[] = Array.isArray(selectedMadrasa?.['inchargeIds']) ? selectedMadrasa!['inchargeIds'].map(String) : [];
@@ -2009,14 +2003,6 @@ export class ManagementPage {
 
             return false;
           });
-
-          console.log('🔍 [Staff Login StudentScoping Debug]', {
-            profileRole: profile?.role,
-            profileDisplayName: profile?.displayName || profile?.email,
-            assignedGroupIds: Array.from(assignedGroupIds),
-            staffGroupStudentTokensCount: staffGroupStudentTokens.size,
-            filteredStudentsCount: targetStudents.length
-          });
         }
         return targetStudents.map((row) => {
         const studentUserId = this.recordId(row);
@@ -2106,23 +2092,6 @@ export class ManagementPage {
           temporaryPasswordDisplay: creds.display,
         } as EntityRecord;
       });
-      }),
-      tap((students) => {
-        console.log('[Students Page Stage Mapping Debug]', {
-          students: students.map((user: any) => ({
-            id: user.id || user.uid,
-            name: user.name || user.displayName,
-            rawStage: user.stage,
-            rawLevel: user.level,
-            rawStageName: user.stageName,
-            rawLevelName: user.levelName,
-            rawCurrentStage: user.currentStage,
-            rawCurrentLevel: user.currentLevel,
-            displayedStage: this.getStudentStage(user),
-            courseName: user.courseName,
-            className: user.className,
-          }))
-        });
       })
     );
   }
@@ -2136,6 +2105,90 @@ export class ManagementPage {
       || user?.currentStage
       || user?.currentLevel
       || '-';
+  }
+
+  private getStudentsForScope(
+    allActiveStudents: EntityRecord[],
+    madrasas: EntityRecord[],
+    params: {
+      organizationId?: string;
+      madrasaId?: string;
+      groupId?: string;
+      groupDoc?: EntityRecord;
+      classId?: string;
+      courseId?: string;
+    }
+  ): EntityRecord[] {
+    const { organizationId, madrasaId, groupId, groupDoc, classId, courseId } = params;
+
+    const groupStudentRoster = groupDoc ? new Set<string>([
+      ...this.extractAllStrings(groupDoc['assignedStudentIds']),
+      ...this.extractAllStrings(groupDoc['assignedStudents']),
+      ...this.extractAllStrings(groupDoc['studentIds']),
+      ...this.extractAllStrings(groupDoc['students']),
+      ...this.extractAllStrings(groupDoc['assignedStudentId']),
+      ...this.extractAllStrings(groupDoc['studentId'])
+    ].map(s => String(s).toLowerCase().trim())) : new Set<string>();
+
+    return allActiveStudents.filter(s => {
+      const status = String(s['status'] || s['state'] || '').toLowerCase();
+      if (['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(status)) return false;
+
+      // 1. Group ID Scope - If student matches the specified class group, include immediately
+      if (groupId) {
+        const gIdStr = extractId(groupId);
+        const sGroupTokens = [
+          s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'], s['section'],
+          ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
+          ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : [])
+        ].map(v => extractId(v)).filter(Boolean);
+
+        const matchToken = sGroupTokens.includes(gIdStr);
+
+        const sIdentities = [
+          s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+        ].filter(Boolean).map(v => String(v).toLowerCase().trim());
+        const matchRoster = sIdentities.some(id => groupStudentRoster.has(id));
+
+        if (!matchToken && !matchRoster) return false;
+        return true;
+      }
+
+      // 2. Class ID Scope - If student matches the specified class, include immediately
+      if (classId) {
+        const cIdStr = extractId(classId);
+        const sClassId = extractId(s['classId'] || s['class'] || s['assignedClassId']);
+        const sClassIds = Array.isArray(s['classIds']) ? s['classIds'].map(extractId) : [];
+        if (sClassId !== cIdStr && !sClassIds.includes(cIdStr)) return false;
+        return true;
+      }
+
+      // 3. Course ID Scope
+      if (courseId) {
+        const crsIdStr = extractId(courseId);
+        const sCourseId = extractId(s['courseId'] || s['course'] || s['assignedCourseId']);
+        const sCourseIds = Array.isArray(s['courseIds']) ? s['courseIds'].map(extractId) : [];
+        if (sCourseId !== crsIdStr && !sCourseIds.includes(crsIdStr)) return false;
+      }
+
+      // 4. Organization Scope
+      if (organizationId && organizationId !== 'all') {
+        const sOrgId = extractId(s['organizationId']);
+        const sMId = extractId(s['madrasaId']);
+        const mDoc = madrasas.find(m => extractId(m.id) === sMId);
+        const resolvedOrgId = sOrgId || mDoc?.['organizationId'] || '';
+        if (resolvedOrgId && resolvedOrgId !== organizationId) return false;
+      }
+
+      // 5. Madrasa Scope
+      if (madrasaId && madrasaId !== 'all') {
+        const sMId = extractId(s['madrasaId']);
+        const sMIds = Array.isArray(s['madrasaIds']) ? s['madrasaIds'].map(extractId) : [];
+        if (sMId && sMId !== madrasaId && !sMIds.includes(madrasaId)) return false;
+      }
+
+      return true;
+    });
   }
 
   private staffRows(staffObs$: Observable<EntityRecord[]>, profile: AppUser | null): Observable<EntityRecord[]> {
@@ -3407,16 +3460,6 @@ export class ManagementPage {
 
           return false;
         });
-
-        if (config.resource === 'staff') {
-          console.log('🔍 [showRowStudents Staff Debug]', {
-            staffName: row['displayName'] || row['name'] || row['email'],
-            assignedGroupIds: Array.from(assignedGroupIds),
-            assignedClassIds: Array.from(assignedClassIds),
-            explicitClassIds: Array.from(explicitClassIds),
-            matchedStudentsCount: studentsList.length
-          });
-        }
       }
 
       // Deduplicate studentsList by student name / email / UID so no student appears twice in the dialog

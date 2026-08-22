@@ -174,14 +174,6 @@ export class RepositoryService {
 
     const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
     const constraintGroups = this.scopeConstraints(collectionName, user, options);
-
-    console.log('[Repository Query Debug]', {
-      collectionName,
-      role: user?.role,
-      queryGroupCount: constraintGroups.length,
-      scopeType: user?.role || 'anonymous'
-    });
-
     if (constraintGroups.length === 0) {
       return of([]);
     }
@@ -189,30 +181,12 @@ export class RepositoryService {
     const obs$ = trigger$.pipe(
       switchMap(() => {
         const observables = constraintGroups.map((constraints, index) => {
-          console.log(`[Firestore Query - Group ${index}] collection=${collectionName}`, constraints);
-          const q = query(ref, ...constraints, ...extra, limit(500));
+          const q = query(ref, ...constraints, ...extra);
           return new Observable<T[]>((subscriber) => {
             return onSnapshot(q, (snapshot) => {
               this.usageTracker.recordRead(this.mapCollectionToModule(collectionName), user?.organizationId, Math.max(1, snapshot.docs.length));
               subscriber.next(snapshot.docs.map((row) => ({ id: row.id, ...row.data() }) as T));
             }, (error: any) => {
-              console.error('[Firestore Query Failed]', {
-                collectionName,
-                role: user?.role,
-                requestedRoles: options?.roles,
-                organizationId: user?.organizationId,
-                madrasaIds: user?.madrasaIds,
-                errorCode: error?.code,
-                errorMessage: error?.message,
-                error,
-              });
-              console.warn('[Firestore Permission Debug]', {
-                collectionName,
-                ruleExpectation: 'Frontend query must match same organization, allowed role, and assigned madrasa scope',
-                currentUserRole: user?.role,
-                organizationId: user?.organizationId,
-                madrasaIds: user?.madrasaIds,
-              });
               subscriber.next([]); // Fallback to empty array so other queries succeed
             });
           });
@@ -344,7 +318,6 @@ export class RepositoryService {
   }
 
   async create<T extends EntityRecord = EntityRecord>(collectionName: string, data: Partial<T> | Record<string, any>, currentUser: AppUser | null, id?: string, skipAudit?: boolean): Promise<string> {
-    console.log(`[Firestore Write - CREATE] userUid=${currentUser?.uid}, role=${currentUser?.role}, orgId=${currentUser?.organizationId}, permissions=${currentUser?.permissions?.join(',')}, collection=${collectionName}, targetId=${id || 'auto'}, payload=`, data);
 
     const normalizedData = this.stripDirectStaffAssignmentFields(
       collectionName,
@@ -462,11 +435,10 @@ export class RepositoryService {
 
   async update<T extends EntityRecord = EntityRecord>(collectionName: string, id: string, data: Partial<T> | Record<string, any>, currentUser: AppUser | null, skipAudit?: boolean): Promise<void> {
     if (!id || typeof id !== 'string' || !id.trim()) {
-      console.warn(`[Repository Update Skipped] Invalid target id for ${collectionName}: "${id}"`);
       return;
     }
     const cleanId = id.trim();
-    console.log(`[Firestore Write - UPDATE] userUid=${currentUser?.uid}, role=${currentUser?.role}, collection=${collectionName}, targetId=${cleanId}, payload=`, data);
+
     
     const normalizedData = this.stripDirectStaffAssignmentFields(
       collectionName,
@@ -757,13 +729,6 @@ export class RepositoryService {
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minute TTL
 
   clearCache(collectionName?: string) {
-    console.log('[CACHE CLEAR EXECUTED]', {
-      collectionName,
-      activeStreamKeys: Array.from(this.streamTriggerMap.keys()),
-      memoryCacheKeys: Array.from(this.memoryCache.keys()),
-      streamCacheKeys: Array.from(this.streamCache.keys())
-    });
-
     if (collectionName) {
       for (const key of Array.from(this.memoryCache.keys())) {
         if (key.startsWith(collectionName) || key.includes(`_${collectionName}_`)) {
@@ -777,7 +742,6 @@ export class RepositoryService {
       }
       for (const [key, trigger] of Array.from(this.streamTriggerMap.entries())) {
         if (key.startsWith(collectionName) || key.includes(`_${collectionName}_`)) {
-          console.log(`[STREAM RE-TRIGGERING EMISSION] key=${key}`);
           trigger.next(Date.now());
         }
       }
@@ -785,7 +749,6 @@ export class RepositoryService {
       this.memoryCache.clear();
       this.streamCache.clear();
       for (const [key, trigger] of Array.from(this.streamTriggerMap.entries())) {
-        console.log(`[STREAM RE-TRIGGERING ALL EMISSIONS] key=${key}`);
         trigger.next(Date.now());
       }
     }
@@ -970,60 +933,7 @@ export class RepositoryService {
   }
 
   private scopeConstraints(collectionName: string, user: AppUser | null, options?: { roles?: string[] }): QueryConstraint[][] {
-    console.log('[Scope Rule Comparison Debug]', {
-      collectionName,
-      currentUser: {
-        uid: user?.uid,
-        role: user?.role,
-        organizationId: user?.organizationId,
-        madrasaId: user?.madrasaId,
-        madrasaIds: user?.madrasaIds,
-        classIds: user?.classIds,
-        subjectIds: user?.subjectIds,
-        permissions: user?.permissions,
-      },
-      requested: {
-        collectionName,
-        roles: options?.roles,
-      },
-      expectedRuleForMadrasaIncharge: {
-        users: {
-          sameOrgRequired: true,
-          allowedRoles: ['teacher', 'staff', 'student', 'parent'],
-          requiredScope: 'madrasaId in currentUser.madrasaIds OR madrasaIds array-contains-any currentUser.madrasaIds',
-        },
-        academicCollections: {
-          collections: ['courses', 'classes', 'classGroups', 'subjects', 'academicPlans', 'classPlans', 'classPlanExceptions'],
-          sameOrgRequired: true,
-          requiredScope: 'madrasaId in currentUser.madrasaIds OR madrasaId == empty string for global organization academic data',
-        },
-      },
-    });
-
-    const groups = this._scopeConstraintsImpl(collectionName, user, options);
-
-    console.log('[Built Query Groups Debug]', {
-      collectionName,
-      role: user?.role,
-      requestedRoles: options?.roles,
-      queryGroupCount: groups.length,
-      queryGroupsSummary: groups.map((group, index) => ({
-        index,
-        constraintsCount: group.length,
-      })),
-    });
-
-    if (groups.length === 0) {
-      console.warn('[No Query Groups Built]', {
-        collectionName,
-        role: user?.role,
-        requestedRoles: options?.roles,
-        organizationId: user?.organizationId,
-        madrasaIds: user?.madrasaIds,
-      });
-    }
-
-    return groups;
+    return this._scopeConstraintsImpl(collectionName, user, options);
   }
 
   private _scopeConstraintsImpl(collectionName: string, user: AppUser | null, options?: { roles?: string[] }): QueryConstraint[][] {
@@ -1035,9 +945,9 @@ export class RepositoryService {
 
     if (role === 'superadmin') {
       if (collectionName === 'users' && options?.roles?.length) {
-        return options.roles.map(r => user?.organizationId ? [where('organizationId', '==', user.organizationId), where('role', '==', r)] : [where('role', '==', r)]);
+        return options.roles.map(r => [where('role', '==', r)]);
       }
-      return [[]]; // No constraints
+      return [[]]; // No constraints for Super Admin
     }
 
     if (collectionName === 'supportTickets' || collectionName === 'supportTicketMessages') {
@@ -1061,10 +971,31 @@ export class RepositoryService {
 
     if (role === 'organizationadmin') {
       if (user.organizationId) {
+        const groups: QueryConstraint[][] = [];
+        const orgId = user.organizationId;
+        const madrasaIds = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
+          ? user.madrasaIds 
+          : (user.madrasaId ? [user.madrasaId] : []);
+
         if (collectionName === 'users' && options?.roles?.length) {
-          return options.roles.map(r => [where('organizationId', '==', user.organizationId), where('role', '==', r)]);
+          options.roles.forEach(r => {
+            groups.push([where('organizationId', '==', orgId), where('role', '==', r)]);
+            madrasaIds.forEach(mId => {
+              groups.push([where('role', '==', r), where('madrasaId', '==', mId)]);
+              groups.push([where('role', '==', r), where('madrasaIds', 'array-contains', mId)]);
+            });
+          });
+          return groups;
         }
-        return [[where('organizationId', '==', user.organizationId)]];
+
+        groups.push([where('organizationId', '==', orgId)]);
+        if (['students', 'staff', 'classes', 'classGroups'].includes(collectionName) && madrasaIds.length > 0) {
+          const chunks = this.chunkArray(madrasaIds, 9);
+          chunks.forEach(chunk => {
+            groups.push([where('madrasaId', 'in', chunk)]);
+          });
+        }
+        return groups;
       }
       return [];
     }
@@ -1081,18 +1012,7 @@ export class RepositoryService {
       const isStaffQuery = collectionName === 'staff' || (collectionName === 'users' && (options?.roles?.some(r => ['teacher', 'staff', 'madrasaIncharge', 'coordinator'].includes(r)) || ['madrasaincharge', 'coordinator'].includes(role)));
       const madrasaScope = isStaffQuery ? inchargeMadrasaScope : allMadrasaScope;
 
-      console.log('🔍 [Repository Scope] Calculation:', {
-        collectionName,
-        userRole: user.role,
-        isStaffQuery,
-        requestedRoles: options?.roles,
-        allMadrasaScope,
-        inchargeMadrasaScope,
-        selectedMadrasaScope: madrasaScope
-      });
-
       if (!orgId || madrasaScope.length === 0) {
-        console.warn('[Repository Users Scope Empty]', { role, orgId, madrasaScope });
         return [];
       }
 
@@ -1113,63 +1033,29 @@ export class RepositoryService {
           ? options.roles.filter(r => allowedRoles.includes(r))
           : allowedRoles;
 
-        console.log('[Repository Users Scope Debug]', {
-          collectionName,
-          currentUser: {
-            uid: user?.uid,
-            role: user?.role,
-            organizationId: user?.organizationId,
-            madrasaId: user?.madrasaId,
-            madrasaIds: user?.madrasaIds,
-            permissions: user?.permissions,
-          },
-          requestedRoles: options?.roles,
-          allowedRolesForMadrasaIncharge: ['teacher', 'staff', 'student', 'parent'],
-        });
-
-        console.log('[Repository Users Final Roles Debug]', {
-          requestedRoles: options?.roles,
-          finalRoles,
-          blockedRoles: (options?.roles ?? []).filter((role: string) => !finalRoles.includes(role)),
-        });
-
         if (finalRoles.length === 0) {
           return [];
         }
 
         finalRoles.forEach(targetRole => {
           madrasaScope.forEach(madrasaId => {
-            console.log('[Executing Users Query Debug]', {
-              collectionName,
-              role: targetRole,
-              queryType: 'madrasaId',
-              organizationId: user?.organizationId,
-              madrasaId,
-              constraints: ['organizationId ==', 'role ==', 'madrasaId =='],
-            });
-            groups.push([where('organizationId', '==', orgId), where('role', '==', targetRole), where('madrasaId', '==', madrasaId)]);
-
-            console.log('[Executing Users Query Debug]', {
-              collectionName,
-              role: targetRole,
-              queryType: 'madrasaIds',
-              organizationId: user?.organizationId,
-              madrasaId,
-              constraints: ['organizationId ==', 'role ==', 'madrasaIds array-contains'],
-            });
-            groups.push([where('organizationId', '==', orgId), where('role', '==', targetRole), where('madrasaIds', 'array-contains', madrasaId)]);
+            groups.push([where('role', '==', targetRole), where('madrasaId', '==', madrasaId)]);
+            groups.push([where('role', '==', targetRole), where('madrasaIds', 'array-contains', madrasaId)]);
+            if (orgId) {
+              groups.push([where('organizationId', '==', orgId), where('role', '==', targetRole)]);
+            }
           });
         });
         return groups;
       }
 
       if (['events', 'courses', 'classes', 'classGroups', 'subjects', 'academicPlans', 'issues', 'issueCategories'].includes(collectionName)) {
-        return [[where('organizationId', '==', orgId)]];
+        return orgId ? [[where('organizationId', '==', orgId)]] : [[]];
       }
 
       if (['feePlans', 'feeAssignments', 'feePayments'].includes(collectionName)) {
         madrasaChunks.forEach(chunk => {
-          groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]);
+          groups.push([where('madrasaId', 'in', chunk)]);
         });
         return groups;
       }
@@ -1177,26 +1063,24 @@ export class RepositoryService {
       if (['classPlans', 'classPlanExceptions'].includes(collectionName)) {
         madrasaChunks.forEach(chunk => {
           const values = [...chunk, ''];
-          console.log('[Academic Scope]', {
-            collectionName,
-            role: role,
-            values
-          });
-          groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', values)]);
+          groups.push([where('madrasaId', 'in', values)]);
         });
         return groups;
       }
 
       if (['staff', 'reports', 'userLifecycleHistory', 'userServicePeriods', 'lifecycleRecords', 'lifecycleApprovals', 'lifecycleClearances', 'lifecycleAttachments', 'rejoinRequests'].includes(collectionName)) {
         madrasaChunks.forEach(chunk => {
-          groups.push([where('organizationId', '==', orgId), where('madrasaIds', 'array-contains-any', chunk)]);
-          groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]);
+          groups.push([where('madrasaIds', 'array-contains-any', chunk)]);
+          groups.push([where('madrasaId', 'in', chunk)]);
         });
         return groups;
       }
 
       madrasaChunks.forEach(chunk => {
-        groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]);
+        groups.push([where('madrasaId', 'in', chunk)]);
+        if (orgId) {
+          groups.push([where('organizationId', '==', orgId)]);
+        }
       });
       return groups;
     }

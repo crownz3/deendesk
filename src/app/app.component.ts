@@ -83,6 +83,7 @@ export class AppComponent {
     {
       label: 'Administration',
       items: [
+        { label: 'Architecture Explorer', route: '/architecture-explorer', icon: 'git-network-outline', roleRequired: 'superAdmin' },
         { label: 'Organizations', route: '/organizations', icon: 'business-outline', roleRequired: 'superAdmin' },
         { label: 'Subscriptions & Billing', route: '/subscriptions', icon: 'card-outline', roleRequired: 'superAdmin' },
         { label: 'Madrasas', route: '/madrasas', icon: 'school-outline', permission: 'manageMadrasas' },

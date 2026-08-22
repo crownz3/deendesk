@@ -1,0 +1,848 @@
+<ion-content class="arch-explorer-content">
+<div class="arch-explorer-container" *ngIf="profile$ | async as profile">
+  <!-- Super Admin Profile Header Banner -->
+  <div class="arch-header-card">
+    <div class="profile-meta">
+      <div class="avatar-ring">
+        <span class="avatar-badge">SA</span>
+      </div>
+      <div class="meta-info">
+        <div class="title-row">
+          <h1 class="header-title">Application Architecture & Dependency Explorer</h1>
+          <span class="role-pill super-admin-pill">
+            <ion-icon name="shield-checkmark-outline"></ion-icon>
+            Super Admin Restricted
+          </span>
+        </div>
+        <p class="subtitle">
+          Interactive system topology map, module features, entity schemas, data flow, and dependency inspector.
+        </p>
+        <div class="admin-details">
+          <span class="detail-chip"><ion-icon name="person-outline"></ion-icon> <strong>Admin:</strong> {{ profile.displayName || profile.email }}</span>
+          <span class="detail-chip"><ion-icon name="finger-print-outline"></ion-icon> <strong>ID:</strong> {{ profile.uid }}</span>
+          <span class="detail-chip"><ion-icon name="mail-outline"></ion-icon> <strong>Email:</strong> {{ profile.email }}</span>
+          <span class="detail-chip"><ion-icon name="key-outline"></ion-icon> <strong>Role:</strong> {{ profile.role }}</span>
+          <span class="detail-chip status-active"><ion-icon name="checkmark-circle-outline"></ion-icon> Active Status</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Universal Document & ID Lookup Search Bar -->
+  <div class="id-search-card">
+    <div class="search-input-group">
+      <ion-icon name="search-outline" class="search-icon"></ion-icon>
+      <input 
+        type="text" 
+        class="id-input" 
+        [(ngModel)]="lookupInputId" 
+        (keyup.enter)="performIdLookup()" 
+        placeholder="Paste any Document ID, User UID, Madrasa ID, Class ID, Admission No (e.g. X3YSiVpefOey0sXufTwGQARdQZG3)..." 
+      />
+      <button class="search-btn" (click)="performIdLookup()" [disabled]="isSearchingId">
+        <ion-icon name="sparkles-outline" *ngIf="!isSearchingId"></ion-icon>
+        <span *ngIf="isSearchingId">Searching...</span>
+        <span *ngIf="!isSearchingId">Trace ID & Collection Connections</span>
+      </button>
+    </div>
+
+    <!-- Search Results Feedback Box -->
+    <div class="search-result-box" *ngIf="lookupResult">
+      <div class="result-found" *ngIf="lookupResult.found">
+        <div class="found-header">
+          <span class="collection-badge"><ion-icon name="server-outline"></ion-icon> Collection: {{ lookupResult.collectionName }}</span>
+          <div class="doc-title-copy-flex">
+            <h3>Document Found: {{ lookupResult.docName }}</h3>
+            <button 
+              class="copy-id-btn" 
+              (click)="copyToClipboard(lookupResult.searchedId, $event)" 
+              [title]="'Copy ID: ' + lookupResult.searchedId"
+            >
+              <ion-icon [name]="copiedId === lookupResult.searchedId ? 'checkmark-circle' : 'copy-outline'"></ion-icon>
+              <span *ngIf="copiedId === lookupResult.searchedId">Copied ID!</span>
+              <span *ngIf="copiedId !== lookupResult.searchedId">Copy ID</span>
+            </button>
+          </div>
+          <span class="mod-tag">Module: {{ lookupResult.moduleName }}</span>
+        </div>
+
+        <!-- Connected Data Count Bar -->
+        <div class="count-metrics-bar">
+          <div class="metric-pill highlight">
+            <span class="m-val">{{ lookupResult.totalConnectedRecordsCount || 0 }}</span>
+            <span class="m-lbl">Total Connected Records</span>
+          </div>
+          <div class="metric-pill stud">
+            <span class="m-val">{{ lookupResult.totalStudentsCount || 0 }}</span>
+            <span class="m-lbl">Enrolled Students</span>
+          </div>
+          <div class="metric-pill stf">
+            <span class="m-val">{{ lookupResult.totalStaffCount || 0 }}</span>
+            <span class="m-lbl">Assigned Staff</span>
+          </div>
+          <div class="metric-pill fld">
+            <span class="m-val">{{ lookupResult.fieldsCount || 0 }}</span>
+            <span class="m-lbl">Document Fields</span>
+          </div>
+        </div>
+
+        <!-- Parent Hierarchy Connections -->
+        <div class="connections-sub-box" *ngIf="lookupResult.parentHierarchy?.length">
+          <h4><ion-icon name="git-pull-request-outline"></ion-icon> Parent Hierarchy:</h4>
+          <div class="chip-wrap">
+            <span class="clickable-chip parent-chip" *ngFor="let p of lookupResult.parentHierarchy" (click)="performIdLookup(p.id)">
+              <strong>{{ p.label }}:</strong> {{ p.name }} <small>({{ p.id }})</small>
+            </span>
+          </div>
+        </div>
+
+        <!-- Connected Enrolled Students -->
+        <div class="connections-sub-box" *ngIf="lookupResult.connectedStudents !== undefined">
+          <h4>
+            <ion-icon name="school-outline"></ion-icon> 
+            Connected Enrolled Students ({{ lookupResult.connectedStudents.length }}):
+          </h4>
+          <div class="chip-wrap student-scroll-box" *ngIf="lookupResult.connectedStudents.length > 0">
+            <span class="clickable-chip student-chip" *ngFor="let s of lookupResult.connectedStudents" (click)="performIdLookup(s.id)">
+              {{ s.name }} <small *ngIf="s.admissionNumber">({{ s.admissionNumber }})</small>
+            </span>
+          </div>
+          <p class="empty-note" *ngIf="lookupResult.connectedStudents.length === 0">No students connected to this entity.</p>
+        </div>
+
+        <!-- Connected Assigned Staff / Teachers -->
+        <div class="connections-sub-box" *ngIf="lookupResult.connectedStaff !== undefined">
+          <h4>
+            <ion-icon name="briefcase-outline"></ion-icon> 
+            Connected Assigned Staff / Teachers ({{ lookupResult.connectedStaff.length }}):
+          </h4>
+          <div class="chip-wrap" *ngIf="lookupResult.connectedStaff.length > 0">
+            <span class="clickable-chip staff-chip" *ngFor="let st of lookupResult.connectedStaff" (click)="performIdLookup(st.id)">
+              {{ st.name }} <small *ngIf="st.role">({{ st.role }})</small>
+            </span>
+          </div>
+          <p class="empty-note" *ngIf="lookupResult.connectedStaff.length === 0">No staff/teachers assigned directly to this entity.</p>
+        </div>
+
+        <!-- Connected Child Groups -->
+        <div class="connections-sub-box" *ngIf="lookupResult.connectedGroups?.length">
+          <h4><ion-icon name="people-circle-outline"></ion-icon> Child Class Groups ({{ lookupResult.connectedGroups?.length }}):</h4>
+          <div class="chip-wrap">
+            <span class="clickable-chip group-chip" *ngFor="let g of lookupResult.connectedGroups" (click)="performIdLookup(g.id)">
+              {{ g.name }} <small>({{ g.id }})</small>
+            </span>
+          </div>
+        </div>
+
+        <!-- Handling Features -->
+        <div class="connections-sub-box" *ngIf="lookupResult.features?.length">
+          <h4><ion-icon name="flash-outline"></ion-icon> Connected Features:</h4>
+          <div class="chip-wrap">
+            <span class="clickable-chip feature-tag-chip" *ngFor="let feat of lookupResult.features">
+              {{ feat }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-not-found" *ngIf="!lookupResult.found">
+        <ion-icon name="alert-circle-outline" class="warn-icon"></ion-icon>
+        <span>No matching document found across Firestore collections for ID: <code>{{ lookupResult.searchedId }}</code></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Material Split Tabs Section -->
+  <mat-tab-group class="arch-tabs" [(selectedIndex)]="activeTabIndex" animationDuration="200ms">
+    
+    <!-- TAB 1: OVERVIEW -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="grid-outline" class="tab-icon"></ion-icon> Overview
+      </ng-template>
+      <div class="tab-content">
+        <!-- Stat Cards Summary Grid -->
+        <div class="stats-grid">
+          <div class="stat-card" (click)="activeTabIndex = 1">
+            <div class="stat-icon mod-bg"><ion-icon name="cube-outline"></ion-icon></div>
+            <div class="stat-info">
+              <span class="stat-value">{{ stats.modulesCount }}</span>
+              <span class="stat-label">Core Application Modules</span>
+            </div>
+          </div>
+          <div class="stat-card" (click)="activeTabIndex = 2">
+            <div class="stat-icon feat-bg"><ion-icon name="flash-outline"></ion-icon></div>
+            <div class="stat-info">
+              <span class="stat-value">{{ stats.featuresCount }}</span>
+              <span class="stat-label">System Features</span>
+            </div>
+          </div>
+          <div class="stat-card" (click)="activeTabIndex = 3">
+            <div class="stat-icon ent-bg"><ion-icon name="server-outline"></ion-icon></div>
+            <div class="stat-info">
+              <span class="stat-value">{{ stats.entitiesCount }}</span>
+              <span class="stat-label">Firestore Collections</span>
+            </div>
+          </div>
+          <div class="stat-card" (click)="activeTabIndex = 5">
+            <div class="stat-icon role-bg"><ion-icon name="people-outline"></ion-icon></div>
+            <div class="stat-info">
+              <span class="stat-value">{{ stats.rolesCount }}</span>
+              <span class="stat-label">User System Roles</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- High-level Topology Summary -->
+        <div class="overview-section">
+          <h3>System Architecture Topology</h3>
+          <p class="section-desc">
+            DeenDesk is built on a high-performance multi-tenant architecture with scope-based data isolation, Angular 18 client SPA, injectable scope engines, and Google Cloud Firestore.
+          </p>
+
+          <div class="topology-grid">
+            <div class="topology-card" *ngFor="let mod of modules" (click)="inspectById(mod.id, 'module')">
+              <div class="topo-header" [style.border-left-color]="mod.badgeColor">
+                <ion-icon [name]="mod.icon" class="topo-icon"></ion-icon>
+                <h4>{{ mod.name }}</h4>
+              </div>
+              <p class="topo-purpose">{{ mod.purpose }}</p>
+              <div class="topo-tags">
+                <span class="tag-chip"><ion-icon name="flash-outline"></ion-icon> {{ mod.featuresCount }} Features</span>
+                <span class="tag-chip"><ion-icon name="server-outline"></ion-icon> {{ mod.entitiesCount }} Collections</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 2: MODULES -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="cube-outline" class="tab-icon"></ion-icon> Modules
+      </ng-template>
+      <div class="tab-content">
+        <div class="modules-list">
+          <div class="module-detail-card" *ngFor="let mod of modules">
+            <div class="mod-header-row">
+              <div class="mod-title">
+                <ion-icon [name]="mod.icon" class="mod-icon" [style.color]="mod.badgeColor"></ion-icon>
+                <h2>{{ mod.name }}</h2>
+              </div>
+              <button class="inspect-btn" (click)="inspectById(mod.id, 'module')">
+                <ion-icon name="sparkles-outline"></ion-icon> Inspect Connection Graph
+              </button>
+            </div>
+            <p class="mod-purpose-text">{{ mod.purpose }}</p>
+
+            <div class="mod-subsections">
+              <div class="sub-col">
+                <span class="sub-heading"><ion-icon name="flash-outline"></ion-icon> Features ({{ mod.features.length }}):</span>
+                <div class="chip-wrap">
+                  <span class="clickable-chip" *ngFor="let f of mod.features" (click)="inspectById(f, 'feature')">{{ f }}</span>
+                </div>
+              </div>
+
+              <div class="sub-col">
+                <span class="sub-heading"><ion-icon name="server-outline"></ion-icon> Firestore Collections ({{ mod.collections.length }}):</span>
+                <div class="chip-wrap">
+                  <span class="clickable-chip entity-chip" *ngFor="let c of mod.collections" (click)="inspectById(c, 'entity')">{{ c }}</span>
+                </div>
+              </div>
+
+              <div class="sub-col">
+                <span class="sub-heading"><ion-icon name="cog-outline"></ion-icon> Injectable Services:</span>
+                <div class="chip-wrap">
+                  <span class="clickable-chip service-chip" *ngFor="let s of mod.services" (click)="inspectById(s, 'component')">{{ s }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 3: FEATURES -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="flash-outline" class="tab-icon"></ion-icon> Features
+      </ng-template>
+      <div class="tab-content">
+        <div class="features-table-container">
+          <table class="arch-table">
+            <thead>
+              <tr>
+                <th>Feature Name</th>
+                <th>Route</th>
+                <th>Permission Required</th>
+                <th>Required Roles</th>
+                <th>Entities Read / Written</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let feat of features">
+                <td>
+                  <div class="feat-cell">
+                    <ion-icon [name]="feat.icon" class="feat-icon"></ion-icon>
+                    <strong>{{ feat.name }}</strong>
+                  </div>
+                </td>
+                <td><code class="route-code">{{ feat.route }}</code></td>
+                <td><span class="perm-badge">{{ feat.permission }}</span></td>
+                <td>
+                  <span class="role-badge-sm" *ngFor="let r of feat.rolesRequired">{{ r }}</span>
+                </td>
+                <td>
+                  <div class="chip-wrap">
+                    <span class="mini-chip read" *ngFor="let er of feat.entitiesRead" (click)="inspectById(er, 'entity')">R: {{ er }}</span>
+                    <span class="mini-chip write" *ngFor="let ew of feat.entitiesWritten" (click)="inspectById(ew, 'entity')">W: {{ ew }}</span>
+                  </div>
+                </td>
+                <td>
+                  <button class="small-btn" (click)="inspectById(feat.id, 'feature')">Inspect</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 4: DATA / ENTITIES -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="server-outline" class="tab-icon"></ion-icon> Data / Entities
+      </ng-template>
+      <div class="tab-content">
+        <div class="entities-grid">
+          <div class="entity-card" *ngFor="let ent of dataEntities">
+            <div class="ent-header">
+              <h3>{{ ent.name }}</h3>
+              <code class="collection-tag">collection: {{ ent.collectionName }}</code>
+            </div>
+            <p class="ent-desc">{{ ent.description }}</p>
+
+            <div class="fields-section">
+              <span class="section-title">Fields Schema ({{ ent.fields.length }}):</span>
+              <div class="field-list">
+                <div class="field-item" *ngFor="let f of ent.fields">
+                  <span class="field-name">{{ f.name }} <small>({{ f.type }})</small></span>
+                  <span class="field-tag primary" *ngIf="f.isPrimary">Primary Key</span>
+                  <span class="field-tag foreign" *ngIf="f.isForeign">Foreign Key</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="crud-section">
+              <span class="section-title">CRUD Locations:</span>
+              <div class="crud-grid">
+                <div><small>Read:</small> {{ ent.crudLocations.read }}</div>
+                <div><small>Write:</small> {{ ent.crudLocations.update }}</div>
+              </div>
+            </div>
+
+            <button class="inspect-btn full-width" (click)="inspectById(ent.id, 'entity')">
+              <ion-icon name="sparkles-outline"></ion-icon> Inspect Entity Dependencies
+            </button>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 5: DATA RELATIONSHIPS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="git-branch-outline" class="tab-icon"></ion-icon> Data Relationships
+      </ng-template>
+      <div class="tab-content">
+        <div class="rel-container">
+          <h3>Entity Relationship Diagram (ERD Matrix)</h3>
+          <p class="section-desc">Visual representation of parent-child, 1:N, and N:M constraints between Firestore collections.</p>
+
+          <div class="rel-cards-list">
+            <div class="rel-card" *ngFor="let rel of relationships">
+              <div class="rel-node source" (click)="inspectById(rel.sourceEntity, 'entity')">
+                <ion-icon name="server-outline"></ion-icon>
+                <span>{{ rel.sourceEntity }}</span>
+                <small>field: {{ rel.sourceField }}</small>
+              </div>
+
+              <div class="rel-connector">
+                <span class="rel-type-badge">{{ rel.type }}</span>
+                <ion-icon name="arrow-forward-outline"></ion-icon>
+              </div>
+
+              <div class="rel-node target" (click)="inspectById(rel.targetEntity, 'entity')">
+                <ion-icon name="server-outline"></ion-icon>
+                <span>{{ rel.targetEntity }}</span>
+                <small>field: {{ rel.targetField }}</small>
+              </div>
+
+              <div class="rel-details">
+                <p>{{ rel.description }}</p>
+                <span class="cascade-badge" *ngIf="rel.cascadesOnDelete">Cascade Delete Enabled</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 6: ROLES & PERMISSIONS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="shield-outline" class="tab-icon"></ion-icon> Roles & Permissions
+      </ng-template>
+      <div class="tab-content">
+        <div class="roles-grid">
+          <div class="role-card" *ngFor="let r of rolesPermissions">
+            <div class="role-header" [style.border-top-color]="r.color">
+              <h2>{{ r.roleName }}</h2>
+              <span class="role-key">roleKey: {{ r.roleKey }}</span>
+            </div>
+            <p class="role-desc">{{ r.description }}</p>
+            <div class="scope-box">
+              <strong>Scoping Rule:</strong> {{ r.scopeRule }}
+            </div>
+
+            <div class="perms-list">
+              <h4>Permissions Matrix:</h4>
+              <div class="perm-row" *ngFor="let p of r.permissions">
+                <span>{{ p.name }} <code class="p-key">({{ p.key }})</code></span>
+                <span class="perm-status" [class.granted]="p.granted" [class.denied]="!p.granted">
+                  {{ p.granted ? 'GRANTED' : 'DENIED' }}
+                </span>
+              </div>
+            </div>
+
+            <button class="inspect-btn full-width" (click)="inspectById(r.roleKey, 'role')">
+              <ion-icon name="sparkles-outline"></ion-icon> Inspect Role Access Chain
+            </button>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 7: MODES & WORKFLOWS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="git-network-outline" class="tab-icon"></ion-icon> Modes & Workflows
+      </ng-template>
+      <div class="tab-content">
+        <div class="workflows-container">
+          <div class="wf-card" *ngFor="let wf of workflows">
+            <div class="wf-header">
+              <div>
+                <span class="category-badge">{{ wf.category }}</span>
+                <h2>{{ wf.name }}</h2>
+              </div>
+              <button class="inspect-btn" (click)="inspectById(wf.id, 'workflow')">
+                <ion-icon name="sparkles-outline"></ion-icon> Inspect Workflow Flow
+              </button>
+            </div>
+            <p class="wf-desc">{{ wf.description }}</p>
+
+            <div class="trigger-box">
+              <strong>Trigger Mechanism:</strong> {{ wf.trigger }}
+            </div>
+
+            <div class="steps-timeline">
+              <div class="step-item" *ngFor="let step of wf.steps">
+                <div class="step-num">{{ step.stepNumber }}</div>
+                <div class="step-body">
+                  <h4>{{ step.title }} <small>by {{ step.actor }}</small></h4>
+                  <p>{{ step.action }}</p>
+                  <span class="outcome-tag">Outcome: {{ step.outcome }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 8: SYSTEM CONNECTIONS -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="hardware-chip-outline" class="tab-icon"></ion-icon> System Connections
+      </ng-template>
+      <div class="tab-content">
+        <div class="connections-container">
+          <h3>Full Stack Infrastructure & Data Flow Layer</h3>
+          <div class="layer-list">
+            <div class="layer-card" *ngFor="let sys of systemConnections">
+              <div class="layer-badge" [class]="sys.layer">{{ sys.layer | uppercase }}</div>
+              <div class="layer-info">
+                <h2>{{ sys.name }}</h2>
+                <p><strong>Technology:</strong> {{ sys.technology }}</p>
+                <p>{{ sys.purpose }}</p>
+                <div class="connected-layers">
+                  <span>Connected Layers:</span>
+                  <span class="c-layer-tag" *ngFor="let cl of sys.connectedLayers">{{ cl }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 9: FIREBASE LIVE COLLECTIONS DATA VIEWER -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="server-outline" class="tab-icon"></ion-icon> Firebase Collections Data
+      </ng-template>
+      <div class="tab-content">
+        <div class="collections-explorer-header">
+          <h3>Firestore Live Collections Explorer</h3>
+          <p class="sub-text">Click any collection below to inspect its live document records with pagination and live search filtering.</p>
+        </div>
+
+        <!-- Collection Selector Grid Cards with Live Document Counts -->
+        <div class="collection-chips-grid">
+          <div 
+            class="collection-chip-card" 
+            *ngFor="let col of allFirebaseCollections" 
+            [class.active]="selectedExplorerCollection === col.key"
+            (click)="selectCollection(col.key)"
+          >
+            <ion-icon [name]="col.icon" class="col-icon"></ion-icon>
+            <div class="col-meta">
+              <span class="col-title">{{ col.name }}</span>
+              <span class="col-count-pill">{{ collectionCounts[col.key] !== undefined ? collectionCounts[col.key] : '...' }} Docs</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Global Dropdown Filters Grid (Organization, Madrasa, Course, Class, Class Group) -->
+        <div class="collection-filter-dropdowns-card">
+          <div class="filter-group-header">
+            <h4><ion-icon name="funnel-outline"></ion-icon> Filter Collection Data By Structure:</h4>
+            <button class="reset-filter-btn" (click)="resetCollectionFilters()" *ngIf="selectedOrgId || selectedMadrasaId || selectedCourseId || selectedClassId || selectedGroupId || collectionSearchQuery">
+              <ion-icon name="refresh-outline"></ion-icon> Reset All Filters
+            </button>
+          </div>
+
+          <div class="dropdowns-grid">
+            <!-- Organization Filter -->
+            <div class="filter-select-item">
+              <label><ion-icon name="business-outline"></ion-icon> Organization:</label>
+              <input type="text" class="filter-search-input" [(ngModel)]="orgFilterQuery" placeholder="Search Org..." />
+              <select [(ngModel)]="selectedOrgId" (change)="collectionPageIndex = 0">
+                <option value="">All Organizations ({{ searchableOrganizations.length }})</option>
+                <option *ngFor="let o of searchableOrganizations" [value]="o.id">{{ o.name }}</option>
+              </select>
+            </div>
+
+            <!-- Madrasa Filter -->
+            <div class="filter-select-item">
+              <label><ion-icon name="school-outline"></ion-icon> Madrasa:</label>
+              <input type="text" class="filter-search-input" [(ngModel)]="madrasaFilterQuery" placeholder="Search Madrasa..." />
+              <select [(ngModel)]="selectedMadrasaId" (change)="onMadrasaFilterChange()">
+                <option value="">All Madrasas ({{ searchableMadrasas.length }})</option>
+                <option *ngFor="let m of searchableMadrasas" [value]="m.id">{{ m.name }}</option>
+              </select>
+            </div>
+
+            <!-- Course Filter -->
+            <div class="filter-select-item">
+              <label><ion-icon name="journal-outline"></ion-icon> Course:</label>
+              <input type="text" class="filter-search-input" [(ngModel)]="courseFilterQuery" placeholder="Search Course..." />
+              <select [(ngModel)]="selectedCourseId" (change)="collectionPageIndex = 0">
+                <option value="">All Courses ({{ searchableCourses.length }})</option>
+                <option *ngFor="let c of searchableCourses" [value]="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+
+            <!-- Class Filter -->
+            <div class="filter-select-item">
+              <label><ion-icon name="easel-outline"></ion-icon> Class:</label>
+              <input type="text" class="filter-search-input" [(ngModel)]="classFilterQuery" placeholder="Search Class..." />
+              <select [(ngModel)]="selectedClassId" (change)="onClassFilterChange()">
+                <option value="">All Classes ({{ searchableClasses.length }})</option>
+                <option *ngFor="let c of searchableClasses" [value]="c.id">{{ c.name }}</option>
+              </select>
+            </div>
+
+            <!-- Class Group Filter -->
+            <div class="filter-select-item">
+              <label><ion-icon name="people-circle-outline"></ion-icon> Class Group:</label>
+              <input type="text" class="filter-search-input" [(ngModel)]="groupFilterQuery" placeholder="Search Group..." />
+              <select [(ngModel)]="selectedGroupId" (change)="collectionPageIndex = 0">
+                <option value="">All Class Groups ({{ searchableClassGroups.length }})</option>
+                <option *ngFor="let g of searchableClassGroups" [value]="g.id">{{ g.name }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter & Pagination Bar -->
+        <div class="collection-controls-bar">
+          <div class="search-box">
+            <ion-icon name="search-outline"></ion-icon>
+            <input 
+              type="text" 
+              [(ngModel)]="collectionSearchQuery" 
+              (input)="collectionPageIndex = 0"
+              [placeholder]="'Search records in ' + selectedExplorerCollection + '...'" 
+            />
+          </div>
+
+          <div class="page-size-selector">
+            <label>Rows per page:</label>
+            <select [(ngModel)]="collectionPageSize" (change)="collectionPageIndex = 0">
+              <option [ngValue]="10">10</option>
+              <option [ngValue]="25">25</option>
+              <option [ngValue]="50">50</option>
+              <option [ngValue]="100">100</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="collection-loading" *ngIf="isLoadingCollectionData">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>Loading collection '{{ selectedExplorerCollection }}' documents...</span>
+        </div>
+
+        <!-- Document Table View -->
+        <div class="collection-table-wrapper" *ngIf="!isLoadingCollectionData">
+          <div class="table-summary-bar">
+            <span>Showing {{ paginatedCollectionRows.length }} of {{ filteredCollectionRows.length }} documents (Total: {{ collectionRows.length }})</span>
+          </div>
+
+          <table class="arch-table collection-table" *ngIf="paginatedCollectionRows.length > 0">
+            <thead>
+              <tr>
+                <th>Document ID / UID</th>
+                <th>Display Name / Title</th>
+                <th>Madrasa / Class</th>
+                <th>Status / Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of paginatedCollectionRows">
+                <td>
+                  <code class="doc-id-code">{{ row.id || row.uid || row.docId }}</code>
+                </td>
+                <td>
+                  <div class="name-copy-flex">
+                    <strong>{{ row.displayName || row.name || row.studentName || row.title || 'Record' }}</strong>
+                    <button 
+                      class="copy-id-btn" 
+                      (click)="copyToClipboard(row.id || row.uid || row.docId, $event)" 
+                      [title]="'Copy ID: ' + (row.id || row.uid || row.docId)"
+                    >
+                      <ion-icon [name]="copiedId === (row.id || row.uid || row.docId) ? 'checkmark-circle' : 'copy-outline'"></ion-icon>
+                      <span class="copied-text" *ngIf="copiedId === (row.id || row.uid || row.docId)">Copied</span>
+                    </button>
+                  </div>
+                  <small class="sub-email" *ngIf="row.email">{{ row.email }}</small>
+                </td>
+                <td>
+                  <span class="chip-sm" *ngIf="row.madrasaId">Madr: {{ row.madrasaId }}</span>
+                  <span class="chip-sm" *ngIf="row.classId">Class: {{ row.classId }}</span>
+                  <span class="chip-sm" *ngIf="row.groupId || row.classGroupId">Group: {{ row.groupId || row.classGroupId }}</span>
+                </td>
+                <td>
+                  <span class="status-badge" [class.active]="row.status === 'active' || row.isActive">
+                    {{ row.role || row.status || 'Active' }}
+                  </span>
+                </td>
+                <td>
+                  <button class="inspect-btn-sm" (click)="performIdLookup(row.id || row.uid)">
+                    <ion-icon name="git-branch-outline"></ion-icon> Trace Connections
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="empty-table-note" *ngIf="paginatedCollectionRows.length === 0">
+            <ion-icon name="folder-open-outline"></ion-icon>
+            <p>No documents found matching '{{ collectionSearchQuery }}' in collection <code>{{ selectedExplorerCollection }}</code>.</p>
+          </div>
+
+          <!-- Pagination Bar -->
+          <div class="pagination-bar" *ngIf="filteredCollectionRows.length > 0">
+            <button class="page-btn" (click)="prevCollectionPage()" [disabled]="collectionPageIndex === 0">
+              <ion-icon name="chevron-back-outline"></ion-icon> Previous
+            </button>
+            <span class="page-info">Page {{ collectionPageIndex + 1 }} of {{ totalCollectionPages }}</span>
+            <button class="page-btn" (click)="nextCollectionPage()" [disabled]="collectionPageIndex >= totalCollectionPages - 1">
+              Next <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- TAB 10: ROLE DATA SCOPE MISMATCH AUDIT -->
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <ion-icon name="warning-outline" class="tab-icon"></ion-icon> Role Data Scope Audit
+      </ng-template>
+      <div class="tab-content">
+        <div class="audit-header-card">
+          <div class="hdr-info">
+            <h3><ion-icon name="shield-half-outline"></ion-icon> Role Data Scoping & Count Discrepancy Finder</h3>
+            <p>Automatically compares student & entity counts between <strong>Madrasa Incharge</strong>, <strong>Org Admin</strong>, and <strong>Super Admin</strong> roles to detect missing fields or formatting bugs.</p>
+          </div>
+          <button class="audit-run-btn" (click)="runDataScopeAudit()" [disabled]="isAuditingDiscrepancies">
+            <ion-icon name="refresh-outline" *ngIf="!isAuditingDiscrepancies"></ion-icon>
+            <span *ngIf="!isAuditingDiscrepancies">Re-run Scope Audit</span>
+            <span *ngIf="isAuditingDiscrepancies">Auditing Records...</span>
+          </button>
+        </div>
+
+        <div class="audit-loading" *ngIf="isAuditingDiscrepancies">
+          <ion-spinner name="crescent"></ion-spinner>
+          <span>Scanning all Madrasa campuses, staff profiles, and student records for role scoping differences...</span>
+        </div>
+
+        <div class="audit-results-list" *ngIf="!isAuditingDiscrepancies">
+          <div 
+            class="audit-item-card" 
+            *ngFor="let audit of discrepancyAuditResults"
+            [class.mismatch-alert]="audit.hasMismatch"
+            [class.clean-success]="!audit.hasMismatch"
+          >
+            <div class="audit-card-hdr">
+              <div class="mad-title">
+                <ion-icon name="business-outline"></ion-icon>
+                <h3>{{ audit.madrasaName }}</h3>
+                <code class="m-id-code">ID: {{ audit.madrasaId }}</code>
+              </div>
+
+              <div class="status-pill" [class.alert]="audit.hasMismatch" [class.ok]="!audit.hasMismatch">
+                <ion-icon [name]="audit.hasMismatch ? 'alert-circle-outline' : 'checkmark-circle-outline'"></ion-icon>
+                {{ audit.hasMismatch ? 'Count Discrepancy Detected!' : 'Role Counts In Sync' }}
+              </div>
+            </div>
+
+            <!-- Comparison Table by Role -->
+            <div class="role-counts-grid">
+              <div class="role-count-box inch">
+                <span class="r-lbl">Madrasa Incharge View</span>
+                <span class="r-val">{{ audit.inchargeCount }} Students</span>
+              </div>
+              <div class="role-count-box org" [class.warn]="audit.inchargeCount !== audit.orgAdminCount">
+                <span class="r-lbl">Org Admin View</span>
+                <span class="r-val">{{ audit.orgAdminCount }} Students</span>
+              </div>
+              <div class="role-count-box sup">
+                <span class="r-lbl">Super Admin View</span>
+                <span class="r-val">{{ audit.superAdminCount }} Students</span>
+              </div>
+            </div>
+
+            <!-- Discrepant Records Breakdown -->
+            <div class="discrepant-records-box" *ngIf="audit.discrepantStudents?.length">
+              <h4><ion-icon name="warning-outline"></ion-icon> Discrepant Student Records ({{ audit.discrepantStudents.length }}):</h4>
+              
+              <div class="disc-row" *ngFor="let s of audit.discrepantStudents">
+                <div class="disc-info">
+                  <strong>{{ s.studentName }}</strong> <code class="s-id">{{ s.studentId }}</code>
+                  <p class="disc-reason"><ion-icon name="alert-outline"></ion-icon> {{ s.reason }}</p>
+                </div>
+                <button 
+                  class="repair-btn" 
+                  (click)="repairStudentScopingRecord(s.rawDoc, '', audit.madrasaId)"
+                >
+                  <ion-icon name="build-outline"></ion-icon> Sync Record Fields
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+  </mat-tab-group>
+
+  <!-- Interactive Connection Explorer Drawer Overlay -->
+  <div class="connection-drawer-backdrop" *ngIf="selectedItem" (click)="closeDrawer()"></div>
+  <div class="connection-drawer" *ngIf="selectedItem">
+    <div class="drawer-header">
+      <div class="drawer-title">
+        <button class="back-hist-btn" *ngIf="historyStack.length > 0" (click)="goBackHistory()">
+          <ion-icon name="arrow-back-outline"></ion-icon> Back
+        </button>
+        <span class="item-type-pill" [class]="selectedItem.type">{{ selectedItem.type | uppercase }}</span>
+        <h2>{{ selectedItem.name }}</h2>
+      </div>
+      <button class="close-btn" (click)="closeDrawer()">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+
+    <div class="drawer-body">
+      <p class="item-description">{{ selectedItem.description }}</p>
+
+      <!-- Relationship Chain Visualizer -->
+      <div class="chain-section" *ngIf="selectedItem.relationshipChain?.length">
+        <h4>Complete Relationship Chain:</h4>
+        <div class="chain-flex">
+          <ng-container *ngFor="let node of selectedItem.relationshipChain; let last = last">
+            <span class="chain-node">{{ node }}</span>
+            <ion-icon name="chevron-forward-outline" class="chain-arrow" *ngIf="!last"></ion-icon>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- Upstream Dependencies -->
+      <div class="conn-group" *ngIf="selectedItem.dependencies?.length">
+        <h4>Upstream Dependencies (What it depends on):</h4>
+        <div class="chip-flex">
+          <span class="clickable-node dep" *ngFor="let dep of selectedItem.dependencies" (click)="inspectById(dep, 'feature')">
+            <ion-icon name="link-outline"></ion-icon> {{ dep }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Downstream Dependents -->
+      <div class="conn-group" *ngIf="selectedItem.dependents?.length">
+        <h4>Downstream Dependents (What uses this / depends on this):</h4>
+        <div class="chip-flex">
+          <span class="clickable-node dependent" *ngFor="let d of selectedItem.dependents" (click)="inspectById(d, 'component')">
+            <ion-icon name="git-commit-outline"></ion-icon> {{ d }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Connected Entities -->
+      <div class="conn-group" *ngIf="selectedItem.connectedEntities?.length">
+        <h4>Connected Data Entities / Collections:</h4>
+        <div class="chip-flex">
+          <span class="clickable-node entity" *ngFor="let e of selectedItem.connectedEntities" (click)="inspectById(e, 'entity')">
+            <ion-icon name="server-outline"></ion-icon> {{ e }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Connected Services -->
+      <div class="conn-group" *ngIf="selectedItem.connectedServices?.length">
+        <h4>Connected Services & APIs:</h4>
+        <div class="chip-flex">
+          <span class="clickable-node service" *ngFor="let s of selectedItem.connectedServices" (click)="inspectById(s, 'component')">
+            <ion-icon name="cog-outline"></ion-icon> {{ s }}
+          </span>
+        </div>
+      </div>
+
+      <!-- Connected Roles -->
+      <div class="conn-group" *ngIf="selectedItem.connectedRoles?.length">
+        <h4>Authorized Roles:</h4>
+        <div class="chip-flex">
+          <span class="clickable-node role" *ngFor="let r of selectedItem.connectedRoles" (click)="inspectById(r, 'role')">
+            <ion-icon name="person-outline"></ion-icon> {{ r }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</ion-content>

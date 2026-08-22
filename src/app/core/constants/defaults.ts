@@ -128,6 +128,8 @@ export const ALL_PERMISSIONS: PermissionKey[] = [
   'manageQaBugs',
   'manageTestRuns',
   'manageDailyQaReports',
+  'viewArchitectureExplorer',
+  'manageArchitectureExplorer',
 ];
 
 export const PERMISSION_LABELS: Record<PermissionKey, string> = {
@@ -232,6 +234,8 @@ export const PERMISSION_LABELS: Record<PermissionKey, string> = {
   manageQaBugs: 'Create, update, and manage bug reports',
   manageTestRuns: 'Create and manage release test runs',
   manageDailyQaReports: 'Submit and view daily QA testing reports',
+  viewArchitectureExplorer: 'Access Super Admin Architecture & Dependency Explorer',
+  manageArchitectureExplorer: 'Manage Architecture Explorer configurations',
 };
 
 export const ROLE_PERMISSIONS: Record<UserRole, PermissionKey[]> = {

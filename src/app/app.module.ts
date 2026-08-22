@@ -193,9 +193,11 @@ import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
 import { SubscriptionEditDialogComponent } from './pages/subscriptions/subscription-edit-dialog.component';
 import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
 import { ShiftClassGroupsDialogComponent } from './pages/course-catalog/shift-class-groups-dialog.component';
+import { ArchitectureExplorerPage } from './pages/architecture-explorer/architecture-explorer.page';
 
 @NgModule({
   declarations: [
+    ArchitectureExplorerPage,
     DuplicateUsersPage,
     SubscriptionsPage,
     SubscriptionEditDialogComponent,

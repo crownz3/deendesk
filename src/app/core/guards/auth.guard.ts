@@ -20,26 +20,11 @@ export const authGuard: CanActivateFn = (route, state) => {
         take(1),
         map(profile => {
           if (!profile) {
-            console.warn('[Guard] Auth user exists but profile missing for email:', authUser.email, 'uid:', authUser.uid);
             return router.createUrlTree(['/login']);
           }
 
           if (profile.status !== 'active') {
             return router.createUrlTree(['/login'], { queryParams: { status: 'pending' } });
-          }
-
-          if (state.url === '/dashboard' || state.url === '/change-password') {
-            console.log('[Post Password Change Guard Debug]', {
-              uid: profile?.uid,
-              email: profile?.email,
-              role: profile?.role,
-              status: profile?.status,
-              mustChangePassword: profile?.mustChangePassword,
-              organizationId: profile?.organizationId,
-              madrasaId: profile?.madrasaId,
-              madrasaIds: profile?.madrasaIds,
-              permissions: profile?.permissions,
-            });
           }
 
           if (profile.mustChangePassword && state.url !== '/change-password') {
@@ -54,8 +39,7 @@ export const authGuard: CanActivateFn = (route, state) => {
         })
       );
     }),
-    catchError(error => {
-      console.error('[Guard] Guard failed:', error);
+    catchError(() => {
       return of(router.createUrlTree(['/login']));
     })
   );

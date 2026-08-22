@@ -41,6 +41,7 @@ import { HelpSupportPage } from './pages/help-support/help-support.page';
 import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
 import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
 import { QaTestingPage } from './pages/qa-testing/qa-testing.page';
+import { ArchitectureExplorerPage } from './pages/architecture-explorer/architecture-explorer.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -95,6 +96,7 @@ const routes: Routes = [
   { path: 'lifecycle', component: LifecyclePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewLifecycleHistory', 'manageUserLifecycle'] } },
   { path: 'firebase-usage', component: FirebaseUsagePage, canActivate: [authGuard, permissionGuard], data: { permission: 'viewFirebaseUsage', roleRequired: 'superAdmin' } },
   { path: 'qa-testing', component: QaTestingPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewQaTesting', 'manageQaBugs'], roleRequiredAny: ['qaTester', 'superAdmin', 'organizationAdmin'] } },
+  { path: 'architecture-explorer', component: ArchitectureExplorerPage, canActivate: [authGuard, permissionGuard], data: { roleRequired: 'superAdmin' } },
   { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
   { path: '**', redirectTo: 'dashboard' },
 ];

@@ -101,6 +101,110 @@
   }
 }
 
+.direct-contact-banner {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border-radius: 14px;
+  padding: 20px 24px;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);
+
+  .contact-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    .contact-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: 0.5px;
+      width: fit-content;
+    }
+
+    .contact-number-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.6rem;
+      font-weight: 800;
+
+      ion-icon {
+        font-size: 1.5rem;
+      }
+
+      .phone-link {
+        color: #ffffff;
+        text-decoration: none;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+
+    .contact-note {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #e0f2fe;
+    }
+  }
+
+  .contact-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .action-call-btn, .whatsapp-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      text-decoration: none;
+      transition: all 0.2s ease;
+    }
+
+    .action-call-btn {
+      background: #ffffff;
+      color: #0284c7;
+
+      &:hover {
+        background: #f0f9ff;
+        transform: translateY(-1px);
+      }
+    }
+
+    .whatsapp-btn {
+      background: #25d366;
+      color: #ffffff;
+
+      ion-icon {
+        font-size: 1.2rem;
+      }
+
+      &:hover {
+        background: #1eb857;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+      }
+    }
+  }
+}
+
 .stats-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
