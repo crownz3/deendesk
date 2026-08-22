@@ -358,6 +358,10 @@
             <ion-icon name="key-outline"></ion-icon>
             <span>Set temporary password</span>
           </button>
+          <button *ngIf="allowProgressTracker && (resourceKey === 'students' || resourceKey === 'users' || row['role'] === 'student')" mat-menu-item type="button" (click)="viewProgressTracker.emit(row)">
+            <ion-icon name="analytics-outline"></ion-icon>
+            <span>Super Progress View</span>
+          </button>
           <button *ngIf="allowPromotion" mat-menu-item type="button" (click)="promote.emit(row)">
             <ion-icon name="trending-up-outline"></ion-icon>
             <span>Promote / demote</span>

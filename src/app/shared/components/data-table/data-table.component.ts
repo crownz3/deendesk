@@ -36,6 +36,7 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   @Input() allowAssignStudents: boolean = false;
   @Input() allowAssignStaff: boolean = false;
   @Input() allowImpersonate = false;
+  @Input() allowProgressTracker = false;
   @Input() generatedCredentials: Record<string, any> = {};
   @Input() currentUid?: string;
   @Input() excludeRole?: string | string[];
@@ -57,6 +58,7 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
   @Output() transfer = new EventEmitter<EntityRecord>();
   @Output() assignStudents = new EventEmitter<EntityRecord>();
   @Output() assignStaff = new EventEmitter<EntityRecord>();
+  @Output() viewProgressTracker = new EventEmitter<EntityRecord>();
   @Output() emptyAction = new EventEmitter<void>();
   @Output() impersonate = new EventEmitter<any>();
 

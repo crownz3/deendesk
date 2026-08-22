@@ -1,0 +1,359 @@
+<div class="progress-dialog-container">
+  <!-- Dialog Header Toolbar -->
+  <header class="dialog-header">
+    <div class="header-left">
+      <div class="student-avatar" [class.female]="studentGender === 'female'">
+        <span>{{ studentName.substring(0, 2).toUpperCase() }}</span>
+      </div>
+      <div class="student-header-info">
+        <div class="title-row">
+          <h2>{{ studentName }}</h2>
+          <span class="status-badge" [class.active]="studentStatus === 'Active'">{{ studentStatus }}</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-item"><ion-icon name="id-card-outline"></ion-icon> ID: {{ studentCode }}</span>
+          <span class="meta-item"><ion-icon name="business-outline"></ion-icon> {{ madrasaName }}</span>
+          <span class="meta-item"><ion-icon name="easel-outline"></ion-icon> {{ className }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <div class="overall-progress-pill">
+        <ion-icon name="analytics-outline"></ion-icon>
+        <span>{{ overallProgressPercent }}% Overall Progress</span>
+      </div>
+      <button mat-icon-button (click)="close()" class="close-btn">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
+  </header>
+
+  <!-- Navigation Tabs Header -->
+  <nav class="tabs-nav">
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'overview'" (click)="setTab('overview')">
+      <ion-icon name="grid-outline"></ion-icon>
+      <span>Overview & Highlights</span>
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'courses'" (click)="setTab('courses')">
+      <ion-icon name="book-outline"></ion-icon>
+      <span>Course Stage Progress ({{ courseDetails.length }})</span>
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'trajectory'" (click)="setTab('trajectory')">
+      <ion-icon name="trending-up-outline"></ion-icon>
+      <span>Promotion / Demotion Log</span>
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'analytics'" (click)="setTab('analytics')">
+      <ion-icon name="stats-chart-outline"></ion-icon>
+      <span>Attendance & Press Analytics</span>
+    </button>
+    <button type="button" class="tab-btn hifz-tab-btn" [class.active]="activeTab === 'hifz-analytics'" (click)="setTab('hifz-analytics')">
+      <ion-icon name="book-sharp"></ion-icon>
+      <span>Hifz Mastery & Ayah Ranges</span>
+    </button>
+  </nav>
+
+  <!-- Dialog Scrollable Body Content -->
+  <div class="dialog-body">
+
+    <!-- TAB 1: OVERVIEW & HIGHLIGHTS -->
+    <div *ngIf="activeTab === 'overview'" class="tab-pane animate-fade">
+      <div class="overview-grid">
+        <!-- Top Stats Row -->
+        <div class="stats-cards-row">
+          <div class="metric-card primary">
+            <div class="metric-icon"><ion-icon name="trophy-outline"></ion-icon></div>
+            <div class="metric-data">
+              <span class="metric-val">{{ overallProgressPercent }}%</span>
+              <span class="metric-lbl">Overall Completion Rate</span>
+            </div>
+            <mat-progress-bar mode="determinate" [value]="overallProgressPercent" class="metric-bar"></mat-progress-bar>
+          </div>
+
+          <div class="metric-card success">
+            <div class="metric-icon"><ion-icon name="calendar-outline"></ion-icon></div>
+            <div class="metric-data">
+              <span class="metric-val">{{ attendancePercent }}%</span>
+              <span class="metric-lbl">Monthly Attendance</span>
+            </div>
+            <mat-progress-bar mode="determinate" [value]="attendancePercent" class="metric-bar green"></mat-progress-bar>
+          </div>
+
+          <div class="metric-card info">
+            <div class="metric-icon"><ion-icon name="newspaper-outline"></ion-icon></div>
+            <div class="metric-data">
+              <span class="metric-val">{{ quizScorePercent }}%</span>
+              <span class="metric-lbl">Press Score Average</span>
+            </div>
+            <mat-progress-bar mode="determinate" [value]="quizScorePercent" class="metric-bar sky"></mat-progress-bar>
+          </div>
+
+          <div class="metric-card warning">
+            <div class="metric-icon"><ion-icon name="ribbon-outline"></ion-icon></div>
+            <div class="metric-data">
+              <span class="metric-val">{{ totalPromotionsCount }}</span>
+              <span class="metric-lbl">Promotions Achieved</span>
+            </div>
+            <span class="promo-subtext">0 Demotions Recorded</span>
+          </div>
+        </div>
+
+        <!-- Course Summary Breakdown Cards -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3><ion-icon name="bookmarks-outline"></ion-icon> Active Enrolled Courses & Stages</h3>
+            <span class="sub-text">Current position across curriculum types</span>
+          </div>
+          <div class="courses-summary-list">
+            <div *ngFor="let course of courseDetails" class="course-summary-item">
+              <div class="course-info-top">
+                <div class="c-title">
+                  <span class="c-name">{{ course.courseName }}</span>
+                  <span class="c-type-chip">{{ course.courseType }}</span>
+                </div>
+                <div class="c-stage-badge">
+                  <ion-icon name="layers-outline"></ion-icon>
+                  <span>{{ course.currentStage }}</span>
+                </div>
+              </div>
+              <div class="course-progress-bar-container">
+                <div class="bar-header">
+                  <span>Stage {{ course.completedStagesCount }} of {{ course.totalStagesCount }} Completed</span>
+                  <span class="perc">{{ course.progressPercent }}%</span>
+                </div>
+                <div class="custom-progress-track">
+                  <div class="custom-progress-fill" [style.width.%]="course.progressPercent"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Latest Trajectory Highlight -->
+        <div class="section-card">
+          <div class="section-header">
+            <h3><ion-icon name="time-outline"></ion-icon> Recent Promotion Activity</h3>
+          </div>
+          <div class="recent-events-list">
+            <div *ngFor="let ev of trajectoryEvents.slice(0, 2)" class="recent-event-item">
+              <div class="ev-badge" [class.promo]="ev.type === 'promotion'">
+                <ion-icon name="trending-up-outline"></ion-icon>
+              </div>
+              <div class="ev-content">
+                <div class="ev-header">
+                  <span class="ev-title">{{ ev.title }}</span>
+                  <span class="ev-date">{{ ev.date }}</span>
+                </div>
+                <p class="ev-notes">{{ ev.notes }}</p>
+                <span class="ev-evaluator">Evaluated by: {{ ev.conductedBy }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: COURSE STAGE PROGRESS (DETAILED) -->
+    <div *ngIf="activeTab === 'courses'" class="tab-pane animate-fade">
+      <div class="detailed-courses-container">
+        <div *ngFor="let course of courseDetails" class="detailed-course-card">
+          <div class="card-top-bar">
+            <div>
+              <h3>{{ course.courseName }}</h3>
+              <span class="type-subtitle">{{ course.courseType }}</span>
+            </div>
+            <div class="progress-score-box">
+              <span class="score-val">{{ course.progressPercent }}%</span>
+              <span class="score-lbl">Stage Completion</span>
+            </div>
+          </div>
+
+          <div class="stage-progress-bar-wrapper">
+            <div class="bar-fill-bar" [style.width.%]="course.progressPercent"></div>
+          </div>
+
+          <div class="stages-grid-timeline">
+            <h4><ion-icon name="list-outline"></ion-icon> Curriculum Stage Roadmap:</h4>
+            <div class="stages-pills-list">
+              <div *ngFor="let stage of course.stagesList; let idx = index" 
+                   class="stage-pill-item"
+                   [class.completed]="idx < course.completedStagesCount"
+                   [class.current]="stage === course.currentStage">
+                <span class="stage-num">{{ idx + 1 }}</span>
+                <span class="stage-name">{{ stage }}</span>
+                <ion-icon *ngIf="idx < course.completedStagesCount" name="checkmark-circle" class="check-icon"></ion-icon>
+                <ion-icon *ngIf="stage === course.currentStage" name="radio-button-on" class="current-icon"></ion-icon>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: PROMOTION / DEMOTION LOG -->
+    <div *ngIf="activeTab === 'trajectory'" class="tab-pane animate-fade">
+      <div class="trajectory-timeline-container">
+        <div class="timeline-header">
+          <h3><ion-icon name="swap-vertical-outline"></ion-icon> Stage Transition & Evaluation History</h3>
+          <p>Chronological record of student promotions, demotions, and academic advancements.</p>
+        </div>
+
+        <div class="vertical-timeline">
+          <div *ngFor="let ev of trajectoryEvents" class="timeline-item" [class.promo]="ev.type === 'promotion'">
+            <div class="timeline-marker">
+              <ion-icon *ngIf="ev.type === 'promotion'" name="trending-up-outline"></ion-icon>
+              <ion-icon *ngIf="ev.type === 'demotion'" name="trending-down-outline"></ion-icon>
+              <ion-icon *ngIf="ev.type === 'stage_update'" name="sync-outline"></ion-icon>
+              <ion-icon *ngIf="ev.type === 'enrollment'" name="school-outline"></ion-icon>
+            </div>
+            <div class="timeline-card">
+              <div class="timeline-card-header">
+                <span class="event-tag" [class.promo]="ev.type === 'promotion'">{{ ev.type | uppercase }}</span>
+                <span class="event-date"><ion-icon name="calendar-outline"></ion-icon> {{ ev.date }}</span>
+              </div>
+              <h4 class="event-title">{{ ev.title }}</h4>
+              <div class="stage-transition-bar">
+                <span class="from-stage">{{ ev.fromStage }}</span>
+                <ion-icon name="arrow-forward-outline"></ion-icon>
+                <span class="to-stage">{{ ev.toStage }}</span>
+              </div>
+              <p class="event-notes">{{ ev.notes }}</p>
+              <div class="event-footer">
+                <span>Evaluator / Sign-off: <strong>{{ ev.conductedBy }}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: ATTENDANCE & PRESS ANALYTICS (CHART.JS) -->
+    <div *ngIf="activeTab === 'analytics'" class="tab-pane animate-fade">
+      <div class="analytics-grid">
+        <!-- Monthly Attendance Line Chart (Chart.js) -->
+        <div class="analytics-card">
+          <h3><ion-icon name="trending-up-outline"></ion-icon> Monthly Attendance Trend (Chart.js)</h3>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 220px; width: 100%;">
+            <canvas #attendanceCanvas></canvas>
+          </div>
+        </div>
+
+        <!-- Evaluation & Press Competency Scores (Chart.js Bar) -->
+        <div class="analytics-card">
+          <h3><ion-icon name="ribbon-outline"></ion-icon> Press & Competency Scores (Chart.js)</h3>
+          <div class="chart-canvas-wrapper" style="position: relative; height: 220px; width: 100%;">
+            <canvas #skillsCanvas></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: HIFZ MASTERY & AYAH RANGES (WEAK VS STRONG) -->
+    <div *ngIf="activeTab === 'hifz-analytics'" class="tab-pane animate-fade">
+      <div class="hifz-analytics-wrapper">
+        <!-- Summary Cards Row -->
+        <div class="hifz-stats-cards">
+          <div class="hifz-card strong-card">
+            <div class="card-icon"><ion-icon name="checkmark-circle"></ion-icon></div>
+            <div class="card-info">
+              <span class="val">{{ strongHifzRangesCount }} Ranges / Juz</span>
+              <span class="lbl">🟢 Strong / Mutqan (Zero Mistakes)</span>
+            </div>
+          </div>
+
+          <div class="hifz-card moderate-card">
+            <div class="card-icon"><ion-icon name="alert-circle"></ion-icon></div>
+            <div class="card-info">
+              <span class="val">{{ moderateHifzRangesCount }} Ranges / Juz</span>
+              <span class="lbl">🟡 Moderate / Routine Sabqi Review</span>
+            </div>
+          </div>
+
+          <div class="hifz-card weak-card">
+            <div class="card-icon"><ion-icon name="warning"></ion-icon></div>
+            <div class="card-info">
+              <span class="val">{{ weakHifzRangesCount }} Ranges / Juz</span>
+              <span class="lbl">🔴 Weak / High Priority Daily Focus</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Grid Row -->
+        <div class="hifz-charts-grid">
+          <!-- Hifz Ratio Doughnut Chart -->
+          <div class="chart-box">
+            <h3><ion-icon name="pie-chart-outline"></ion-icon> Hifz Range Mastery Breakdown</h3>
+            <div class="chart-canvas-container" style="position: relative; height: 210px;">
+              <canvas #hifzDoughnutCanvas></canvas>
+            </div>
+          </div>
+
+          <!-- Hifz Juz Strength Bar Chart -->
+          <div class="chart-box">
+            <h3><ion-icon name="bar-chart-outline"></ion-icon> Fluency Score by Juz Range</h3>
+            <div class="chart-canvas-container" style="position: relative; height: 210px;">
+              <canvas #hifzBarCanvas></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hifz Ayah Ranges Detailed Table -->
+        <div class="hifz-ranges-table-card">
+          <div class="table-header">
+            <h3><ion-icon name="list-outline"></ion-icon> Detailed Juz, Surah & Ayah Ranges Mastery Log</h3>
+            <span class="sub-lbl">Identifies exact weak Ayah ranges for teacher revision assignments</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="ranges-table">
+              <thead>
+                <tr>
+                  <th>Juz #</th>
+                  <th>Surah Name</th>
+                  <th>Ayah Range</th>
+                  <th>Mastery Status</th>
+                  <th>Fluency Score</th>
+                  <th>Last Tested</th>
+                  <th>Teacher Action Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of hifzRanges" [class.weak-row]="item.status === 'weak'" [class.strong-row]="item.status === 'strong'">
+                  <td><span class="juz-chip">Juz {{ item.juzNumber }}</span></td>
+                  <td><strong>{{ item.surahName }}</strong></td>
+                  <td><code>{{ item.ayahRange }}</code></td>
+                  <td>
+                    <span class="status-pill" [class.strong]="item.status === 'strong'" [class.moderate]="item.status === 'moderate'" [class.weak]="item.status === 'weak'">
+                      {{ item.status === 'strong' ? '🟢 Strong (Mutqan)' : (item.status === 'moderate' ? '🟡 Moderate' : '🔴 Weak / Focus Needed') }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="score-progress-cell">
+                      <span class="score-num">{{ item.scorePercent }}%</span>
+                      <div class="mini-bar-track">
+                        <div class="mini-bar-fill" [style.width.%]="item.scorePercent" [class.green]="item.status === 'strong'" [class.amber]="item.status === 'moderate'" [class.red]="item.status === 'weak'"></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td><span class="date-lbl">{{ item.lastTestedDate }}</span></td>
+                  <td><span class="notes-text" [class.weak-text]="item.status === 'weak'">{{ item.teacherNotes }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Dialog Footer Toolbar -->
+  <footer class="dialog-footer">
+    <div class="footer-left">
+      <span>Deendesk Academic Progress Tracker Super-View v1.3</span>
+    </div>
+    <div class="footer-actions">
+      <button mat-stroked-button (click)="close()">Close</button>
+    </div>
+  </footer>
+</div>

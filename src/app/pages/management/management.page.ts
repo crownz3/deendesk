@@ -27,6 +27,7 @@ import { RolePermissionsService } from '../../core/services/role-permissions.ser
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
 import { QuickAddDialogComponent, QuickAddResult } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
 import { UserDetailsDialogComponent } from '../../shared/components/user-details-dialog/user-details-dialog.component';
+import { StudentProgressTrackerDialogComponent } from '../../shared/components/student-progress-tracker-dialog/student-progress-tracker-dialog.component';
 import { CourseDetailsDialogComponent } from './course-details-dialog/course-details-dialog.component';
 import { CourseMadrasasDialogComponent } from './course-madrasas-dialog/course-madrasas-dialog.component';
 import { ClassDetailsDialogComponent } from './class-details-dialog/class-details-dialog.component';
@@ -3211,6 +3212,17 @@ export class ManagementPage {
       maxWidth: '80vw',
       height: '85vh',
       panelClass: 'user-details-dialog-panel'
+    });
+  }
+
+  openProgressTracker(row: EntityRecord): void {
+    this.dialog.open(StudentProgressTrackerDialogComponent, {
+      data: { student: row },
+      width: '90vw',
+      maxWidth: '100vw',
+      height: '90vh',
+      maxHeight: '100vh',
+      panelClass: 'student-progress-tracker-dialog-panel'
     });
   }
 

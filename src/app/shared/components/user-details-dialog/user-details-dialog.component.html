@@ -16,10 +16,18 @@
         </span>
       </div>
     </div>
+    <div class="header-right-actions" style="display: flex; align-items: center; gap: 8px;">
+      <button *ngIf="currentUserRole === 'superAdmin' && (user['role'] === 'student' || user['course'] || user['stage'])" mat-raised-button color="primary"
+        type="button" (click)="openProgressTracker()"
+        style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; height: 38px; border-radius: 20px;">
+        <ion-icon name="analytics-outline"></ion-icon>
+        <span>Super Progress View</span>
+      </button>
+      <button mat-icon-button (click)="close()" aria-label="Close dialog">
+        <ion-icon name="close-outline"></ion-icon>
+      </button>
+    </div>
   </div>
-  <button mat-icon-button (click)="close()" aria-label="Close dialog">
-    <ion-icon name="close-outline"></ion-icon>
-  </button>
 </header>
 
 <!-- Dialog Navigation Tabs -->
@@ -34,7 +42,8 @@
     <span>More Details</span>
   </button>
 
-  <button type="button" class="tab-btn badge-tab" [class.active]="activeTab === 'students'" (click)="activeTab = 'students'" *ngIf="totalStudentCount > 0 || loadingStudents">
+  <button type="button" class="tab-btn badge-tab" [class.active]="activeTab === 'students'"
+    (click)="activeTab = 'students'" *ngIf="totalStudentCount > 0 || loadingStudents">
     <ion-icon name="people-outline"></ion-icon>
     <span>Students List</span>
     <span class="tab-count-chip">{{ totalStudentCount }}</span>
@@ -46,7 +55,7 @@
   <!-- MINIMAL DETAILS TAB -->
   <div *ngIf="activeTab === 'minimal'" class="tab-content minimal-tab">
     <div class="minimal-grid">
-      
+
       <!-- Personal Overview -->
       <article class="detail-card">
         <div class="card-header">
@@ -94,7 +103,8 @@
                 </span>
               </ng-container>
               <ng-template #singleMadrasa>
-                <app-name-with-copy *ngIf="user['madrasaId']" [id]="user['madrasaId']" type="madrasa"></app-name-with-copy>
+                <app-name-with-copy *ngIf="user['madrasaId']" [id]="user['madrasaId']"
+                  type="madrasa"></app-name-with-copy>
                 <span *ngIf="!user['madrasaId'] && !getArray('madrasaIds').length">-</span>
               </ng-template>
             </span>
@@ -159,7 +169,8 @@
       </article>
 
       <!-- Student Count Trigger Banner -->
-      <article class="detail-card highlight-card" (click)="activeTab = 'students'" *ngIf="totalStudentCount > 0 || loadingStudents">
+      <article class="detail-card highlight-card" (click)="activeTab = 'students'"
+        *ngIf="totalStudentCount > 0 || loadingStudents">
         <div class="student-count-banner">
           <div class="count-main">
             <div class="count-icon-box">
@@ -215,7 +226,7 @@
   <!-- MORE DETAILS TAB -->
   <div *ngIf="activeTab === 'more'" class="tab-content more-tab">
     <div class="cards-grid">
-      
+
       <!-- Role & Permissions -->
       <article class="detail-card">
         <div class="card-header">
@@ -261,7 +272,8 @@
           <div class="info-row">
             <span class="label">Password Status</span>
             <span class="value">
-              <span class="status-chip" [ngClass]="credentialInfo.status === 'TEMP_PASSWORD_PENDING' ? 'warning' : (credentialInfo.status === 'PASSWORD_CHANGED' ? 'success' : 'danger')">
+              <span class="status-chip"
+                [ngClass]="credentialInfo.status === 'TEMP_PASSWORD_PENDING' ? 'warning' : (credentialInfo.status === 'PASSWORD_CHANGED' ? 'success' : 'danger')">
                 {{ passwordStatus }}
               </span>
             </span>
@@ -333,7 +345,8 @@
           <div class="info-row">
             <span class="label">Created By</span>
             <span class="value uid-text">
-              <app-name-with-copy *ngIf="user['createdBy']; else noCreatedBy" [id]="user['createdBy']" type="user"></app-name-with-copy>
+              <app-name-with-copy *ngIf="user['createdBy']; else noCreatedBy" [id]="user['createdBy']"
+                type="user"></app-name-with-copy>
               <ng-template #noCreatedBy>-</ng-template>
             </span>
           </div>
@@ -346,7 +359,8 @@
 </mat-dialog-content>
 
 <mat-dialog-actions align="end">
-  <button mat-button *ngIf="user['role'] === 'student' || user['role'] === 'staff' || user['role'] === 'teacher'" (click)="viewAttendanceHistory()">
+  <button mat-button *ngIf="user['role'] === 'student' || user['role'] === 'staff' || user['role'] === 'teacher'"
+    (click)="viewAttendanceHistory()">
     <ion-icon name="calendar-outline"></ion-icon>
     Attendance History
   </button>

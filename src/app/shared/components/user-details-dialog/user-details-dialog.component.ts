@@ -2,6 +2,7 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AttendanceHistoryDialogComponent } from '../attendance-history-dialog/attendance-history-dialog.component';
+import { StudentProgressTrackerDialogComponent } from '../student-progress-tracker-dialog/student-progress-tracker-dialog.component';
 import { EntityRecord } from '../../../core/services/repository.service';
 import { PERMISSION_LABELS, ROLE_LABELS } from '../../../core/constants/defaults';
 import { AuthService } from '../../../core/services/auth.service';
@@ -402,6 +403,16 @@ export class UserDetailsDialogComponent implements OnInit {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  openProgressTracker(): void {
+    this.dialog.open(StudentProgressTrackerDialogComponent, {
+      width: '90vw',
+      maxWidth: '100vw',
+      height: '90vh',
+      maxHeight: '100vh',
+      data: { student: this.user }
+    });
   }
 
   viewAttendanceHistory(): void {

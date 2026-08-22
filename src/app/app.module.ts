@@ -72,6 +72,7 @@ import { StatusBadgeComponent } from './shared/components/status-badge/status-ba
 import { GlobalLoaderComponent } from './shared/components/global-loader/global-loader.component';
 import { AppSettingsDialogComponent } from './shared/components/app-settings-dialog/app-settings-dialog.component';
 import { UserDetailsDialogComponent } from './shared/components/user-details-dialog/user-details-dialog.component';
+import { StudentProgressTrackerDialogComponent } from './shared/components/student-progress-tracker-dialog/student-progress-tracker-dialog.component';
 import { MadrasaDetailsDialogComponent } from './shared/components/madrasa-details-dialog/madrasa-details-dialog.component';
 import { HelpGuideDialogComponent } from './shared/components/help-guide-dialog/help-guide-dialog.component';
 import { SetupMapComponent } from './shared/components/setup-map/setup-map.component';
@@ -241,6 +242,7 @@ import { ArchitectureExplorerPage } from './pages/architecture-explorer/architec
     GlobalLoaderComponent,
     AppSettingsDialogComponent,
     UserDetailsDialogComponent,
+    StudentProgressTrackerDialogComponent,
     MadrasaDetailsDialogComponent,
     HelpGuideDialogComponent,
     SetupMapComponent,
