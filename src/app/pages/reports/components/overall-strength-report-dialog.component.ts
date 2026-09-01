@@ -32,7 +32,8 @@ export class OverallStrengthReportDialogComponent implements OnInit {
   // Report Controls & Filters
   public selectedMonth = 'January';
   public selectedYear = 2026;
-  public selectedMadrasaId = 'all';
+  public selectedMadrasaIds: string[] = [];
+  public madrasaSearchQuery = '';
   public reportBasis: ReportGroupingBasis = 'departmentGender';
   public consolidateGroupNames = false;
 
@@ -76,6 +77,12 @@ export class OverallStrengthReportDialogComponent implements OnInit {
 
   ngOnInit() {
     this.loadData();
+  }
+
+  get filteredMadrasas(): EntityRecord[] {
+    if (!this.madrasaSearchQuery.trim()) return this.madrasas;
+    const q = this.madrasaSearchQuery.toLowerCase();
+    return this.madrasas.filter(m => String(m['name'] || '').toLowerCase().includes(q));
   }
 
   public async loadData() {
@@ -128,6 +135,13 @@ export class OverallStrengthReportDialogComponent implements OnInit {
   }
 
   public calculateMatrix() {
+    if (this.selectedMadrasaIds.length === 0) {
+      this.matrixRows = [];
+      this.shiftTotals = {};
+      this.grandTotal = 0;
+      return;
+    }
+
     // 1. Setup Base Shift Headers
     if (!this.shifts || this.shifts.length === 0) {
       const defaultNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
@@ -167,8 +181,8 @@ export class OverallStrengthReportDialogComponent implements OnInit {
 
     // 2. Filter Active Students
     let activeStudents = this.students.filter(s => s['status'] !== 'inactive' && s['status'] !== 'dropped');
-    if (this.selectedMadrasaId !== 'all') {
-      activeStudents = activeStudents.filter(s => String(s['madrasaId']) === String(this.selectedMadrasaId));
+    if (!this.selectedMadrasaIds.includes('all')) {
+      activeStudents = activeStudents.filter(s => this.selectedMadrasaIds.includes(String(s['madrasaId'])));
     }
 
     // Maps

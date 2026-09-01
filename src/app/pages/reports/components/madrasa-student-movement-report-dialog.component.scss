@@ -1,0 +1,428 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.madrasa-report-dialog-container {
+  display: flex;
+  flex-direction: column;
+  height: 90vh;
+  max-height: 900px;
+  width: 100%;
+  max-width: 100%;
+  background-color: #f8fafc;
+  color: #1e293b;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .brand-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+      }
+
+      .dialog-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .dialog-subtitle {
+        margin: 0;
+        font-size: 12px;
+        color: #64748b;
+      }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  }
+
+  .filter-toolbar {
+    padding: 10px 20px;
+    background-color: #ffffff;
+
+    .filter-fields {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+
+      .control-field {
+        flex: 1;
+        min-width: 110px;
+        font-size: 12px;
+      }
+
+      .madrasa-field {
+        flex: 2;
+        min-width: 180px;
+      }
+
+      .cust-menu-btn {
+        height: 40px;
+        font-size: 12px;
+      }
+    }
+  }
+
+  .dialog-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 20px;
+    box-sizing: border-box;
+
+    .loading-state, .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 50px 20px;
+      text-align: center;
+      color: #64748b;
+
+      .empty-icon {
+        font-size: 40px;
+        width: 40px;
+        height: 40px;
+        margin-bottom: 10px;
+      }
+    }
+
+    .report-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      box-sizing: border-box;
+
+      .report-main-header {
+        background-color: #ffffff;
+        padding: 14px 20px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+
+        .bismillah-header {
+          text-align: center;
+          font-size: 22px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 4px;
+          font-family: 'Amiri', 'Traditional Arabic', serif;
+        }
+
+        .org-name-header {
+          text-align: center;
+
+          h2 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 800;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+        }
+      }
+
+      .report-cards-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        width: 100%;
+        box-sizing: border-box;
+
+        .madrasa-report-card {
+          background-color: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+          padding: 16px;
+          box-shadow: 0 1px 4px rgba(0, 0, 0, 0.02);
+          width: 100%;
+          box-sizing: border-box;
+
+          .card-header-details {
+            margin-bottom: 12px;
+            background-color: #f8fafc;
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #f1f5f9;
+
+            .meta-info-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 13px;
+
+              td.meta-cell {
+                padding: 4px 6px;
+                vertical-align: middle;
+                border: none !important;
+
+                &.wide {
+                  width: 50%;
+                }
+
+                .meta-label {
+                  font-weight: 700;
+                  color: #475569;
+                  margin-right: 6px;
+                  white-space: nowrap;
+                }
+
+                .meta-val {
+                  color: #0f172a;
+
+                  &.inline-span {
+                    display: inline-block;
+                    margin-right: 24px;
+                  }
+                }
+              }
+            }
+          }
+
+          .section-container {
+            margin-bottom: 14px;
+            width: 100%;
+            box-sizing: border-box;
+
+            &:last-child {
+              margin-bottom: 0;
+            }
+
+            .section-title {
+              margin: 0 0 6px 0;
+              font-size: 13px;
+              font-weight: 700;
+              color: #1e293b;
+
+              &.text-danger { color: #dc2626; }
+              &.text-success { color: #166534; }
+              &.text-warning { color: #d97706; }
+              &.text-info { color: #0284c7; }
+            }
+
+            .report-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 12px;
+              table-layout: fixed;
+              box-sizing: border-box;
+
+              th, td {
+                padding: 6px 8px;
+                text-align: left;
+                border: 1px solid #cbd5e1;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                box-sizing: border-box;
+              }
+
+              th {
+                background-color: #f1f5f9;
+                color: #334155;
+                font-weight: 700;
+                font-size: 11px;
+              }
+
+              td {
+                color: #1e293b;
+
+                &.font-bold { font-weight: 700; }
+                &.text-primary { color: #1e3a8a; }
+                &.text-success { color: #166534; }
+                &.text-danger { color: #dc2626; }
+                &.text-warning { color: #d97706; }
+                &.text-info { color: #0284c7; }
+                &.text-accent { color: #0284c7; }
+                &.text-strike { text-decoration: line-through; }
+              }
+
+              tbody tr:nth-child(even) {
+                background-color: #f8fafc;
+              }
+            }
+
+            .metrics-table {
+              th {
+                text-align: center;
+                background-color: #f1f5f9;
+                font-size: 11px;
+                padding: 6px 4px;
+              }
+
+              td {
+                text-align: center;
+                font-size: 12px;
+                padding: 6px 4px;
+              }
+            }
+
+            .roster-table {
+              &.left-table {
+                th { background-color: #fef2f2; color: #991b1b; border-color: #fecaca; }
+                td { border-color: #fecaca; }
+                tbody tr:nth-child(even) { background-color: #fff5f5; }
+              }
+              &.promote-table {
+                th { background-color: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+                td { border-color: #bbf7d0; }
+                tbody tr:nth-child(even) { background-color: #f6fbf7; }
+              }
+              &.demote-table {
+                th { background-color: #fffbeb; color: #92400e; border-color: #fde68a; }
+                td { border-color: #fde68a; }
+                tbody tr:nth-child(even) { background-color: #fffdf5; }
+              }
+              &.transfer-table {
+                th { background-color: #f0f9ff; color: #075985; border-color: #bae6fd; }
+                td { border-color: #bae6fd; }
+                tbody tr:nth-child(even) { background-color: #f7fcff; }
+              }
+
+              .status-chip {
+                display: inline-block;
+                padding: 2px 6px;
+                border-radius: 10px;
+                font-size: 10px;
+                font-weight: 700;
+
+                &.chip-active { background-color: #dcfce7; color: #166534; }
+                &.chip-left { background-color: #fee2e2; color: #dc2626; }
+                &.chip-promote { background-color: #bbf7d0; color: #15803d; }
+                &.chip-demote { background-color: #fef3c7; color: #b45309; }
+                &.chip-transfer { background-color: #e0f2fe; color: #0369a1; }
+              }
+            }
+
+            .empty-table-note {
+              padding: 10px;
+              font-size: 11px;
+              color: #94a3b8;
+              font-style: italic;
+              background-color: #f8fafc;
+              border: 1px dashed #e2e8f0;
+              border-radius: 4px;
+            }
+          }
+        }
+      }
+
+      .card-footer-branding {
+        text-align: right;
+        font-size: 10px;
+        color: #94a3b8;
+        padding-top: 6px;
+      }
+    }
+  }
+}
+
+.pdf-menu-header {
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.select-search-box {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  .search-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #64748b;
+    margin-right: 6px;
+  }
+
+  .search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+    color: #0f172a;
+  }
+
+  .clear-btn {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+
+    .mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+@media print {
+  * {
+    box-sizing: border-box !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .madrasa-report-dialog-container {
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .dialog-body {
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .madrasa-report-card {
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: none !important;
+    padding: 12px !important;
+    margin-bottom: 16px !important;
+    page-break-inside: avoid !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .report-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+}

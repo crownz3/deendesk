@@ -35,6 +35,42 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
       { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
     ]
   },
+  {
+    id: 'madrasa-student-movement-details-report',
+    name: 'Madrasa-Wise Movement & Student Roster Report',
+    category: 'client',
+    collection: 'students',
+    requiredFilters: ['madrasa', 'shift', 'month', 'year', 'status'],
+    emptyText: 'No student movement data found for the selected madrasa(s).',
+    columns: [
+      { key: 'madrasaNameDisplay', label: 'Madrasa Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'assignedStaffNamesDisplay', label: 'Usthadh / Teacher Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'courseNameDisplay', label: 'Shift / Timing', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'assignedClassGroupDisplay', label: 'Group Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'prevMonthStudentCount', label: 'Last Month Count', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'currentMonthStudentCount', label: 'Current Month Count', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'newAdmissionCount', label: 'New Admissions', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'inactiveCount', label: 'Left / Dropouts', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'promoteDemoteCount', label: 'Promoted / Demoted', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'transferCount', label: 'Transfers', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'studentNameDisplay', label: 'Student Details', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'madrasa-usthadh-list-report',
+    name: 'Madrasa-Wise Usthadh & Group Roster Report',
+    category: 'client',
+    collection: 'staff',
+    requiredFilters: ['madrasa', 'gender', 'search'],
+    emptyText: 'No Usthadh records found for the selected madrasa(s).',
+    columns: [
+      { key: 'sNo', label: 'S. No', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'madrasaName', label: 'Matharasa Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'usthadhName', label: 'Usthadh Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'phone', label: 'Phone Number', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'groupsDisplay', label: 'Group', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
 
   // --- STUDENT REPORTS ---
   {

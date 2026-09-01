@@ -1,0 +1,328 @@
+<div class="madrasa-report-dialog-container">
+  <!-- Dialog Header -->
+  <header class="dialog-header no-print">
+    <div class="header-brand">
+      <mat-icon color="primary" class="brand-icon">assignment_ind</mat-icon>
+      <div>
+        <h2 class="dialog-title">Madrasa-Wise Movement & Student Details Report</h2>
+        <p class="dialog-subtitle">Generate student movement summary and roster by Madrasa and Class Group</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button mat-flat-button color="primary" (click)="printReport()">
+        <mat-icon>print</mat-icon> Print Report
+      </button>
+      <button mat-icon-button mat-dialog-close type="button" aria-label="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </header>
+
+  <!-- Filter & Customization Toolbar -->
+  <div class="filter-toolbar no-print">
+    <div class="filter-fields">
+      <!-- Madrasa Multi-Select Filter with Type-to-Search -->
+      <mat-form-field appearance="outline" density="compact" class="control-field madrasa-field">
+        <mat-label>Madrasa(s)</mat-label>
+        <mat-select [(ngModel)]="selectedMadrasaIds" multiple (selectionChange)="generateReport()">
+          <div class="select-search-box" (click)="$event.stopPropagation()">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Type to search madrasa..."
+              [(ngModel)]="madrasaSearchQuery"
+              (keydown)="$event.stopPropagation()"
+            />
+            <button mat-icon-button type="button" class="clear-btn" *ngIf="madrasaSearchQuery" (click)="madrasaSearchQuery = ''">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <mat-option value="all">All Madrasas</mat-option>
+          <mat-option *ngFor="let m of filteredMadrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Shift Filter -->
+      <mat-form-field appearance="outline" density="compact" class="control-field shift-field">
+        <mat-label>Shift</mat-label>
+        <mat-select [(ngModel)]="selectedShift" (selectionChange)="generateReport()">
+          <mat-option *ngFor="let opt of shiftOptions" [value]="opt.value">{{ opt.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Selected Month Filter -->
+      <mat-form-field appearance="outline" density="compact" class="control-field month-field">
+        <mat-label>Month</mat-label>
+        <mat-select [(ngModel)]="selectedMonth" (selectionChange)="generateReport()">
+          <mat-option *ngFor="let m of months" [value]="m">{{ m }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Compare Month Filter -->
+      <mat-form-field appearance="outline" density="compact" class="control-field month-field">
+        <mat-label>Compare With</mat-label>
+        <mat-select [(ngModel)]="compareMonth" (selectionChange)="generateReport()">
+          <mat-option *ngFor="let m of months" [value]="m">{{ m }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Year Filter -->
+      <mat-form-field appearance="outline" density="compact" class="control-field year-field">
+        <mat-label>Year</mat-label>
+        <mat-select [(ngModel)]="selectedYear" (selectionChange)="generateReport()">
+          <mat-option *ngFor="let y of years" [value]="y">{{ y }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- PDF / Bismillah Options Menu -->
+      <button mat-stroked-button [matMenuTriggerFor]="pdfCustomMenu" type="button" class="cust-menu-btn">
+        <mat-icon color="accent">tune</mat-icon> PDF Options
+      </button>
+      <mat-menu #pdfCustomMenu="matMenu" xPosition="before">
+        <div class="pdf-menu-header" (click)="$event.stopPropagation()">PDF Customization</div>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="$event.stopPropagation()">
+          <mat-checkbox [(ngModel)]="includeBismillah" color="primary">Include Bismillah</mat-checkbox>
+        </button>
+        <button mat-menu-item (click)="$event.stopPropagation()">
+          <mat-checkbox [(ngModel)]="includeOrgName" color="primary">Include Org Header</mat-checkbox>
+        </button>
+        <button mat-menu-item (click)="$event.stopPropagation()">
+          <mat-checkbox [(ngModel)]="showAppNameBranding" color="primary">Show App Branding</mat-checkbox>
+        </button>
+      </mat-menu>
+    </div>
+  </div>
+
+  <mat-divider class="no-print"></mat-divider>
+
+  <!-- Report Content Body -->
+  <div class="dialog-body printable-content">
+    
+    <div class="loading-state" *ngIf="loading">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading madrasa student movement records...</p>
+    </div>
+
+    <div class="empty-state" *ngIf="!loading && batchReports.length === 0">
+      <mat-icon class="empty-icon">search_off</mat-icon>
+      <h3>No Madrasa Records Found</h3>
+      <p>Please adjust your Madrasa, Shift, Month, or Year filters.</p>
+    </div>
+
+    <!-- Report Wrapper -->
+    <div class="report-wrapper" *ngIf="!loading && batchReports.length > 0">
+
+      <!-- Bismillah & Organization Header (Rendered ONLY ONCE at top of report) -->
+      <div class="report-main-header">
+        <div class="bismillah-header" *ngIf="includeBismillah">
+          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+        </div>
+        <div class="org-name-header" *ngIf="includeOrgName">
+          <h2>{{ organizationName }}</h2>
+        </div>
+      </div>
+
+      <!-- Batch Report Cards Container -->
+      <div class="report-cards-container">
+        <div class="madrasa-report-card" *ngFor="let batch of batchReports">
+
+          <!-- Publication-Quality Metadata Box -->
+          <div class="card-header-details">
+            <table class="meta-info-table">
+              <tr>
+                <td class="meta-cell wide">
+                  <span class="meta-label">Matharasa Name:</span>
+                  <span class="meta-val font-bold text-primary">{{ batch.madrasaName }}</span>
+                </td>
+                <td class="meta-cell wide">
+                  <span class="meta-label">Usthadh Name:</span>
+                  <span class="meta-val font-semibold">{{ batch.usthadhName }}</span>
+                </td>
+              </tr>
+              <tr>
+                <td class="meta-cell" colspan="2">
+                  <span class="meta-label">Month:</span>
+                  <span class="meta-val font-medium inline-span">{{ batch.monthYearDisplay }}</span>
+                  
+                  <span class="meta-label">Shift:</span>
+                  <span class="meta-val font-medium inline-span">{{ batch.shiftDisplay }}</span>
+                  
+                  <span class="meta-label">Group Name:</span>
+                  <span class="meta-val font-bold text-accent inline-span">{{ batch.groupNameDisplay }}</span>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Movement Summary Table -->
+          <div class="section-container">
+            <h4 class="section-title">No. of Students :</h4>
+            <table class="report-table metrics-table">
+              <thead>
+                <tr>
+                  <th style="width: 20%;">Compare ({{ compareMonth }})</th>
+                  <th style="width: 16%;">Current Month</th>
+                  <th style="width: 13%;">New Adm.</th>
+                  <th style="width: 13%;">Left</th>
+                  <th style="width: 13%;">Promoted</th>
+                  <th style="width: 13%;">Demoted</th>
+                  <th style="width: 12%;">Transferred</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-bold">{{ batch.lastMonthCount }}</td>
+                  <td class="font-bold text-primary">{{ batch.currentMonthCount }}</td>
+                  <td class="text-success font-bold">{{ batch.newAdmissionCount }}</td>
+                  <td class="text-danger font-bold">{{ batch.leftCount }}</td>
+                  <td class="font-bold">{{ batch.promoteCount }}</td>
+                  <td class="font-bold">{{ batch.demoteCount }}</td>
+                  <td class="font-bold">{{ batch.transferCount }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Active Students Details Table -->
+          <div class="section-container">
+            <h4 class="section-title">Students Details</h4>
+            <table class="report-table roster-table" *ngIf="batch.studentRoster.length > 0">
+              <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">#</th>
+                  <th style="width: 35%;">Student Name</th>
+                  <th style="width: 25%;">Stage / Level</th>
+                  <th style="width: 25%;">Group Name</th>
+                  <th style="width: 15%;">Mobile Number</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let st of batch.studentRoster">
+                  <td style="text-align: center; color: #64748b; font-weight: 600;">{{ st.sNo }}.</td>
+                  <td class="font-bold text-dark">{{ st.name }}</td>
+                  <td style="color: #475569;">{{ st.stage }}</td>
+                  <td class="text-accent font-semibold">{{ st.group }}</td>
+                  <td style="color: #334155; font-weight: 500;">{{ st.mobile }}</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="empty-table-note" *ngIf="batch.studentRoster.length === 0">
+              No enrolled active students in this group.
+            </div>
+          </div>
+
+          <!-- Left Students Details Table -->
+          <div class="section-container left-container" *ngIf="batch.leftStudentRoster && batch.leftStudentRoster.length > 0">
+            <h4 class="section-title text-danger">Left Students Details</h4>
+            <table class="report-table roster-table left-table">
+              <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">#</th>
+                  <th style="width: 35%;">Student Name</th>
+                  <th style="width: 25%;">Stage / Level</th>
+                  <th style="width: 25%;">Group Name</th>
+                  <th style="width: 15%;">Mobile Number</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let st of batch.leftStudentRoster">
+                  <td style="text-align: center; color: #ef4444; font-weight: 600;">{{ st.sNo }}.</td>
+                  <td class="font-bold text-strike text-danger">{{ st.name }}</td>
+                  <td style="color: #64748b;">{{ st.stage }}</td>
+                  <td>{{ st.group }}</td>
+                  <td style="color: #dc2626; font-weight: 500;">{{ st.mobile }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Promoted Students Details Table -->
+          <div class="section-container promote-container" *ngIf="batch.promotedStudentRoster && batch.promotedStudentRoster.length > 0">
+            <h4 class="section-title text-success">Promoted Students Details</h4>
+            <table class="report-table roster-table promote-table">
+              <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">#</th>
+                  <th style="width: 35%;">Student Name</th>
+                  <th style="width: 25%;">Stage / Level</th>
+                  <th style="width: 25%;">Group Name</th>
+                  <th style="width: 15%;">Mobile Number</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let st of batch.promotedStudentRoster">
+                  <td style="text-align: center; color: #166534; font-weight: 600;">{{ st.sNo }}.</td>
+                  <td class="font-bold text-success">{{ st.name }}</td>
+                  <td style="color: #475569;">{{ st.stage }}</td>
+                  <td>{{ st.group }}</td>
+                  <td style="color: #166534; font-weight: 500;">{{ st.mobile }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Demoted Students Details Table -->
+          <div class="section-container demote-container" *ngIf="batch.demotedStudentRoster && batch.demotedStudentRoster.length > 0">
+            <h4 class="section-title text-warning">Demoted Students Details</h4>
+            <table class="report-table roster-table demote-table">
+              <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">#</th>
+                  <th style="width: 35%;">Student Name</th>
+                  <th style="width: 25%;">Stage / Level</th>
+                  <th style="width: 25%;">Group Name</th>
+                  <th style="width: 15%;">Mobile Number</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let st of batch.demotedStudentRoster">
+                  <td style="text-align: center; color: #d97706; font-weight: 600;">{{ st.sNo }}.</td>
+                  <td class="font-bold text-warning">{{ st.name }}</td>
+                  <td style="color: #475569;">{{ st.stage }}</td>
+                  <td>{{ st.group }}</td>
+                  <td style="color: #d97706; font-weight: 500;">{{ st.mobile }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Transferred Students Details Table -->
+          <div class="section-container transfer-container" *ngIf="batch.transferredStudentRoster && batch.transferredStudentRoster.length > 0">
+            <h4 class="section-title text-info">Transferred Students Details</h4>
+            <table class="report-table roster-table transfer-table">
+              <thead>
+                <tr>
+                  <th style="width: 45px; text-align: center;">#</th>
+                  <th style="width: 35%;">Student Name</th>
+                  <th style="width: 25%;">Stage / Level</th>
+                  <th style="width: 25%;">Group Name</th>
+                  <th style="width: 15%;">Mobile Number</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let st of batch.transferredStudentRoster">
+                  <td style="text-align: center; color: #0284c7; font-weight: 600;">{{ st.sNo }}.</td>
+                  <td class="font-bold text-info">{{ st.name }}</td>
+                  <td style="color: #475569;">{{ st.stage }}</td>
+                  <td>{{ st.group }}</td>
+                  <td style="color: #0284c7; font-weight: 500;">{{ st.mobile }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Footer Branding -->
+      <div class="card-footer-branding" *ngIf="showAppNameBranding">
+        Generated via Deendesk Institution System
+      </div>
+
+    </div>
+
+  </div>
+</div>

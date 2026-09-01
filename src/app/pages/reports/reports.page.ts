@@ -15,6 +15,8 @@ import { SaveReportDialogComponent } from './components/save-report-dialog.compo
 import { ManageReportsDialogComponent } from './components/manage-reports-dialog.component';
 import { ReportTemplatesDialogComponent } from './components/report-templates-dialog.component';
 import { OverallStrengthReportDialogComponent } from './components/overall-strength-report-dialog.component';
+import { MadrasaStudentMovementReportDialogComponent } from './components/madrasa-student-movement-report-dialog.component';
+import { MadrasaUsthadhListReportDialogComponent } from './components/madrasa-usthadh-list-report-dialog.component';
 import { RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -468,6 +470,10 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
       if (selectedReportId) {
         if (selectedReportId === 'overall-strength-report') {
           this.openOverallStrengthReportDialog();
+        } else if (selectedReportId === 'madrasa-student-movement-details-report') {
+          this.openMadrasaStudentMovementReportDialog();
+        } else if (selectedReportId === 'madrasa-usthadh-list-report') {
+          this.openMadrasaUsthadhListReportDialog();
         } else {
           this.selectReport(selectedReportId);
         }
@@ -481,6 +487,24 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
       maxWidth: '1100px',
       autoFocus: false,
       panelClass: 'overall-strength-dialog-panel'
+    });
+  }
+
+  public openMadrasaStudentMovementReportDialog() {
+    this.dialog.open(MadrasaStudentMovementReportDialogComponent, {
+      width: '95vw',
+      maxWidth: '1000px',
+      autoFocus: false,
+      panelClass: 'madrasa-student-movement-dialog-panel'
+    });
+  }
+
+  public openMadrasaUsthadhListReportDialog() {
+    this.dialog.open(MadrasaUsthadhListReportDialogComponent, {
+      width: '95vw',
+      maxWidth: '1000px',
+      autoFocus: false,
+      panelClass: 'madrasa-usthadh-dialog-panel'
     });
   }
 

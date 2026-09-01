@@ -108,6 +108,8 @@ import { SaveReportDialogComponent } from './pages/reports/components/save-repor
 import { ManageReportsDialogComponent } from './pages/reports/components/manage-reports-dialog.component';
 import { ReportTemplatesDialogComponent } from './pages/reports/components/report-templates-dialog.component';
 import { OverallStrengthReportDialogComponent } from './pages/reports/components/overall-strength-report-dialog.component';
+import { MadrasaStudentMovementReportDialogComponent } from './pages/reports/components/madrasa-student-movement-report-dialog.component';
+import { MadrasaUsthadhListReportDialogComponent } from './pages/reports/components/madrasa-usthadh-list-report-dialog.component';
 import { ResolveNamePipe } from './shared/pipes/resolve-name.pipe';
 import { FeesPage } from './pages/fees/fees.page';
 import { FeePlanFormDialogComponent } from './pages/fees/fee-plan-form-dialog.component';
@@ -278,6 +280,8 @@ import { ArchitectureExplorerPage } from './pages/architecture-explorer/architec
     ManageReportsDialogComponent,
     ReportTemplatesDialogComponent,
     OverallStrengthReportDialogComponent,
+    MadrasaStudentMovementReportDialogComponent,
+    MadrasaUsthadhListReportDialogComponent,
     ResolveNamePipe,
     FeesPage,
     FeePlanFormDialogComponent,

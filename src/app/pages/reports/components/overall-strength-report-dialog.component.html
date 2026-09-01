@@ -42,32 +42,25 @@
       </mat-form-field>
 
       <mat-form-field appearance="outline" density="compact" class="control-field madrasa-field" *ngIf="madrasas.length > 0">
-        <mat-label>Madrasa</mat-label>
-        <mat-select [(ngModel)]="selectedMadrasaId" (selectionChange)="calculateMatrix()">
+        <mat-label>Select Madrasa(s) *</mat-label>
+        <mat-select [(ngModel)]="selectedMadrasaIds" multiple (selectionChange)="calculateMatrix()" placeholder="Choose Madrasa...">
+          <div class="select-search-box" (click)="$event.stopPropagation()">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Type to search madrasa..."
+              [(ngModel)]="madrasaSearchQuery"
+              (keydown)="$event.stopPropagation()"
+            />
+            <button mat-icon-button type="button" class="clear-btn" *ngIf="madrasaSearchQuery" (click)="madrasaSearchQuery = ''">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
           <mat-option value="all">All Madrasas</mat-option>
-          <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+          <mat-option *ngFor="let m of filteredMadrasas" [value]="m.id">{{ m['name'] }}</mat-option>
         </mat-select>
       </mat-form-field>
-
-      <!-- Option to Split Shift Columns by Gender -->
-      <mat-checkbox
-        [(ngModel)]="splitShiftByGender"
-        (change)="calculateMatrix()"
-        color="primary"
-        class="consolidate-chk"
-        matTooltip="Split each shift column into Boys and Girls sub-columns">
-        Split Shifts by Gender
-      </mat-checkbox>
-
-      <!-- Option to Consolidate / Group Similar Names -->
-      <mat-checkbox
-        [(ngModel)]="consolidateGroupNames"
-        (change)="calculateMatrix()"
-        color="primary"
-        class="consolidate-chk"
-        matTooltip="Combine similar names (e.g. Evening Hifz & Evening Hifz - 2) into one summary row">
-        Consolidate Similar Names
-      </mat-checkbox>
     </div>
 
     <div class="action-buttons">
@@ -104,8 +97,15 @@
     <p>Calculating Overall Strength Matrix Report...</p>
   </div>
 
+  <!-- Initial Prompt State (No Madrasa Selected) -->
+  <div class="empty-state initial-select-state no-print" *ngIf="!loading && selectedMadrasaIds.length === 0">
+    <mat-icon class="empty-icon text-primary">touch_app</mat-icon>
+    <h3>Please Select Madrasa(s) Above</h3>
+    <p>Select one or more Madrasas from the dropdown filter above to generate the Overall Strength Report.</p>
+  </div>
+
   <!-- Printable Report Document -->
-  <div class="report-paper-container" *ngIf="!loading">
+  <div class="report-paper-container" *ngIf="!loading && selectedMadrasaIds.length > 0">
     
     <!-- Optional Arabic Bismillah Header -->
     <div class="bismillah-header" *ngIf="includeBismillah">بسم الله الرحمن الرحيم</div>

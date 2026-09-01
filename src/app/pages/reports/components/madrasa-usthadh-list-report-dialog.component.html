@@ -1,0 +1,203 @@
+<div class="madrasa-report-dialog-container">
+  <!-- Dialog Header -->
+  <header class="dialog-header no-print">
+    <div class="header-brand">
+      <mat-icon color="primary" class="brand-icon">groups</mat-icon>
+      <div>
+        <h2 class="dialog-title">Madrasa-Wise Usthadh & Group Roster Report</h2>
+        <p class="dialog-subtitle">Generate Usthadh roster with contact details and assigned Class Groups by Madrasa</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button mat-flat-button color="primary" (click)="printReport()" [disabled]="madrasaGroups.length === 0">
+        <mat-icon>print</mat-icon> Print Report
+      </button>
+      <button mat-icon-button mat-dialog-close type="button" aria-label="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </header>
+
+  <!-- Filter Toolbar -->
+  <div class="filter-toolbar no-print">
+    <div class="filter-fields">
+      <!-- Madrasa Multi-Select Filter with Type-to-Search -->
+      <mat-form-field appearance="outline" density="compact" class="control-field madrasa-field">
+        <mat-label>Select Madrasa(s) *</mat-label>
+        <mat-select [(ngModel)]="selectedMadrasaIds" multiple (selectionChange)="generateReport()" placeholder="Choose Madrasa...">
+          <div class="select-search-box" (click)="$event.stopPropagation()">
+            <mat-icon class="search-icon">search</mat-icon>
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Type to search madrasa..."
+              [(ngModel)]="madrasaSearchQuery"
+              (keydown)="$event.stopPropagation()"
+            />
+            <button mat-icon-button type="button" class="clear-btn" *ngIf="madrasaSearchQuery" (click)="madrasaSearchQuery = ''">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <mat-option value="all">All Madrasas</mat-option>
+          <mat-option *ngFor="let m of filteredMadrasas" [value]="m.id">{{ m['name'] }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Gender Filter -->
+      <mat-form-field appearance="outline" density="compact" class="control-field gender-field">
+        <mat-label>Gender Wise</mat-label>
+        <mat-select [(ngModel)]="selectedGender" (selectionChange)="generateReport()">
+          <mat-option *ngFor="let opt of genderOptions" [value]="opt.value">{{ opt.label }}</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <!-- Checkbox: Show Unassigned Staff Section -->
+      <div class="assigned-checkbox-wrap">
+        <mat-checkbox [(ngModel)]="showUnassignedSection" color="primary">
+          Include Unassigned Staff Section
+        </mat-checkbox>
+      </div>
+
+      <!-- PDF / Bismillah Options Menu -->
+      <button mat-stroked-button [matMenuTriggerFor]="pdfCustomMenu" type="button" class="cust-menu-btn">
+        <mat-icon color="accent">tune</mat-icon> PDF Options
+      </button>
+      <mat-menu #pdfCustomMenu="matMenu" xPosition="before">
+        <div class="pdf-menu-header" (click)="$event.stopPropagation()">PDF Customization</div>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="$event.stopPropagation()">
+          <mat-checkbox [(ngModel)]="includeBismillah" color="primary">Include Bismillah</mat-checkbox>
+        </button>
+        <button mat-menu-item (click)="$event.stopPropagation()">
+          <mat-checkbox [(ngModel)]="includeOrgName" color="primary">Include Org Header</mat-checkbox>
+        </button>
+        <button mat-menu-item (click)="$event.stopPropagation()">
+          <mat-checkbox [(ngModel)]="showAppNameBranding" color="primary">Show App Branding</mat-checkbox>
+        </button>
+      </mat-menu>
+    </div>
+  </div>
+
+  <mat-divider class="no-print"></mat-divider>
+
+  <!-- Report Content Body -->
+  <div class="dialog-body printable-content">
+    
+    <div class="loading-state" *ngIf="loading">
+      <mat-spinner diameter="40"></mat-spinner>
+      <p>Loading madrasa usthadh records...</p>
+    </div>
+
+    <!-- Initial Prompt State (No Madrasa Selected) -->
+    <div class="empty-state initial-select-state" *ngIf="!loading && selectedMadrasaIds.length === 0">
+      <mat-icon class="empty-icon text-primary">touch_app</mat-icon>
+      <h3>Please Select Madrasa(s) and Gender Above</h3>
+      <p>Select one or more Madrasas from the dropdown filter above to generate the Usthadh & Group roster.</p>
+    </div>
+
+    <!-- Empty State (Madrasa Selected but no records found) -->
+    <div class="empty-state" *ngIf="!loading && selectedMadrasaIds.length > 0 && madrasaGroups.length === 0">
+      <mat-icon class="empty-icon">search_off</mat-icon>
+      <h3>No Usthadh Records Found</h3>
+      <p>No staff/Usthadh records match the selected Madrasa or Gender filter.</p>
+    </div>
+
+    <!-- Report Wrapper -->
+    <div class="report-wrapper" *ngIf="!loading && madrasaGroups.length > 0">
+
+      <!-- Bismillah & Organization Header (Rendered ONLY ONCE at top of report) -->
+      <div class="report-main-header">
+        <div class="bismillah-header" *ngIf="includeBismillah">
+          بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+        </div>
+        <div class="org-name-header" *ngIf="includeOrgName">
+          <h2>{{ organizationName }}</h2>
+        </div>
+      </div>
+
+      <!-- Madrasa-Wise Usthadh Data Tables Container -->
+      <div class="report-sections-container">
+        <div class="madrasa-section-block" *ngFor="let mGroup of madrasaGroups">
+
+          <!-- 1. Assigned Class Group Usthadhs Table -->
+          <div class="table-container-card" *ngIf="mGroup.usthadhs.length > 0">
+            <table class="report-table usthadh-report-table">
+              <thead>
+                <tr>
+                  <th class="col-sno">S. No</th>
+                  <th class="col-madrasa">Matharasa Name</th>
+                  <th class="col-usthadh">Usthadh Name</th>
+                  <th class="col-phone">Phone Number</th>
+                  <th class="col-group">Group</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let u of mGroup.usthadhs; let i = index"
+                    [class.last-section-row]="i === mGroup.usthadhs.length - 1"
+                    [class.missing-gender-row]="u.hasMissingGender">
+                  <td class="col-sno">{{ u.globalIndex }}</td>
+                  
+                  <!-- Rowspan cell for Matharasa Name rendered only on first Usthadh row of this Madrasa -->
+                  <td class="col-madrasa" *ngIf="i === 0" [attr.rowspan]="mGroup.usthadhs.length">
+                    {{ mGroup.madrasaName }}
+                  </td>
+                  
+                  <td class="col-usthadh font-bold">
+                    {{ u.usthadhName }}
+                    <span class="missing-gender-chip" *ngIf="u.hasMissingGender" title="Gender Not Specified in Profile">⚠️ Unassigned Gender</span>
+                  </td>
+                  <td class="col-phone">{{ u.phone }}</td>
+                  <td class="col-group">{{ u.groupsDisplay }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 2. Unassigned Staff Details Table for this Madrasa (Rendered below assigned table) -->
+          <div class="unassigned-table-container" *ngIf="showUnassignedSection && mGroup.unassignedUsthadhs.length > 0">
+            <h4 class="unassigned-section-header no-print">Unassigned Staff Details — {{ mGroup.madrasaName }} ({{ mGroup.unassignedUsthadhs.length }} Staff)</h4>
+            <div class="table-container-card">
+              <table class="report-table usthadh-report-table unassigned-table">
+                <thead>
+                  <tr>
+                    <th class="col-sno">S. No</th>
+                    <th class="col-madrasa">Matharasa Name</th>
+                    <th class="col-usthadh">Unassigned Staff Name</th>
+                    <th class="col-phone">Phone Number</th>
+                    <th class="col-group">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let u of mGroup.unassignedUsthadhs; let i = index"
+                      [class.last-section-row]="i === mGroup.unassignedUsthadhs.length - 1"
+                      [class.missing-gender-row]="u.hasMissingGender">
+                    <td class="col-sno">{{ u.globalIndex }}</td>
+                    
+                    <td class="col-madrasa" *ngIf="i === 0" [attr.rowspan]="mGroup.unassignedUsthadhs.length">
+                      {{ mGroup.madrasaName }} (Unassigned Staff)
+                    </td>
+                    
+                    <td class="col-usthadh font-bold">
+                      {{ u.usthadhName }}
+                      <span class="missing-gender-chip" *ngIf="u.hasMissingGender" title="Gender Not Specified in Profile">⚠️ Unassigned Gender</span>
+                    </td>
+                    <td class="col-phone">{{ u.phone }}</td>
+                    <td class="col-group" style="color: #64748b; font-style: italic;">-</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Footer Branding -->
+      <div class="card-footer-branding" *ngIf="showAppNameBranding">
+        Generated via Deendesk Institution System
+      </div>
+
+    </div>
+
+  </div>
+</div>

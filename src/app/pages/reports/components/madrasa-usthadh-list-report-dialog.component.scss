@@ -1,0 +1,376 @@
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.madrasa-report-dialog-container {
+  display: flex;
+  flex-direction: column;
+  height: 90vh;
+  max-height: 900px;
+  width: 100%;
+  max-width: 100%;
+  background-color: #ffffff;
+  color: #1e293b;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  box-sizing: border-box;
+
+  .dialog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    background-color: #ffffff;
+    border-bottom: 1px solid #e2e8f0;
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .brand-icon {
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+      }
+
+      .dialog-title {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .dialog-subtitle {
+        margin: 0;
+        font-size: 12px;
+        color: #64748b;
+      }
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+  }
+
+  .filter-toolbar {
+    padding: 10px 20px;
+    background-color: #ffffff;
+
+    .filter-fields {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+
+      .control-field {
+        flex: 1;
+        min-width: 150px;
+        font-size: 12px;
+      }
+
+      .madrasa-field {
+        flex: 2;
+        min-width: 240px;
+      }
+
+      .assigned-checkbox-wrap {
+        display: flex;
+        align-items: center;
+        font-size: 12px;
+      }
+
+      .cust-menu-btn {
+        height: 40px;
+        font-size: 12px;
+      }
+    }
+  }
+
+  .dialog-body {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 16px 20px;
+    box-sizing: border-box;
+
+    .loading-state, .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      text-align: center;
+      color: #64748b;
+
+      &.initial-select-state {
+        background-color: #f8fafc;
+        border: 2px dashed #cbd5e1;
+        border-radius: 12px;
+        margin: 20px 0;
+      }
+
+      .empty-icon {
+        font-size: 48px;
+        width: 48px;
+        height: 48px;
+        margin-bottom: 12px;
+
+        &.text-primary { color: #1e3a8a; }
+      }
+
+      h3 {
+        margin: 0 0 6px 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      p {
+        margin: 0;
+        font-size: 13px;
+        color: #64748b;
+      }
+    }
+
+    .report-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      box-sizing: border-box;
+
+      .report-main-header {
+        text-align: center;
+
+        .bismillah-header {
+          text-align: center;
+          font-size: 22px;
+          font-weight: 700;
+          color: #0f172a;
+          margin-bottom: 4px;
+          font-family: 'Amiri', 'Traditional Arabic', serif;
+        }
+
+        .org-name-header {
+          text-align: center;
+
+          h2 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 800;
+            color: #1e3a8a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+        }
+      }
+
+      .report-sections-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+
+        .unassigned-table-container {
+          margin-top: 14px;
+
+          .unassigned-section-header {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            font-weight: 800;
+            color: #9a3412;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+          }
+
+          .unassigned-table {
+            border: 2px solid #9a3412 !important;
+
+            th {
+              background-color: #fff7ed !important;
+              color: #9a3412 !important;
+              border-bottom: 2px solid #9a3412 !important;
+            }
+
+            td {
+              border-color: #fed7aa !important;
+            }
+
+            .col-madrasa {
+              background-color: #fff7ed !important;
+              color: #9a3412 !important;
+            }
+
+            tr.last-section-row td {
+              border-bottom: 2px solid #9a3412 !important;
+            }
+          }
+        }
+      }
+
+      .table-container-card {
+        width: 100%;
+        overflow-x: hidden;
+
+        .usthadh-report-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 13px;
+          table-layout: fixed;
+          box-sizing: border-box;
+          border: 2px solid #000000;
+
+          th, td {
+            padding: 8px 10px;
+            text-align: left;
+            border: 1px solid #000000;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            vertical-align: middle;
+            box-sizing: border-box;
+          }
+
+          th {
+            background-color: #ffffff;
+            color: #000000;
+            font-weight: 800;
+            font-size: 13px;
+            text-align: center;
+            border-bottom: 2px solid #000000;
+          }
+
+          td {
+            color: #000000;
+
+            &.font-bold { font-weight: 700; }
+          }
+
+          tr.last-section-row td {
+            border-bottom: 2px solid #000000;
+          }
+
+          tr.missing-gender-row td:not(.col-madrasa) {
+            background-color: #fffdf0;
+          }
+
+          .missing-gender-chip {
+            display: inline-block;
+            margin-left: 6px;
+            background-color: #fef3c7;
+            color: #b45309;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 1px 6px;
+            border-radius: 4px;
+            border: 1px solid #fde68a;
+          }
+
+          .col-sno { width: 7%; text-align: center; font-weight: 600; }
+          .col-madrasa { width: 30%; font-weight: 700; color: #000000; text-align: center; background-color: #ffffff; }
+          .col-usthadh { width: 33%; font-weight: 600; color: #000000; }
+          .col-phone { width: 14%; text-align: center; font-weight: 600; }
+          .col-group { width: 16%; font-weight: 500; color: #000000; text-align: center; }
+        }
+      }
+
+      .card-footer-branding {
+        text-align: right;
+        font-size: 10px;
+        color: #94a3b8;
+        padding-top: 6px;
+      }
+    }
+  }
+}
+
+.pdf-menu-header {
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.select-search-box {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+
+  .search-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #64748b;
+    margin-right: 6px;
+  }
+
+  .search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-size: 12px;
+    color: #0f172a;
+  }
+
+  .clear-btn {
+    width: 20px;
+    height: 20px;
+    line-height: 20px;
+
+    .mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+@media print {
+  * {
+    box-sizing: border-box !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .madrasa-report-dialog-container {
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .dialog-body {
+    overflow: visible !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .usthadh-report-table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    border: 2px solid #000000 !important;
+
+    tr.last-section-row td {
+      border-bottom: 2px solid #000000 !important;
+    }
+
+    tr.missing-gender-row td:not(.col-madrasa) {
+      background-color: #fffdf0 !important;
+    }
+  }
+}
