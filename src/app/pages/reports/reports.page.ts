@@ -27,6 +27,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 })
 export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public reportGroups = [
+    { name: 'Client Requested Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'client') },
     { name: 'Student Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'student') },
     { name: 'Staff Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'staff') },
     { name: 'Madrasa Reports', configs: REPORT_DEFINITIONS.filter(c => c.category === 'madrasa') },

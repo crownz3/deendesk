@@ -650,7 +650,9 @@ export class ReportBuilderService {
         classNameDisplay: row.className || cls?.name || '-',
         stageDisplay: row.stageLevel || row.stage || user.stageLevel || user.stage || '-',
         assignedStaffNamesDisplay: resolvedAssignedStaffNamesDisplay,
-        assignedClassGroupDisplay: resolvedClassGroupDisplay
+        assignedClassGroupDisplay: resolvedClassGroupDisplay,
+        shiftDisplay: String(row.shiftName || row.shift || row.shiftId || course?.['shiftId'] || cls?.['shiftId'] || '-'),
+        studentCount: Array.isArray(row.students || row.studentIds) ? (row.students || row.studentIds).length : (Number(row.studentCount || row.capacity || 0))
       };
 
       // Automatically resolve any other *Id fields into *NameDisplay & format raw timestamps

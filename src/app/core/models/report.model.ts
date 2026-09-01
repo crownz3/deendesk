@@ -1,6 +1,8 @@
 import { ScopedEntity, TableColumn } from './domain.model';
 
 export type ReportCategory =
+  | 'client'
+  | 'classGroup'
   | 'student'
   | 'staff'
   | 'madrasa'
@@ -18,6 +20,7 @@ export type ReportCategory =
 export type FilterType =
   | 'madrasa'
   | 'academicYear'
+  | 'year'
   | 'course'
   | 'class'
   | 'classPlan'

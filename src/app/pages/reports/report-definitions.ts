@@ -1,6 +1,41 @@
 import { ReportDefinition, ReportFieldMetadata } from '../../core/models/report.model';
 
 export const REPORT_DEFINITIONS: ReportDefinition[] = [
+  // --- CLIENT REQUESTED REPORTS ---
+  {
+    id: 'overall-strength-report',
+    name: 'Overall Strength & Movement Shift Matrix Report',
+    category: 'client',
+    collection: 'students',
+    requiredFilters: ['madrasa', 'month', 'year', 'status'],
+    emptyText: 'No strength matrix data available.',
+    columns: [
+      { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'assignedClassGroupDisplay', label: 'Department / Section', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'courseNameDisplay', label: 'Shift / Timing', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'currentMonthStudentCount', label: 'Student Count', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'class-group-list',
+    name: 'Class Group & Batch Details Report',
+    category: 'client',
+    collection: 'classGroups',
+    requiredFilters: ['madrasa', 'course', 'class', 'status', 'search'],
+    emptyText: 'No class groups found for the selected criteria.',
+    columns: [
+      { key: 'name', label: 'Class Group Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'courseNameDisplay', label: 'Course / Division', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'classNameDisplay', label: 'Class / Level', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'assignedStaffNamesDisplay', label: 'Assigned Teacher(s)', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'shiftDisplay', label: 'Shift / Timing', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'studentCount', label: 'Enrolled Students', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+
   // --- STUDENT REPORTS ---
   {
     id: 'monthly-student-movement-strength-report',
@@ -281,6 +316,9 @@ export const AVAILABLE_FIELDS_METADATA: Record<string, ReportFieldMetadata> = {
   inactiveCount: { key: 'inactiveCount', label: 'Inactive / Dropouts', groupable: false, filterable: true, sortable: true },
   promoteDemoteCount: { key: 'promoteDemoteCount', label: 'Promote / Demote', groupable: false, filterable: true, sortable: true },
   transferCount: { key: 'transferCount', label: 'Transfers', groupable: false, filterable: true, sortable: true },
+  shiftDisplay: { key: 'shiftDisplay', label: 'Shift / Timing', groupable: true, filterable: true, sortable: true },
+  studentCount: { key: 'studentCount', label: 'Enrolled Students', groupable: false, filterable: true, sortable: true },
+  name: { key: 'name', label: 'Class Group Name', groupable: true, filterable: true, sortable: true },
   admissionDate: { key: 'admissionDate', label: 'Admission Date', type: 'date', groupable: true, filterable: true, sortable: true },
   status: { key: 'status', label: 'Status', type: 'status', groupable: true, filterable: true, sortable: true }
 };
