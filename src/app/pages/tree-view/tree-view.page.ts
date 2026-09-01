@@ -125,6 +125,25 @@ export class TreeViewPage {
             requestedRoles: ['teacher', 'staff', 'student', 'parent'],
           });
         } else {
+          const role = String(profile?.role || '').toLowerCase();
+          if (role !== 'superadmin' && role !== 'super_admin') {
+            return of({
+              tree: [],
+              stats: { organizations: 0, madrasas: 0, courses: 0, classes: 0, groups: 0, subjects: 0, students: 0, staff: 0, admins: 0 },
+              organizations: [],
+              madrasas: [],
+              courses: [],
+              classes: [],
+              classGroups: [],
+              subjects: [],
+              students: [],
+              staffUsers: [],
+              admins: [],
+              userRole: profile?.role || 'staff',
+              loading: false,
+              error: 'Access denied. The Academic Structure page is restricted to Super Admin users.',
+            } as PageState<TreeVm>);
+          }
           console.log('[Academic Tree Access Debug]', {
             currentUserRole: profile?.role,
             organizationId: profile?.organizationId,

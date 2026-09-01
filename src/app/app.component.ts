@@ -113,7 +113,7 @@ export class AppComponent {
         { label: 'Courses', route: '/courses', icon: 'ribbon-outline', permissionsAny: ['viewCourses', 'addCourses', 'editCourses', 'manageCourses'] },
         { label: 'Classes', route: '/classes', icon: 'easel-outline', permissionsAny: ['viewClasses', 'addClasses', 'editClasses', 'manageClasses'] },
         { label: 'Class Groups', route: '/classGroups', icon: 'people-circle-outline', permissionsAny: ['viewClassGroups', 'addClassGroups', 'editClassGroups', 'viewClasses', 'addClasses', 'editClasses', 'manageClasses'] },
-        { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', permissionsAny: ['viewCourses', 'viewClasses', 'manageCourses', 'manageClasses'] },
+        { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', roleRequired: 'superAdmin' },
         { label: 'Stage Heads', route: '/stage-heads', icon: 'person-add-outline', permission: 'manageStageHeads' },
         { label: 'Subjects & Syllabus', route: '/subjects', icon: 'book-outline', permissionsAny: ['manageSubjects'] },
         { label: 'Class Plans & Timetables', route: '/class-plans', icon: 'calendar-outline', permissionsAny: ['manageClassPlans'] },

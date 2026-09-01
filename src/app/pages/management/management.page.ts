@@ -2725,53 +2725,83 @@ export class ManagementPage {
       profile.email
     ].filter(Boolean).map(s => String(s).trim().toLowerCase());
 
-    const isMadrasaIncharge = role === 'madrasaincharge' ||
+    const isMadrasaInchargeRole = role === 'madrasaincharge' ||
       role === 'madrasa_incharge' ||
       role === 'incharge' ||
       role === 'coordinator' ||
       (Array.isArray((profile as any).roles) && (profile as any).roles.some((r: string) => String(r).toLowerCase().includes('incharge')));
 
-    const profileMadrasaIds = new Set([
-      (profile as any).madrasaId,
-      ...((profile as any).madrasaIds || []),
-      ...((profile as any).inchargeMadrasaIds || []),
-      (profile as any).assignedMadrasaId,
-      ...((profile as any).assignedMadrasaIds || []),
-      (profile as any).primaryMadrasaId
-    ].filter(Boolean).map(s => String(s).trim()));
+    const inchargeMadrasaIds = new Set<string>();
 
     if (madrasas && madrasas.length > 0) {
-      const inchargeIdsFromMadrasas = this.getInchargeMadrasaIdsForUser(profile, madrasas);
-      inchargeIdsFromMadrasas.forEach(id => profileMadrasaIds.add(id));
+      const idsFromMadrasas = this.getInchargeMadrasaIdsForUser(profile, madrasas);
+      idsFromMadrasas.forEach(id => inchargeMadrasaIds.add(id));
     }
 
-    const hasMadrasaScope = isMadrasaIncharge || profileMadrasaIds.size > 0 || (Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0);
+    if (Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0) {
+      (profile as any).inchargeMadrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
+    }
 
-    // 1. If user is Madrasa Incharge / Coordinator (or has madrasa scope), check madrasa class groups FIRST!
-    if (hasMadrasaScope && profileMadrasaIds.size > 0) {
+    if (isMadrasaInchargeRole) {
+      if ((profile as any).madrasaId) inchargeMadrasaIds.add(String((profile as any).madrasaId).trim());
+      if (Array.isArray((profile as any).madrasaIds)) {
+        (profile as any).madrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
+      }
+    }
+
+    const isMadrasaIncharge = isMadrasaInchargeRole || inchargeMadrasaIds.size > 0;
+
+    // 1. If user is Madrasa Incharge / Coordinator: return ALL class groups assigned to their incharge madrasas, PLUS directly assigned class groups!
+    if (isMadrasaIncharge && inchargeMadrasaIds.size > 0) {
       const madrasaClasses = new Set(
         classes.filter(c => {
           const cMadId = String(c['madrasaId'] || '').trim();
           const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
-          return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
+          return (cMadId && inchargeMadrasaIds.has(cMadId)) || cMadIds.some(id => inchargeMadrasaIds.has(id));
         }).map(c => String(c.id).trim())
       );
 
-      const madrasaGroups = classGroups.filter(g => {
+      const inchargeMadrasaGroups = classGroups.filter(g => {
         const gMadId = String(g['madrasaId'] || '').trim();
         const gMadIds = Array.isArray(g['madrasaIds']) ? g['madrasaIds'].map(String) : [];
         const gClassId = String(g['classId'] || g['class'] || '').trim();
-        return (gMadId && profileMadrasaIds.has(gMadId)) ||
-               gMadIds.some(id => profileMadrasaIds.has(id)) ||
+        const belongsToMadrasa = (gMadId && inchargeMadrasaIds.has(gMadId)) ||
+               gMadIds.some(id => inchargeMadrasaIds.has(id)) ||
                (gClassId && madrasaClasses.has(gClassId));
+
+        if (belongsToMadrasa) return true;
+
+        const gId = String(g.id || '').trim();
+        const profileGroupIds = [
+          (profile as any).groupId,
+          (profile as any).classGroupId,
+          (profile as any).assignedGroupId,
+          ...((profile as any).groupIds || []),
+          ...((profile as any).classGroupIds || []),
+          ...((profile as any).assignedGroupIds || [])
+        ].filter(Boolean).map(s => String(s).trim());
+
+        if (profileGroupIds.includes(gId)) return true;
+
+        const groupStaffTokens = [
+          ...this.extractAllStrings(g['assignedStaffIds']),
+          ...this.extractAllStrings(g['assignedStaff']),
+          ...this.extractAllStrings(g['staffIds']),
+          ...this.extractAllStrings(g['teacherIds']),
+          ...this.extractAllStrings(g['teachers']),
+          ...this.extractAllStrings(g['staff']),
+          ...this.extractAllStrings(g['groupStaff'])
+        ].map(s => s.toLowerCase());
+
+        return userIdentities.some(id => groupStaffTokens.includes(id));
       });
 
-      if (madrasaGroups.length > 0) {
-        return madrasaGroups;
+      if (inchargeMadrasaGroups.length > 0) {
+        return inchargeMadrasaGroups;
       }
     }
 
-    // 2. Check if user is explicitly assigned to specific class groups as staff/teacher
+    // 2. Regular Staff / Teacher Login (NOT a Madrasa Incharge): Return ONLY explicitly assigned class groups!
     const assignedClassGroups = classGroups.filter(g => {
       const gId = String(g.id || '').trim();
 
@@ -2820,7 +2850,8 @@ export class ManagementPage {
       }
     }
 
-    return classGroups;
+    // If regular staff user has no assigned class groups, return empty array
+    return [];
   }
 
   private getScopedClasses(
@@ -2845,34 +2876,38 @@ export class ManagementPage {
       profile.email
     ].filter(Boolean).map(s => String(s).trim().toLowerCase());
 
-    const isMadrasaIncharge = role === 'madrasaincharge' ||
+    const isMadrasaInchargeRole = role === 'madrasaincharge' ||
       role === 'madrasa_incharge' ||
       role === 'incharge' ||
       role === 'coordinator' ||
       (Array.isArray((profile as any).roles) && (profile as any).roles.some((r: string) => String(r).toLowerCase().includes('incharge')));
 
-    const profileMadrasaIds = new Set([
-      (profile as any).madrasaId,
-      ...((profile as any).madrasaIds || []),
-      ...((profile as any).inchargeMadrasaIds || []),
-      (profile as any).assignedMadrasaId,
-      ...((profile as any).assignedMadrasaIds || []),
-      (profile as any).primaryMadrasaId
-    ].filter(Boolean).map(s => String(s).trim()));
+    const inchargeMadrasaIds = new Set<string>();
 
     if (madrasas && madrasas.length > 0) {
-      const inchargeIdsFromMadrasas = this.getInchargeMadrasaIdsForUser(profile, madrasas);
-      inchargeIdsFromMadrasas.forEach(id => profileMadrasaIds.add(id));
+      const idsFromMadrasas = this.getInchargeMadrasaIdsForUser(profile, madrasas);
+      idsFromMadrasas.forEach(id => inchargeMadrasaIds.add(id));
     }
 
-    const hasMadrasaScope = isMadrasaIncharge || profileMadrasaIds.size > 0 || (Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0);
+    if (Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0) {
+      (profile as any).inchargeMadrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
+    }
 
-    // 1. If user is Madrasa Incharge / Coordinator (or has madrasa scope), return ALL classes for their madrasas FIRST!
-    if (hasMadrasaScope && profileMadrasaIds.size > 0) {
+    if (isMadrasaInchargeRole) {
+      if ((profile as any).madrasaId) inchargeMadrasaIds.add(String((profile as any).madrasaId).trim());
+      if (Array.isArray((profile as any).madrasaIds)) {
+        (profile as any).madrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
+      }
+    }
+
+    const isMadrasaIncharge = isMadrasaInchargeRole || inchargeMadrasaIds.size > 0;
+
+    // 1. If user is Madrasa Incharge / Coordinator, return ALL classes for their incharge madrasas FIRST!
+    if (isMadrasaIncharge && inchargeMadrasaIds.size > 0) {
       const madrasaClasses = classes.filter(c => {
         const cMadId = String(c['madrasaId'] || '').trim();
         const cMadIds = Array.isArray(c['madrasaIds']) ? c['madrasaIds'].map(String) : [];
-        return (cMadId && profileMadrasaIds.has(cMadId)) || cMadIds.some(id => profileMadrasaIds.has(id));
+        return (cMadId && inchargeMadrasaIds.has(cMadId)) || cMadIds.some(id => inchargeMadrasaIds.has(id));
       });
 
       if (madrasaClasses.length > 0) {

@@ -86,7 +86,7 @@ const routes: Routes = [
   { path: 'reports', component: ReportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'generateReports' } },
   { path: 'activity-logs', component: ActivityLogsPage, canActivate: [authGuard] },
   { path: 'csv-imports', component: CsvImportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'importCsv' } },
-  { path: 'academic-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'academic', permissionsAny: ['manageAcademicPlans', 'viewClasses', 'viewCourses', 'manageClasses', 'manageCourses'] } },
+  { path: 'academic-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'academic', roleRequired: 'superAdmin' } },
   { path: 'people-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'people', permissionsAny: ['manageStaff', 'manageStudents', 'manageParents'] } },
   { path: 'notifications', component: NotificationsPage, canActivate: [authGuard] },
   { path: 'help-support', component: HelpSupportPage, canActivate: [authGuard] },
