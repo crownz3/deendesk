@@ -21,12 +21,12 @@ import {
   IssueAttachment
 } from '../models/domain.model';
 import { EntityRecord, RepositoryService } from './repository.service';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 
 @Injectable({ providedIn: 'root' })
 export class IssueService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
   private readonly functions = getFunctions(getDeenDeskFirebaseApp());
 
   constructor(

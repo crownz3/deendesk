@@ -34,13 +34,13 @@ import { BehaviorSubject, Observable, from, map, shareReplay, switchMap, of, com
 import { ALL_PERMISSIONS, ROLE_LABELS, SUPER_ADMIN_EMAIL } from '../constants/defaults';
 import { RolePermissionsService } from './role-permissions.service';
 import { AppUser, PermissionKey, UserRole } from '../models/domain.model';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly firebaseApp = getDeenDeskFirebaseApp();
   private readonly auth = getAuth(this.firebaseApp);
-  private readonly firestore = getFirestore(this.firebaseApp);
+  private readonly firestore = getDeenDeskFirestore();
   private readonly loadingProfileSubject = new BehaviorSubject<boolean>(true);
 
   readonly authUser$ = new Observable<User | null>((subscriber) => {

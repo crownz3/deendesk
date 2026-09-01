@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { doc, getDoc, getFirestore } from 'firebase/firestore';
 import { Observable, from, map, shareReplay, of, catchError, combineLatest } from 'rxjs';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 
 export type ResolvableType =
   | 'organization'
@@ -20,7 +20,7 @@ export type ResolvableType =
 
 @Injectable({ providedIn: 'root' })
 export class NameResolverService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
   private cache = new Map<string, Observable<string>>();
   private asyncResolver?: (type: ResolvableType, id: string) => Observable<string>;
 

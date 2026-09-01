@@ -7,7 +7,7 @@ import { AppUser, PasswordResetRequest, UserRole } from '../../core/models/domai
 import { AuthService } from '../../core/services/auth.service';
 import { collection, query, where, limit, getDocs, getFirestore, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { RepositoryService, EntityRecord } from '../../core/services/repository.service';
 import { LoaderService } from '../../core/services/loader.service';
 import { SetTemporaryPasswordDialogComponent } from './set-temporary-password-dialog.component';
@@ -253,7 +253,7 @@ export class PasswordRequestsPage {
       if (newPassword) {
         try {
           await this.loader.withLoader('Setting temporary password...', async () => {
-            const firestore = getFirestore(getDeenDeskFirebaseApp());
+            const firestore = getDeenDeskFirestore();
             const functions = getFunctions(getDeenDeskFirebaseApp());
             const resetUserTemporaryPassword = httpsCallable(functions, 'resetUserTemporaryPassword');
             

@@ -11,7 +11,7 @@ import {
   getDocs,
   getCountFromServer
 } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AppModuleId, FirebaseUsageRecord } from '../models/domain.model';
 import { FirebasePricingService } from './firebase-pricing.service';
 
@@ -65,7 +65,7 @@ const COLLECTION_MODULE_MAP: { collection: string; module: AppModuleId; avgDocBy
 })
 export class FirebaseUsageTrackerService implements OnDestroy {
   private readonly collectionName = 'firebaseUsageDaily';
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
 
   private buffer = new Map<string, {
     date: string;

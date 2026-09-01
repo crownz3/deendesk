@@ -1,4 +1,4 @@
-﻿import { Injectable } from '@angular/core';
+import { Injectable } from '@angular/core';
 import {
   collection,
   doc,
@@ -13,7 +13,7 @@ import {
   getFirestore,
 } from 'firebase/firestore';
 import { Observable } from 'rxjs';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import {
   AttendanceDayRecord,
   AttendanceParentDoc,
@@ -23,7 +23,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class AttendanceFirestoreService {
-  private readonly fs = getFirestore(getDeenDeskFirebaseApp());
+  private readonly fs = getDeenDeskFirestore();
 
   private parentRef(classPlanId: string) {
     return doc(this.fs, 'attendance', classPlanId);

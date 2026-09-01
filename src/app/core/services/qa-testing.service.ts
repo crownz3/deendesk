@@ -14,7 +14,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { BehaviorSubject, Observable, firstValueFrom } from 'rxjs';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuthService } from './auth.service';
 import {
   BugStatus,
@@ -29,7 +29,7 @@ import {
   providedIn: 'root',
 })
 export class QaTestingService {
-  private readonly db = getFirestore(getDeenDeskFirebaseApp());
+  private readonly db = getDeenDeskFirestore();
   private readonly bugsCollection = 'qaBugs';
   private readonly testRunsCollection = 'qaTestRuns';
   private readonly dailyReportsCollection = 'qaDailyReports';

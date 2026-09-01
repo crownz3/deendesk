@@ -852,19 +852,6 @@ export class ManagementPage {
               return r === 'student' || rs.includes('student');
             });
 
-            console.log('🚨 [Data Load Debug]', {
-              role: profile?.role,
-              userOrgId: profile?.organizationId,
-              userMadrasaId: profile?.madrasaId,
-              organizationFilter,
-              madrasaFilter,
-              resource: config.resource,
-              rawStudentsCount: students?.length || 0,
-              rawStudentUserRowsCount: studentUserRows?.length || 0,
-              rawClassGroupsCount: classGroups?.length || 0,
-              rawClassesCount: classes?.length || 0
-            });
-
             const allStudentsMap = new Map<string, EntityRecord>();
             (students || []).forEach(s => {
               const ids = [
@@ -941,12 +928,6 @@ export class ManagementPage {
             allActiveStudents.forEach(st => {
               const gId = extractId(st['groupId'] || st['classGroupId']) || 'NO_GROUP';
               groupDistribution[gId] = (groupDistribution[gId] || 0) + 1;
-            });
-
-            console.log('📊 [Master Active Students Distribution Debug]', {
-              role: profile?.role,
-              totalMasterActiveStudents: allActiveStudents.length,
-              groupCounts: groupDistribution
             });
 
             const getStudentGroupTokens = (s: EntityRecord): Set<string> => {
@@ -1376,15 +1357,6 @@ export class ManagementPage {
                     } else if (!_isOrgAdmin && inchargeMadrasaIds.length > 0) {
                       activeTargetMadrasas = inchargeMadrasaIds;
                     }
-
-                    console.log('🔍 [VM Staff Filter Debug]:', {
-                      resource: config.resource,
-                      userRole: profile?.role,
-                      madrasaFilter,
-                      inchargeMadrasaIds,
-                      activeTargetMadrasas,
-                      countBefore: filteredRows.length
-                    });
 
                     if (activeTargetMadrasas.length > 0) {
                       filteredRows = filteredRows.filter(r => {
@@ -2256,10 +2228,6 @@ export class ManagementPage {
         // Deduplicate records map values into an array
         const combinedStaffRaw = Array.from(new Set(allStaffRecordsMap.values()));
 
-        console.log('🔍 [StaffPage Debug] Raw staffs collection count:', staffs.length);
-        console.log('🔍 [StaffPage Debug] Raw users collection count:', users.length);
-        console.log('🔍 [StaffPage Debug] Matched staffRoleUsers count:', staffRoleUsers.length);
-        console.log('🔍 [StaffPage Debug] Final combined staff count:', combinedStaffRaw.length);
 
         return combinedStaffRaw.map((row) => {
           const rowEmail = String(row['email'] || '').toLowerCase().trim();
@@ -2330,21 +2298,6 @@ export class ManagementPage {
             .filter(Boolean);
 
           const madrasaNames = Array.from(new Set(madrasaNamesList)).join(', ');
-
-          console.log(`🔥 [Staff Debug] ${row['displayName'] || row['name'] || row['email']}:`, {
-            possibleIds,
-            assignedGroupCount: assignedGroups.length,
-            assignedClassGroup,
-            assignedGroupDetails: assignedGroups.map(g => ({
-              id: g.id,
-              name: g['name'],
-              madrasaId: g['madrasaId'],
-              madrasaIds: g['madrasaIds'],
-              classId: g['classId']
-            })),
-            madrasaIds,
-            madrasaNames
-          });
 
           const resolvedRole = userRow['role'] || row['role'] || 'teacher';
           const rawRolesList = [
@@ -5600,8 +5553,13 @@ export class ManagementPage {
     return String(value);
   }
 
-  onPageChange(event: PageEvent) {
-    this.pageIndex$.next(event.pageIndex);
-    this.pageSize$.next(event.pageSize);
+  onPageChange(event: any): void {
+    if (!event) return;
+    if (typeof event.pageIndex === 'number') {
+      this.pageIndex$.next(event.pageIndex);
+    }
+    if (typeof event.pageSize === 'number') {
+      this.pageSize$.next(event.pageSize);
+    }
   }
 }

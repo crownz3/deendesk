@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { combineLatest, map, of, switchMap, catchError, Observable, BehaviorSubject } from 'rxjs';
+import { combineLatest, map, of, switchMap, catchError, Observable, BehaviorSubject, filter, distinctUntilChanged } from 'rxjs';
 import { where, documentId } from 'firebase/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -163,7 +163,13 @@ export class DashboardPage {
     this.showMadrasaDetails = !this.showMadrasaDetails;
   }
 
-  readonly vm$ = combineLatest([this.refresh$, this.auth.profile$]).pipe(
+  readonly vm$ = combineLatest([
+    this.refresh$,
+    this.auth.profile$.pipe(
+      filter((p): p is AppUser => !!p),
+      distinctUntilChanged((prev, curr) => prev?.uid === curr?.uid && prev?.updatedAt === curr?.updatedAt)
+    )
+  ]).pipe(
     switchMap(([_, profile]) => {
       if (!profile) {
         return of(null);
@@ -353,14 +359,6 @@ export class DashboardPage {
     // System/staff users (exclude student login accounts so students are not double-counted under Users)
     const nonStudentUsers = allUsers.filter(u => u['role'] !== 'student');
 
-    console.log('[Dashboard Counts Debug Console]', {
-      userRole: profile.role,
-      userOrgId: profile.organizationId,
-      studentsCount: studentCollection.length,
-      rawUsersCount: allUsers.length,
-      usersCount_non_students: nonStudentUsers.length,
-    });
-
     const data: Record<string, any[]> = {
       ...rawData,
       users: nonStudentUsers,
@@ -532,19 +530,6 @@ export class DashboardPage {
         coveredMadrasaIds.add(mId);
         coveredMadrasaIds.add(actualMadrasaId);
       }
-    });
-
-    console.log('🔍 [Dashboard Build VM Debug]', {
-      uid: profile.uid,
-      role: profile.role,
-      profileMadrasaId: profile.madrasaId,
-      profileMadrasaIds: profile.madrasaIds,
-      inchargeMadrasaNames,
-      inchargeMadrasasText,
-      allMadrasaIds,
-      loadedMadrasas: madrasasList.map(m => ({ id: m.id, name: m['name'], code: m['code'] })),
-      assignedGroupEntities: assignedGroupEntities.map(g => ({ id: g.id, name: g['name'], madrasaId: g['madrasaId'], assignedStaffIds: g['assignedStaffIds'] })),
-      finalAssignedAssignments: assignedAssignments
     });
 
     return {

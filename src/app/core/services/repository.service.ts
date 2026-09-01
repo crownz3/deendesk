@@ -3,12 +3,13 @@ import {
   CollectionReference,
   DocumentData,
   QueryConstraint,
+  QueryDocumentSnapshot,
   addDoc,
   collection,
   deleteField,
   deleteDoc,
   doc,
-  getFirestore,
+  getCountFromServer,
   getDoc,
   getDocs,
   documentId,
@@ -17,6 +18,7 @@ import {
   query,
   serverTimestamp,
   setDoc,
+  startAfter,
   updateDoc,
   where,
   writeBatch,
@@ -25,7 +27,7 @@ import { Observable, combineLatest, of, BehaviorSubject, throwError, from } from
 import { map, shareReplay, switchMap, take, catchError, filter } from 'rxjs/operators';
 import { AppUser, AppModuleId, ScopedEntity } from '../models/domain.model';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 import { FirebaseUsageTrackerService } from './firebase-usage-tracker.service';
 import { NameResolverService, ResolvableType } from './name-resolver.service';
@@ -35,7 +37,8 @@ export type EntityRecord = ScopedEntity & Record<string, any>;
 
 @Injectable({ providedIn: 'root' })
 export class RepositoryService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
+  private inFlightPromises = new Map<string, Promise<any[]>>();
 
   constructor(
     private auditLogService: AuditLogService,
@@ -166,6 +169,7 @@ export class RepositoryService {
     const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${user?.role || ''}_${rolesKey}_${this.stringifyConstraints(extra)}`;
 
     if (user?.uid && this.streamCache.has(cacheKey)) {
+      console.log(`⚡ [Stream Cache HIT] collection="${collectionName}" | networkReads=0`);
       return this.streamCache.get(cacheKey)! as Observable<T[]>;
     }
 
@@ -756,41 +760,122 @@ export class RepositoryService {
   }
 
   async getAllOnce<T extends EntityRecord>(collectionName: string, user: AppUser | null, options?: { roles?: string[]; forceRefresh?: boolean }, extra: QueryConstraint[] = []): Promise<T[]> {
-    const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}`;
+    const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${this.stringifyConstraints(extra)}`;
     
     if (!options?.forceRefresh && this.memoryCache.has(cacheKey)) {
       const cached = this.memoryCache.get(cacheKey)!;
       if (Date.now() - cached.timestamp < this.CACHE_TTL_MS) {
+        console.log(`⚡ [IndexedDB / Memory Cache HIT] collection="${collectionName}" | docs=${cached.data.length} | networkReads=0`);
         return cached.data as T[];
       }
     }
 
-    const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
-    const constraintGroups = this.scopeConstraints(collectionName, user, options);
-
-    if (constraintGroups.length === 0) {
-      return [];
+    if (this.inFlightPromises.has(cacheKey)) {
+      return this.inFlightPromises.get(cacheKey)! as Promise<T[]>;
     }
 
-    const promises = constraintGroups.map(constraints => 
-      getDocs(query(ref, ...constraints, ...extra))
-    );
+    const fetchPromise = (async () => {
+      try {
+        const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
+        const constraintGroups = this.scopeConstraints(collectionName, user, options);
 
-    const snapshots = await Promise.all(promises);
-    const uniqueMap = new Map<string, T>();
-    
-    snapshots.forEach(snapshot => {
-      snapshot.docs.forEach(row => {
-        const item = { ...row.data(), id: row.id } as T;
-        if (item.id && !uniqueMap.has(item.id)) {
-          uniqueMap.set(item.id, item);
+        if (constraintGroups.length === 0) {
+          return [];
         }
-      });
-    });
 
-    const result = this.inMemoryFilter(collectionName, Array.from(uniqueMap.values()), user);
-    this.memoryCache.set(cacheKey, { timestamp: Date.now(), data: result });
-    return result;
+        const promises = constraintGroups.map(constraints => 
+          getDocs(query(ref, ...constraints, ...extra))
+        );
+
+        const snapshots = await Promise.all(promises);
+        const uniqueMap = new Map<string, T>();
+        
+        snapshots.forEach(snapshot => {
+          snapshot.docs.forEach(row => {
+            const item = { ...row.data(), id: row.id } as T;
+            if (item.id && !uniqueMap.has(item.id)) {
+              uniqueMap.set(item.id, item);
+            }
+          });
+        });
+
+        const result = this.inMemoryFilter(collectionName, Array.from(uniqueMap.values()), user);
+        console.log(`🌐 [Firestore Query Fetched] collection="${collectionName}" | docs=${result.length} | cachedFor5Min`);
+        this.memoryCache.set(cacheKey, { timestamp: Date.now(), data: result });
+        return result;
+      } finally {
+        this.inFlightPromises.delete(cacheKey);
+      }
+    })();
+
+    this.inFlightPromises.set(cacheKey, fetchPromise);
+    return fetchPromise;
+  }
+
+  /**
+   * High-Performance Server-Side Aggregation Count
+   * Executes Firestore getCountFromServer() to calculate exact document count on server
+   * for 1 document read cost per 1,000 scanned entries (up to 99.9% cost reduction).
+   */
+  async count(
+    collectionName: string,
+    user: AppUser | null,
+    extraConstraints: QueryConstraint[] = [],
+    options?: { roles?: string[] }
+  ): Promise<number> {
+    try {
+      const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
+      const constraintGroups = this.scopeConstraints(collectionName, user, options);
+      if (constraintGroups.length === 0) return 0;
+
+      const promises = constraintGroups.map(constraints =>
+        getCountFromServer(query(ref, ...constraints, ...extraConstraints))
+      );
+      const snaps = await Promise.all(promises);
+      const total = snaps.reduce((acc, s) => acc + (s.data().count || 0), 0);
+      console.log(`📊 [Server Aggregation Count] collection="${collectionName}" | totalCount=${total} | readCost=1`);
+      this.usageTracker.recordRead(this.mapCollectionToModule(collectionName), user?.organizationId, 1);
+      return total;
+    } catch (e) {
+      console.warn(`[Repository count] Failed for ${collectionName}:`, e);
+      return 0;
+    }
+  }
+
+  /**
+   * Bounded Cursor-Based Pagination
+   * Fetches paginated document slices using startAfter and limit constraints.
+   */
+  async getPaginated<T extends EntityRecord = EntityRecord>(
+    collectionName: string,
+    user: AppUser | null,
+    pageSize = 50,
+    lastDocSnapshot?: QueryDocumentSnapshot<DocumentData> | null,
+    extraConstraints: QueryConstraint[] = []
+  ): Promise<{ items: T[]; lastDoc: QueryDocumentSnapshot<DocumentData> | null }> {
+    try {
+      const ref = collection(this.firestore, collectionName) as CollectionReference<DocumentData>;
+      const constraintGroups = this.scopeConstraints(collectionName, user);
+      if (constraintGroups.length === 0) return { items: [], lastDoc: null };
+
+      const baseConstraints = [...(constraintGroups[0] || []), ...extraConstraints];
+      if (lastDocSnapshot) {
+        baseConstraints.push(startAfter(lastDocSnapshot));
+      }
+      baseConstraints.push(limit(pageSize));
+
+      const q = query(ref, ...baseConstraints);
+      const snap = await getDocs(q);
+      this.usageTracker.recordRead(this.mapCollectionToModule(collectionName), user?.organizationId, snap.docs.length);
+
+      const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }) as T);
+      const lastDoc = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null;
+
+      return { items, lastDoc };
+    } catch (e) {
+      console.warn(`[Repository getPaginated] Failed for ${collectionName}:`, e);
+      return { items: [], lastDoc: null };
+    }
   }
 
   private inMemoryFilter<T extends EntityRecord>(collectionName: string, docs: T[], user: AppUser | null): T[] {

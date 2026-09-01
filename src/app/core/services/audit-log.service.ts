@@ -1,6 +1,6 @@
 import { Injectable, Injector } from '@angular/core';
 import { collection, doc, setDoc, query, where, orderBy, limit, startAfter, getDocs, Timestamp, QueryDocumentSnapshot, getFirestore } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuthService } from './auth.service';
 import { AuditLog } from '../models/audit-log.model';
 import { firstValueFrom } from 'rxjs';
@@ -10,7 +10,7 @@ import { firstValueFrom } from 'rxjs';
 })
 export class AuditLogService {
   private readonly collectionName = 'auditLogs';
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
 
   private targetLogsCache = new Map<string, { timestamp: number; logs: any[] }>();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000;

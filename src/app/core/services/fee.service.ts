@@ -19,7 +19,7 @@ import {
   FeePaymentStatus,
 } from '../models/domain.model';
 import { EntityRecord, RepositoryService } from './repository.service';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 
 export interface FeeDashboardStats {
@@ -35,7 +35,7 @@ export interface FeeDashboardStats {
 
 @Injectable({ providedIn: 'root' })
 export class FeeService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
 
   constructor(
     private readonly repo: RepositoryService,

@@ -25,14 +25,14 @@ import {
   SupportTicketMessage
 } from '../models/domain.model';
 import { EntityRecord, RepositoryService } from './repository.service';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 
 import { compressImageFile } from '../utils/image-compressor.util';
 
 @Injectable({ providedIn: 'root' })
 export class HelpSupportService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
   private readonly storage = getStorage(getDeenDeskFirebaseApp());
 
   constructor(

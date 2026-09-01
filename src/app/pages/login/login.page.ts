@@ -5,7 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Observable } from 'rxjs';
 import { collection, getDocs, getFirestore, limit, query, where, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { AppUser, UserRole } from '../../core/models/domain.model';
-import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { AuthService } from '../../core/services/auth.service';
 import { LoaderService } from '../../core/services/loader.service';
 import { AuditLogService } from '../../core/services/audit-log.service';
@@ -284,7 +284,7 @@ export class LoginPage implements OnInit {
     this.loading = true;
     try {
       const app = getDeenDeskFirebaseApp();
-      const db = getFirestore(app);
+      const db = getDeenDeskFirestore();
 
       const cleanEmail = email.toLowerCase().trim();
 

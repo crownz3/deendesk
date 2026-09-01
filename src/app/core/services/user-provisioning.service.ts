@@ -9,7 +9,7 @@ import {
 import { environment } from '../../../environments/environment';
 import { AppUser, GeneratedCredential, PermissionKey, UserRole } from '../models/domain.model';
 import { CredentialService } from './credential.service';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { RolePermissionsService } from './role-permissions.service';
 
 export interface ProvisionUserInput {
@@ -30,7 +30,7 @@ export interface ProvisionUserInput {
 
 @Injectable({ providedIn: 'root' })
 export class UserProvisioningService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
   private readonly secondaryApp: FirebaseApp;
 
   constructor(

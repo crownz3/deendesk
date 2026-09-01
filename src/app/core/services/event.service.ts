@@ -21,7 +21,7 @@ import {
   EventScheduleHistory
 } from '../models/domain.model';
 import { EntityRecord, RepositoryService } from './repository.service';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 
 export function computeEventStatus(e: any): string {
@@ -58,7 +58,7 @@ export function computeEventStatus(e: any): string {
 
 @Injectable({ providedIn: 'root' })
 export class EventService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
   private readonly functions = getFunctions(getDeenDeskFirebaseApp());
 
   private memoryCache = new Map<string, { timestamp: number; data: any[] }>();

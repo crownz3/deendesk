@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { MatDialogRef } from '@angular/material/dialog';
 import { firstValueFrom } from 'rxjs';
+import { where } from 'firebase/firestore';
 import { RepositoryService, EntityRecord } from '../../../core/services/repository.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -99,19 +100,6 @@ export class OverallStrengthReportDialogComponent implements OnInit {
       this.classes = await this.repo.getAllOnce<EntityRecord>('classes', profile).catch(() => []);
       this.classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []);
       
-      // Fetch students from primary 'students' collection (single source of truth matching Dashboard & Students page)
-      const fetchedStudents = await this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => []);
-      this.students = fetchedStudents;
-
-      console.log('📊 [Overall Strength Debug] Total registered students in collection:', fetchedStudents.length);
-
-      const statusMap: Record<string, number> = {};
-      this.students.forEach(s => {
-        const st = String(s['status'] || 'undefined');
-        statusMap[st] = (statusMap[st] || 0) + 1;
-      });
-      console.log('📊 [Overall Strength Debug] Student Status Distribution:', statusMap);
-
       const fetchedShifts = await this.repo.getAllOnce<EntityRecord>('shifts', profile).catch(() => []);
 
       const defaultNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
@@ -134,12 +122,20 @@ export class OverallStrengthReportDialogComponent implements OnInit {
     }
   }
 
-  public calculateMatrix() {
+  public async calculateMatrix() {
     if (this.selectedMadrasaIds.length === 0) {
       this.matrixRows = [];
       this.shiftTotals = {};
       this.grandTotal = 0;
       return;
+    }
+
+    const profile = await firstValueFrom(this.auth.profile$);
+    if (this.selectedMadrasaIds.includes('all')) {
+      this.students = await this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => []);
+    } else {
+      const constraints = [where('madrasaId', 'in', this.selectedMadrasaIds)];
+      this.students = await this.repo.getAllOnce<EntityRecord>('students', profile, undefined, constraints).catch(() => []);
     }
 
     // 1. Setup Base Shift Headers

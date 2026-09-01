@@ -11,12 +11,12 @@ import {
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { AppUser } from '../models/domain.model';
 import { EntityRecord, RepositoryService } from './repository.service';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 import { AuditLogService } from './audit-log.service';
 
 @Injectable({ providedIn: 'root' })
 export class LifecycleService {
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
   private readonly functions = getFunctions(getDeenDeskFirebaseApp());
 
   constructor(

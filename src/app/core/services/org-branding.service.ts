@@ -4,7 +4,7 @@ import { map, switchMap, shareReplay } from 'rxjs/operators';
 import { doc, onSnapshot, getFirestore, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { AuthService } from './auth.service';
 import { CustomMenuItemConfig, OrganizationBranding } from '../models/domain.model';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 
 const DEFAULT_APP_NAME = 'Deen Desk';
 const DEFAULT_LOGO_URL = 'assets/images/deendesk-logo.png';
@@ -15,7 +15,7 @@ const DEFAULT_SUBTITLE = 'Madrasa Management';
 })
 export class OrgBrandingService {
   private readonly app = getDeenDeskFirebaseApp();
-  private readonly db = getFirestore(this.app);
+  private readonly db = getDeenDeskFirestore();
 
   readonly activeOrgData$: Observable<{ branding?: OrganizationBranding; customMenu?: CustomMenuItemConfig[] } | null> =
     this.auth.profile$.pipe(
