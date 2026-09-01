@@ -17,6 +17,9 @@
       <mat-form-field appearance="outline" density="compact" class="control-field basis-field">
         <mat-label>Group By</mat-label>
         <mat-select [(ngModel)]="reportBasis" (selectionChange)="calculateMatrix()">
+          <mat-option value="departmentGender">Department & Gender Breakdown</mat-option>
+          <mat-option value="shiftGender">Shift & Gender Breakdown</mat-option>
+          <mat-option value="shift">Shift-wise Breakdown</mat-option>
           <mat-option value="course">Course / Division-wise</mat-option>
           <mat-option value="class">Class-wise</mat-option>
           <mat-option value="classGroup">Class Group-wise</mat-option>
@@ -45,6 +48,16 @@
           <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
         </mat-select>
       </mat-form-field>
+
+      <!-- Option to Split Shift Columns by Gender -->
+      <mat-checkbox
+        [(ngModel)]="splitShiftByGender"
+        (change)="calculateMatrix()"
+        color="primary"
+        class="consolidate-chk"
+        matTooltip="Split each shift column into Boys and Girls sub-columns">
+        Split Shifts by Gender
+      </mat-checkbox>
 
       <!-- Option to Consolidate / Group Similar Names -->
       <mat-checkbox
@@ -136,8 +149,16 @@
       </tfoot>
     </table>
 
-    <!-- Optional Strength Unregistered Matharasa List Box -->
-    <div class="unregistered-section-box" *ngIf="includeUnregisteredMatharasa">
+    <!-- Notice Box for Unentered Shift Class Groups -->
+    <div class="unentered-shift-notice-box" *ngIf="unenteredShiftClassGroupCount > 0 || unenteredShiftStudentCount > 0">
+      <div class="notice-header">
+        <strong style="color: #c2410c;">Note on Shifts:</strong>
+        <span>{{ unenteredShiftClassGroupCount }} Class Groups ({{ unenteredShiftStudentCount }} Students) have no explicit shift specified in their settings and are categorized under the <strong>"Shift Not Specified"</strong> column above.</span>
+      </div>
+    </div>
+
+    <!-- Dynamic Strength Unregistered Matharasa List Box -->
+    <div class="unregistered-section-box" *ngIf="includeUnregisteredMatharasa && unregisteredMatharasaList.length > 0">
       <div class="unregistered-box-header">
         Strength Unregistered Matharasa List
       </div>

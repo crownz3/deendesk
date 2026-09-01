@@ -18,7 +18,7 @@ export interface ShiftColumnHeader {
   name: string;
 }
 
-export type ReportGroupingBasis = 'course' | 'class' | 'classGroup' | 'madrasa';
+export type ReportGroupingBasis = 'departmentGender' | 'shiftGender' | 'shift' | 'course' | 'class' | 'classGroup' | 'madrasa';
 
 @Component({
   selector: 'app-overall-strength-report-dialog',
@@ -33,7 +33,7 @@ export class OverallStrengthReportDialogComponent implements OnInit {
   public selectedMonth = 'January';
   public selectedYear = 2026;
   public selectedMadrasaId = 'all';
-  public reportBasis: ReportGroupingBasis = 'course';
+  public reportBasis: ReportGroupingBasis = 'departmentGender';
   public consolidateGroupNames = false;
 
   public months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -64,6 +64,10 @@ export class OverallStrengthReportDialogComponent implements OnInit {
     { title: 'STRENGTH UNREGISTERED MATHARASA LIST', subtitle: 'PULIYANKUDI 2' }
   ];
 
+  public unenteredShiftClassGroupCount = 0;
+  public unenteredShiftStudentCount = 0;
+  public splitShiftByGender = false;
+
   constructor(
     public dialogRef: MatDialogRef<OverallStrengthReportDialogComponent>,
     private repo: RepositoryService,
@@ -87,11 +91,24 @@ export class OverallStrengthReportDialogComponent implements OnInit {
       this.courses = await this.repo.getAllOnce<EntityRecord>('courses', profile).catch(() => []);
       this.classes = await this.repo.getAllOnce<EntityRecord>('classes', profile).catch(() => []);
       this.classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []);
-      this.students = await this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => []);
+      
+      // Fetch students from primary 'students' collection (single source of truth matching Dashboard & Students page)
+      const fetchedStudents = await this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => []);
+      this.students = fetchedStudents;
+
+      console.log('📊 [Overall Strength Debug] Total registered students in collection:', fetchedStudents.length);
+
+      const statusMap: Record<string, number> = {};
+      this.students.forEach(s => {
+        const st = String(s['status'] || 'undefined');
+        statusMap[st] = (statusMap[st] || 0) + 1;
+      });
+      console.log('📊 [Overall Strength Debug] Student Status Distribution:', statusMap);
+
       const fetchedShifts = await this.repo.getAllOnce<EntityRecord>('shifts', profile).catch(() => []);
 
+      const defaultNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
       if (fetchedShifts.length === 0) {
-        const defaultNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
         this.shifts = defaultNames.map((name, idx) => ({
           id: name.toLowerCase().replace(/\s+/g, '-'),
           name,
@@ -111,21 +128,45 @@ export class OverallStrengthReportDialogComponent implements OnInit {
   }
 
   public calculateMatrix() {
-    // 1. Setup Shift Headers
-    this.shiftColumns = this.shifts.map(s => ({
-      key: String(s.id || s['name']),
-      id: String(s.id || s['name']),
-      name: String(s['name'] || 'Shift')
-    }));
-
-    // Add fallback for unassigned shift if needed
-    const hasUnassignedShift = this.shiftColumns.some(c => c.key === 'unassigned');
-    if (!hasUnassignedShift) {
-      this.shiftColumns.push({ key: 'unassigned', id: 'unassigned', name: 'Other / General' });
+    // 1. Setup Base Shift Headers
+    if (!this.shifts || this.shifts.length === 0) {
+      const defaultNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
+      this.shifts = defaultNames.map((name, idx) => ({
+        id: name.toLowerCase().replace(/\s+/g, '-'),
+        name,
+        code: name.toUpperCase().replace(/\s+/g, '_'),
+        displayOrder: idx + 1
+      }));
     }
 
+    if (this.splitShiftByGender) {
+      const cols: ShiftColumnHeader[] = [];
+      this.shifts.forEach(s => {
+        const baseKey = String(s.id || s['name']).toLowerCase().replace(/\s+/g, '-');
+        const baseName = String(s['name'] || 'Shift');
+        cols.push({ key: `${baseKey}_boys`, id: `${baseKey}_boys`, name: `${baseName} (Boys)` });
+        cols.push({ key: `${baseKey}_girls`, id: `${baseKey}_girls`, name: `${baseName} (Girls)` });
+      });
+      cols.push({ key: 'unassigned_boys', id: 'unassigned_boys', name: 'Shift Not Specified (Boys)' });
+      cols.push({ key: 'unassigned_girls', id: 'unassigned_girls', name: 'Shift Not Specified (Girls)' });
+      this.shiftColumns = cols;
+    } else {
+      this.shiftColumns = this.shifts.map(s => ({
+        key: String(s.id || s['name']).toLowerCase().replace(/\s+/g, '-'),
+        id: String(s.id || s['name']).toLowerCase().replace(/\s+/g, '-'),
+        name: String(s['name'] || 'Shift')
+      }));
+    }
+
+    // Build Shift ID and Name lookup Map
+    const shiftMap = new Map<string, string>();
+    this.shifts.forEach(s => {
+      if (s.id) shiftMap.set(String(s.id).toLowerCase(), String(s['name'] || s['code'] || s.id).toLowerCase());
+      if (s['name']) shiftMap.set(String(s['name']).toLowerCase(), String(s['name']).toLowerCase());
+    });
+
     // 2. Filter Active Students
-    let activeStudents = this.students.filter(s => s['status'] !== 'inactive');
+    let activeStudents = this.students.filter(s => s['status'] !== 'inactive' && s['status'] !== 'dropped');
     if (this.selectedMadrasaId !== 'all') {
       activeStudents = activeStudents.filter(s => String(s['madrasaId']) === String(this.selectedMadrasaId));
     }
@@ -143,6 +184,39 @@ export class OverallStrengthReportDialogComponent implements OnInit {
     const madrasaMap = new Map<string, EntityRecord>();
     this.madrasas.forEach(m => { if (m.id) madrasaMap.set(String(m.id), m); });
 
+    // Dynamic unregistered matharasa list computation
+    const unregMadrasas = this.madrasas.filter(m => {
+      const status = String(m['status'] || '').toLowerCase();
+      const type = String(m['type'] || '').toLowerCase();
+      const name = String(m['name'] || '').toLowerCase();
+      const isRegistered = m['isRegistered'];
+      return isRegistered === false || status === 'unregistered' || type === 'unregistered' || name.includes('unregistered');
+    });
+
+    if (unregMadrasas.length > 0) {
+      this.unregisteredMatharasaList = unregMadrasas.map(m => ({
+        title: String(m['name'] || 'STRENGTH UNREGISTERED MATHARASA LIST').toUpperCase(),
+        subtitle: String(m['location'] || m['place'] || m['code'] || m['address'] || '').toUpperCase()
+      }));
+    } else {
+      const studentUnregMap = new Map<string, string>();
+      activeStudents.forEach(st => {
+        const mName = String(st['madrasaName'] || st['madrasaNameDisplay'] || '').trim();
+        if (mName.toLowerCase().includes('unregistered')) {
+          studentUnregMap.set(mName.toUpperCase(), mName.toUpperCase());
+        }
+      });
+
+      if (studentUnregMap.size > 0) {
+        this.unregisteredMatharasaList = Array.from(studentUnregMap.values()).map(name => ({
+          title: 'STRENGTH UNREGISTERED MATHARASA LIST',
+          subtitle: name.replace(/STRENGTH UNREGISTERED MATHARASA LIST/i, '').replace(/^[\s\-_]+/, '') || name
+        }));
+      } else {
+        this.unregisteredMatharasaList = [];
+      }
+    }
+
     // Helper to get normalized base name for consolidation
     const getBaseName = (rawName: string): string => {
       if (!rawName) return 'General';
@@ -154,10 +228,67 @@ export class OverallStrengthReportDialogComponent implements OnInit {
         .trim() || trimmed;
     };
 
-    // 3. Determine Row Entity Entities based on reportBasis
     const matrixMap = new Map<string, MatrixRowData>();
 
-    if (this.consolidateGroupNames) {
+    const createBlankRow = (id: string, title: string, sNo: number): MatrixRowData => {
+      const shiftCounts: { [key: string]: number } = {};
+      this.shiftColumns.forEach(col => shiftCounts[col.key] = 0);
+      shiftCounts['unassigned'] = 0;
+      shiftCounts['unassigned_boys'] = 0;
+      shiftCounts['unassigned_girls'] = 0;
+      return {
+        sNo,
+        rowId: id,
+        rowTitle: title,
+        shiftCounts,
+        total: 0
+      };
+    };
+
+    if (this.reportBasis === 'departmentGender') {
+      // Standard Department & Gender Split with Imam Shafi integration
+      const predefinedRows = [
+        { id: 'mifthah-boys', title: 'Mifthah (Boys)' },
+        { id: 'thilavath-boys', title: 'Thilavath(Boys)' },
+        { id: 'mifthah-girls', title: 'Mifthah (Girls)' },
+        { id: 'thilavath-girls', title: 'Thilavath(Girls)' },
+        { id: 'hifz-boys', title: 'Hifz (Boys)' },
+        { id: 'hifz-girls', title: 'Hifz (Girls)' }
+      ];
+
+      predefinedRows.forEach((r, idx) => {
+        matrixMap.set(r.id, createBlankRow(r.id, r.title, idx + 1));
+      });
+    } else if (this.reportBasis === 'shiftGender') {
+      const predefinedRows = [
+        { id: 'morning-boys', title: 'Morning Shift (Boys)' },
+        { id: 'morning-girls', title: 'Morning Shift (Girls)' },
+        { id: 'evening-boys', title: 'Evening Shift (Boys)' },
+        { id: 'evening-girls', title: 'Evening Shift (Girls)' },
+        { id: 'after-maghrib-boys', title: 'After Maghrib Shift (Boys)' },
+        { id: 'after-maghrib-girls', title: 'After Maghrib Shift (Girls)' },
+        { id: 'night-boys', title: 'Night Shift (Boys)' },
+        { id: 'night-girls', title: 'Night Shift (Girls)' },
+        { id: 'unassigned-boys', title: 'Shift Not Specified (Boys)' },
+        { id: 'unassigned-girls', title: 'Shift Not Specified (Girls)' }
+      ];
+
+      predefinedRows.forEach((r, idx) => {
+        matrixMap.set(r.id, createBlankRow(r.id, r.title, idx + 1));
+      });
+    } else if (this.reportBasis === 'shift') {
+      const predefinedRows = [
+        { id: 'morning', title: 'Morning Shift' },
+        { id: 'evening', title: 'Evening Shift' },
+        { id: 'after-maghrib', title: 'After Maghrib Shift' },
+        { id: 'night', title: 'Night Shift' },
+        { id: 'unassigned', title: 'Shift Not Specified' }
+      ];
+
+      predefinedRows.forEach((r, idx) => {
+        matrixMap.set(r.id, createBlankRow(r.id, r.title, idx + 1));
+      });
+    } else if (this.consolidateGroupNames) {
       let sourceList: { id: string; name: string }[] = [];
       if (this.reportBasis === 'course') {
         sourceList = this.courses.map(c => ({ id: String(c.id), name: String(c['name']) }));
@@ -173,15 +304,7 @@ export class OverallStrengthReportDialogComponent implements OnInit {
         const baseTitle = getBaseName(item.name);
         const key = baseTitle.toLowerCase();
         if (!matrixMap.has(key)) {
-          const shiftCounts: { [key: string]: number } = {};
-          this.shiftColumns.forEach(col => shiftCounts[col.key] = 0);
-          matrixMap.set(key, {
-            sNo: matrixMap.size + 1,
-            rowId: key,
-            rowTitle: baseTitle,
-            shiftCounts,
-            total: 0
-          });
+          matrixMap.set(key, createBlankRow(key, baseTitle, matrixMap.size + 1));
         }
       });
     } else {
@@ -200,17 +323,18 @@ export class OverallStrengthReportDialogComponent implements OnInit {
       }
 
       rowEntities.forEach((entity, idx) => {
-        const shiftCounts: { [key: string]: number } = {};
-        this.shiftColumns.forEach(col => shiftCounts[col.key] = 0);
-        matrixMap.set(entity.id, {
-          sNo: idx + 1,
-          rowId: entity.id,
-          rowTitle: entity.title,
-          shiftCounts,
-          total: 0
-        });
+        matrixMap.set(entity.id, createBlankRow(entity.id, entity.title, idx + 1));
       });
     }
+
+    // Log Class Groups that have missing or unentered shifts
+    const missingShiftGroups = this.classGroups.filter(g => !g['shiftId'] && !g['shiftName'] && !g['shift']);
+    this.unenteredShiftClassGroupCount = missingShiftGroups.length;
+    console.log(`⚠️ [Overall Strength Debug] Found ${missingShiftGroups.length} Class Groups with UNENTERED/MISSING shift:`, 
+      missingShiftGroups.map(g => ({ id: g.id, name: g['name'], madrasaId: g['madrasaId'] }))
+    );
+
+    this.unenteredShiftStudentCount = 0;
 
     // 4. Count Students 1-to-1
     activeStudents.forEach(student => {
@@ -225,9 +349,75 @@ export class OverallStrengthReportDialogComponent implements OnInit {
 
       const mId = String(student['madrasaId'] || classDoc?.['madrasaId'] || groupDoc?.['madrasaId'] || '');
 
-      // Determine Row ID based on grouping basis
+      const rawShiftEntered = Boolean(
+        groupDoc?.['shiftId'] || groupDoc?.['shiftName'] || groupDoc?.['shift'] ||
+        courseDoc?.['shiftId'] || courseDoc?.['shiftName'] || courseDoc?.['shift'] ||
+        classDoc?.['shiftId'] || classDoc?.['shiftName'] || classDoc?.['shift'] ||
+        student['shiftId'] || student['shiftName'] || student['shift']
+      );
+
+      const combinedText = (
+        String(student['stage'] || '') + ' ' +
+        String(student['stageLevel'] || '') + ' ' +
+        String(courseDoc?.['name'] || '') + ' ' +
+        String(classDoc?.['name'] || '') + ' ' +
+        String(groupDoc?.['name'] || '')
+      ).toLowerCase();
+
+      // Gender Resolution
+      const directGender = String(student['gender'] || student['sex'] || groupDoc?.['genderScope'] || groupDoc?.['gender'] || courseDoc?.['gender'] || '').toLowerCase();
+      const isGirl = (
+        directGender === 'female' || directGender === 'girl' || directGender === 'girls' || directGender === 'g' ||
+        combinedText.includes('girls') || combinedText.includes('female') || combinedText.includes('banat') || combinedText.includes('girls section')
+      );
+
+      // Resolve Shift without forcing auto-resolution to evening
+      const sIdRaw = String(
+        groupDoc?.['shiftId'] || groupDoc?.['shiftName'] || groupDoc?.['shift'] ||
+        courseDoc?.['shiftId'] || courseDoc?.['shiftName'] || courseDoc?.['shift'] ||
+        classDoc?.['shiftId'] || classDoc?.['shiftName'] || classDoc?.['shift'] ||
+        student['shiftId'] || student['shiftName'] || student['shift'] || ''
+      ).trim().toLowerCase();
+
+      let resolvedShiftName = shiftMap.get(sIdRaw) || sIdRaw;
+
+      if (!resolvedShiftName || resolvedShiftName === 'unassigned') {
+        const textToSearch = (
+          String(groupDoc?.['name'] || '') + ' ' +
+          String(courseDoc?.['name'] || '') + ' ' +
+          String(classDoc?.['name'] || '') + ' ' +
+          String(student['timing'] || '')
+        ).toLowerCase();
+
+        if (textToSearch.includes('morning')) resolvedShiftName = 'morning';
+        else if (textToSearch.includes('evening')) resolvedShiftName = 'evening';
+        else if (textToSearch.includes('maghrib')) resolvedShiftName = 'after-maghrib';
+        else if (textToSearch.includes('night')) resolvedShiftName = 'night';
+        else resolvedShiftName = 'unassigned';
+      }
+
+      // Determine Target Row ID
       let targetRowId = '';
-      if (this.consolidateGroupNames) {
+
+      if (this.reportBasis === 'departmentGender') {
+        if (combinedText.includes('mifthah') || combinedText.includes('miftah')) {
+          targetRowId = isGirl ? 'mifthah-girls' : 'mifthah-boys';
+        } else if (combinedText.includes('thilavath') || combinedText.includes('thilawath') || combinedText.includes('tilawat')) {
+          targetRowId = isGirl ? 'thilavath-girls' : 'thilavath-boys';
+        } else if (combinedText.includes('hifz') || combinedText.includes('hifdh')) {
+          targetRowId = isGirl ? 'hifz-girls' : 'hifz-boys';
+        } else {
+          targetRowId = isGirl ? 'thilavath-girls' : 'thilavath-boys';
+        }
+      } else if (this.reportBasis === 'shiftGender') {
+        let cleanShift = resolvedShiftName.replace(/[-_\s]*(boys|girls)$/i, '').trim();
+        if (!cleanShift || cleanShift === 'unassigned') cleanShift = 'unassigned';
+        targetRowId = isGirl ? `${cleanShift}-girls` : `${cleanShift}-boys`;
+      } else if (this.reportBasis === 'shift') {
+        let cleanShift = resolvedShiftName.replace(/[-_\s]*(boys|girls)$/i, '').trim();
+        if (!cleanShift || cleanShift === 'unassigned') cleanShift = 'unassigned';
+        targetRowId = cleanShift;
+      } else if (this.consolidateGroupNames) {
         let rawTitle = '';
         if (this.reportBasis === 'course') rawTitle = courseDoc ? String(courseDoc['name']) : crsId;
         else if (this.reportBasis === 'class') rawTitle = classDoc ? String(classDoc['name']) : clsId;
@@ -247,44 +437,42 @@ export class OverallStrengthReportDialogComponent implements OnInit {
         }
       }
 
-      // Determine Shift Key
-      let shiftKey = String(groupDoc?.['shiftId'] || groupDoc?.['shiftName'] || groupDoc?.['shift'] || '').trim();
-      if (!shiftKey) {
-        // Fallback string match if group shift is unset
-        const gName = String(groupDoc?.['name'] || '').toLowerCase();
-        if (gName.includes('morning')) shiftKey = 'morning';
-        else if (gName.includes('evening')) shiftKey = 'evening';
-        else if (gName.includes('maghrib')) shiftKey = 'after-maghrib';
-        else if (gName.includes('night')) shiftKey = 'night';
-        else shiftKey = 'unassigned';
+      // Match resolved shift name against shiftColumns
+      let matchedCol = this.shiftColumns.find(col => 
+        col.key === resolvedShiftName || 
+        col.name.toLowerCase() === resolvedShiftName ||
+        col.key.includes(resolvedShiftName) ||
+        resolvedShiftName.includes(col.key)
+      );
+
+      if (!matchedCol && (resolvedShiftName.includes('maghrib') || resolvedShiftName.includes('after_maghrib'))) {
+        matchedCol = this.shiftColumns.find(col => col.key.includes('maghrib') || col.name.toLowerCase().includes('maghrib'));
       }
 
-      // Normalize shiftKey to match shiftColumns
-      const matchedCol = this.shiftColumns.find(col => 
-        col.key.toLowerCase() === shiftKey.toLowerCase() || 
-        col.name.toLowerCase() === shiftKey.toLowerCase() ||
-        col.key.toLowerCase().includes(shiftKey.toLowerCase())
-      );
-      const colKey = matchedCol ? matchedCol.key : 'unassigned';
+      let baseColKey = matchedCol ? matchedCol.key : 'unassigned';
+      let colKey = baseColKey;
 
-      // Increment row count
+      if (this.splitShiftByGender) {
+        if (baseColKey === 'unassigned') {
+          colKey = isGirl ? 'unassigned_girls' : 'unassigned_boys';
+        } else {
+          colKey = isGirl ? `${baseColKey}_girls` : `${baseColKey}_boys`;
+        }
+      }
+
+      if (baseColKey === 'unassigned') {
+        this.unenteredShiftStudentCount++;
+      }
+
       let rowData = matrixMap.get(targetRowId);
       if (!rowData && targetRowId) {
-        let title = '';
+        let title = targetRowId;
         if (this.consolidateGroupNames) {
           title = getBaseName(groupDoc ? String(groupDoc['name']) : targetRowId);
         } else {
           title = groupDoc ? String(groupDoc['name']) : targetRowId;
         }
-        const shiftCounts: { [key: string]: number } = {};
-        this.shiftColumns.forEach(col => shiftCounts[col.key] = 0);
-        rowData = {
-          sNo: matrixMap.size + 1,
-          rowId: targetRowId,
-          rowTitle: title,
-          shiftCounts,
-          total: 0
-        };
+        rowData = createBlankRow(targetRowId, title, matrixMap.size + 1);
         matrixMap.set(targetRowId, rowData);
       }
 
@@ -294,8 +482,26 @@ export class OverallStrengthReportDialogComponent implements OnInit {
       }
     });
 
-    // 5. Calculate Summary Totals
-    this.matrixRows = Array.from(matrixMap.values()).filter(r => r.total > 0 || this.matrixRows.length < 10);
+    if (this.splitShiftByGender) {
+      this.shiftColumns = this.shiftColumns.filter(col => {
+        let totalForCol = 0;
+        matrixMap.forEach(row => { totalForCol += (row.shiftCounts[col.key] || 0); });
+        return totalForCol > 0;
+      });
+    } else {
+      let unassignedTotal = 0;
+      matrixMap.forEach(row => { unassignedTotal += (row.shiftCounts['unassigned'] || 0); });
+      if (unassignedTotal > 0 && !this.shiftColumns.some(c => c.key === 'unassigned')) {
+        this.shiftColumns.push({ key: 'unassigned', id: 'unassigned', name: 'Shift Not Specified' });
+      }
+    }
+
+    // Rows to display
+    if (this.reportBasis === 'departmentGender' || this.reportBasis === 'shiftGender' || this.reportBasis === 'shift') {
+      this.matrixRows = Array.from(matrixMap.values());
+    } else {
+      this.matrixRows = Array.from(matrixMap.values()).filter(r => r.total > 0 || this.matrixRows.length < 10);
+    }
     
     // Re-index S.No
     this.matrixRows.forEach((r, i) => r.sNo = i + 1);
@@ -311,6 +517,11 @@ export class OverallStrengthReportDialogComponent implements OnInit {
       });
       this.grandTotal += row.total;
     });
+
+    console.log('📊 [Overall Strength Debug] Active Students counted in Matrix:', activeStudents.length);
+    console.log('⚠️ [Overall Strength Debug] Active Students with NO explicit shift entered:', this.unenteredShiftStudentCount);
+    console.log('📊 [Overall Strength Debug] Calculated Matrix Grand Total:', this.grandTotal);
+    console.log('📊 [Overall Strength Debug] Matrix Rows:', this.matrixRows.map(r => ({ title: r.rowTitle, total: r.total, counts: r.shiftCounts })));
   }
 
   public printReport() {

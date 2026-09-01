@@ -773,7 +773,7 @@ export class RepositoryService {
     }
 
     const promises = constraintGroups.map(constraints => 
-      getDocs(query(ref, ...constraints, ...extra, limit(1000)))
+      getDocs(query(ref, ...constraints, ...extra))
     );
 
     const snapshots = await Promise.all(promises);
