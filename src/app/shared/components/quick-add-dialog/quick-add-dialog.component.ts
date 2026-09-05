@@ -440,7 +440,10 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       this.currentUserProfile.role === 'superAdmin' ||
       (this.currentUserProfile.role as string) === 'superadmin' ||
       this.currentUserProfile.role === 'organizationAdmin' ||
-      (this.currentUserProfile.role as string) === 'organizationadmin';
+      (this.currentUserProfile.role as string) === 'organizationadmin' ||
+      this.currentUserProfile.role === 'madrasaIncharge' ||
+      (this.currentUserProfile.role as string) === 'incharge' ||
+      (this.currentUserProfile.role as string) === 'headTeacher';
 
     if (!isOrgAdminOrSuper) {
       const profAny = this.currentUserProfile as Record<string, any>;
@@ -657,18 +660,20 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         if (!data) return true;
 
         const sameOrg = organizationId && data.organizationId ? data.organizationId === organizationId : true;
-        const sameMadrasa = madrasaId && data.madrasaId ? data.madrasaId === madrasaId : true;
+        const sameMadrasa = madrasaId ? (
+          String(data.madrasaId) === String(madrasaId) ||
+          (Array.isArray(data.madrasaIds) && data.madrasaIds.map(String).includes(String(madrasaId))) ||
+          (!data.madrasaId && (!data.madrasaIds || data.madrasaIds.length === 0))
+        ) : true;
         
         const hasClassControl = this.form.contains('classId') || this.form.contains('classIds');
 
-        if (hasClassControl) {
-          if (!classId || (Array.isArray(classId) && classId.length === 0)) return false;
-
+        if (hasClassControl && classId && (Array.isArray(classId) ? classId.length > 0 : Boolean(classId))) {
           let sameClass = true;
           if (Array.isArray(classId)) {
-            sameClass = classId.includes(data.classId);
+            sameClass = classId.map(String).includes(String(data.classId));
           } else {
-            sameClass = data.classId === classId;
+            sameClass = String(data.classId) === String(classId) || !data.classId;
           }
           if (!sameClass) return false;
         }
@@ -867,9 +872,6 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
     }
     if (field.key === 'levels') {
       return !this.shouldShowStageSelect();
-    }
-    if (field.key === 'groupId' || field.key === 'groupIds') {
-      return this.getFilteredOptions(field).length > 0;
     }
     return true;
   }
