@@ -1,6 +1,6 @@
 import { Injectable, Injector } from '@angular/core';
-import { collection, getDocs, doc, setDoc, deleteDoc, getFirestore, query, where, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from './firebase-app';
+import { collection, getDocs, doc, setDoc, deleteDoc, query, where, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
+import { getDeenDeskFirestore } from './firebase-app';
 import { PermissionKey, UserRole } from '../models/domain.model';
 import { ROLE_PERMISSIONS, ROLE_LABELS, ROLE_ORDER } from '../constants/defaults';
 import { AuditLogService } from './audit-log.service';
@@ -13,8 +13,7 @@ export class RolePermissionsService {
   private labels: Record<string, string> = { ...ROLE_LABELS };
   private loaded = false;
 
-  private readonly firebaseApp = getDeenDeskFirebaseApp();
-  private readonly firestore = getFirestore(this.firebaseApp);
+  private readonly firestore = getDeenDeskFirestore();
 
   constructor(private injector: Injector) {}
 

@@ -158,7 +158,7 @@
         <mat-form-field appearance="outline" class="search-field">
           <mat-label>Search {{ vm.config.title.toLowerCase() }}</mat-label>
           <mat-icon matPrefix>search</mat-icon>
-          <input matInput [ngModel]="searchQuery$ | async" (ngModelChange)="searchQuery$.next($event); pageIndex$.next(0)" placeholder="Name or email">
+          <input matInput [ngModel]="searchQuery$ | async" (ngModelChange)="searchQuery$.next($event)" (keyup.enter)="triggerSearchImmediately()" placeholder="Name or email">
         </mat-form-field>
 
         <!-- Organization Filter (Super Admin only) -->

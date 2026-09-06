@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { map, switchMap, shareReplay } from 'rxjs/operators';
-import { doc, onSnapshot, getFirestore, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { AuthService } from './auth.service';
 import { CustomMenuItemConfig, OrganizationBranding } from '../models/domain.model';
 import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';

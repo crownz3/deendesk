@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { doc, getDoc, getFirestore } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { Observable, from, map, shareReplay, of, catchError, combineLatest } from 'rxjs';
 import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
 

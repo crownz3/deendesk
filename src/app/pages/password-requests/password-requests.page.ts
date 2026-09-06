@@ -353,7 +353,7 @@ export class PasswordRequestsPage {
       return [];
     }
 
-    const firestore = getFirestore(getDeenDeskFirebaseApp());
+    const firestore = getDeenDeskFirestore();
     const result: (PasswordResetRequest & EntityRecord)[] = [];
 
     for (const req of requests) {
@@ -432,7 +432,7 @@ export class PasswordRequestsPage {
   async matchAndAssign(request: PasswordResetRequest & EntityRecord, currentUser: AppUser): Promise<void> {
     try {
       await this.loader.withLoader('Matching request...', async () => {
-        const firestore = getFirestore(getDeenDeskFirebaseApp());
+        const firestore = getDeenDeskFirestore();
         const usersRef = collection(firestore, 'users');
         const userQuery = query(usersRef, where('email', '==', request.normalizedEmail || request.requesterEmail.toLowerCase().trim()), limit(1));
         const userSnap = await getDocs(userQuery);

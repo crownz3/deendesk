@@ -5,7 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, BehaviorSubject, take, tap, scan, debounceTime, distinctUntilChanged } from 'rxjs';
 import { CollectionReference, DocumentData, collection, getFirestore, query, where, QueryConstraint, getDocs, limit, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
+import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { DEFAULT_STAGES_BY_COURSE_TYPE, PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
 import {
   AppUser,
@@ -788,9 +788,16 @@ export class ManagementPage {
 
   readonly searchQuery$ = new BehaviorSubject<string>('');
   readonly debouncedSearchQuery$ = this.searchQuery$.pipe(
-    debounceTime(400),
-    distinctUntilChanged()
+    debounceTime(600),
+    map(s => s ? s.trim() : ''),
+    distinctUntilChanged(),
+    tap(() => this.pageIndex$.next(0))
   );
+
+  triggerSearchImmediately() {
+    const val = this.searchQuery$.value;
+    this.searchQuery$.next(val);
+  }
   readonly pageIndex$ = new BehaviorSubject<number>(0);
   readonly pageSize$ = new BehaviorSubject<number>(10);
 
@@ -4248,7 +4255,7 @@ export class ManagementPage {
         const userEmail = String(row['email'] || row['generatedEmail'] || row['workEmail'] || '').trim().toLowerCase();
         if (userEmail) {
           try {
-            const firestore = getFirestore(getDeenDeskFirebaseApp());
+            const firestore = getDeenDeskFirestore();
             const reqRef = collection(firestore, 'passwordResetRequests');
             const qPending = query(reqRef, where('email', '==', userEmail), where('status', 'in', ['PENDING', 'pending']));
             const pendingSnap = await getDocs(qPending);
@@ -4283,7 +4290,7 @@ export class ManagementPage {
     }
 
     // Try finding by entityId in `users` collection
-    const firestore = getFirestore(getDeenDeskFirebaseApp());
+    const firestore = getDeenDeskFirestore();
     const usersRef = collection(firestore, 'users');
 
     if (row.id) {

@@ -1,8 +1,8 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { getFirestore, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { EventService } from '../../core/services/event.service';
 import { AppUser, EventParticipant, EventAttendance, EventScheduleHistory } from '../../core/models/domain.model';
 import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/confirm-dialog.component';
@@ -38,7 +38,7 @@ export class EventDetailsDialogComponent implements OnInit {
     percentage: 0
   };
 
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
 
   constructor(
     private readonly eventService: EventService,

@@ -1,14 +1,14 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { firstValueFrom } from 'rxjs';
 import { AttendanceHistoryDialogComponent } from '../attendance-history-dialog/attendance-history-dialog.component';
 import { StudentProgressTrackerDialogComponent } from '../student-progress-tracker-dialog/student-progress-tracker-dialog.component';
-import { EntityRecord } from '../../../core/services/repository.service';
+import { EntityRecord, RepositoryService } from '../../../core/services/repository.service';
 import { PERMISSION_LABELS, ROLE_LABELS } from '../../../core/constants/defaults';
 import { AuthService } from '../../../core/services/auth.service';
 import { CredentialService } from '../../../core/services/credential.service';
-import { where, getDocs, query, collection, getFirestore } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from '../../../core/services/firebase-app';
+import { getDeenDeskFirestore } from '../../../core/services/firebase-app';
 
 export interface UserDetailsDialogData {
   user: EntityRecord;
@@ -40,7 +40,8 @@ export class UserDetailsDialogComponent implements OnInit {
     private auth: AuthService,
     private credentialService: CredentialService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private repo: RepositoryService
   ) {
     this.user = data.user;
   }
@@ -115,21 +116,16 @@ export class UserDetailsDialogComponent implements OnInit {
   async loadAcademicDetails() {
     this.loadingStudents = true;
     try {
-      const firestore = getFirestore(getDeenDeskFirebaseApp());
+      const profile = await firstValueFrom(this.auth.profile$);
       
-      const [groupsSnap, classesSnap, coursesSnap, usersSnap, studentsSnap] = await Promise.all([
-        getDocs(collection(firestore, 'classGroups')),
-        getDocs(collection(firestore, 'classes')),
-        getDocs(collection(firestore, 'courses')),
-        getDocs(collection(firestore, 'users')),
-        getDocs(collection(firestore, 'students'))
+      const [allGroups, allClasses, allCourses, allUsers, directStudents] = await Promise.all([
+        this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('classes', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('courses', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('users', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => [])
       ]);
 
-      const allGroups = groupsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
-      const allClasses = classesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
-      const allCourses = coursesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
-      const allUsers = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
-      const directStudents = studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as EntityRecord));
       const userStudents = allUsers.filter(u => u['role'] === 'student');
 
       const userMap = new Map<string, EntityRecord>();

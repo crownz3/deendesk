@@ -219,7 +219,7 @@ export class AuthService {
     const searchStr = identifier.trim();
     const searchLower = searchStr.toLowerCase();
 
-    const firestore = getFirestore(this.firebaseApp);
+    const firestore = this.firestore;
     const usersRef = collection(firestore, 'users');
 
     // Query 1: search users by email (exact & lower)

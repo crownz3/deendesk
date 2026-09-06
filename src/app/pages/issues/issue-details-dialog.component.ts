@@ -1,8 +1,8 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { getFirestore, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
+import { collection, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { AppUser } from '../../core/models/domain.model';
 import { IssueService } from '../../core/services/issue.service';
 import { AuditLogService } from '../../core/services/audit-log.service';
@@ -32,7 +32,7 @@ export class IssueDetailsDialogComponent implements OnInit {
   newNoteText = '';
   newNoteType: 'general' | 'confidential' | 'safeguarding' | 'action' = 'general';
 
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
 
   constructor(
     private readonly issueService: IssueService,

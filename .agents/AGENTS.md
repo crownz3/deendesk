@@ -20,3 +20,8 @@
 
 ## 5. Troubleshooting & Debugging Rule
 - If any data-fetching or cache discrepancies arise in future development, **FIRST verify** that all newly added services consume `getDeenDeskFirestore()` and that `clearCache()` is called upon record mutations (`create`, `update`, `delete`).
+
+## 6. Component Dialog Fetching & Search Debouncing Rule
+- Component dialogs (e.g., `UserDetailsDialogComponent`) must consume `RepositoryService.getAllOnce()` rather than issuing raw `getDocs(collection(...))` calls across multiple collections.
+- Text search inputs on high-traffic management pages must be debounced by 500–600ms to avoid re-evaluating queries on every keystroke.
+

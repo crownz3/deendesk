@@ -1,8 +1,8 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { getFirestore, doc, collection, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { getDeenDeskFirebaseApp } from '../../core/services/firebase-app';
+import { doc, collection, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { AppUser } from '../../core/models/domain.model';
 import { IssueService } from '../../core/services/issue.service';
 
@@ -30,7 +30,7 @@ export class IssueCategoryDialogComponent implements OnInit {
 
   editingCategory: any = null;
 
-  private readonly firestore = getFirestore(getDeenDeskFirebaseApp());
+  private readonly firestore = getDeenDeskFirestore();
 
   constructor(
     private readonly issueService: IssueService,

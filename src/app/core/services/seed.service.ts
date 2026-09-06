@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { doc, getFirestore, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { DEFAULT_COURSES, ROLE_PERMISSIONS } from '../constants/defaults';
 import { AppUser } from '../models/domain.model';
 import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from './firebase-app';
