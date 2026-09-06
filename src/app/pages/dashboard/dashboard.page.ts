@@ -257,6 +257,8 @@ export class DashboardPage {
                 const uniqueStudents = Array.from(new Map(allStudents.map((s: any) => [s.id, s])).values());
 
                 const profAny = profile as Record<string, any>;
+                const normalizedRole = String(profile.role || '').toLowerCase();
+
                 const staffTokens = new Set<string>([
                   ...this.extractAllStrings(profAny['id']),
                   ...this.extractAllStrings(profAny['uid']),
@@ -264,46 +266,67 @@ export class DashboardPage {
                   ...this.extractAllStrings(profAny['email'])
                 ]);
 
-                const assignedGroups = initialData.classGroups.filter((g: any) => {
-                  const gStaffTokens = this.extractAllStrings([g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff']]);
+                const assignedMadrasas = (fetched.madrasas || []).filter((m: any) => {
+                  const inchargeTokens = this.extractAllStrings([m['inchargeIds'], m['incharges'], m['coordinatorIds'], m['coordinators']]);
+                  return inchargeTokens.some(tok => staffTokens.has(tok));
+                });
+
+                const userMadrasaIds = new Set<string>([
+                  ...assignedMadrasas.map((m: any) => String(m.id)),
+                  ...this.extractAllStrings([profAny['madrasaId'], profAny['madrasaIds'], profAny['assignedMadrasaId'], profAny['assignedMadrasaIds']])
+                ]);
+
+                const assignedGroups = (initialData.classGroups || []).filter((g: any) => {
+                  const gStaffTokens = this.extractAllStrings([
+                    g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff'], g['teacherId'], g['staffId']
+                  ]);
                   return gStaffTokens.some(tok => staffTokens.has(tok));
                 });
                 const assignedGroupIds = new Set<string>([
                   ...assignedGroups.map((g: any) => String(g.id)),
-                  ...this.extractAllStrings([profAny['groupId'], profAny['groupIds'], profAny['classGroupId'], profAny['classGroupIds'], profAny['assignedGroupId']])
+                  ...this.extractAllStrings([profAny['groupId'], profAny['groupIds'], profAny['classGroupId'], profAny['classGroupIds'], profAny['assignedGroupId'], profAny['assignedGroupIds']])
                 ]);
 
                 const assignedClassIds = new Set<string>([
                   ...assignedGroups.map((g: any) => String(g['classId'] || '')).filter(Boolean),
-                  ...initialData.classes.filter((c: any) => {
-                    const cStaffTokens = this.extractAllStrings([c['assignedStaffIds'], c['assignedStaff'], c['staffIds'], c['teacherIds']]);
+                  ...(initialData.classes || []).filter((c: any) => {
+                    const cStaffTokens = this.extractAllStrings([c['assignedStaffIds'], c['assignedStaff'], c['staffIds'], c['teacherIds'], c['teacherId']]);
                     return cStaffTokens.some(tok => staffTokens.has(tok));
                   }).map((c: any) => String(c.id)),
                   ...this.extractAllStrings([profAny['classId'], profAny['classIds'], profAny['assignedClassId'], profAny['assignedClassIds']])
                 ]);
 
-                const isTeacherOrStaff = profile.role === 'teacher' || (profile.role as string) === 'staff';
+                let finalStudents: any[] = [];
 
-                const scopedStudents = uniqueStudents.filter((s: any) => {
-                  const sTeacherTokens = this.extractAllStrings([s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']]);
-                  if (sTeacherTokens.some(tok => staffTokens.has(tok))) return true;
-
-                  const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
-                  if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
-
-                  if (assignedGroupIds.size > 0) {
-                    return false;
+                if (normalizedRole === 'superadmin' || normalizedRole === 'super_admin' || normalizedRole === 'organizationadmin' || normalizedRole === 'organization_admin') {
+                  finalStudents = uniqueStudents;
+                } else if (normalizedRole === 'madrasaincharge' || normalizedRole === 'coordinator') {
+                  if (userMadrasaIds.size > 0) {
+                    finalStudents = uniqueStudents.filter((s: any) => {
+                      const sMadrasaId = String(s['madrasaId'] || s['assignedMadrasaId'] || '');
+                      return sMadrasaId && userMadrasaIds.has(sMadrasaId);
+                    });
+                  } else {
+                    finalStudents = uniqueStudents;
                   }
+                } else if (normalizedRole === 'teacher' || normalizedRole === 'staff') {
+                  finalStudents = uniqueStudents.filter((s: any) => {
+                    const sTeacherTokens = this.extractAllStrings([s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']]);
+                    if (sTeacherTokens.some(tok => staffTokens.has(tok))) return true;
 
-                  const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
-                  if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+                    const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
+                    if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
 
-                  return false;
-                });
+                    if (assignedGroupIds.size > 0) return false;
 
-                const finalStudents = isTeacherOrStaff
-                  ? ((assignedGroupIds.size > 0 || assignedClassIds.size > 0) ? scopedStudents : uniqueStudents)
-                  : uniqueStudents;
+                    const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
+                    if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+
+                    return false;
+                  });
+                } else {
+                  finalStudents = uniqueStudents;
+                }
 
                 const scopedClasses = initialData.classes.filter((c: any) => assignedClassIds.has(String(c.id)));
 

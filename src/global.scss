@@ -782,6 +782,12 @@ table.responsive-table,
   }
 }
 
+/* Ensure Global Loader renders ON TOP of Angular Material Dialog Overlays */
+app-global-loader,
+.global-loader-backdrop {
+  z-index: 999999 !important;
+}
+
 /* Elevate SnackBar notification position slightly above bottom edge */
 .cdk-overlay-container .mat-mdc-snack-bar-container,
 .cdk-overlay-container .mat-snack-bar-container {

@@ -1256,10 +1256,17 @@ export class TreeViewPage {
   }
 
   private isStudentAssignedToAnyClass(student: any): boolean {
-    return Boolean(student?.classId || student?.assignedClassId || student?.currentClassId) ||
+    const hasClass = Boolean(student?.classId || student?.assignedClassId || student?.currentClassId) ||
       (Array.isArray(student?.classIds) && student.classIds.length > 0) ||
       (Array.isArray(student?.assignedClassIds) && student.assignedClassIds.length > 0) ||
       (Array.isArray(student?.currentClassIds) && student.currentClassIds.length > 0);
+
+    const hasGroup = Boolean(student?.groupId || student?.assignedGroupId || student?.currentGroupId) ||
+      (Array.isArray(student?.groupIds) && student.groupIds.length > 0) ||
+      (Array.isArray(student?.assignedGroupIds) && student.assignedGroupIds.length > 0) ||
+      (Array.isArray(student?.currentGroupIds) && student.currentGroupIds.length > 0);
+
+    return hasClass || hasGroup;
   }
 
   private isStudentAssignedToCourse(student: any, courseId?: string): boolean {

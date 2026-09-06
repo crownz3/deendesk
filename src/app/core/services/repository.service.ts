@@ -1292,4 +1292,175 @@ export class RepositoryService {
 
     return changes.join(', ');
   }
+
+  async reorganizeClassGroupCascade(params: {
+    targetGroupIdForStaff: string;
+    sourceGroupId: string;
+    destinationGroupIdForStudents: string;
+    departingStaffId?: string;
+    newLeadStaffId?: string;
+    destinationGroupLeadStaffId?: string;
+    archiveSourceGroup?: boolean;
+    currentUser: AppUser | null;
+  }): Promise<void> {
+    const {
+      targetGroupIdForStaff,
+      sourceGroupId,
+      destinationGroupIdForStudents,
+      departingStaffId,
+      newLeadStaffId,
+      destinationGroupLeadStaffId,
+      archiveSourceGroup = true,
+      currentUser
+    } = params;
+
+    const allGroups = await this.getAllOnce<EntityRecord>('classGroups', currentUser);
+    const groupADoc = allGroups.find(g => g.id === targetGroupIdForStaff);
+    const groupBDoc = allGroups.find(g => g.id === sourceGroupId);
+    const groupCDoc = allGroups.find(g => g.id === destinationGroupIdForStudents);
+
+    if (!groupADoc || !groupBDoc || !groupCDoc) {
+      throw new Error('One or more target class groups could not be found.');
+    }
+
+    const allStaff = await this.getAllOnce<EntityRecord>('staff', currentUser);
+    const newLeadStaffDoc = newLeadStaffId ? allStaff.find(s => s.id === newLeadStaffId) : null;
+    const destStaffDoc = destinationGroupLeadStaffId ? allStaff.find(s => s.id === destinationGroupLeadStaffId) : null;
+
+    const newLeadStaffName = String(newLeadStaffDoc?.['name'] || newLeadStaffDoc?.['displayName'] || newLeadStaffDoc?.['title'] || '');
+    const destStaffName = String(destStaffDoc?.['name'] || destStaffDoc?.['displayName'] || destStaffDoc?.['title'] || '');
+
+    const groupAName = String(groupADoc['name'] || groupADoc['title'] || 'Group A');
+    const groupCName = String(groupCDoc['name'] || groupCDoc['title'] || 'Group C');
+
+    const allStudentsInB = await this.getAllOnce<EntityRecord>('students', currentUser, undefined, [
+      where('groupId', '==', sourceGroupId)
+    ]);
+
+    const batch = writeBatch(this.firestore);
+
+    // 1. Handle Departing Staff (if specified)
+    if (departingStaffId) {
+      const staffXXXRef = doc(this.firestore, `staff/${departingStaffId}`);
+      const userXXXRef = doc(this.firestore, `users/${departingStaffId}`);
+      const xxxPatch = {
+        status: 'inactive',
+        groupId: null,
+        assignedClassGroupIds: [],
+        unassignedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.uid || 'system'
+      };
+      batch.set(staffXXXRef, xxxPatch, { merge: true });
+      batch.set(userXXXRef, xxxPatch, { merge: true });
+    }
+
+    // 2. Assign New Lead Staff to Group A
+    if (newLeadStaffId) {
+      const staffYYYRef = doc(this.firestore, `staff/${newLeadStaffId}`);
+      const userYYYRef = doc(this.firestore, `users/${newLeadStaffId}`);
+      const yyyPatch = {
+        groupId: targetGroupIdForStaff,
+        groupName: groupAName,
+        assignedClassGroupIds: [targetGroupIdForStaff],
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.uid || 'system'
+      };
+      batch.set(staffYYYRef, yyyPatch, { merge: true });
+      batch.set(userYYYRef, yyyPatch, { merge: true });
+
+      const groupARef = doc(this.firestore, `classGroups/${targetGroupIdForStaff}`);
+      batch.update(groupARef, {
+        assignedStaffIds: [newLeadStaffId],
+        teacherId: newLeadStaffId,
+        teacherName: newLeadStaffName,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.uid || 'system'
+      });
+    }
+
+    // 3. Move Students from Source Group B to Destination Group C
+    for (const student of allStudentsInB) {
+      const sId = student.id;
+      if (!sId) continue;
+
+      const studentPatch: any = {
+        groupId: destinationGroupIdForStudents,
+        groupName: groupCName,
+        classId: groupCDoc['classId'] || null,
+        className: groupCDoc['className'] || null,
+        courseId: groupCDoc['courseId'] || null,
+        courseName: groupCDoc['courseName'] || null,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.uid || 'system'
+      };
+      if (destinationGroupLeadStaffId) {
+        studentPatch.teacherId = destinationGroupLeadStaffId;
+        studentPatch.teacherName = destStaffName;
+      }
+
+      batch.set(doc(this.firestore, `students/${sId}`), studentPatch, { merge: true });
+      batch.set(doc(this.firestore, `users/${sId}`), studentPatch, { merge: true });
+
+      const transferRef = doc(collection(this.firestore, 'studentTransfers'));
+      batch.set(transferRef, {
+        studentId: sId,
+        studentName: String(student['name'] || student['displayName'] || sId),
+        previousGroupId: sourceGroupId,
+        previousGroupName: String(groupBDoc['name'] || groupBDoc['title'] || 'Source Group'),
+        newGroupId: destinationGroupIdForStudents,
+        newGroupName: groupCName,
+        reason: 'Multi-group staff/student consolidation reorganization',
+        actionDate: new Date().toISOString().substring(0, 10),
+        organizationId: currentUser?.organizationId || student['organizationId'] || undefined,
+        createdAt: serverTimestamp(),
+        createdBy: currentUser?.uid || 'system'
+      });
+    }
+
+    // 4. Archive/Clear Source Group B
+    if (archiveSourceGroup) {
+      const groupBRef = doc(this.firestore, `classGroups/${sourceGroupId}`);
+      batch.update(groupBRef, {
+        status: 'archived',
+        studentCount: 0,
+        assignedStaffIds: [],
+        teacherId: null,
+        teacherName: null,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.uid || 'system'
+      });
+    }
+
+    // 5. Destination Group C Student Count Update
+    const groupCRef = doc(this.firestore, `classGroups/${destinationGroupIdForStudents}`);
+    const existingCount = Number(groupCDoc['studentCount'] || 0);
+    const cPatch: any = {
+      studentCount: existingCount + allStudentsInB.length,
+      updatedAt: serverTimestamp(),
+      updatedBy: currentUser?.uid || 'system'
+    };
+    if (destinationGroupLeadStaffId) {
+      cPatch.assignedStaffIds = [destinationGroupLeadStaffId];
+      cPatch.teacherId = destinationGroupLeadStaffId;
+      cPatch.teacherName = destStaffName;
+    }
+    batch.update(groupCRef, cPatch);
+
+    await batch.commit();
+
+    this.clearCache('students');
+    this.clearCache('users');
+    this.clearCache('staff');
+    this.clearCache('classGroups');
+    this.clearCache('studentTransfers');
+
+    this.auditLogService.logAction({
+      module: 'classGroups',
+      action: 'Cascading Reorganization',
+      targetId: sourceGroupId,
+      targetName: `Reorganized group ${groupBDoc['name'] || sourceGroupId} into ${groupCName}`,
+      status: 'success'
+    });
+  }
 }

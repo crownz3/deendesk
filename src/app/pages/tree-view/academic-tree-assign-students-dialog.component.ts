@@ -3,6 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { RepositoryService } from '../../core/services/repository.service';
 import { AuthService } from '../../core/services/auth.service';
+import { LoaderService } from '../../core/services/loader.service';
 import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import { firstValueFrom } from 'rxjs';
 
@@ -138,7 +139,8 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     @Inject(MAT_DIALOG_DATA) public data: AssignStudentsDialogData,
     public readonly dialogRef: MatDialogRef<AcademicTreeAssignStudentsDialogComponent>,
     private readonly repo: RepositoryService,
-    private readonly auth: AuthService
+    private readonly auth: AuthService,
+    private readonly loader: LoaderService
   ) {}
 
   ngOnInit(): void {
@@ -150,7 +152,17 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
 
     this.selectedStudents = this.uniqueUsers(incomingAssigned);
     this.availableStudents = this.uniqueUsers(
-      incomingAvailable.filter((student: any) => !this.isAlreadySelected(student))
+      incomingAvailable.filter((student: any) => {
+        if (this.isAlreadySelected(student)) return false;
+        if (this.node?.type === 'classGroup' && this.node?.id) {
+          const sGroup = student.groupId || student.assignedGroupId;
+          if (sGroup && sGroup !== this.node.id) return false;
+        } else if (this.node?.type === 'class' && this.node?.id) {
+          const sClass = student.classId || student.assignedClassId;
+          if (sClass && sClass !== this.node.id) return false;
+        }
+        return true;
+      })
     );
 
     this.originalSelectedStudents = [...this.selectedStudents];
@@ -354,6 +366,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.transferMenuStudentId = null;
     this.isTransferring = true;
     this.errorMsg = '';
+    this.loader.show('Unassigning student...');
     try {
       const userProfile = await firstValueFrom(this.auth.profile$);
       const patch = { groupId: null, groupName: null };
@@ -361,10 +374,11 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         .map(v => String(v || '').trim())
         .filter(Boolean);
 
-      for (const sId of ids) {
-        await this.repo.update('students', sId, patch, userProfile).catch(() => {});
-        await this.repo.update('users', sId, patch, userProfile).catch(() => {});
-      }
+      const promises = ids.flatMap(sId => [
+        this.repo.update('students', sId, patch, userProfile).catch(() => {}),
+        this.repo.update('users', sId, patch, userProfile).catch(() => {})
+      ]);
+      await Promise.all(promises);
 
       this.repo.clearCache('students');
       this.repo.clearCache('users');
@@ -376,6 +390,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       this.errorMsg = e?.message || 'Unassign failed.';
     } finally {
       this.isTransferring = false;
+      this.loader.hide();
     }
   }
 
@@ -383,6 +398,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.transferMenuStudentId = null;
     this.isTransferring = true;
     this.errorMsg = '';
+    this.loader.show('Removing student from class...');
     try {
       const userProfile = await firstValueFrom(this.auth.profile$);
       const patch = { classId: null, className: null, groupId: null, groupName: null };
@@ -390,10 +406,11 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         .map(v => String(v || '').trim())
         .filter(Boolean);
 
-      for (const sId of ids) {
-        await this.repo.update('students', sId, patch, userProfile).catch(() => {});
-        await this.repo.update('users', sId, patch, userProfile).catch(() => {});
-      }
+      const promises = ids.flatMap(sId => [
+        this.repo.update('students', sId, patch, userProfile).catch(() => {}),
+        this.repo.update('users', sId, patch, userProfile).catch(() => {})
+      ]);
+      await Promise.all(promises);
 
       this.repo.clearCache('students');
       this.repo.clearCache('users');
@@ -405,6 +422,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       this.errorMsg = e?.message || 'Remove failed.';
     } finally {
       this.isTransferring = false;
+      this.loader.hide();
     }
   }
 
@@ -412,6 +430,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
     this.transferMenuStudentId = null;
     this.isTransferring = true;
     this.errorMsg = '';
+    this.loader.show('Transferring student...');
     try {
       const userProfile = await firstValueFrom(this.auth.profile$);
       const targetType = targetGroup._type;
@@ -444,10 +463,11 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         .map(v => String(v || '').trim())
         .filter(Boolean);
 
-      for (const sId of ids) {
-        await this.repo.update('students', sId, patch, userProfile).catch(() => {});
-        await this.repo.update('users', sId, patch, userProfile).catch(() => {});
-      }
+      const promises = ids.flatMap(sId => [
+        this.repo.update('students', sId, patch, userProfile).catch(() => {}),
+        this.repo.update('users', sId, patch, userProfile).catch(() => {})
+      ]);
+      await Promise.all(promises);
 
       const studentId = String(student.id || student.uid || student.userId || '');
       const sName = String(student.name || student.displayName || student['studentName'] || 'Student');
@@ -506,6 +526,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       this.errorMsg = e?.message || 'Transfer failed.';
     } finally {
       this.isTransferring = false;
+      this.loader.hide();
     }
   }
 
@@ -523,41 +544,44 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   async save() {
     this.isSaving = true;
     this.errorMsg = '';
-    const user = await firstValueFrom(this.auth.profile$);
-
-    const selectedIds = new Set<string>();
-    this.selectedStudents.forEach(student => {
-      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
-        .map(v => String(v || '').trim())
-        .filter(Boolean);
-      ids.forEach(id => selectedIds.add(id));
-    });
-
-    const addedStudents = this.selectedStudents.filter(student => {
-      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
-        .map(v => String(v || '').trim())
-        .filter(Boolean);
-      return !ids.some(id => this.originalSelectedIds.has(id));
-    });
-
-    const removedStudents = (this.originalSelectedStudents || []).filter((student: any) => {
-      const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
-        .map(v => String(v || '').trim())
-        .filter(Boolean);
-      return !ids.some(id => selectedIds.has(id));
-    });
-
-    console.log('[Assign Save Debug]', {
-      nodeId: this.node?.id,
-      nodeType: this.node?.type,
-      nodeTitle: this.node?.title || this.node?.name,
-      addedCount: addedStudents.length,
-      addedNames: addedStudents.map((s: any) => s.name || s.displayName),
-      removedCount: removedStudents.length,
-      removedNames: removedStudents.map((s: any) => s.name || s.displayName)
-    });
-
+    this.loader.show('Saving student assignments...');
     try {
+      const user = await firstValueFrom(this.auth.profile$);
+
+      const selectedIds = new Set<string>();
+      this.selectedStudents.forEach(student => {
+        const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+          .map(v => String(v || '').trim())
+          .filter(Boolean);
+        ids.forEach(id => selectedIds.add(id));
+      });
+
+      const addedStudents = this.selectedStudents.filter(student => {
+        const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+          .map(v => String(v || '').trim())
+          .filter(Boolean);
+        return !ids.some(id => this.originalSelectedIds.has(id));
+      });
+
+      const removedStudents = (this.originalSelectedStudents || []).filter((student: any) => {
+        const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+          .map(v => String(v || '').trim())
+          .filter(Boolean);
+        return !ids.some(id => selectedIds.has(id));
+      });
+
+      console.log('[Assign Save Debug]', {
+        nodeId: this.node?.id,
+        nodeType: this.node?.type,
+        nodeTitle: this.node?.title || this.node?.name,
+        addedCount: addedStudents.length,
+        addedNames: addedStudents.map((s: any) => s.name || s.displayName),
+        removedCount: removedStudents.length,
+        removedNames: removedStudents.map((s: any) => s.name || s.displayName)
+      });
+
+      const updatePromises: Promise<any>[] = [];
+
       for (const student of addedStudents) {
         let patch: any = {};
         if (this.node.type === 'class') {
@@ -578,13 +602,13 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
           };
         }
         if (Object.keys(patch).length > 0) {
-          const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+          const ids = Array.from(new Set([student.id, student.uid, student.docId, student.userId, student['entityId']]
             .map(v => String(v || '').trim())
-            .filter(Boolean);
+            .filter(Boolean)));
 
           for (const studentId of ids) {
-            await this.repo.update('students', studentId, patch, user).catch(() => {});
-            await this.repo.update('users', studentId, patch, user).catch(() => {});
+            updatePromises.push(this.repo.update('students', studentId, patch, user).catch(() => {}));
+            updatePromises.push(this.repo.update('users', studentId, patch, user).catch(() => {}));
           }
         }
       }
@@ -598,16 +622,18 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         }
         
         if (Object.keys(patch).length > 0) {
-          const ids = [student.id, student.uid, student.docId, student.userId, student['entityId']]
+          const ids = Array.from(new Set([student.id, student.uid, student.docId, student.userId, student['entityId']]
             .map(v => String(v || '').trim())
-            .filter(Boolean);
+            .filter(Boolean)));
 
           for (const studentId of ids) {
-            await this.repo.update('students', studentId, patch, user).catch(() => {});
-            await this.repo.update('users', studentId, patch, user).catch(() => {});
+            updatePromises.push(this.repo.update('students', studentId, patch, user).catch(() => {}));
+            updatePromises.push(this.repo.update('users', studentId, patch, user).catch(() => {}));
           }
         }
       }
+
+      await Promise.all(updatePromises);
 
       this.repo.clearCache('students');
       this.repo.clearCache('users');
@@ -624,6 +650,7 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
       this.errorMsg = error?.message || 'Failed to save assignments.';
     } finally {
       this.isSaving = false;
+      this.loader.hide();
     }
   }
 }

@@ -4024,9 +4024,13 @@ export class ManagementPage {
           node,
           assignedStudents,
           availableStudents: allStudents.filter((s: any) => {
-            if (config.resource === 'classGroups') return s['groupId'] !== row.id;
-            return s['classId'] !== row.id;
-          }),
+            if (config.resource === 'classGroups') {
+              const currentGroup = s['groupId'] || s['assignedGroupId'];
+              return !currentGroup || currentGroup === row.id;
+            }
+            const currentClass = s['classId'] || s['assignedClassId'];
+            return !currentClass || currentClass === row.id;
+          }).filter((s: any) => !assignedStudents.some(a => (a.id || a.uid) === (s.id || s.uid))),
           allStudents
         },
         autoFocus: false,

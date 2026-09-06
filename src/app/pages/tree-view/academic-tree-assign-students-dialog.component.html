@@ -1,4 +1,13 @@
 <div class="assign-dialog">
+  <!-- In-dialog smooth loader overlay when saving -->
+  <div class="dialog-saving-overlay" *ngIf="isSaving">
+    <div class="dialog-saving-card">
+      <div class="saving-spinner"></div>
+      <p class="saving-text">Saving Student Assignments...</p>
+      <span class="saving-subtext">Updating class records & permissions...</span>
+    </div>
+  </div>
+
   <div class="assign-dialog-header">
     <div class="header-main font-inter">
       <div class="title-section">
