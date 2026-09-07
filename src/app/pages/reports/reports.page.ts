@@ -3,6 +3,7 @@ import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/dr
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
+import { MatSort } from '@angular/material/sort';
 import { Subscription, firstValueFrom } from 'rxjs';
 import { ReportBuilderService, ReportState } from './services/report-builder.service';
 import { ReportExportService, PdfExportOptions } from './services/report-export.service';
@@ -307,6 +308,14 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     }
   }
 
+  private _sort!: MatSort;
+  @ViewChild(MatSort) set sort(sort: MatSort) {
+    if (sort) {
+      this._sort = sort;
+      this.dataSource.sort = sort;
+    }
+  }
+
   private sub = new Subscription();
 
   constructor(
@@ -347,6 +356,21 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnInit() {
+    this.dataSource.sortingDataAccessor = (data: any, sortHeaderId: string) => {
+      const value = data[sortHeaderId];
+      if (value === null || value === undefined || value === '' || value === '-') {
+        return '';
+      }
+      if (typeof value === 'number') {
+        return value;
+      }
+      const num = Number(value);
+      if (!isNaN(num) && String(value).trim() !== '' && !String(value).includes('/') && !String(value).includes('-')) {
+        return num;
+      }
+      return String(value).toLowerCase().trim();
+    };
+
     this.dataSource.filterPredicate = (data: any, filter: string) => {
       if (!filter) return true;
       const searchStr = Object.keys(data).map(key => {
@@ -378,6 +402,9 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
         if (this._paginator) {
           this.dataSource.paginator = this._paginator;
         }
+        if (this._sort) {
+          this.dataSource.sort = this._sort;
+        }
       })
     );
 
@@ -387,6 +414,9 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   ngAfterViewInit() {
     if (this._paginator) {
       this.dataSource.paginator = this._paginator;
+    }
+    if (this._sort) {
+      this.dataSource.sort = this._sort;
     }
   }
 
@@ -739,6 +769,14 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
 
   // --- Export Logic ---
 
+  public getSortedExportData(): any[] {
+    const rawData = this.dataSource.filteredData.length > 0 ? this.dataSource.filteredData : (this.state?.data || []);
+    if (this._sort && this._sort.active && this._sort.direction) {
+      return this.dataSource.sortData([...rawData], this._sort);
+    }
+    return rawData;
+  }
+
   public exportPdf() {
     const reportTitle = this.state?.baseDefinition?.name || 'Report';
     const opts: PdfExportOptions = {
@@ -759,12 +797,12 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
       selectedTotalColumnKeys: this.enableTotalSummary ? this.selectedTotalColumnKeys : [],
       columnTotalModes: this.columnTotalModes
     };
-    const exportData = this.dataSource.filteredData.length > 0 ? this.dataSource.filteredData : (this.state?.data || []);
+    const exportData = this.getSortedExportData();
     this.exportService.exportToPdf(exportData, this.selectedColumns, reportTitle, opts);
   }
 
   public exportExcel() {
-    const exportData = this.dataSource.filteredData.length > 0 ? this.dataSource.filteredData : (this.state?.data || []);
+    const exportData = this.getSortedExportData();
     this.exportService.exportToExcel(exportData, this.selectedColumns, this.state?.baseDefinition?.name || 'Report', this.state?.grouping || []);
   }
 
@@ -784,7 +822,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
 
     dialogRef.afterClosed().subscribe(result => {
       if (result) {
-        const data = this.dataSource.filteredData.length > 0 ? this.dataSource.filteredData : (this.state?.data || []);
+        const data = this.getSortedExportData();
         const baseTitle = this.state?.baseDefinition?.name || 'Report';
         if (result.format === 'pdf') {
           const pdfOpts: PdfExportOptions = {

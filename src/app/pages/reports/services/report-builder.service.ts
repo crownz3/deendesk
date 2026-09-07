@@ -24,6 +24,7 @@ export interface ReportState {
     courses: Map<string, any>;
     classes: Map<string, any>;
     users: Map<string, any>;
+    studentsDocs?: any[];
     classGroups?: any[];
     staffDocs?: any[];
   };
@@ -51,7 +52,9 @@ export class ReportBuilderService {
       courses: new Map(),
       classes: new Map(),
       users: new Map(),
-      classGroups: []
+      studentsDocs: [],
+      classGroups: [],
+      staffDocs: []
     }
   });
 
@@ -161,12 +164,13 @@ export class ReportBuilderService {
       if (!profile) return;
       
       // Fetch references for display names
-      const [organizations, madrasas, courses, classes, users, classGroups, staffDocs] = await Promise.all([
+      const [organizations, madrasas, courses, classes, users, studentsDocs, classGroups, staffDocs] = await Promise.all([
         this.repo.getAllOnce<any>('organizations', profile).catch(() => []),
         this.repo.getAllOnce<any>('madrasas', profile).catch(() => []),
         this.repo.getAllOnce<any>('courses', profile).catch(() => []),
         this.repo.getAllOnce<any>('classes', profile).catch(() => []),
         this.repo.getAllOnce<any>('users', profile).catch(() => []),
+        this.repo.getAllOnce<any>('students', profile).catch(() => []),
         this.repo.getAllOnce<any>('classGroups', profile).catch(() => []),
         this.repo.getAllOnce<any>('staff', profile).catch(() => [])
       ]);
@@ -177,6 +181,7 @@ export class ReportBuilderService {
         courses: new Map(courses.map(c => [c.id, c])),
         classes: new Map(classes.map(c => [c.id, c])),
         users: new Map(users.map(u => [u.id, u])),
+        studentsDocs: studentsDocs || [],
         classGroups: classGroups,
         staffDocs: staffDocs
       };
@@ -326,6 +331,79 @@ export class ReportBuilderService {
     const refs = this.state.value.references;
     const allStaffDocs = refs.staffDocs || [];
     const allClassGroups = refs.classGroups || [];
+
+    // 1. Merge studentsDocs and users (role: student) into unified active student list
+    const extractCleanId = (v: any): string => {
+      if (!v) return '';
+      if (typeof v === 'string') return v.trim();
+      if (typeof v === 'object' && (v.id || v.docId || v.uid)) return String(v.id || v.docId || v.uid).trim();
+      return String(v).trim();
+    };
+
+    const allStudentsMap = new Map<string, any>();
+    const studentsList = refs.studentsDocs || [];
+    studentsList.forEach((s: any) => {
+      const k = extractCleanId(s.id || s.uid || s.userId || s.studentId);
+      if (k) allStudentsMap.set(k, s);
+    });
+
+    if (refs.users) {
+      refs.users.forEach((u: any) => {
+        const role = String(u.role || u.userType || '').toLowerCase();
+        if (role === 'student' || role === '' || u.studentId || u.classId) {
+          const ids = [extractCleanId(u.id), extractCleanId(u.uid), extractCleanId(u.userId), extractCleanId(u.studentId)].filter(Boolean);
+          const existingKey = ids.find(id => allStudentsMap.has(id));
+          if (existingKey) {
+            const existing = allStudentsMap.get(existingKey)!;
+            const merged = { ...u, ...existing };
+            ids.forEach(id => allStudentsMap.set(id, merged));
+          } else if (ids[0]) {
+            allStudentsMap.set(ids[0], u);
+          }
+        }
+      });
+    }
+
+    const activeStudents = Array.from(allStudentsMap.values()).filter((s: any) => {
+      const st = String(s.status || s.state || '').toLowerCase();
+      return !['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(st);
+    });
+
+    // 2. Pre-calculate exact active student counts for each classGroup (matching Management Page scope logic)
+    const classGroupStudentCounts = new Map<string, number>();
+
+    allClassGroups.forEach((group: any) => {
+      const gIdStr = extractCleanId(group.id || group.docId);
+      if (!gIdStr) return;
+
+      const groupStudentRoster = new Set<string>([
+        ...extractTokens(group.assignedStudentIds),
+        ...extractTokens(group.assignedStudents),
+        ...extractTokens(group.studentIds),
+        ...extractTokens(group.students),
+        ...extractTokens(group.assignedStudentId),
+        ...extractTokens(group.studentId)
+      ].map(s => String(s).toLowerCase().trim()));
+
+      const matchingStudents = activeStudents.filter((s: any) => {
+        const sGroupTokens = [
+          s.groupId, s.classGroupId, s.assignedGroupId, s.group, s.sectionId, s.section,
+          ...(Array.isArray(s.groupIds) ? s.groupIds : []),
+          ...(Array.isArray(s.classGroupIds) ? s.classGroupIds : [])
+        ].map(extractCleanId).filter(Boolean);
+
+        const matchToken = sGroupTokens.includes(gIdStr);
+
+        const sIdentities = [
+          s.id, s.uid, s.userId, s.entityId, s.docId, s.studentId, s.email
+        ].filter(Boolean).map(v => String(v).toLowerCase().trim());
+        const matchRoster = sIdentities.some(id => groupStudentRoster.has(id));
+
+        return matchToken || matchRoster;
+      });
+
+      classGroupStudentCounts.set(gIdStr, matchingStudents.length);
+    });
 
     function extractTokens(val: any): string[] {
       if (!val) return [];
@@ -546,46 +624,72 @@ export class ReportBuilderService {
       const resolvedAddress = row.address || user.address || matchingStaffDoc.address || '-';
       const resolvedDesignation = row.designation || user.designation || matchingStaffDoc.designation || '-';
 
-      // Comprehensive resolution of assigned teacher / staff names across ALL references
-      const teacherTokens = new Set<string>([
-        ...extractTokens(row.assignedStaffIds), ...extractTokens(row.assignedStaff), ...extractTokens(row.assignedStaffNames),
-        ...extractTokens(row.teacherId), ...extractTokens(row.teacherIds), ...extractTokens(row.teacherName), ...extractTokens(row.teacherNames),
-        ...extractTokens(user.assignedStaffIds), ...extractTokens(user.assignedStaff), ...extractTokens(user.assignedStaffNames),
-        ...extractTokens(user.teacherId), ...extractTokens(user.teacherIds), ...extractTokens(user.teacherName), ...extractTokens(user.teacherNames),
-        ...extractTokens(matchingStaffDoc.assignedStaffIds), ...extractTokens(matchingStaffDoc.assignedStaff),
-        ...extractTokens(cls['assignedStaffIds']), ...extractTokens(cls['assignedStaff']), ...extractTokens(cls['staffIds']), ...extractTokens(cls['teacherIds']),
-        ...extractTokens(cls['assignedStaffNames']), ...extractTokens(cls['teacherName'])
-      ]);
+      // Comprehensive resolution of assigned teacher / staff names across references
+      const rowCleanId = extractCleanId(row.id || row.docId);
+      const isClassGroupEntity = (allClassGroups.length > 0 && allClassGroups.some((g: any) => extractCleanId(g.id || g.docId) === rowCleanId)) ||
+                                 !!(row.groupName || row.capacity || row.maxCapacity || (row.assignedStaffIds && !row.studentId && !row.userId && !user.role));
 
-      if (matchedGroupDocs.length > 0) {
-        matchedGroupDocs.forEach((g: any) => {
-          extractTokens(g.assignedStaffIds).forEach(t => teacherTokens.add(t));
-          extractTokens(g.assignedStaff).forEach(t => teacherTokens.add(t));
-          extractTokens(g.staffIds).forEach(t => teacherTokens.add(t));
-          extractTokens(g.teacherIds).forEach(t => teacherTokens.add(t));
-          extractTokens(g.groupStaff).forEach(t => teacherTokens.add(t));
-          extractTokens(g.assignedStaffNames).forEach(t => teacherTokens.add(t));
-          extractTokens(g.staffNames).forEach(t => teacherTokens.add(t));
-          extractTokens(g.teacherNames).forEach(t => teacherTokens.add(t));
-          extractTokens(g.teacher).forEach(t => teacherTokens.add(t));
-          extractTokens(g.teachers).forEach(t => teacherTokens.add(t));
-        });
-      }
+      const teacherTokens = new Set<string>();
 
-      // Fallback search by specific studentClassId ONLY if matchedGroupDocs is empty
-      const studentClassId = String(classId || '').trim().toLowerCase();
-      if (matchedGroupDocs.length === 0 && studentClassId && allClassGroups.length > 0) {
-        allClassGroups.forEach((g: any) => {
-          const gClassId = String(g.classId || g.class || '').trim().toLowerCase();
-          if (gClassId === studentClassId) {
+      if (isClassGroupEntity) {
+        // For a Class Group entity row, extract teacher tokens ONLY from the class group itself
+        [
+          ...extractTokens(row.assignedStaffIds), ...extractTokens(row.assignedStaff), ...extractTokens(row.assignedStaffNames),
+          ...extractTokens(row.teacherId), ...extractTokens(row.teacherIds), ...extractTokens(row.teacherName), ...extractTokens(row.teacherNames),
+          ...extractTokens(row.staffIds), ...extractTokens(row.groupStaff), ...extractTokens(row.teacher), ...extractTokens(row.teachers), ...extractTokens(row.staff)
+        ].forEach(t => teacherTokens.add(t));
+      } else {
+        // For Student / Staff / User rows:
+        // 1. Direct teacher fields on row / user / staffDoc
+        [
+          ...extractTokens(row.assignedStaffIds), ...extractTokens(row.assignedStaff), ...extractTokens(row.assignedStaffNames),
+          ...extractTokens(row.teacherId), ...extractTokens(row.teacherIds), ...extractTokens(row.teacherName), ...extractTokens(row.teacherNames),
+          ...extractTokens(user.assignedStaffIds), ...extractTokens(user.assignedStaff), ...extractTokens(user.assignedStaffNames),
+          ...extractTokens(user.teacherId), ...extractTokens(user.teacherIds), ...extractTokens(user.teacherName), ...extractTokens(user.teacherNames),
+          ...extractTokens(matchingStaffDoc.assignedStaffIds), ...extractTokens(matchingStaffDoc.assignedStaff)
+        ].forEach(t => teacherTokens.add(t));
+
+        // 2. Teachers from specifically matched group(s)
+        if (matchedGroupDocs.length > 0) {
+          matchedGroupDocs.forEach((g: any) => {
             extractTokens(g.assignedStaffIds).forEach(t => teacherTokens.add(t));
             extractTokens(g.assignedStaff).forEach(t => teacherTokens.add(t));
             extractTokens(g.staffIds).forEach(t => teacherTokens.add(t));
             extractTokens(g.teacherIds).forEach(t => teacherTokens.add(t));
+            extractTokens(g.groupStaff).forEach(t => teacherTokens.add(t));
             extractTokens(g.assignedStaffNames).forEach(t => teacherTokens.add(t));
+            extractTokens(g.staffNames).forEach(t => teacherTokens.add(t));
             extractTokens(g.teacherNames).forEach(t => teacherTokens.add(t));
+            extractTokens(g.teacher).forEach(t => teacherTokens.add(t));
+            extractTokens(g.teachers).forEach(t => teacherTokens.add(t));
+          });
+        } else {
+          // 3. Fallback: if student is assigned to a specific group ID, look up THAT specific group
+          const targetGroupId = String(row.groupId || row.classGroupId || user.groupId || user.classGroupId || '').trim().toLowerCase();
+          let groupMatched = false;
+          if (targetGroupId && allClassGroups.length > 0) {
+            const specificGroup = allClassGroups.find((g: any) => String(g.id || g.docId || '').trim().toLowerCase() === targetGroupId);
+            if (specificGroup) {
+              groupMatched = true;
+              extractTokens(specificGroup.assignedStaffIds).forEach(t => teacherTokens.add(t));
+              extractTokens(specificGroup.assignedStaff).forEach(t => teacherTokens.add(t));
+              extractTokens(specificGroup.staffIds).forEach(t => teacherTokens.add(t));
+              extractTokens(specificGroup.teacherIds).forEach(t => teacherTokens.add(t));
+              extractTokens(specificGroup.assignedStaffNames).forEach(t => teacherTokens.add(t));
+              extractTokens(specificGroup.teacherNames).forEach(t => teacherTokens.add(t));
+            }
           }
-        });
+
+          // 4. Fallback to Class-level teachers ONLY if no group teachers were found
+          if (!groupMatched && teacherTokens.size === 0) {
+            extractTokens(cls['assignedStaffIds']).forEach(t => teacherTokens.add(t));
+            extractTokens(cls['assignedStaff']).forEach(t => teacherTokens.add(t));
+            extractTokens(cls['staffIds']).forEach(t => teacherTokens.add(t));
+            extractTokens(cls['teacherIds']).forEach(t => teacherTokens.add(t));
+            extractTokens(cls['assignedStaffNames']).forEach(t => teacherTokens.add(t));
+            extractTokens(cls['teacherName']).forEach(t => teacherTokens.add(t));
+          }
+        }
       }
 
       const teacherNamesList: string[] = [];
@@ -601,7 +705,18 @@ export class ReportBuilderService {
         const cleanTok = tok.toLowerCase();
 
         // Search in refs.users map
-        const uObj = refs.users?.get(tok) || refs.users?.get(cleanTok);
+        let uObj = refs.users?.get(tok) || refs.users?.get(cleanTok);
+        if (!uObj && refs.users) {
+          for (const u of refs.users.values()) {
+            const uId = String(u.id || u.uid || u.userId || u.docId || '').trim().toLowerCase();
+            const uEmail = String(u.email || '').trim().toLowerCase();
+            if ((uId && uId === cleanTok) || (uEmail && uEmail === cleanTok)) {
+              uObj = u;
+              break;
+            }
+          }
+        }
+
         if (uObj) {
           teacherNamesList.push(uObj.displayName || uObj.name || uObj.email || tok);
           return;
@@ -621,7 +736,19 @@ export class ReportBuilderService {
       const uniqueTeacherNames = Array.from(new Set(teacherNamesList.filter(Boolean)));
       const resolvedAssignedStaffNamesDisplay = uniqueTeacherNames.length > 0 ? uniqueTeacherNames.join(', ') : (row.assignedStaffNames || row.teacherName || user.teacherName || '-');
 
-      const merged = {
+      const rowIdStr = String(row.id || row.docId || '').trim();
+      let resolvedStudentCount = 0;
+      if (Array.isArray(row.students || row.studentIds)) {
+        resolvedStudentCount = (row.students || row.studentIds).length;
+      } else if (classGroupStudentCounts.has(rowIdStr)) {
+        resolvedStudentCount = classGroupStudentCounts.get(rowIdStr)!;
+      } else if (row.studentCount !== undefined && row.studentCount !== null && Number(row.studentCount) > 0) {
+        resolvedStudentCount = Number(row.studentCount);
+      } else {
+        resolvedStudentCount = 0;
+      }
+
+      const merged: any = {
         ...organization,
         ...madrasa,
         ...course,
@@ -652,7 +779,7 @@ export class ReportBuilderService {
         assignedStaffNamesDisplay: resolvedAssignedStaffNamesDisplay,
         assignedClassGroupDisplay: resolvedClassGroupDisplay,
         shiftDisplay: String(row.shiftName || row.shift || row.shiftId || course?.['shiftId'] || cls?.['shiftId'] || '-'),
-        studentCount: Array.isArray(row.students || row.studentIds) ? (row.students || row.studentIds).length : (Number(row.studentCount || row.capacity || 0))
+        studentCount: resolvedStudentCount
       };
 
       // Automatically resolve any other *Id fields into *NameDisplay & format raw timestamps
