@@ -210,7 +210,12 @@ export class RepositoryService {
           })
         );
       }),
-      shareReplay({ bufferSize: 1, refCount: true })
+      // refCount: false is intentional — keeps the Firestore onSnapshot listener alive even when
+      // subscriber count momentarily drops to 0 (e.g. during vm$ switchMap transitions on filter
+      // changes). With refCount:true every filter change would tear down and rebuild all onSnapshot
+      // listeners, causing 5–10s waits. With refCount:false the buffered last value is served
+      // immediately to any new subscriber without waiting for a new Firestore round-trip.
+      shareReplay({ bufferSize: 1, refCount: false })
     );
 
     if (user?.uid) {

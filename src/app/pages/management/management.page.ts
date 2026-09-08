@@ -816,6 +816,10 @@ export class ManagementPage {
     this.pageSize$,
     combineLatest([this.courseFilter$, this.classFilter$, this.classGroupFilter$, this.stageFilter$, this.statusFilter$])
   ]).pipe(
+    // Micro-debounce: batch rapid filter changes (e.g. dropdown selects) into a single vm$ evaluation.
+    // Without this, selecting a madrasa could fire multiple switchMap cycles in quick succession
+    // because combineLatest emits once per source change.
+    debounceTime(50),
     switchMap(([_, config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, classGroupFilter, stageFilter, statusFilter]]) => {
       if (!profile) {
         return of({
@@ -831,19 +835,37 @@ export class ManagementPage {
         studentExtraConstraints.push(where('organizationId', '==', profile.organizationId));
       }
 
+      // Determine which secondary collections are actually needed for this resource
+      // to avoid opening unnecessary Firestore listeners. repo.list() caches streams via
+      // streamCache so they are reused for free on subsequent visits.
+      const needsStudents = ['students', 'classes', 'classGroups', 'courses',
+        'staff', 'incharges', 'coordinators', 'users'].includes(config.resource);
+      const needsShifts   = config.resource === 'classGroups';
+      const needsOrgs     = profile?.role === 'superAdmin';
+
+      const students$ = needsStudents
+        ? this.repo.list<EntityRecord>('students', profile, studentExtraConstraints).pipe(catchError(() => of([])))
+        : of([] as EntityRecord[]);
+
+      const shifts$ = needsShifts
+        ? this.repo.list<EntityRecord>('shifts', profile).pipe(catchError(() => of([])))
+        : of([] as EntityRecord[]);
+
+      const organizations$ = needsOrgs
+        ? this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(() => of([])))
+        : of([] as EntityRecord[]);
+
       return combineLatest([
         this.rowsForConfig(config, profile, madrasaFilter, roleFilter),
         this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('courses', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('classes', profile).pipe(catchError(() => of([]))),
-        this.repo.list<EntityRecord>('students', profile, studentExtraConstraints).pipe(catchError(() => of([]))),
+        students$,
         this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('staff', profile).pipe(catchError(() => of([]))),
         this.repo.list<EntityRecord>('users', profile, studentExtraConstraints, { roles: ['student', 'teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'] }).pipe(catchError(() => of([]))),
-        profile?.role === 'superAdmin'
-          ? this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(() => of([])))
-          : of([] as EntityRecord[]),
-        this.repo.list<EntityRecord>('shifts', profile).pipe(catchError(() => of([])))
+        organizations$,
+        shifts$,
       ]).pipe(
         map(([rows, madrasas, courses, classes, students, classGroups, staffRows, usersRows, organizations, shifts]) => {
             const allStaffRows = [...staffRows, ...usersRows];
@@ -997,28 +1019,77 @@ export class ManagementPage {
                 if (s.id && s['name']) shiftMap.set(String(s.id), String(s['name']));
               });
 
+              // Pre-build group→studentCount map in O(N) instead of O(N×M) per-row scan.
+              // Two passes: first count by student's groupId field, then add students from
+              // the group's explicit assignedStudentIds roster that aren't already counted.
+              const groupStudentCountMap = new Map<string, number>();
+              allActiveStudents.forEach(st => {
+                const gId = extractId(st['groupId'] || st['classGroupId'] || st['assignedGroupId'] || st['group'] || st['sectionId'] || st['section']) || '';
+                if (gId) groupStudentCountMap.set(gId, (groupStudentCountMap.get(gId) || 0) + 1);
+                // Also count against all groupIds array
+                const extraGIds: string[] = [
+                  ...(Array.isArray(st['groupIds']) ? (st['groupIds'] as any[]).map(extractId) : []),
+                  ...(Array.isArray(st['classGroupIds']) ? (st['classGroupIds'] as any[]).map(extractId) : [])
+                ].filter(Boolean);
+                extraGIds.forEach(gid => {
+                  if (gid && gid !== gId) groupStudentCountMap.set(gid, (groupStudentCountMap.get(gid) || 0) + 1);
+                });
+              });
+
+              // Track student identities already counted to avoid double-counting from roster
+              const studentIdentitySet = new Set<string>();
+              allActiveStudents.forEach(st => {
+                [st.id, st['uid'], st['userId'], st['entityId'], st['docId'], st['studentId'], st['email']]
+                  .filter(Boolean).forEach(v => studentIdentitySet.add(String(v).toLowerCase().trim()));
+              });
+
+              // Second pass: add roster-only students from each group doc
+              filteredRows.forEach(group => {
+                const gIdStr = extractId(group.id);
+                if (!gIdStr) return;
+                const roster: string[] = [
+                  ...this.extractAllStrings(group['assignedStudentIds']),
+                  ...this.extractAllStrings(group['assignedStudents']),
+                  ...this.extractAllStrings(group['studentIds']),
+                  ...this.extractAllStrings(group['students']),
+                  ...this.extractAllStrings(group['assignedStudentId']),
+                  ...this.extractAllStrings(group['studentId'])
+                ].map(v => String(v).toLowerCase().trim()).filter(Boolean);
+                roster.forEach(id => {
+                  if (!studentIdentitySet.has(id)) {
+                    // This roster ID isn't in allActiveStudents by field — count it additionally
+                    groupStudentCountMap.set(gIdStr, (groupStudentCountMap.get(gIdStr) || 0) + 1);
+                    studentIdentitySet.add(id); // prevent double-counting for same group
+                  }
+                });
+              });
+
               filteredRows = filteredRows.map(group => {
                 const gIdStr = extractId(group.id);
-
-                const matchingStudents = this.getStudentsForScope(allActiveStudents, madrasas, {
-                  groupId: gIdStr,
-                  groupDoc: group
-                });
-
                 const sId = String(group['shiftId'] || group['shift'] || '');
                 const sName = shiftMap.get(sId) || group['shiftName'] || group['shift'] || group['shiftId'] || '-';
-                return { ...group, studentCount: matchingStudents.length, shiftName: sName };
+                return { ...group, studentCount: groupStudentCountMap.get(gIdStr) ?? 0, shiftName: sName };
               });
             }
 
             if (config.resource === 'classes') {
               filteredRows = this.getScopedClasses(filteredRows, classGroups, profile, madrasas);
+
+              // Pre-build class→studentCount map in O(N) instead of O(N×M) per-row scan.
+              const classStudentCountMap = new Map<string, number>();
+              allActiveStudents.forEach(st => {
+                const cId = extractId(st['classId'] || st['class'] || st['assignedClassId']) || '';
+                if (cId) classStudentCountMap.set(cId, (classStudentCountMap.get(cId) || 0) + 1);
+                const extraCIds: string[] = Array.isArray(st['classIds'])
+                  ? (st['classIds'] as any[]).map(extractId).filter(Boolean) : [];
+                extraCIds.forEach(cid => {
+                  if (cid && cid !== cId) classStudentCountMap.set(cid, (classStudentCountMap.get(cid) || 0) + 1);
+                });
+              });
+
               filteredRows = filteredRows.map(cls => {
                 const clsIdStr = extractId(cls.id);
-                const matchingStudents = this.getStudentsForScope(allActiveStudents, madrasas, {
-                  classId: clsIdStr
-                });
-                return { ...cls, studentCount: matchingStudents.length };
+                return { ...cls, studentCount: classStudentCountMap.get(clsIdStr) ?? 0 };
               });
               filteredRows = this.withClassGroupStaff(filteredRows, classGroups, allStaffRows);
             }
@@ -1095,6 +1166,72 @@ export class ManagementPage {
             // Enrich 'users', 'incharges', 'coordinators', 'staff' rows with effective roles derived from madrasa membership.
             // A person may have role='teacher' in their user doc but also appear in a madrasa's inchargeIds or coordinatorIds.
              if (['users', 'incharges', 'coordinators', 'staff'].includes(config.resource)) {
+               // ── Pre-build inverted indexes ONCE outside the per-row loop ─────────────────
+               // groupStaffIndex: groupId → Set of lowercase staff token strings
+               const groupStaffIndex = new Map<string, Set<string>>();
+               classGroups.forEach(g => {
+                 const gId = extractId(g.id || g['docId']);
+                 if (!gId) return;
+                 const tokens = new Set<string>([
+                   ...this.extractAllStrings(g['assignedStaffIds']),
+                   ...this.extractAllStrings(g['assignedStaff']),
+                   ...this.extractAllStrings(g['staffIds']),
+                   ...this.extractAllStrings(g['teacherIds']),
+                   ...this.extractAllStrings(g['teachers']),
+                   ...this.extractAllStrings(g['staff']),
+                   ...this.extractAllStrings(g['groupStaff'])
+                 ].map(v => v.toLowerCase()));
+                 groupStaffIndex.set(gId, tokens);
+               });
+
+               // staffTokenToGroupIds: staffToken → groupIds that this token belongs to
+               const staffTokenToGroupIds = new Map<string, string[]>();
+               groupStaffIndex.forEach((tokens, gId) => {
+                 tokens.forEach(tok => {
+                   if (!staffTokenToGroupIds.has(tok)) staffTokenToGroupIds.set(tok, []);
+                   staffTokenToGroupIds.get(tok)!.push(gId);
+                 });
+               });
+
+               // groupIdToDoc: groupId → group document for O(1) lookup
+               const groupIdToDoc = new Map<string, EntityRecord>();
+               classGroups.forEach(g => { const gId = extractId(g.id); if (gId) groupIdToDoc.set(gId, g); });
+
+               // studentTeacherTokens: student → set of their teacher reference tokens (lowercase)
+               const studentTeacherTokenMap = new Map<string, Set<string>>();
+               allActiveStudents.forEach(st => {
+                 const stKey = extractId(st.id || st['uid'] || st['userId']);
+                 if (!stKey) return;
+                 const toks = new Set<string>([
+                   st['teacherId'], st['assignedStaffId'], st['staffId'], st['teacherUid'],
+                   st['assignedTeacherId'], st['ustadhId'], st['teacher'], st['staff'], st['assignedStaff']
+                 ].filter(Boolean).map(v => String(v).trim().toLowerCase()));
+                 if (toks.size > 0) studentTeacherTokenMap.set(stKey, toks);
+               });
+
+               // groupStudentCountIndex: groupId → Set of student keys (O(1) size lookup)
+               const groupStudentKeys = new Map<string, Set<string>>();
+               allActiveStudents.forEach(st => {
+                 const stKey = extractId(st.id || st['uid'] || st['userId']);
+                 if (!stKey) return;
+                 const gId = extractId(st['groupId'] || st['classGroupId'] || st['assignedGroupId'] || st['group'] || st['sectionId'] || st['section']) || '';
+                 if (gId) {
+                   if (!groupStudentKeys.has(gId)) groupStudentKeys.set(gId, new Set());
+                   groupStudentKeys.get(gId)!.add(stKey);
+                 }
+                 const extraGIds: string[] = [
+                   ...(Array.isArray(st['groupIds']) ? (st['groupIds'] as any[]).map(extractId) : []),
+                   ...(Array.isArray(st['classGroupIds']) ? (st['classGroupIds'] as any[]).map(extractId) : [])
+                 ].filter(Boolean);
+                 extraGIds.forEach(egId => {
+                   if (egId && egId !== gId) {
+                     if (!groupStudentKeys.has(egId)) groupStudentKeys.set(egId, new Set());
+                     groupStudentKeys.get(egId)!.add(stKey);
+                   }
+                 });
+               });
+               // ────────────────────────────────────────────────────────────────────────────
+
                filteredRows = filteredRows.map(row => {
                  const roles = this.getEffectiveRoles(row, madrasas);
 
@@ -1118,57 +1255,42 @@ export class ManagementPage {
                    ...(Array.isArray(row['assignedGroupIds']) ? row['assignedGroupIds'] : [])
                  ].map(v => extractId(v)).filter(Boolean);
 
-                 const matchedGroupIds = classGroups.filter(g => {
-                   const gId = extractId(g.id || g['docId']);
-                   if (gId && directGroupIds.includes(gId)) return true;
-
-                   const gStaffTokens = [
-                     ...this.extractAllStrings(g['assignedStaffIds']),
-                     ...this.extractAllStrings(g['assignedStaff']),
-                     ...this.extractAllStrings(g['staffIds']),
-                     ...this.extractAllStrings(g['teacherIds']),
-                     ...this.extractAllStrings(g['teachers']),
-                     ...this.extractAllStrings(g['staff']),
-                     ...this.extractAllStrings(g['groupStaff'])
-                   ].map(v => v.toLowerCase());
-
-                   return sTokens.some(tok => gStaffTokens.includes(tok));
-                 }).map(g => extractId(g.id)).filter(Boolean);
+                 // O(1) lookup per staff token instead of O(N×M) scan of all groups
+                 const matchedGroupIds: string[] = [];
+                 sTokens.forEach(tok => {
+                   const gIds = staffTokenToGroupIds.get(tok);
+                   if (gIds) matchedGroupIds.push(...gIds);
+                 });
 
                  const assignedGroupIds = Array.from(new Set([...directGroupIds, ...matchedGroupIds]));
 
-                 const staffStudentsMap = new Map<string, EntityRecord>();
+                 // Count students for this staff member using pre-built indexes
+                 const staffStudentKeySet = new Set<string>();
 
                  assignedGroupIds.forEach(gId => {
-                   const grpDoc = classGroups.find(g => extractId(g.id) === gId);
-                   const groupStudents = this.getStudentsForScope(allActiveStudents, madrasas, {
-                     groupId: gId,
-                     groupDoc: grpDoc
-                   });
-                   groupStudents.forEach(st => {
-                     const stKey = extractId(st.id || st['uid'] || st['userId']);
-                     if (stKey && !staffStudentsMap.has(stKey)) {
-                       staffStudentsMap.set(stKey, st);
-                     }
-                   });
-                 });
-
-                 allActiveStudents.forEach(st => {
-                   const sTeacherTokens = [
-                     st['teacherId'], st['assignedStaffId'], st['staffId'], st['teacherUid'], st['assignedTeacherId'],
-                     st['ustadhId'], st['teacher'], st['staff'], st['assignedStaff']
-                   ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
-
-                   if (sTeacherTokens.some(tok => sTokens.includes(tok))) {
-                     const stKey = extractId(st.id || st['uid'] || st['userId']);
-                     if (stKey && !staffStudentsMap.has(stKey)) {
-                       staffStudentsMap.set(stKey, st);
-                     }
+                   // Add students matched by groupId field
+                   const byGroupId = groupStudentKeys.get(gId);
+                   if (byGroupId) byGroupId.forEach(k => staffStudentKeySet.add(k));
+                   // Add students from the group's explicit roster
+                   const grpDoc = groupIdToDoc.get(gId);
+                   if (grpDoc) {
+                     const roster = [
+                       ...this.extractAllStrings(grpDoc['assignedStudentIds']),
+                       ...this.extractAllStrings(grpDoc['assignedStudents']),
+                       ...this.extractAllStrings(grpDoc['studentIds']),
+                       ...this.extractAllStrings(grpDoc['students'])
+                     ].map(v => String(v).toLowerCase().trim()).filter(Boolean);
+                     roster.forEach(id => staffStudentKeySet.add(id));
                    }
                  });
 
+                 // Also find students that directly reference this staff member
+                 studentTeacherTokenMap.forEach((toks, stKey) => {
+                   if (sTokens.some(tok => toks.has(tok))) staffStudentKeySet.add(stKey);
+                 });
+
                  const isPureStudent = row['role'] === 'student' || (roles.includes('student') && !roles.some(r => ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin'].includes(r)));
-                 const count = isPureStudent ? undefined : staffStudentsMap.size;
+                 const count = isPureStudent ? undefined : staffStudentKeySet.size;
                  return { ...row, roles, studentCount: count };
                });
              }
@@ -1266,16 +1388,6 @@ export class ManagementPage {
                 return false;
               });
 
-              console.log('🔍 [VM Student Rows Teacher Scoping Debug]', {
-                teacherName: profile.displayName || profile.email,
-                teacherUid: profile.uid,
-                assignedGroupIds: Array.from(assignedGroupIds),
-                assignedClassIds: Array.from(assignedClassIds),
-                inputStudentsTotal: inputCount,
-                resultStudentsCount: filteredRows.length,
-                rejectedStudentsCount: rejectedStudents.length,
-                rejectedStudentsSample: rejectedStudents.slice(0, 10)
-              });
             }
            
              if (['students', 'classGroups', 'classes'].includes(config.resource)) {
@@ -1436,9 +1548,7 @@ export class ManagementPage {
                  return raw === sf;
                });
              }
-             if (config.resource === 'staff') {
-               console.log('🔍 [VM Staff Step 3 - statusFilter:', statusFilter, '] Final remaining before pagination:', filteredRows.length);
-             }
+
 
             if (searchQuery) {
               const q = searchQuery.toLowerCase();
@@ -1849,12 +1959,6 @@ export class ManagementPage {
       })),
     ]).pipe(
       map(([students, courses, classes, classGroups, parents, userRows, madrasas, staffRows, allUsersRows]) => {
-        console.log('📢 [StudentRows Executed]', {
-          profileRole: profile?.role,
-          profileName: profile?.displayName || profile?.email,
-          studentsCollectionCount: (students || []).length,
-          userRowsCount: (userRows || []).length
-        });
         const staffRolesList = ['teacher', 'staff', 'coordinator', 'madrasaIncharge', 'organizationAdmin', 'ustadh', 'stageHead', 'headTeacher', 'teacher_assistant'];
         const staffById = new Map<string, EntityRecord>();
         const processStaffRecord = (staffDoc: EntityRecord) => {
@@ -1897,16 +2001,6 @@ export class ManagementPage {
           }
         });
         let targetStudents: EntityRecord[] = Array.from(allStudentsMap.values());
-
-        console.log('🔍 [Student Origin Debug]', {
-          currentUserRole: profile?.role,
-          currentUserName: profile?.displayName || profile?.email,
-          studentsCollectionLoadedCount: (students || []).length,
-          usersCollectionStudentRoleCount: (userRows || []).length,
-          mergedStudentPoolTotal: targetStudents.length,
-          studentsCollectionSample: (students || []).slice(0, 3).map(s => ({ id: s.id, name: s['displayName'] || s['name'] || s['studentName'], groupId: s['groupId'], classGroupId: s['classGroupId'] })),
-          usersCollectionSample: (userRows || []).slice(0, 3).map(u => ({ id: u.id, uid: u['uid'], name: u['displayName'] || u['name'], role: u['role'] }))
-        });
 
         if (profile?.role === 'teacher' || (profile?.role as string) === 'staff') {
           const profAny = profile as Record<string, any>;
@@ -2361,11 +2455,40 @@ export class ManagementPage {
           return of([] as EntityRecord[]);
         }
 
-        const rowStreams = parents.map((row) => {
+        // Separate parents into two buckets:
+        // 1. Sync: all student IDs are already resolved via studentMetaRows — emit synchronously via of()
+        // 2. Async: some IDs need nameResolver — create individual observables only for these
+        const syncRows: EntityRecord[] = [];
+        const asyncStreams: Observable<EntityRecord>[] = [];
+
+        parents.forEach((row) => {
           const userRow = users.find(u => u['uid'] === row['userId'] || u.id === row['userId'] || u['entityId'] === row.id) || row;
-          return this.parentRow(row, userRow, studentMetaRows);
+          const linkedStudentIds = this.uniqueStrings([
+            ...(Array.isArray(row['linkedStudentIds']) ? row['linkedStudentIds'] : []),
+            ...(Array.isArray(userRow['linkedStudentIds']) ? userRow['linkedStudentIds'] : []),
+            ...(Array.isArray(userRow['studentIds']) ? userRow['studentIds'] : []),
+          ]);
+          const unresolvedIds = linkedStudentIds.filter(id => !studentMetaRows.some(s => this.studentRecordMatches(s, id)));
+
+          if (unresolvedIds.length === 0) {
+            // All students resolvable synchronously — no async observable needed
+            this.parentRow(row, userRow, studentMetaRows).pipe(take(1)).subscribe(r => {
+              syncRows.push(r);
+            });
+          } else {
+            asyncStreams.push(this.parentRow(row, userRow, studentMetaRows));
+          }
         });
-        return combineLatest(rowStreams);
+
+        if (asyncStreams.length === 0) {
+          // All rows resolved synchronously — return immediately with no subscriptions overhead
+          return of(syncRows);
+        }
+
+        // Only combine the async rows that need nameResolver; merge with syncRows on emission
+        return combineLatest(asyncStreams).pipe(
+          map(asyncRows => [...syncRows, ...asyncRows])
+        );
       }),
     );
   }
@@ -2488,18 +2611,6 @@ export class ManagementPage {
     });
 
     parentEmail = String(parentDoc?.['email'] || parentDoc?.['generatedEmail'] || '').trim();
-
-    if (!parentEmail) {
-      console.log('[Parent Mail Debug]', {
-        studentName: row['name'] || row['displayName'],
-        row,
-        studentMeta,
-        studentUserId,
-        studentIds,
-        parentKeys,
-        parentsCount: parents.length,
-      });
-    }
 
     return parentEmail || 'N/A';
   }
@@ -3149,6 +3260,16 @@ export class ManagementPage {
     return allowedPermissions.some(p => userPermissions.includes(p));
   }
 
+  canDeleteResource(config: ManagementConfig, profile: AppUser | null): boolean {
+    if (!profile) return false;
+    if (!config.allowDelete) return false;
+    const role = String(profile.role || '').toLowerCase();
+    if (config.resource === 'organizations') {
+      return role === 'superadmin';
+    }
+    return role === 'superadmin' || role === 'organizationadmin';
+  }
+
   async openCreate(config: ManagementConfig): Promise<void> {
     const profile = await firstValueFrom(this.auth.profile$);
     if (!this.canCreateResource(config, profile)) {
@@ -3785,6 +3906,19 @@ export class ManagementPage {
   }
 
   async permanentlyDelete(config: ManagementConfig, row: EntityRecord): Promise<void> {
+    const currentUid = await firstValueFrom(this.auth.profile$).then(u => u?.uid);
+    const rowUid = row.id || row['uid'] || row['userId'];
+
+    if (currentUid && rowUid === currentUid) {
+      this.snackBar.open('You cannot delete your own profile.', 'Close', { duration: 4000 });
+      return;
+    }
+
+    if (config.collection === 'users' && row['role'] === 'organizationAdmin') {
+      this.snackBar.open('Organization Admins cannot be deleted.', 'Close', { duration: 4000 });
+      return;
+    }
+
     const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
       data: {
         title: `Permanently Delete ${config.title.slice(0, -1)}`,
@@ -4858,7 +4992,7 @@ export class ManagementPage {
 
   private async createStudent(payload: EntityRecord, profile: AppUser | null): Promise<void> {
     const madrasaId = String(payload['madrasaId']);
-    const madrasas = await firstValueFrom(this.repo.list('madrasas', profile).pipe(take(1)));
+    const madrasas = await this.repo.getAllOnce<EntityRecord>('madrasas', profile);
     const madrasaCode = (madrasas.find((m: any) => m.id === madrasaId)?.['code'] as string) || undefined;
 
     let dob: Date | null = null;
@@ -4914,6 +5048,7 @@ export class ManagementPage {
         madrasaId,
       }, profile).catch(e => console.warn('[createStudent] lifecycle log skipped:', e));
 
+      this.repo.clearCache('students');
       this.snackBar.open('Student record created successfully without login accounts.', 'Close', { duration: 5000 });
       return;
     }
@@ -4941,10 +5076,9 @@ export class ManagementPage {
     let parentCredential: any;
 
     try {
-      console.log('[Create Student Payload]', payload);
       const createUserWithTemporaryPassword = httpsCallable<any, any>(this.functions, 'createUserWithTemporaryPassword');
 
-      if (createStudentLogin) {
+      const studentLoginTask = createStudentLogin ? (async () => {
         let studentEmail = String(payload['email'] || generated.studentEmail);
         let isStudentEmailGenerated = !payload['email'];
         let studentResult;
@@ -4981,16 +5115,16 @@ export class ManagementPage {
           }
         }
 
-        studentCredential = {
+        return {
           uid: studentResult.data.uid,
           label: String(payload['name']),
           email: studentResult.data.email,
           password,
           role: 'student' as UserRole
         };
-      }
+      })() : Promise.resolve(null);
 
-      if (createParentLogin) {
+      const parentLoginTask = createParentLogin ? (async () => {
         let parentEmail = generated.parentEmail;
         const parentDisplayName = String(payload['parentName'] || `${payload['fatherName']} Parent`);
         let parentResult;
@@ -5018,14 +5152,18 @@ export class ManagementPage {
           }
         }
 
-        parentCredential = {
+        return {
           uid: parentResult.data.uid,
           label: parentDisplayName,
           email: parentResult.data.email,
           password,
           role: 'parent' as UserRole
         };
-      }
+      })() : Promise.resolve(null);
+
+      const [sCred, pCred] = await Promise.all([studentLoginTask, parentLoginTask]);
+      studentCredential = sCred;
+      parentCredential = pCred;
 
     } catch (error: any) {
       console.error('Failed to create student/parent access:', error);
@@ -5065,51 +5203,59 @@ export class ManagementPage {
       credentialStatus: studentCredential ? 'TEMP_PASSWORD_PENDING' : 'NO_LOGIN',
     }, profile);
 
+    const postCreateTasks: Promise<any>[] = [];
+
     if (parentId && parentCredential) {
-      await this.repo.update('parents', parentId, { linkedStudentIds: [studentId] }, profile);
+      postCreateTasks.push(this.repo.update('parents', parentId, { linkedStudentIds: [studentId] }, profile));
       if (parentCredential.uid) {
-        await this.repo.update('users', parentCredential.uid, {
+        postCreateTasks.push(this.repo.update('users', parentCredential.uid, {
           entityId: parentId,
           entityType: 'parent',
           linkedStudentIds: [studentId],
           studentIds: [studentId],
           updatedAt: new Date(),
-        }, profile, true).catch(() => {});
+        }, profile, true).catch(() => {}));
       }
     }
 
     if (studentCredential?.uid) {
-      await this.repo.update('users', studentCredential.uid, {
+      postCreateTasks.push(this.repo.update('users', studentCredential.uid, {
         entityId: studentId,
         entityType: 'student',
         studentIds: [studentId],
         updatedAt: new Date(),
-      }, profile, true).catch(() => {});
+      }, profile, true).catch(() => {}));
     }
 
-      const joinMethod = String(payload['joinType'] || 'new').toLowerCase();
-      const isRejoin = joinMethod === 'rejoin';
+    const joinMethod = String(payload['joinType'] || 'new').toLowerCase();
+    const isRejoin = joinMethod === 'rejoin';
 
-      await this.repo.create('userLifecycleHistory', {
-        userId: studentId,
-        userName: studentCredential?.label || String(payload['name'] || 'Student'),
-        personType: 'student',
-        lifecycleAction: isRejoin ? 'Rejoined' : 'Joined',
-        actionType: isRejoin ? 'Rejoin' : 'Enrollment',
-        reason: isRejoin ? 'Rejoined / Re-enrolled student account' : 'Newly enrolled student account',
-        effectiveDate: new Date().toISOString(),
-        effectiveDateMs: Date.now(),
-        performedBy: profile?.displayName || profile?.email || 'System',
-        organizationId: profile?.organizationId || '',
-        madrasaId,
-        status: 'active'
-      }, profile).catch(e => console.warn('Failed to log student lifecycle join history', e));
+    postCreateTasks.push(this.repo.create('userLifecycleHistory', {
+      userId: studentId,
+      userName: studentCredential?.label || String(payload['name'] || 'Student'),
+      personType: 'student',
+      lifecycleAction: isRejoin ? 'Rejoined' : 'Joined',
+      actionType: isRejoin ? 'Rejoin' : 'Enrollment',
+      reason: isRejoin ? 'Rejoined / Re-enrolled student account' : 'Newly enrolled student account',
+      effectiveDate: new Date().toISOString(),
+      effectiveDateMs: Date.now(),
+      performedBy: profile?.displayName || profile?.email || 'System',
+      organizationId: profile?.organizationId || '',
+      madrasaId,
+      status: 'active'
+    }, profile).catch(e => console.warn('Failed to log student lifecycle join history', e)));
 
-      const creds = [studentCredential, parentCredential].filter(Boolean);
-      if (creds.length > 0) {
-        this.credentials.splice(0, this.credentials.length, ...creds);
-        this.snackBar.open('Student login credentials created. Save them before leaving this page.', 'Close', { duration: 7000 });
-      }
+    await Promise.all(postCreateTasks);
+
+    this.repo.clearCache('students');
+    this.repo.clearCache('parents');
+    this.repo.clearCache('users');
+
+    const creds = [studentCredential, parentCredential].filter(Boolean);
+    if (creds.length > 0) {
+      this.credentials.splice(0, this.credentials.length, ...creds);
+      this.snackBar.open('Student login credentials created. Save them before leaving this page.', 'Close', { duration: 7000 });
+    }
   }
 
   private async buildFields(config: ManagementConfig, initial?: EntityRecord): Promise<QuickAddField[]> {
@@ -5124,39 +5270,45 @@ export class ManagementPage {
 
     const hasField = (key: string) => config.fields.some(f => f.key === key);
 
+    const needsMadrasas = hasField('madrasaId') || hasField('madrasaIds') || hasField('classId') || hasField('classIds') || hasField('groupId') || hasField('groupIds');
+    const needsClasses = hasField('classId') || hasField('classIds') || hasField('groupId') || hasField('groupIds');
+    const needsClassGroups = hasField('classId') || hasField('classIds') || hasField('groupId') || hasField('groupIds');
+
+    const [orgs, mads, courses, rawClasses, rawClassGroups, shifts, subjects, users, rawStaff, students] = await Promise.all([
+      hasField('organizationId') ? this.repo.getAllOnce<EntityRecord>('organizations', profile) : Promise.resolve([]),
+      needsMadrasas ? this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []) : Promise.resolve([]),
+      (hasField('courseId') || hasField('newCourseId')) ? this.repo.getAllOnce<EntityRecord>('courses', profile) : Promise.resolve([]),
+      needsClasses ? this.repo.getAllOnce<EntityRecord>('classes', profile) : Promise.resolve([]),
+      needsClassGroups ? this.repo.getAllOnce<EntityRecord>('classGroups', profile) : Promise.resolve([]),
+      hasField('shiftId') ? this.repo.getAllOnce<EntityRecord>('shifts', profile).catch(() => []) : Promise.resolve([]),
+      hasField('subjectIds') ? this.repo.getAllOnce<EntityRecord>('subjects', profile) : Promise.resolve([]),
+      (hasField('coordinatorIds') || hasField('inchargeIds')) ? this.repo.getAllOnce<EntityRecord>('users', profile) : Promise.resolve([]),
+      hasField('assignedStaffIds') ? this.repo.getAllOnce<EntityRecord>('staff', profile) : Promise.resolve([]),
+      hasField('linkedStudentIds') ? this.repo.getAllOnce<EntityRecord>('students', profile) : Promise.resolve([]),
+    ]);
+
     if (hasField('organizationId')) {
-      const orgs = await this.repo.getAllOnce<EntityRecord>('organizations', profile);
       options['organizationId'] = this.toOptions(orgs, 'name');
     }
 
     if (hasField('madrasaId') || hasField('madrasaIds')) {
-      const mads = await this.repo.getAllOnce<EntityRecord>('madrasas', profile);
       options['madrasaId'] = this.toOptions(mads, 'name');
       options['madrasaIds'] = this.toOptions(mads, 'name');
     }
 
     if (hasField('courseId') || hasField('newCourseId')) {
-      const courses = await this.repo.getAllOnce<EntityRecord>('courses', profile);
       options['courseId'] = this.toOptions(courses, 'name');
       options['newCourseId'] = this.toOptions(courses, 'name');
     }
 
     if (hasField('classId') || hasField('classIds')) {
-      let classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
-      const classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
-      const mads = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
-      classes = this.getScopedClasses(classes, classGroups, profile, mads);
-
+      const classes = this.getScopedClasses(rawClasses, rawClassGroups, profile, mads);
       options['classId'] = this.toOptions(classes, 'name');
       options['classIds'] = this.toOptions(classes, 'name');
     }
 
     if (hasField('groupId') || hasField('groupIds')) {
-      let classGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
-      const classes = await this.repo.getAllOnce<EntityRecord>('classes', profile);
-      const mads = await this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []);
-      classGroups = this.getScopedClassGroups(classGroups, classes, profile, mads);
-
+      const classGroups = this.getScopedClassGroups(rawClassGroups, rawClasses, profile, mads);
       const groupOptions = classGroups.map(g => ({
         label: g['name'] as string,
         value: g.id as string,
@@ -5168,7 +5320,6 @@ export class ManagementPage {
     }
 
     if (hasField('shiftId')) {
-      const shifts = await this.repo.getAllOnce<EntityRecord>('shifts', profile).catch(() => []);
       if (shifts.length === 0) {
         const defaultNames = ['Morning', 'Evening', 'After Maghrib', 'Night'];
         options['shiftId'] = defaultNames.map(n => ({ label: n, value: n }));
@@ -5182,12 +5333,10 @@ export class ManagementPage {
     }
 
     if (hasField('subjectIds')) {
-      const subjects = await this.repo.getAllOnce<EntityRecord>('subjects', profile);
       options['subjectIds'] = this.toOptions(subjects, 'name');
     }
 
     if (hasField('coordinatorIds') || hasField('inchargeIds')) {
-      const users = await this.repo.getAllOnce<EntityRecord>('users', profile);
       if (hasField('coordinatorIds')) {
         options['coordinatorIds'] = this.toOptions(users.filter((user) => user['role'] === 'coordinator'), 'displayName');
       }
@@ -5197,8 +5346,6 @@ export class ManagementPage {
     }
 
     if (hasField('assignedStaffIds')) {
-      const rawStaff = await this.repo.getAllOnce<EntityRecord>('staff', profile);
-      // Deduplicate by email or userId so a person with multiple role-documents appears only once.
       const staffByIdentity = new Map<string, EntityRecord>();
       for (const s of rawStaff) {
         const email = String(s['email'] || '').toLowerCase().trim();
@@ -5208,7 +5355,6 @@ export class ManagementPage {
         if (!staffByIdentity.has(identityKey)) {
           staffByIdentity.set(identityKey, { ...s });
         } else {
-          // Merge: combine roles arrays from duplicate documents
           const existing = staffByIdentity.get(identityKey)!;
           const existingRoles: string[] = Array.isArray(existing['roles']) ? existing['roles'] as string[] : (existing['role'] ? [String(existing['role'])] : []);
           const newRoles: string[] = Array.isArray(s['roles']) ? s['roles'] as string[] : (s['role'] ? [String(s['role'])] : []);
@@ -5217,11 +5363,10 @@ export class ManagementPage {
         }
       }
       const staff = Array.from(staffByIdentity.values());
-      if (hasField('assignedStaffIds')) options['assignedStaffIds'] = this.toStaffOptions(staff);
+      options['assignedStaffIds'] = this.toStaffOptions(staff);
     }
 
     if (hasField('linkedStudentIds')) {
-      const students = await this.repo.getAllOnce<EntityRecord>('students', profile);
       options['linkedStudentIds'] = this.toOptions(students, 'name');
     }
 
@@ -5364,27 +5509,6 @@ export class ManagementPage {
           : '-'),
       typeDisplay: this.formatCourseType(row['courseType'] || row['type']),
     }));
-
-    if (config.resource === 'courses') {
-      console.log('[Courses Page Data Debug]', {
-        coursesCount: decorated.length,
-        courses: (decorated as any[]).map(course => ({
-          id: course.id,
-          name: course['name'] || course['title'],
-          code: course['code'],
-          type: course['typeDisplay'],
-          organizationId: course['organizationId'],
-          organizationName: course['organizationName'],
-          madrasaId: course['madrasaId'],
-          madrasaName: course['madrasaNames'],
-          stages: course['stages'],
-          levels: course['levels'],
-          status: course['status'],
-          createdAt: course['createdAt'],
-          updatedAt: course['updatedAt'],
-        })),
-      });
-    }
 
     return decorated;
   }
