@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { combineLatest, map, of, switchMap, catchError, Observable, BehaviorSubject, filter, distinctUntilChanged } from 'rxjs';
+import { combineLatest, map, of, switchMap, catchError, Observable, BehaviorSubject, filter, distinctUntilChanged, from } from 'rxjs';
 import { where, documentId } from 'firebase/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -182,18 +182,18 @@ export class DashboardPage {
       }
 
       return combineLatest({
-        organizations: this.repo.list<EntityRecord>('organizations', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        madrasas: this.repo.list<EntityRecord>('madrasas', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        users: this.repo.list<EntityRecord>('users', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        students: this.repo.list<EntityRecord>('students', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        courses: this.repo.list<EntityRecord>('courses', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        classes: this.repo.list<EntityRecord>('classes', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        classGroups: this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        subjects: this.repo.list<EntityRecord>('subjects', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        attendance: this.repo.list<AttendanceRecord & EntityRecord>('attendance', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        notifications: this.repo.list<NotificationItem & EntityRecord>('notifications', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        classPlans: this.repo.list<EntityRecord & ClassPlan>('classPlans', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        timetableEntries: this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        organizations: from(this.repo.getAllOnce<EntityRecord>('organizations', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        madrasas: from(this.repo.getAllOnce<EntityRecord>('madrasas', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        users: from(this.repo.getAllOnce<EntityRecord>('users', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        students: from(this.repo.getAllOnce<EntityRecord>('students', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        courses: from(this.repo.getAllOnce<EntityRecord>('courses', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        classes: from(this.repo.getAllOnce<EntityRecord>('classes', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        classGroups: from(this.repo.getAllOnce<EntityRecord>('classGroups', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        subjects: from(this.repo.getAllOnce<EntityRecord>('subjects', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        attendance: from(this.repo.getAllOnce<AttendanceRecord & EntityRecord>('attendance', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        notifications: from(this.repo.getAllOnce<NotificationItem & EntityRecord>('notifications', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        classPlans: from(this.repo.getAllOnce<EntityRecord & ClassPlan>('classPlans', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        timetableEntries: from(this.repo.getAllOnce<EntityRecord & TimetableEntry>('timetableEntries', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
       }).pipe(
         map((rawData) => this.buildDashboardVm(profile, rawData))
       );
@@ -202,13 +202,13 @@ export class DashboardPage {
 
   private loadTeacherData(profile: AppUser): Observable<Record<string, any[]>> {
     // 1. Fetch assigned classes & timetable entries
-    const classes$ = this.repo.list<EntityRecord>('classes', profile).pipe(catchError(() => of([])));
-    const classGroups$ = this.repo.list<EntityRecord>('classGroups', profile).pipe(catchError(() => of([])));
-    const timetable$ = this.repo.list<EntityRecord & TimetableEntry>('timetableEntries', profile).pipe(catchError(() => of([])));
-    const subjects$ = this.repo.list<EntityRecord>('subjects', profile).pipe(catchError(() => of([])));
-    const notifications$ = this.repo.list<NotificationItem & EntityRecord>('notifications', profile).pipe(catchError(() => of([])));
-    const attendance$ = this.repo.list<AttendanceRecord & EntityRecord>('attendance', profile).pipe(catchError(() => of([])));
-    const users$ = this.repo.list<EntityRecord>('users', profile).pipe(catchError(() => of([])));
+    const classes$ = from(this.repo.getAllOnce<EntityRecord>('classes', profile)).pipe(catchError(() => of([])));
+    const classGroups$ = from(this.repo.getAllOnce<EntityRecord>('classGroups', profile)).pipe(catchError(() => of([])));
+    const timetable$ = from(this.repo.getAllOnce<EntityRecord & TimetableEntry>('timetableEntries', profile)).pipe(catchError(() => of([])));
+    const subjects$ = from(this.repo.getAllOnce<EntityRecord>('subjects', profile)).pipe(catchError(() => of([])));
+    const notifications$ = from(this.repo.getAllOnce<NotificationItem & EntityRecord>('notifications', profile)).pipe(catchError(() => of([])));
+    const attendance$ = from(this.repo.getAllOnce<AttendanceRecord & EntityRecord>('attendance', profile)).pipe(catchError(() => of([])));
+    const users$ = from(this.repo.getAllOnce<EntityRecord>('users', profile)).pipe(catchError(() => of([])));
     
     return combineLatest({
       classes: classes$,
@@ -221,35 +221,35 @@ export class DashboardPage {
     }).pipe(
       switchMap((initialData) => {
         // Extract classPlanIds from timetable entries
-        const classPlanIds = [...new Set(initialData.timetableEntries.map(e => e.classPlanId).filter(Boolean))];
+        const classPlanIds = [...new Set(initialData.timetableEntries.map((e: any) => e.classPlanId).filter(Boolean))];
         
         // Chunk requests for classPlans
         const planChunks = classPlanIds.length > 0 ? this.chunkArray(classPlanIds, 10) : [];
         const planObs = planChunks.length > 0 ? planChunks.map(chunk => 
-          this.repo.list<EntityRecord & ClassPlan>('classPlans', profile, [where(documentId(), 'in', chunk)]).pipe(catchError(() => of([])))
+          from(this.repo.getAllOnce<EntityRecord & ClassPlan>('classPlans', profile, {}, [where(documentId(), 'in', chunk)])).pipe(catchError(() => of([])))
         ) : [of([])];
         
         return combineLatest(planObs).pipe(
           map(results => results.flat()),
-          switchMap(classPlans => {
-            const courseIds = [...new Set([...classPlans.map(p => p.courseId), ...initialData.classes.map(c => c['courseId'])])].filter(Boolean);
-            const madrasaIds = [...new Set([...(profile.madrasaIds || []), ...classPlans.map(p => p.madrasaId), ...initialData.classes.map(c => c['madrasaId'])])].filter(Boolean);
-            const classIds = [...new Set([...classPlans.map(p => p.classId), ...initialData.classes.map(c => c.id)])].filter(Boolean);
-            const groupIds = [...new Set(classPlans.map(p => p.groupId))].filter(Boolean);
+          switchMap((classPlans: any[]) => {
+            const courseIds = [...new Set([...classPlans.map((p: any) => p.courseId), ...initialData.classes.map((c: any) => c['courseId'])])].filter(Boolean);
+            const madrasaIds = [...new Set([...(profile.madrasaIds || []), ...classPlans.map((p: any) => p.madrasaId), ...initialData.classes.map((c: any) => c['madrasaId'])])].filter(Boolean);
+            const classIds = [...new Set([...classPlans.map((p: any) => p.classId), ...initialData.classes.map((c: any) => c.id)])].filter(Boolean);
+            const groupIds = [...new Set(classPlans.map((p: any) => p.groupId))].filter(Boolean);
             
             const reqs: any = { classPlans: of(classPlans) };
             
             if (courseIds.length > 0) {
               const chunks = this.chunkArray(courseIds, 10);
-              reqs.courses = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('courses', profile, [where(documentId(), 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
+              reqs.courses = combineLatest(chunks.map(chunk => from(this.repo.getAllOnce<EntityRecord>('courses', profile, {}, [where(documentId(), 'in', chunk)])).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
             } else reqs.courses = of([]);
             
             if (madrasaIds.length > 0) {
               const chunks = this.chunkArray(madrasaIds, 10);
-              reqs.madrasas = combineLatest(chunks.map(chunk => this.repo.list<EntityRecord>('madrasas', profile, [where(documentId(), 'in', chunk)]).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
+              reqs.madrasas = combineLatest(chunks.map(chunk => from(this.repo.getAllOnce<EntityRecord>('madrasas', profile, {}, [where(documentId(), 'in', chunk)])).pipe(catchError(() => of([]))))).pipe(map(r => r.flat()));
             } else reqs.madrasas = of([]);
             
-            reqs.allStudents = this.repo.list<EntityRecord>('students', profile).pipe(catchError(() => of([])));
+            reqs.allStudents = from(this.repo.getAllOnce<EntityRecord>('students', profile)).pipe(catchError(() => of([])));
             
             return combineLatest(reqs).pipe(
               map((fetched: any) => {

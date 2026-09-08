@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { BehaviorSubject, combineLatest, map, of, startWith, switchMap, catchError } from 'rxjs';
+import { BehaviorSubject, combineLatest, map, of, startWith, switchMap, catchError, from } from 'rxjs';
 import { ROLE_LABELS } from '../../core/constants/defaults';
 import { AppUser } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -154,26 +154,26 @@ export class TreeViewPage {
         }
 
         return combineLatest({
-          organizations: this.repo.list<EntityRecord>('organizations', profile),
-          madrasas: this.repo.list<EntityRecord>('madrasas', profile),
-          courses: type === 'academic' ? this.repo.list<EntityRecord>('courses', profile) : of([]),
-          classes: type === 'academic' ? this.repo.list<EntityRecord>('classes', profile) : of([]),
-          classGroups: type === 'academic' ? this.repo.list<EntityRecord>('classGroups', profile) : of([]),
-          subjects: type === 'academic' ? this.repo.list<EntityRecord>('subjects', profile) : of([]),
-          academicPlans: type === 'academic' ? this.repo.list<EntityRecord>('academicPlans', profile).pipe(
+          organizations: from(this.repo.getAllOnce<EntityRecord>('organizations', profile)),
+          madrasas: from(this.repo.getAllOnce<EntityRecord>('madrasas', profile)),
+          courses: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('courses', profile)) : of([]),
+          classes: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('classes', profile)) : of([]),
+          classGroups: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('classGroups', profile)) : of([]),
+          subjects: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('subjects', profile)) : of([]),
+          academicPlans: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('academicPlans', profile)).pipe(
             catchError((err) => {
               console.warn('[Academic Tree] Failed to load academicPlans, returning empty', err);
               return of([]);
             })
           ) : of([]),
-          classPlans: type === 'academic' ? this.repo.list<EntityRecord>('classPlans', profile).pipe(catchError(() => of([]))) : of([]),
-          classPlanAttendance: type === 'academic' ? this.repo.list<EntityRecord>('classPlanAttendance', profile).pipe(catchError(() => of([]))) : of([]),
-          users: type === 'people' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff', 'student', 'parent'] }) : of([]),
-          academicStudents: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['student'] }) : of([]),
-          studentsCollection: type === 'academic' ? this.repo.list<EntityRecord>('students', profile) : of([]),
-          academicStaff: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin'] }) : of([]),
-          staffCollection: type === 'academic' ? this.repo.list<EntityRecord>('staff', profile) : of([]),
-          academicAdmins: type === 'academic' ? this.repo.list<EntityRecord>('users', profile, [], { roles: ['coordinator', 'madrasaIncharge'] }) : of([]),
+          classPlans: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('classPlans', profile)).pipe(catchError(() => of([]))) : of([]),
+          classPlanAttendance: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('classPlanAttendance', profile)).pipe(catchError(() => of([]))) : of([]),
+          users: type === 'people' ? from(this.repo.getAllOnce<EntityRecord>('users', profile, { roles: ['teacher', 'staff', 'student', 'parent'] })) : of([]),
+          academicStudents: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('users', profile, { roles: ['student'] })) : of([]),
+          studentsCollection: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('students', profile)) : of([]),
+          academicStaff: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('users', profile, { roles: ['teacher', 'staff', 'madrasaIncharge', 'coordinator', 'organizationAdmin'] })) : of([]),
+          staffCollection: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('staff', profile)) : of([]),
+          academicAdmins: type === 'academic' ? from(this.repo.getAllOnce<EntityRecord>('users', profile, { roles: ['coordinator', 'madrasaIncharge'] })) : of([]),
         }).pipe(
           map((data) => {
             const users = data.users || [];
