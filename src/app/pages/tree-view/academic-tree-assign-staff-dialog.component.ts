@@ -141,20 +141,22 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
 
   private extractAllStrings(val: any): string[] {
     if (!val) return [];
-    if (typeof val === 'string') return [val.trim()];
-    if (typeof val === 'number') return [String(val)];
+    if (typeof val === 'string') return [val.trim().toLowerCase()];
+    if (typeof val === 'number') return [String(val).toLowerCase()];
     if (Array.isArray(val)) {
       return val.flatMap(item => this.extractAllStrings(item));
     }
     if (typeof val === 'object') {
-      const ids: string[] = [];
-      if (val.id) ids.push(String(val.id).trim());
-      if (val.uid) ids.push(String(val.uid).trim());
-      if (val.userId) ids.push(String(val.userId).trim());
-      if (val.entityId) ids.push(String(val.entityId).trim());
-      if (val.docId) ids.push(String(val.docId).trim());
-      if (val.email) ids.push(String(val.email).trim());
-      return ids;
+      const tokens: string[] = [];
+      if (val.id) tokens.push(String(val.id).trim().toLowerCase());
+      if (val.uid) tokens.push(String(val.uid).trim().toLowerCase());
+      if (val.userId) tokens.push(String(val.userId).trim().toLowerCase());
+      if (val.entityId) tokens.push(String(val.entityId).trim().toLowerCase());
+      if (val.docId) tokens.push(String(val.docId).trim().toLowerCase());
+      if (val.email) tokens.push(String(val.email).trim().toLowerCase());
+      if (val.name) tokens.push(String(val.name).trim().toLowerCase());
+      if (val.displayName) tokens.push(String(val.displayName).trim().toLowerCase());
+      return tokens;
     }
     return [];
   }
@@ -171,6 +173,9 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
       ...this.extractAllStrings(this.node?.raw?.assignedStaffIds),
       ...this.extractAllStrings(this.node?.staffIds),
       ...this.extractAllStrings(this.node?.raw?.staffIds),
+      ...this.extractAllStrings(this.node?.groupStaff),
+      ...this.extractAllStrings(this.node?.raw?.groupStaff),
+      ...this.extractAllStrings(this.node?.assignedStaffNames),
     ]);
 
     const pool = this.uniqueUsers([
@@ -223,11 +228,13 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   }
 
   public getUserId(user: any): string {
-    return user?.id || user?.uid || user?.docId || '';
+    if (!user) return '';
+    if (typeof user === 'string') return user.trim();
+    return String(user.id || user.uid || user.userId || user.entityId || user.docId || user.email || user.name || user.displayName || '').trim();
   }
 
   private getStaffAssignmentId(user: any): string {
-    return String(user?.entityId || user?.id || user?.uid || user?.userId || '').trim();
+    return String(user?.entityId || user?.id || user?.uid || user?.userId || user?.docId || '').trim();
   }
 
   private normalizeRole(role: string | undefined | null): string {
@@ -236,11 +243,14 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
 
   private isStaffUser(user: any): boolean {
     if (!user) return false;
-    const staffRoles = ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'];
+    if (!user.role && !user.roles && (user.name || user.displayName || user.id || user.email || typeof user === 'string')) {
+      return true;
+    }
+    const staffRoles = ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin', 'ustadh', 'usthad', 'stagehead', 'headteacher', 'teacher_assistant', 'admin', 'principal'];
     const singleRole = this.normalizeRole(user?.role);
     if (staffRoles.some(r => singleRole.includes(r))) return true;
     if (Array.isArray(user?.roles)) {
-      return user.roles.some((ro: any) => staffRoles.includes(this.normalizeRole(ro)));
+      return user.roles.some((ro: any) => staffRoles.some(sr => this.normalizeRole(ro).includes(sr)));
     }
     return false;
   }
@@ -253,10 +263,18 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
   private uniqueUsers(users: any[]): any[] {
     const map = new Map<string, any>();
     for (const user of users || []) {
-      const key = this.getUserId(user);
+      const key = this.getUserId(user).toLowerCase();
       if (!key) continue;
       if (!map.has(key)) {
         map.set(key, user);
+      } else {
+        const existing = map.get(key);
+        map.set(key, {
+          ...existing,
+          ...user,
+          name: user.name || user.displayName || existing.name || existing.displayName,
+          displayName: user.displayName || user.name || existing.displayName || existing.name,
+        });
       }
     }
     return Array.from(map.values());

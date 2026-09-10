@@ -222,7 +222,9 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   }
 
   public getUserId(user: any): string {
-    return user?.id || user?.uid || user?.docId || '';
+    if (!user) return '';
+    if (typeof user === 'string') return user.trim();
+    return String(user.id || user.uid || user.userId || user.entityId || user.docId || user.studentId || user.email || user.name || user.displayName || '').trim();
   }
 
   private normalizeRole(role: string | undefined | null): string {
@@ -230,7 +232,16 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   }
 
   private isStudentUser(user: any): boolean {
-    return this.normalizeRole(user?.role) === 'student';
+    if (!user) return false;
+    if (!user.role && !user.roles && (user.name || user.displayName || user.id || user.studentId || typeof user === 'string')) {
+      return true;
+    }
+    const role = this.normalizeRole(user?.role);
+    if (role === 'student') return true;
+    if (Array.isArray(user?.roles)) {
+      return user.roles.some((ro: any) => this.normalizeRole(ro) === 'student');
+    }
+    return false;
   }
 
   private isAlreadySelected(student: any): boolean {
@@ -241,10 +252,18 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
   private uniqueUsers(users: any[]): any[] {
     const map = new Map<string, any>();
     for (const user of users || []) {
-      const key = this.getUserId(user);
+      const key = this.getUserId(user).toLowerCase();
       if (!key) continue;
       if (!map.has(key)) {
         map.set(key, user);
+      } else {
+        const existing = map.get(key);
+        map.set(key, {
+          ...existing,
+          ...user,
+          name: user.name || user.displayName || existing.name || existing.displayName,
+          displayName: user.displayName || user.name || existing.displayName || existing.name,
+        });
       }
     }
     return Array.from(map.values());

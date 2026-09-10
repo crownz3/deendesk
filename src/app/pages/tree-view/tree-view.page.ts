@@ -19,6 +19,16 @@ export interface PageState<T> {
   error?: string;
 }
 
+export function extractId(val: any): string {
+  if (!val) return '';
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'object') {
+    return String(val.id || val.uid || val.docId || val.userId || val.entityId || '').trim();
+  }
+  return '';
+}
+
 export interface AcademicTreeNode {
   id: string;
   title: string;
@@ -398,17 +408,22 @@ export class TreeViewPage {
 
   private isStaffUser(user: any): boolean {
     if (!user) return false;
-    const staffRoles = ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin'];
+    if (!user.role && !user.roles && (user.name || user.displayName || user.id || user.email || typeof user === 'string')) {
+      return true;
+    }
+    const staffRoles = ['teacher', 'staff', 'madrasaincharge', 'coordinator', 'organizationadmin', 'ustadh', 'usthad', 'stagehead', 'headteacher', 'teacher_assistant', 'admin', 'principal'];
     const singleRole = this.normalizeRole(user?.role);
     if (staffRoles.some(r => singleRole.includes(r))) return true;
     if (Array.isArray(user?.roles)) {
-      return user.roles.some((ro: any) => staffRoles.includes(this.normalizeRole(ro)));
+      return user.roles.some((ro: any) => staffRoles.some(sr => this.normalizeRole(ro).includes(sr)));
     }
     return false;
   }
 
   private getUserId(user: any): string {
-    return user?.id || user?.uid || user?.docId || '';
+    if (!user) return '';
+    if (typeof user === 'string') return user.trim();
+    return String(user?.id || user?.uid || user?.userId || user?.entityId || user?.docId || user?.email || user?.name || user?.displayName || '').trim();
   }
 
   by(rows: EntityRecord[], key: string, value: unknown): EntityRecord[] {
@@ -1120,20 +1135,22 @@ export class TreeViewPage {
 
   private extractAllStrings(val: any): string[] {
     if (!val) return [];
-    if (typeof val === 'string') return [val.trim()];
-    if (typeof val === 'number') return [String(val)];
+    if (typeof val === 'string') return [val.trim().toLowerCase()];
+    if (typeof val === 'number') return [String(val).toLowerCase()];
     if (Array.isArray(val)) {
       return val.flatMap(item => this.extractAllStrings(item));
     }
     if (typeof val === 'object') {
-      const ids: string[] = [];
-      if (val.id) ids.push(String(val.id).trim());
-      if (val.uid) ids.push(String(val.uid).trim());
-      if (val.userId) ids.push(String(val.userId).trim());
-      if (val.entityId) ids.push(String(val.entityId).trim());
-      if (val.docId) ids.push(String(val.docId).trim());
-      if (val.email) ids.push(String(val.email).trim());
-      return ids;
+      const tokens: string[] = [];
+      if (val.id) tokens.push(String(val.id).trim().toLowerCase());
+      if (val.uid) tokens.push(String(val.uid).trim().toLowerCase());
+      if (val.userId) tokens.push(String(val.userId).trim().toLowerCase());
+      if (val.entityId) tokens.push(String(val.entityId).trim().toLowerCase());
+      if (val.docId) tokens.push(String(val.docId).trim().toLowerCase());
+      if (val.email) tokens.push(String(val.email).trim().toLowerCase());
+      if (val.name) tokens.push(String(val.name).trim().toLowerCase());
+      if (val.displayName) tokens.push(String(val.displayName).trim().toLowerCase());
+      return tokens;
     }
     return [];
   }
@@ -1240,19 +1257,46 @@ export class TreeViewPage {
     if (!student || !classNode?.id) return false;
     const classId = classNode.id;
 
+    if (classNode.type === 'classGroup') {
+      const singleGroupIds = [
+        student?.groupId,
+        student?.classGroupId,
+        student?.assignedGroupId,
+        student?.group,
+        student?.sectionId
+      ].map(v => extractId(v)).filter(Boolean);
+
+      const arrayGroupIds = [
+        ...(Array.isArray(student?.groupIds) ? student.groupIds.map(extractId) : []),
+        ...(Array.isArray(student?.classGroupIds) ? student.classGroupIds.map(extractId) : [])
+      ].filter(Boolean);
+
+      const targetGId = extractId(classId);
+      if (singleGroupIds.includes(targetGId) || arrayGroupIds.includes(targetGId)) return true;
+
+      const rosterTokens = new Set<string>([
+        ...this.extractAllStrings(classNode.assignedStudents),
+        ...this.extractAllStrings((classNode as any).assignedStudentIds),
+        ...this.extractAllStrings((classNode as any).studentIds),
+      ]);
+      const sTokens = this.extractAllStrings(student);
+      return sTokens.some(tok => rosterTokens.has(tok));
+    }
+
     const singleClassIds = [
       student?.classId,
       student?.assignedClassId,
       student?.currentClassId
-    ].filter(Boolean);
+    ].map(v => extractId(v)).filter(Boolean);
 
     const arrayClassIds = [
-      ...(Array.isArray(student?.classIds) ? student.classIds : []),
-      ...(Array.isArray(student?.assignedClassIds) ? student.assignedClassIds : []),
-      ...(Array.isArray(student?.currentClassIds) ? student.currentClassIds : [])
-    ];
+      ...(Array.isArray(student?.classIds) ? student.classIds.map(extractId) : []),
+      ...(Array.isArray(student?.assignedClassIds) ? student.assignedClassIds.map(extractId) : []),
+      ...(Array.isArray(student?.currentClassIds) ? student.currentClassIds.map(extractId) : [])
+    ].filter(Boolean);
 
-    return singleClassIds.includes(classId) || arrayClassIds.includes(classId);
+    const targetCId = extractId(classId);
+    return singleClassIds.includes(targetCId) || arrayClassIds.includes(targetCId);
   }
 
   private isStudentAssignedToAnyClass(student: any): boolean {
