@@ -4,6 +4,7 @@ import { authGuard } from './core/guards/auth.guard';
 import { permissionGuard } from './core/guards/permission.guard';
 import { ActivityLogsPage } from './pages/activity-logs/activity-logs.page';
 import { AttendancePage } from './pages/attendance/attendance.page';
+import { ClassroomSuitePage } from './pages/classroom-suite/classroom-suite.page';
 import { ContinueAccountPage } from './pages/continue-account/continue-account.page';
 import { CsvImportsPage } from './pages/csv-imports/csv-imports.page';
 import { DashboardPage } from './pages/dashboard/dashboard.page';
@@ -73,9 +74,10 @@ const routes: Routes = [
   { path: 'classes', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classes', permissionsAny: ['viewClasses', 'addClasses', 'editClasses', 'manageClasses'] } },
   { path: 'classGroups', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'classGroups', permissionsAny: ['viewClassGroups', 'addClassGroups', 'editClassGroups', 'viewClasses', 'addClasses', 'editClasses', 'manageClasses'] } },
   { path: 'subjects', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'subjects', permission: 'manageSubjects' } },
-  { path: 'class-plans', component: ClassPlansPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageClassPlans', 'takeAttendance', 'viewAttendance'] } },
+  { path: 'classroom-suite', component: ClassroomSuitePage, canActivate: [authGuard] },
+  { path: 'class-plans', component: ClassroomSuitePage, canActivate: [authGuard] },
   { path: 'study-time', component: StudyTimePage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewStudyTime', 'manageStudyTime', 'recordStudyTimeAttendance'] } },
-  { path: 'attendance', component: AttendancePage, canActivate: [authGuard, permissionGuard], data: { permission: ['takeAttendance', 'viewAttendance'] } },
+  { path: 'attendance', component: ClassroomSuitePage, canActivate: [authGuard] },
   { path: 'external-activities', component: ExternalActivitiesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewExternalActivities', 'manageExternalActivities'] } },
   { path: 'hostels', component: HostelsPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewHostels', 'manageHostels'] } },
   { path: 'fees', component: FeesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['manageFees', 'viewFees'] } },

@@ -9,6 +9,17 @@ export interface AcademicTreeStudentsDialogData {
   students: any[];
 }
 
+export interface GroupedStudentsSection {
+  madrasaName: string;
+  groups: {
+    groupName: string;
+    className?: string;
+    studentCount: number;
+    students: any[];
+  }[];
+  totalStudents: number;
+}
+
 @Component({
   selector: 'app-academic-tree-students-dialog',
   templateUrl: './academic-tree-students-dialog.component.html',
@@ -27,6 +38,96 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
 
   ngOnInit(): void {
     this.filteredStudents = this.data.students || [];
+  }
+
+  get groupedStudentSections(): GroupedStudentsSection[] {
+    const map = new Map<string, GroupedStudentsSection>();
+
+    (this.filteredStudents || []).forEach(st => {
+      let mName = String(st['madrasaName'] || st['madrasa'] || '').trim();
+      if (!mName || mName === 'N/A' || mName === '-') {
+        mName = 'General Madrasa';
+      }
+
+      let gName = String(st['groupName'] || st['sectionName'] || st['group'] || '').trim();
+      if (!gName || gName === 'N/A' || gName === '-') {
+        gName = 'General Class Group';
+      }
+
+      const cName = String(st['className'] || '').trim();
+
+      const mKey = mName.toLowerCase();
+      if (!map.has(mKey)) {
+        map.set(mKey, {
+          madrasaName: mName,
+          groups: [],
+          totalStudents: 0
+        });
+      }
+
+      const mSec = map.get(mKey)!;
+      mSec.totalStudents++;
+
+      let grpObj = mSec.groups.find(g => g.groupName.toLowerCase() === gName.toLowerCase());
+      if (!grpObj) {
+        grpObj = {
+          groupName: gName,
+          className: (cName && cName !== 'N/A') ? cName : undefined,
+          studentCount: 0,
+          students: []
+        };
+        mSec.groups.push(grpObj);
+      }
+
+      grpObj.studentCount++;
+      grpObj.students.push(st);
+    });
+
+    return Array.from(map.values());
+  }
+
+  get titleInfo(): { mainTitle: string; subTitle?: string } {
+    const raw = this.data.nodeTitle || 'Assigned Students';
+    const match = raw.match(/^(.*?)\s*\((.*?)\)$/);
+    if (match) {
+      return {
+        mainTitle: match[1].trim(),
+        subTitle: match[2].trim()
+      };
+    }
+    if (raw.includes(' — ')) {
+      const parts = raw.split(' — ');
+      return {
+        mainTitle: parts[0].trim(),
+        subTitle: parts[1].trim()
+      };
+    }
+    return { mainTitle: raw };
+  }
+
+  getParentDisplay(student: any): { name: string; phone?: string } {
+    const name = String(student.parentName || student.fatherName || student.guardianName || '').trim();
+    let phone = String(
+      (student.parentPhone && student.parentPhone !== 'N/A') ? student.parentPhone :
+      (student.parentMobileNumber || student.fatherMobileNumber || student.fatherPhone || student.guardianPhone || student.parentMobile || '')
+    ).trim();
+
+    if (phone === 'N/A' || phone === '-') phone = '';
+
+    return {
+      name: (name && name !== 'N/A') ? name : 'N/A',
+      phone: phone || undefined
+    };
+  }
+
+  getStudentPhoneDisplay(student: any): string {
+    let phone = String(
+      (student.studentPhone && student.studentPhone !== 'N/A') ? student.studentPhone :
+      (student.mobileNumber || student.phone || student.mobile || student.contactNumber || '')
+    ).trim();
+
+    if (!phone || phone === 'N/A' || phone === '-') return 'No phone';
+    return phone;
   }
 
   getStudentStage(student: any): string {
@@ -54,8 +155,6 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
     });
   }
 
-
-
   viewAttendanceHistory(student: any): void {
     this.dialog.open(AttendanceHistoryDialogComponent, {
       width: '500px',
@@ -65,6 +164,4 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
       }
     });
   }
-
-
 }

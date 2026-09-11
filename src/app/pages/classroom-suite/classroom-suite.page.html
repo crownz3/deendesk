@@ -1,0 +1,505 @@
+<div class="classroom-suite-container">
+  <!-- Top Control Bar: Title & Selectors -->
+  <div class="suite-header-card">
+    <div class="title-section">
+      <div class="suite-badge">
+        <mat-icon>school</mat-icon> Classroom Management Suite
+      </div>
+      <h1 class="page-title">Unified Attendance, Timetable, Daily Progress & Reports</h1>
+      <p class="page-subtitle">One-stop classroom operations for Teachers, Incharges, Stage Heads & Administrators</p>
+    </div>
+
+    <div class="selectors-section">
+      <!-- Madrasa Dropdown -->
+      <mat-form-field appearance="outline" class="selector-field" subscriptSizing="dynamic">
+        <mat-label>Madrasa</mat-label>
+        <mat-select [(ngModel)]="selectedMadrasaId" (selectionChange)="onMadrasaChanged()" [disabled]="!isSuperAdmin && !isOrgAdmin">
+          <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] || m['title'] }}</mat-option>
+        </mat-select>
+        <mat-icon matPrefix>business</mat-icon>
+      </mat-form-field>
+
+      <!-- Class Group Dropdown -->
+      <mat-form-field appearance="outline" class="selector-field" subscriptSizing="dynamic">
+        <mat-label>Class Group</mat-label>
+        <mat-select [(ngModel)]="selectedGroupId" (selectionChange)="onGroupChanged()">
+          <mat-option *ngFor="let g of availableClassGroupsForUser" [value]="g.id">
+            {{ g['name'] || g['title'] }} <span *ngIf="g['className']">({{ g['className'] }})</span>
+          </mat-option>
+        </mat-select>
+        <mat-icon matPrefix>groups</mat-icon>
+      </mat-form-field>
+
+      <!-- Date Selector with Quick Shifts -->
+      <div class="date-picker-group">
+        <button mat-icon-button type="button" (click)="shiftDate(-1)" matTooltip="Yesterday">
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+
+        <mat-form-field appearance="outline" class="date-field" subscriptSizing="dynamic">
+          <mat-label>Date</mat-label>
+          <input matInput [matDatepicker]="picker" [value]="selectedDateObj" (dateChange)="onDateChanged($event.value)" readonly />
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+
+        <button mat-icon-button type="button" (click)="shiftDate(1)" matTooltip="Tomorrow">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Quick Pill Switcher for Staff with Multiple Assigned Class Groups -->
+    <div class="group-pills-row" *ngIf="availableClassGroupsForUser.length > 1">
+      <span class="pills-label">Switch Group:</span>
+      <div class="pills-flex-container">
+        <button 
+          type="button" 
+          class="group-pill-btn" 
+          *ngFor="let g of availableClassGroupsForUser"
+          [class.active]="selectedGroupId === g.id"
+          (click)="selectedGroupId = g.id || ''; onGroupChanged()"
+        >
+          <mat-icon>class</mat-icon> {{ g['name'] || g['title'] }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attendance Mode Switcher & Dynamic Period Slots -->
+  <div class="mode-and-periods-card">
+    <div class="mode-row">
+      <div class="mode-switcher">
+        <button 
+          type="button" 
+          class="mode-btn" 
+          [class.active]="attendanceMode === 'FULL_DAY'"
+          (click)="setAttendanceMode('FULL_DAY')"
+        >
+          <mat-icon style="color: #f59e0b;">wb_sunny</mat-icon> Full Day Attendance
+        </button>
+
+        <button 
+          type="button" 
+          class="mode-btn" 
+          [class.active]="attendanceMode === 'PER_PERIOD'"
+          (click)="setAttendanceMode('PER_PERIOD')"
+        >
+          <mat-icon style="color: #6366f1;">alarm</mat-icon> Per-Period Routine Attendance
+        </button>
+      </div>
+
+      <button mat-raised-button color="primary" class="save-all-btn" (click)="saveSuiteData()" [disabled]="!canManageAttendance">
+        <mat-icon>save</mat-icon> Save Attendance & Daily Progress
+      </button>
+    </div>
+
+    <!-- Dynamic Timetable Period Chips Bar (Visible in PER_PERIOD mode) -->
+    <div class="period-chips-bar" *ngIf="attendanceMode === 'PER_PERIOD'">
+      <span class="period-bar-title"><mat-icon>event_note</mat-icon> Daily Timetable Periods:</span>
+      <div class="chips-flex">
+        <button 
+          type="button" 
+          class="period-chip" 
+          *ngFor="let p of periodSlots"
+          [class.active]="selectedPeriodId === p.id"
+          (click)="selectPeriodSlot(p)"
+        >
+          <span class="p-title">{{ p.periodTitle }}</span>
+          <span class="p-time" *ngIf="p.startTime">({{ p.startTime }} - {{ p.endTime }})</span>
+        </button>
+
+        <span class="no-periods-text" *ngIf="periodSlots.length === 0">
+          No period schedule defined for this class group today. You can add periods under the Timetable tab.
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Attendance Taken Audit Status Banner -->
+  <div class="audit-banner" [class.recorded]="isAttendanceRecorded" [class.pending]="!isAttendanceRecorded">
+    <div class="audit-info" *ngIf="isAttendanceRecorded">
+      <mat-icon color="primary">verified</mat-icon>
+      <span>Attendance Recorded by <strong>{{ recordedByName }}</strong> on {{ recordedAtText }} for <strong>{{ selectedPeriodTitle }}</strong></span>
+    </div>
+    <div class="audit-info" *ngIf="!isAttendanceRecorded">
+      <mat-icon color="warn">pending_actions</mat-icon>
+      <span>Attendance Pending for <strong>{{ selectedPeriodTitle }}</strong> (Date: {{ selectedDateStr }})</span>
+    </div>
+  </div>
+
+  <!-- Main 4-Tab Suite Container -->
+  <div class="suite-tabs-card">
+    <div class="tab-header-nav">
+      <button type="button" class="tab-nav-btn" [class.active]="activeTab === 'attendance'" (click)="activeTab = 'attendance'">
+        <mat-icon>how_to_reg</mat-icon> Attendance Register
+      </button>
+
+      <button type="button" class="tab-nav-btn" [class.active]="activeTab === 'progress'" (click)="activeTab = 'progress'">
+        <mat-icon>auto_stories</mat-icon> Daily Progress Evaluation
+      </button>
+
+      <button type="button" class="tab-nav-btn" [class.active]="activeTab === 'timetable'" (click)="activeTab = 'timetable'">
+        <mat-icon>schedule</mat-icon> Schedule & Timetable
+      </button>
+
+      <!-- Reports Tab (Permission Gated) -->
+      <button type="button" class="tab-nav-btn" [class.active]="activeTab === 'reports'" (click)="activeTab = 'reports'" *ngIf="canManageReports">
+        <mat-icon>bar_chart</mat-icon> Reports & Analytics
+      </button>
+    </div>
+
+    <div class="tab-body-content">
+
+      <!-- ========================================== -->
+      <!-- TAB 1: ATTENDANCE REGISTER -->
+      <!-- ========================================== -->
+      <div class="tab-pane" *ngIf="activeTab === 'attendance'">
+        <!-- KPI Mini Stats Bar -->
+        <div class="kpi-grid">
+          <div class="kpi-card total">
+            <span class="kpi-val">{{ totalEnrolled }}</span>
+            <span class="kpi-lbl">Enrolled Students</span>
+          </div>
+          <div class="kpi-card present">
+            <span class="kpi-val">{{ presentCount }} ({{ presentRate }}%)</span>
+            <span class="kpi-lbl">Present</span>
+          </div>
+          <div class="kpi-card absent">
+            <span class="kpi-val">{{ absentCount }}</span>
+            <span class="kpi-lbl">Absent</span>
+          </div>
+          <div class="kpi-card late">
+            <span class="kpi-val">{{ lateCount }}</span>
+            <span class="kpi-lbl">Late</span>
+          </div>
+          <div class="kpi-card leave">
+            <span class="kpi-val">{{ leaveCount }}</span>
+            <span class="kpi-lbl">On Leave</span>
+          </div>
+        </div>
+
+        <!-- Bulk Mark Bar -->
+        <div class="bulk-actions-bar" *ngIf="canManageAttendance">
+          <span class="bulk-lbl">Bulk Mark All:</span>
+          <button mat-stroked-button class="btn-present" (click)="markAll('present')"><mat-icon>check_circle</mat-icon> Mark All Present</button>
+          <button mat-stroked-button class="btn-absent" (click)="markAll('absent')"><mat-icon>cancel</mat-icon> Mark All Absent</button>
+          <button mat-stroked-button class="btn-reset" (click)="markAll('present')"><mat-icon>restart_alt</mat-icon> Reset</button>
+        </div>
+
+        <!-- Attendance Roster Table -->
+        <div class="table-responsive">
+          <table class="suite-table">
+            <thead>
+              <tr>
+                <th style="width: 40px;">#</th>
+                <th class="st-name-th" style="min-width: 180px;">Student Name</th>
+                <th style="min-width: 280px;">Attendance Status</th>
+                <th style="min-width: 250px;">Notes / Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of roster; let i = index">
+                <td>{{ i + 1 }}</td>
+                <td class="student-name-td st-name-cell">
+                  <div class="st-avatar"><mat-icon>person</mat-icon></div>
+                  <div class="st-info">
+                    <span class="st-name">{{ item.student['fullName'] || item.student['name'] }}</span>
+                    <span class="st-id" *ngIf="item.student['admissionNo']">#{{ item.student['admissionNo'] }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="status-toggle-buttons">
+                    <button type="button" class="st-btn present" [class.selected]="item.status === 'present'" (click)="item.status = 'present'; recalculateSummary()">Present</button>
+                    <button type="button" class="st-btn absent" [class.selected]="item.status === 'absent'" (click)="item.status = 'absent'; recalculateSummary()">Absent</button>
+                    <button type="button" class="st-btn late" [class.selected]="item.status === 'late'" (click)="item.status = 'late'; recalculateSummary()">Late</button>
+                    <button type="button" class="st-btn leave" [class.selected]="item.status === 'leave'" (click)="item.status = 'leave'; recalculateSummary()">Leave</button>
+                  </div>
+                </td>
+                <td>
+                  <input type="text" class="inline-input note-input" [(ngModel)]="item.note" placeholder="Optional attendance note..." />
+                </td>
+              </tr>
+
+              <tr *ngIf="roster.length === 0">
+                <td colspan="4" class="empty-td">No students found in the selected class group.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: DAILY PROGRESS EVALUATION -->
+      <!-- ========================================== -->
+      <div class="tab-pane" *ngIf="activeTab === 'progress'">
+        <div class="progress-actions-header">
+          <div class="mode-toggle-pills">
+            <span class="mode-toggle-label">Evaluation Mode:</span>
+            <button type="button" class="mode-pill" [class.active]="studentTypeMode === 'hifz'" (click)="studentTypeMode = 'hifz'">
+              📖 Hifz (Sabq / Sabqi)
+            </button>
+            <button type="button" class="mode-pill dawr" [class.active]="studentTypeMode === 'dawr'" (click)="studentTypeMode = 'dawr'">
+              🔄 Dawr (Revision Cycles)
+            </button>
+            <button type="button" class="mode-pill" [class.active]="studentTypeMode === 'maktab'" (click)="studentTypeMode = 'maktab'">
+              📚 Maktab (Academic)
+            </button>
+          </div>
+
+          <div class="actions-right">
+            <button mat-stroked-button color="accent" (click)="copyPreviousTarget()" [disabled]="!canManageAttendance">
+              <mat-icon>content_copy</mat-icon> Copy Yesterday's Target
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline Table for HIFZ Mode -->
+        <div class="table-responsive" *ngIf="studentTypeMode === 'hifz'">
+          <table class="suite-table ilmflow-table">
+            <thead>
+              <tr>
+                <th rowspan="2" class="st-name-th" style="min-width: 170px;">Student Name</th>
+                <th colspan="4" class="col-group hifz-sabaq">Sabaq (Daily Portion)</th>
+                <th colspan="2" class="col-group hifz-sabqi">Sabqi (Recent Juz)</th>
+                <th colspan="2" class="col-group hifz-manzil">Manzil (Old Juz)</th>
+                <th rowspan="2" style="min-width: 130px;">Rating</th>
+              </tr>
+              <tr>
+                <th style="min-width: 110px;">Surah</th>
+                <th style="min-width: 65px;">From</th>
+                <th style="min-width: 65px;">To</th>
+                <th style="min-width: 65px;">Mistakes</th>
+                <th style="min-width: 65px;">Juz #</th>
+                <th style="min-width: 65px;">Mistakes</th>
+                <th style="min-width: 65px;">Juz #</th>
+                <th style="min-width: 65px;">Mistakes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of roster">
+                <td class="st-name-cell">
+                  <div class="st-name-wrapper">
+                    <strong>{{ item.student['fullName'] || item.student['name'] }}</strong>
+                    <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
+                      🎯 Target
+                    </button>
+                  </div>
+                </td>
+                <!-- Sabaq Fields -->
+                <td><input type="text" class="inline-input" [(ngModel)]="item.sabaqSurah" placeholder="Surah" title="Surah Name" /></td>
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" placeholder="From" title="From Ayah" /></td>
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" placeholder="To" title="To Ayah" /></td>
+                <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" title="Sabaq Mistakes" /></td>
+
+                <!-- Sabqi Fields -->
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.sabqiJuz" placeholder="Juz" title="Sabqi Juz #" /></td>
+                <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabqiMistakes" placeholder="0" title="Sabqi Mistakes" /></td>
+
+                <!-- Manzil Fields -->
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.manzilJuz" placeholder="Juz" title="Manzil Juz #" /></td>
+                <td><input type="number" class="inline-input num mist" [(ngModel)]="item.manzilMistakes" placeholder="0" title="Manzil Mistakes" /></td>
+
+                <!-- Rating -->
+                <td>
+                  <select class="inline-select" [(ngModel)]="item.hifzRating">
+                    <option [value]="5">⭐⭐⭐⭐⭐ (5/5)</option>
+                    <option [value]="4">⭐⭐⭐⭐ (4/5)</option>
+                    <option [value]="3">⭐⭐⭐ (3/5)</option>
+                    <option [value]="2">⭐⭐ (2/5)</option>
+                    <option [value]="1">⭐ (1/5)</option>
+                  </select>
+                </td>
+              </tr>
+
+              <tr *ngIf="roster.length === 0">
+                <td colspan="10" class="empty-td">No students enrolled in this group.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Inline Table for DAWR (Full Quran Revision) Mode -->
+        <div class="table-responsive" *ngIf="studentTypeMode === 'dawr'">
+          <table class="suite-table ilmflow-table">
+            <thead>
+              <tr>
+                <th rowspan="2" class="st-name-th" style="min-width: 170px;">Student Name</th>
+                <th colspan="4" class="col-group hifz-sabaq">Dawr Daily Revision</th>
+                <th colspan="2" class="col-group hifz-manzil">Mistakes Breakdown</th>
+                <th rowspan="2" style="min-width: 130px;">Rating</th>
+                <th rowspan="2" style="min-width: 140px;">Certificate Progress</th>
+              </tr>
+              <tr>
+                <th style="min-width: 80px;" title="Dawr Revision Round Number">Round #</th>
+                <th style="min-width: 110px;" title="Portion / Juz Number or Range">Juz Portion</th>
+                <th style="min-width: 65px;" title="From Ayah">From</th>
+                <th style="min-width: 65px;" title="To Ayah">To</th>
+                <th style="min-width: 80px;" title="Revision Mistakes">Rev. Mistakes</th>
+                <th style="min-width: 80px;" title="Old Juz Mistakes">Old Mistakes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of roster">
+                <td class="st-name-cell">
+                  <div class="st-name-wrapper">
+                    <strong>{{ item.student['fullName'] || item.student['name'] }}</strong>
+                    <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Round Goal">
+                      🎯 Target
+                    </button>
+                  </div>
+                </td>
+
+                <!-- Dawr Round # -->
+                <td>
+                  <input type="number" class="inline-input num" [(ngModel)]="item.dawrRoundNo" placeholder="Round" title="Dawr Round Number" />
+                </td>
+
+                <!-- Daily Portion (Juz) -->
+                <td>
+                  <input type="text" class="inline-input" [(ngModel)]="item.dawrPortionJuz" placeholder="e.g. Juz 1-2" title="Daily Revision Juz Portion" />
+                </td>
+
+                <!-- From Ayah / To Ayah -->
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.dawrFromAyah" placeholder="From" title="From Ayah" /></td>
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.dawrToAyah" placeholder="To" title="To Ayah" /></td>
+
+                <!-- Mistakes -->
+                <td><input type="number" class="inline-input num mist" [(ngModel)]="item.dawrMistakes" placeholder="0" title="Revision Mistakes" /></td>
+                <td><input type="number" class="inline-input num mist" [(ngModel)]="item.dawrManzilMistakes" placeholder="0" title="Old Mistakes" /></td>
+
+                <!-- Rating -->
+                <td>
+                  <select class="inline-select" [(ngModel)]="item.dawrRating">
+                    <option [value]="5">⭐⭐⭐⭐⭐ (5/5)</option>
+                    <option [value]="4">⭐⭐⭐⭐ (4/5)</option>
+                    <option [value]="3">⭐⭐⭐ (3/5)</option>
+                    <option [value]="2">⭐⭐ (2/5)</option>
+                    <option [value]="1">⭐ (1/5)</option>
+                  </select>
+                </td>
+
+                <!-- Certificate Status -->
+                <td>
+                  <span class="dawr-badge" [class.certified]="(item.dawrRoundNo || 1) >= (item.targetDawrRounds || 3)">
+                    <mat-icon>workspace_premium</mat-icon>
+                    Round {{ item.dawrRoundNo || 1 }} / {{ item.targetDawrRounds || 3 }} Target
+                  </span>
+                </td>
+              </tr>
+
+              <tr *ngIf="roster.length === 0">
+                <td colspan="9" class="empty-td">No students enrolled in this group.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Inline Table for MAKTAB Mode -->
+        <div class="table-responsive" *ngIf="studentTypeMode === 'maktab'">
+          <table class="suite-table ilmflow-table">
+            <thead>
+              <tr>
+                <th class="st-name-th" style="min-width: 170px;">Student Name</th>
+                <th style="min-width: 140px;">Subject / Course</th>
+                <th style="min-width: 80px;">Page No</th>
+                <th style="min-width: 80px;">Line No</th>
+                <th style="min-width: 90px;">Mistakes Count</th>
+                <th style="min-width: 200px;">Remarks</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of roster">
+                <td class="st-name-cell">
+                  <div class="st-name-wrapper">
+                    <strong>{{ item.student['fullName'] || item.student['name'] }}</strong>
+                    <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
+                      🎯 Target
+                    </button>
+                  </div>
+                </td>
+                <td><input type="text" class="inline-input" [(ngModel)]="item.maktabSubject" placeholder="Subject" /></td>
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.maktabPage" placeholder="Page #" /></td>
+                <td><input type="number" class="inline-input num" [(ngModel)]="item.maktabLineNo" placeholder="Line #" /></td>
+                <td><input type="number" class="inline-input num mist" [(ngModel)]="item.maktabMistakes" placeholder="0" /></td>
+                <td><input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." /></td>
+              </tr>
+
+              <tr *ngIf="roster.length === 0">
+                <td colspan="6" class="empty-td">No students enrolled in this group.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: TIMETABLE & SCHEDULE -->
+      <!-- ========================================== -->
+      <div class="tab-pane" *ngIf="activeTab === 'timetable'">
+        <div class="timetable-pane-header">
+          <h3>Daily Routine Schedule for Selected Group</h3>
+          <p>Period slots defined for this class group on this day of the week:</p>
+        </div>
+
+        <div class="timetable-cards-grid">
+          <div class="slot-card" *ngFor="let slot of periodSlots; let i = index">
+            <div class="slot-badge">Period {{ i + 1 }}</div>
+            <div class="slot-details">
+              <h4 class="slot-title">{{ slot.periodTitle }}</h4>
+              <p class="slot-time" *ngIf="slot.startTime"><mat-icon>schedule</mat-icon> {{ slot.startTime }} - {{ slot.endTime }}</p>
+              <p class="slot-meta" *ngIf="slot.teacherName"><mat-icon>person</mat-icon> Ustadh: {{ slot.teacherName }}</p>
+              <p class="slot-meta" *ngIf="slot.subjectName"><mat-icon>book</mat-icon> Subject: {{ slot.subjectName }}</p>
+            </div>
+          </div>
+
+          <div class="empty-slot-card" *ngIf="periodSlots.length === 0">
+            <mat-icon>info</mat-icon>
+            <p>No timetable period slots configured for this class group today.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: REPORTS & ANALYTICS (GATED PERMISSION) -->
+      <!-- ========================================== -->
+      <div class="tab-pane" *ngIf="activeTab === 'reports' && canManageReports">
+        <div class="reports-pane-header">
+          <h3>Classroom Suite Attendance & Progress Analytics</h3>
+          <p>Summary analytics for active students in the selected class group:</p>
+        </div>
+
+        <div class="table-responsive">
+          <table class="suite-table">
+            <thead>
+              <tr>
+                <th class="st-name-th" style="min-width: 170px;">Student Name</th>
+                <th style="min-width: 120px;">Attendance %</th>
+                <th style="min-width: 180px;">Present Status</th>
+                <th style="min-width: 200px;">Latest Sabaq Target</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let rep of reportStudentSummaries">
+                <td class="st-name-cell"><strong>{{ rep.studentName }}</strong></td>
+                <td>
+                  <span class="pct-badge" [class.good]="rep.presentPct === 100" [class.poor]="rep.presentPct < 100">
+                    {{ rep.presentPct }}%
+                  </span>
+                </td>
+                <td>{{ rep.presentDays }} / {{ rep.totalDays }} Sessions Present</td>
+                <td>{{ rep.hifzAvgSabaq }}</td>
+              </tr>
+              <tr *ngIf="reportStudentSummaries.length === 0">
+                <td colspan="4" class="empty-td">No report metrics available.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+

@@ -694,19 +694,6 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       });
     }
 
-    console.log('🔍 [QuickAdd Options Filter Debug]', {
-      fieldKey: field.key,
-      isOrgAdminOrSuper: !this.currentUserProfile || ['superAdmin', 'superadmin', 'organizationAdmin', 'organizationadmin'].includes(this.currentUserProfile.role as string),
-      organizationId: this.form.get('organizationId')?.value,
-      madrasaId: this.form.get('madrasaId')?.value || (Array.isArray(this.form.get('madrasaIds')?.value) && this.form.get('madrasaIds')?.value[0]),
-      userRole: this.currentUserProfile?.role,
-      userMadrasaId: this.currentUserProfile?.madrasaId,
-      userMadrasaIds: this.currentUserProfile?.madrasaIds,
-      inputOptionsCount: field.options?.length || 0,
-      filteredOptionsCount: options.length,
-      finalOptions: options.map((o: any) => ({ value: o.value, label: o.label, madrasaId: o.data?.madrasaId, madrasaIds: o.data?.madrasaIds }))
-    });
-
     return options;
   }
 

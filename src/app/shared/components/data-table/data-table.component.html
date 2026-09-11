@@ -413,49 +413,74 @@
 
           <!-- MULTI-VALUE FIELD: CARD INSIDE CARD WITH BULLET POINTS -->
           <div class="inner-card-container" *ngIf="isMultiValue(row, column); else singleFieldValue">
-            <mat-card class="inner-data-card">
-              <ul class="bullet-list">
-                <li *ngFor="let item of getCardMultiValues(row, column)">
-                  <!-- Role Badge inside bullet -->
-                  <ng-container *ngIf="column.type === 'role' || column.key === 'roles' || column.key === 'role' || column.key === 'otherRoles'">
-                    <app-role-badge [role]="item"></app-role-badge>
-                  </ng-container>
+            <ng-container *ngIf="column.key === 'assignedClassGroup' && row['assignmentGroupsByMadrasa']?.length; else defaultMultiCard">
+              <div class="structured-madrasa-groups-box">
+                <div class="madrasa-group-item" *ngFor="let mSec of row['assignmentGroupsByMadrasa']">
+                  <div class="m-group-title">
+                    <ion-icon name="business-outline"></ion-icon>
+                    <span>{{ mSec.madrasaName }}</span>
+                  </div>
+                  <div class="cg-rows-container">
+                    <div class="cg-row-pill" *ngFor="let cg of mSec.classGroups">
+                      <span class="cg-name-text">
+                        <ion-icon name="shapes-outline"></ion-icon>
+                        {{ cg.groupName }}
+                      </span>
+                      <button type="button" class="cg-students-count-btn" (click)="onViewGroupStudents(row, cg, $event)" matTooltip="Click to view enrolled students">
+                        <ion-icon name="people-outline"></ion-icon>
+                        <span>{{ cg.studentCount }} {{ cg.studentCount === 1 ? 'Student' : 'Students' }}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ng-container>
 
-                  <!-- Staff Chips inside bullet -->
-                  <ng-container *ngIf="column.type === 'staffChips'">
-                    <ng-container *ngIf="isString(item); else objectStaffPerson">
-                      <app-name-with-copy [id]="item" type="staff"></app-name-with-copy>
+            <ng-template #defaultMultiCard>
+              <mat-card class="inner-data-card">
+                <ul class="bullet-list">
+                  <li *ngFor="let item of getCardMultiValues(row, column)">
+                    <!-- Role Badge inside bullet -->
+                    <ng-container *ngIf="column.type === 'role' || column.key === 'roles' || column.key === 'role' || column.key === 'otherRoles'">
+                      <app-role-badge [role]="item"></app-role-badge>
                     </ng-container>
-                    <ng-template #objectStaffPerson>
-                      <div class="staff-person-card-item">
-                        <span class="staff-text-name">{{ item.name || item.displayName || item.email || item.id }}</span>
-                        <div class="staff-group-subtext" *ngIf="item.groupName">
-                          <span class="group-name-text">{{ item.groupName }}</span>
+
+                    <!-- Staff Chips inside bullet -->
+                    <ng-container *ngIf="column.type === 'staffChips'">
+                      <ng-container *ngIf="isString(item); else objectStaffPerson">
+                        <app-name-with-copy [id]="item" type="staff"></app-name-with-copy>
+                      </ng-container>
+                      <ng-template #objectStaffPerson>
+                        <div class="staff-person-card-item">
+                          <span class="staff-text-name">{{ item.name || item.displayName || item.email || item.id }}</span>
+                          <div class="staff-group-subtext" *ngIf="item.groupName">
+                            <span class="group-name-text">{{ item.groupName }}</span>
+                          </div>
                         </div>
-                      </div>
-                    </ng-template>
-                  </ng-container>
+                      </ng-template>
+                    </ng-container>
 
-                  <!-- Stage Chips inside bullet -->
-                  <ng-container *ngIf="column.type === 'stageChips'">
-                    <span class="stage-chip">
-                      <ion-icon name="layers-outline" class="stage-icon"></ion-icon>
-                      <span>{{ item }}</span>
-                    </span>
-                  </ng-container>
+                    <!-- Stage Chips inside bullet -->
+                    <ng-container *ngIf="column.type === 'stageChips'">
+                      <span class="stage-chip">
+                        <ion-icon name="layers-outline" class="stage-icon"></ion-icon>
+                        <span>{{ item }}</span>
+                      </span>
+                    </ng-container>
 
-                  <!-- ID Ref inside bullet -->
-                  <ng-container *ngIf="column.type === 'idRef'">
-                    <app-name-with-copy [id]="$any(item)" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
-                  </ng-container>
+                    <!-- ID Ref inside bullet -->
+                    <ng-container *ngIf="column.type === 'idRef'">
+                      <app-name-with-copy [id]="$any(item)" [type]="$any(column.referenceType)" [fallbackName]="getFallbackName(row, column.key)"></app-name-with-copy>
+                    </ng-container>
 
-                  <!-- Default Text inside bullet -->
-                  <ng-container *ngIf="!['role', 'staffChips', 'stageChips', 'idRef'].includes(column.type || '') && !['roles', 'role', 'otherRoles'].includes(column.key || '')">
-                    <span>{{ getItemText(item) }}</span>
-                  </ng-container>
-                </li>
-              </ul>
-            </mat-card>
+                    <!-- Default Text inside bullet -->
+                    <ng-container *ngIf="!['role', 'staffChips', 'stageChips', 'idRef'].includes(column.type || '') && !['roles', 'role', 'otherRoles'].includes(column.key || '')">
+                      <span>{{ getItemText(item) }}</span>
+                    </ng-container>
+                  </li>
+                </ul>
+              </mat-card>
+            </ng-template>
           </div>
 
           <!-- SINGLE FIELD VALUE (EXISTING VIEW) -->

@@ -19,11 +19,14 @@ export function getDeenDeskFirestore(): Firestore {
       cachedFirestore = initializeFirestore(app, {
         localCache: persistentLocalCache({
           tabManager: persistentMultipleTabManager()
-        })
+        }),
+        experimentalAutoDetectLongPolling: true
       });
     } catch (e) {
       console.warn('[Firebase] persistentLocalCache initialization fallback:', e);
-      cachedFirestore = initializeFirestore(app, {});
+      cachedFirestore = initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true
+      });
     }
   }
   return cachedFirestore;

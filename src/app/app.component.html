@@ -1,6 +1,23 @@
 <ion-app>
   <app-global-loader></app-global-loader>
 
+  <!-- Initial App Boot & Profile Loading Splash Overlay -->
+  <div class="initial-app-splash" *ngIf="(loadingProfile$ | async) && !(isAuthPage$ | async)">
+    <div class="splash-card">
+      <div class="splash-logo-container">
+        <img
+          [src]="logoUrl$ | async"
+          alt="DeenDesk Logo"
+          class="splash-logo-img"
+          (error)="$any($event.target).src = 'assets/images/deendesk-logo.png'"
+        />
+      </div>
+      <div class="splash-spinner-ring"></div>
+      <h2 class="splash-app-name">{{ (appName$ | async) || 'DeenDesk' }}</h2>
+      <p class="splash-status-text">Loading workspace & permissions...</p>
+    </div>
+  </div>
+
   <ion-split-pane contentId="main-content" [when]="(isAuthPage$ | async) ? false : (splitPaneWhen$ | async)" [disabled]="(isAuthPage$ | async) || false">
     <ion-menu *ngIf="!(isAuthPage$ | async)" contentId="main-content" [type]="menuType$ | async" class="app-sidebar"
               (ionWillOpen)="onMenuWillOpen()"
@@ -20,7 +37,7 @@
         </div>
       </div>
       <ion-content>
-        <ion-list class="menu-list" *ngIf="profile$ | async as profile">
+        <ion-list class="menu-list" *ngIf="profile$ | async as profile; else sidebarLoading">
           <!-- Search bar styled like a menu item -->
           <ion-item class="menu-item search-item" lines="none">
             <ion-icon slot="start" name="search-outline"></ion-icon>
@@ -106,6 +123,16 @@
             </ng-container>
           </ion-item-group>
         </ion-list>
+
+        <!-- Sidebar Skeleton Loading Fallback -->
+        <ng-template #sidebarLoading>
+          <div class="sidebar-skeleton-wrapper">
+            <div class="skeleton-pill" *ngFor="let s of [1,2,3,4,5,6]">
+              <div class="sk-icon"></div>
+              <div class="sk-text"></div>
+            </div>
+          </div>
+        </ng-template>
       </ion-content>
     </ion-menu>
 

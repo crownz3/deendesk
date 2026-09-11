@@ -14,6 +14,20 @@ export interface UserDetailsDialogData {
   user: EntityRecord;
 }
 
+export interface GroupedMadrasaAssignment {
+  madrasaId: string;
+  madrasaName: string;
+  classGroups: {
+    groupId: string;
+    groupName: string;
+    className?: string;
+    courseName?: string;
+    studentCount: number;
+    students: EntityRecord[];
+  }[];
+  totalStudents: number;
+}
+
 @Component({
   selector: 'app-user-details-dialog',
   templateUrl: './user-details-dialog.component.html',
@@ -30,6 +44,7 @@ export class UserDetailsDialogComponent implements OnInit {
   groupNames: string[] = [];
   assignedStudents: EntityRecord[] = [];
   assignedGroups: EntityRecord[] = [];
+  groupedAssignments: GroupedMadrasaAssignment[] = [];
   assignedStaffList: EntityRecord[] = [];
   assignedStaffNames: string[] = [];
   loadingStudents = false;
@@ -118,12 +133,13 @@ export class UserDetailsDialogComponent implements OnInit {
     try {
       const profile = await firstValueFrom(this.auth.profile$);
       
-      const [allGroups, allClasses, allCourses, allUsers, directStudents] = await Promise.all([
+      const [allGroups, allClasses, allCourses, allUsers, directStudents, allMadrasas] = await Promise.all([
         this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []),
         this.repo.getAllOnce<EntityRecord>('classes', profile).catch(() => []),
         this.repo.getAllOnce<EntityRecord>('courses', profile).catch(() => []),
         this.repo.getAllOnce<EntityRecord>('users', profile).catch(() => []),
-        this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => [])
+        this.repo.getAllOnce<EntityRecord>('students', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => [])
       ]);
 
       const userStudents = allUsers.filter(u => u['role'] === 'student');
@@ -142,6 +158,9 @@ export class UserDetailsDialogComponent implements OnInit {
 
       const groupMap = new Map<string, string>();
       allGroups.forEach(g => { if (g.id) groupMap.set(g.id, String(g['name'] || g['title'] || g.id)); });
+
+      const madrasaMap = new Map<string, string>();
+      allMadrasas.forEach(m => { if (m.id) madrasaMap.set(m.id, String(m['name'] || m['title'] || m.id)); });
 
       const isClassGroupDoc = Boolean(this.user['assignedStaffIds'] || this.user['studentCount'] || allGroups.some(g => g.id === this.user.id));
       const isClassDoc = Boolean(!isClassGroupDoc && allClasses.some(c => c.id === this.user.id));
@@ -373,11 +392,108 @@ export class UserDetailsDialogComponent implements OnInit {
         return false;
       });
 
+      // 3. Build Madrasa-scoped Group Assignments for clear Multi-Madrasa & Multi-Group display
+      const groupedMap = new Map<string, GroupedMadrasaAssignment>();
+
+      matchedGroups.forEach(g => {
+        const gId = String(g.id || g['docId'] || '').trim();
+        const gName = String(g['name'] || g['title'] || gId).trim();
+        
+        let mId = String(g['madrasaId'] || g['madrasa'] || '').trim();
+        if (!mId && g['classId']) {
+          const parentClass = allClasses.find(c => String(c.id).trim() === String(g['classId']).trim());
+          if (parentClass && parentClass['madrasaId']) {
+            mId = String(parentClass['madrasaId']).trim();
+          }
+        }
+        if (!mId && this.user['madrasaId']) {
+          mId = String(this.user['madrasaId']).trim();
+        }
+
+        const mName = mId && madrasaMap.has(mId) ? madrasaMap.get(mId)! : (mId || 'General Madrasa');
+
+        // Filter students assigned to this group
+        const cleanGId = gId.toLowerCase().trim();
+        const groupStudents = this.assignedStudents.filter(st => {
+          const stGroupTokens = [
+            ...this.extractAllStrings(st['groupId']),
+            ...this.extractAllStrings(st['classGroupId']),
+            ...this.extractAllStrings(st['group']),
+            ...this.extractAllStrings(st['groupIds']),
+            ...this.extractAllStrings(st['classGroupIds']),
+            ...this.extractAllStrings(st['assignedGroupId']),
+            ...this.extractAllStrings(st['sectionId']),
+            ...this.extractAllStrings(st['section']),
+          ].map(v => v.toLowerCase().trim());
+          return stGroupTokens.includes(cleanGId);
+        });
+
+        let clsName = '';
+        if (g['classId'] && classMap.has(g['classId'])) {
+          clsName = classMap.get(g['classId'])!;
+        }
+        let crsName = '';
+        if (g['courseId'] && courseMap.has(g['courseId'])) {
+          crsName = courseMap.get(g['courseId'])!;
+        }
+
+        const groupObj = {
+          groupId: gId,
+          groupName: gName,
+          className: clsName,
+          courseName: crsName,
+          studentCount: groupStudents.length || (Number(g['studentCount']) || 0),
+          students: groupStudents
+        };
+
+        const groupKey = mId || 'general';
+        if (!groupedMap.has(groupKey)) {
+          groupedMap.set(groupKey, {
+            madrasaId: mId || 'general',
+            madrasaName: mName,
+            classGroups: [],
+            totalStudents: 0
+          });
+        }
+        const gAssignment = groupedMap.get(groupKey)!;
+        gAssignment.classGroups.push(groupObj);
+        gAssignment.totalStudents += groupObj.studentCount;
+      });
+
+      // Catch any assigned students not in matchedGroups
+      const assignedGroupStudentIds = new Set(
+        Array.from(groupedMap.values())
+          .flatMap(ga => ga.classGroups)
+          .flatMap(cg => cg.students)
+          .map(st => String(st.id || '').trim())
+      );
+
+      const unassignedStudents = this.assignedStudents.filter(st => !assignedGroupStudentIds.has(String(st.id || '').trim()));
+      if (unassignedStudents.length > 0) {
+        const unassignedKey = 'other_students';
+        if (!groupedMap.has(unassignedKey)) {
+          groupedMap.set(unassignedKey, {
+            madrasaId: 'other',
+            madrasaName: 'Directly Assigned Students',
+            classGroups: [{
+              groupId: 'general',
+              groupName: 'General Students',
+              studentCount: unassignedStudents.length,
+              students: unassignedStudents
+            }],
+            totalStudents: unassignedStudents.length
+          });
+        }
+      }
+
+      this.groupedAssignments = Array.from(groupedMap.values());
+
       console.log('🔍 [UserDetailsDialog StudentScoping Debug]', {
         staffName: this.user?.['displayName'] || this.user?.['name'] || this.user?.['email'],
         staffRole: this.user?.['role'],
         groupIdsSet: Array.from(groupIdsSet),
         classIdsSet: Array.from(classIdsSet),
+        groupedAssignments: this.groupedAssignments,
         totalAssignedStudents: this.assignedStudents.length
       });
     } catch (e) {

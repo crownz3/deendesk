@@ -10,6 +10,8 @@
     display: flex;
     align-items: center;
     gap: 16px;
+    min-width: 0;
+    flex: 1;
   }
 
   .profile-avatar {
@@ -19,18 +21,22 @@
     object-fit: cover;
     border: 2px solid #e2e8f0;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
   }
 
   .user-titles {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 0;
+    flex: 1;
   }
 
   .name-status-row {
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
 
     h2 {
       margin: 0;
@@ -38,6 +44,12 @@
       font-weight: 700;
       color: #0f172a;
       letter-spacing: -0.01em;
+      word-break: break-word;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
   }
 
@@ -445,3 +457,190 @@
   .dialog-content { padding: 14px !important; }
   .minimal-grid, .cards-grid { grid-template-columns: 1fr; }
 }
+
+/* ===============================
+   Grouped Multi-Madrasa & Class Group Styling
+=============================== */
+.vertical-info-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 10px;
+}
+
+.grouped-madrasa-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.madrasa-assignment-card {
+  background: var(--app-surface-card, #f8fafc);
+  border: 1px solid var(--app-border, #e2e8f0);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .madrasa-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .m-icon {
+      font-size: 18px;
+      color: var(--app-primary, #0d9488);
+    }
+
+    .m-title {
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: var(--app-text-main, #0f172a);
+    }
+
+    .m-badge {
+      margin-left: auto;
+      background: rgba(13, 148, 136, 0.1);
+      color: var(--app-primary, #0d9488);
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 999px;
+    }
+  }
+
+  .group-chips-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .group-assignment-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+
+    .cg-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      color: #1e293b;
+    }
+
+    .cg-sub {
+      font-size: 0.78rem;
+      color: #64748b;
+    }
+
+    .cg-count-tag {
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 6px;
+    }
+  }
+}
+
+.madrasa-students-section {
+  background: #ffffff;
+  border: 1px solid var(--app-border, #e2e8f0);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+
+  .section-madrasa-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1.5px dashed #e2e8f0;
+    margin-bottom: 16px;
+
+    .m-header-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      ion-icon {
+        font-size: 22px;
+        color: var(--app-primary, #0d9488);
+      }
+
+      h4 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: var(--app-text-main, #0f172a);
+      }
+    }
+
+    .m-count-badge {
+      background: rgba(13, 148, 136, 0.12);
+      color: var(--app-primary, #0d9488);
+      font-size: 0.8rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 999px;
+    }
+  }
+
+  .classgroup-students-box {
+    margin-bottom: 16px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .cg-header-sub {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+
+      ion-icon {
+        font-size: 16px;
+        color: #64748b;
+      }
+
+      h5 {
+        margin: 0;
+        font-size: 0.92rem;
+        font-weight: 700;
+        color: #334155;
+
+        .cls-name-inline {
+          font-weight: 500;
+          color: #64748b;
+          font-size: 0.84rem;
+        }
+      }
+
+      .st-count-sub {
+        font-size: 0.75rem;
+        color: #64748b;
+        font-weight: 600;
+        background: #f1f5f9;
+        padding: 2px 8px;
+        border-radius: 6px;
+      }
+    }
+
+    .no-group-st-text {
+      font-size: 0.82rem;
+      color: #94a3b8;
+      font-style: italic;
+      margin: 4px 0 12px 24px;
+    }
+  }
+}
+

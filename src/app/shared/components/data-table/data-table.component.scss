@@ -779,3 +779,92 @@ ion-icon {
   font-weight: 500;
   color: #0284c7;
 }
+
+/* Structured Madrasa & Class Group Card Box */
+.structured-madrasa-groups-box {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  .madrasa-group-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    .m-group-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      font-size: 0.84rem;
+      color: #0f172a;
+
+      ion-icon {
+        color: #0284c7;
+        font-size: 16px;
+      }
+    }
+
+    .cg-rows-container {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .cg-row-pill {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 10px;
+
+      .cg-name-text {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #334155;
+
+        ion-icon {
+          color: #64748b;
+          font-size: 14px;
+        }
+      }
+
+      .cg-students-count-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: #e0f2fe;
+        border: 1px solid #bae6fd;
+        color: #0284c7;
+        font-size: 0.76rem;
+        font-weight: 700;
+        padding: 3px 8px;
+        border-radius: 999px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        ion-icon {
+          font-size: 13px;
+        }
+
+        &:hover {
+          background: #0284c7;
+          border-color: #0284c7;
+          color: #ffffff;
+        }
+      }
+    }
+  }
+}
+

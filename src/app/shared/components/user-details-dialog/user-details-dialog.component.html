@@ -134,17 +134,40 @@
             </span>
           </div>
 
-          <div class="info-row">
-            <span class="label">Class Groups</span>
-            <span class="value">
-              <ng-container *ngIf="groupNames.length; else noGroups">
-                <div class="badge-tag-list">
-                  <span class="badge-tag group-tag" *ngFor="let g of groupNames">{{ g }}</span>
+          <!-- Grouped Class Groups by Madrasa -->
+          <div class="info-row vertical-info-row" *ngIf="groupedAssignments.length > 0; else flatGroupFallback">
+            <span class="label">Assigned Class Groups by Madrasa</span>
+            <div class="grouped-madrasa-container">
+              <div class="madrasa-assignment-card" *ngFor="let ga of groupedAssignments">
+                <div class="madrasa-card-header">
+                  <ion-icon name="business-outline" class="m-icon"></ion-icon>
+                  <span class="m-title">{{ ga.madrasaName }}</span>
+                  <span class="m-badge">{{ ga.totalStudents }} {{ ga.totalStudents === 1 ? 'Student' : 'Students' }}</span>
                 </div>
-              </ng-container>
-              <ng-template #noGroups>-</ng-template>
-            </span>
+                <div class="group-chips-list">
+                  <div class="group-assignment-pill" *ngFor="let cg of ga.classGroups">
+                    <span class="cg-name">{{ cg.groupName }}</span>
+                    <span class="cg-sub" *ngIf="cg.className">({{ cg.className }})</span>
+                    <span class="cg-count-tag">{{ cg.studentCount }} {{ cg.studentCount === 1 ? 'Student' : 'Students' }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
+
+          <ng-template #flatGroupFallback>
+            <div class="info-row">
+              <span class="label">Class Groups</span>
+              <span class="value">
+                <ng-container *ngIf="groupNames.length; else noGroups">
+                  <div class="badge-tag-list">
+                    <span class="badge-tag group-tag" *ngFor="let g of groupNames">{{ g }}</span>
+                  </div>
+                </ng-container>
+                <ng-template #noGroups>-</ng-template>
+              </span>
+            </div>
+          </ng-template>
 
           <div class="info-row" *ngIf="assignedStaffList.length > 0 || assignedStaffNames.length > 0">
             <span class="label">Assigned Staff</span>
@@ -208,18 +231,60 @@
       <span>No students assigned to these class groups.</span>
     </div>
 
-    <div class="students-list-grid" *ngIf="!loadingStudents && assignedStudents.length > 0">
-      <div class="student-item-card" *ngFor="let st of assignedStudents" (click)="openStudentDetails(st)">
-        <img [src]="st['photoURL'] || '/assets/images/avatars/default-neutral.png'" alt="Student" class="st-avatar" />
-        <div class="st-info">
-          <h4 class="st-name">{{ st['displayName'] || st['name'] || 'Student' }}</h4>
-          <p class="st-sub">
-            <span *ngIf="st['phone']"><ion-icon name="call-outline"></ion-icon> {{ st['phone'] }}</span>
-            <span *ngIf="st['email']"><ion-icon name="mail-outline"></ion-icon> {{ st['email'] }}</span>
-          </p>
+    <!-- STUDENTS LIST GRID (GROUPED BY MADRASA & CLASS GROUP) -->
+    <div *ngIf="!loadingStudents && assignedStudents.length > 0">
+      <ng-container *ngIf="groupedAssignments.length > 0; else flatStudentsGrid">
+        <div class="madrasa-students-section" *ngFor="let ga of groupedAssignments">
+          <div class="section-madrasa-header">
+            <div class="m-header-left">
+              <ion-icon name="business-outline"></ion-icon>
+              <h4>{{ ga.madrasaName }}</h4>
+            </div>
+            <span class="m-count-badge">{{ ga.totalStudents }} {{ ga.totalStudents === 1 ? 'Student' : 'Students' }}</span>
+          </div>
+
+          <div class="classgroup-students-box" *ngFor="let cg of ga.classGroups">
+            <div class="cg-header-sub">
+              <ion-icon name="shapes-outline"></ion-icon>
+              <h5>{{ cg.groupName }} <span class="cls-name-inline" *ngIf="cg.className">({{ cg.className }})</span></h5>
+              <span class="st-count-sub">{{ cg.students.length }} {{ cg.students.length === 1 ? 'Student' : 'Students' }}</span>
+            </div>
+
+            <div class="students-list-grid" *ngIf="cg.students.length > 0; else noGroupStudents">
+              <div class="student-item-card" *ngFor="let st of cg.students" (click)="openStudentDetails(st)">
+                <img [src]="st['photoURL'] || '/assets/images/avatars/default-neutral.png'" alt="Student" class="st-avatar" />
+                <div class="st-info">
+                  <h4 class="st-name">{{ st['displayName'] || st['name'] || 'Student' }}</h4>
+                  <p class="st-sub">
+                    <span *ngIf="st['phone']"><ion-icon name="call-outline"></ion-icon> {{ st['phone'] }}</span>
+                    <span *ngIf="st['email']"><ion-icon name="mail-outline"></ion-icon> {{ st['email'] }}</span>
+                  </p>
+                </div>
+                <ion-icon name="chevron-forward-outline" class="arrow-icon"></ion-icon>
+              </div>
+            </div>
+            <ng-template #noGroupStudents>
+              <p class="no-group-st-text">No student profiles loaded directly in this class group.</p>
+            </ng-template>
+          </div>
         </div>
-        <ion-icon name="chevron-forward-outline" class="arrow-icon"></ion-icon>
-      </div>
+      </ng-container>
+
+      <ng-template #flatStudentsGrid>
+        <div class="students-list-grid">
+          <div class="student-item-card" *ngFor="let st of assignedStudents" (click)="openStudentDetails(st)">
+            <img [src]="st['photoURL'] || '/assets/images/avatars/default-neutral.png'" alt="Student" class="st-avatar" />
+            <div class="st-info">
+              <h4 class="st-name">{{ st['displayName'] || st['name'] || 'Student' }}</h4>
+              <p class="st-sub">
+                <span *ngIf="st['phone']"><ion-icon name="call-outline"></ion-icon> {{ st['phone'] }}</span>
+                <span *ngIf="st['email']"><ion-icon name="mail-outline"></ion-icon> {{ st['email'] }}</span>
+              </p>
+            </div>
+            <ion-icon name="chevron-forward-outline" class="arrow-icon"></ion-icon>
+          </div>
+        </div>
+      </ng-template>
     </div>
   </div>
 

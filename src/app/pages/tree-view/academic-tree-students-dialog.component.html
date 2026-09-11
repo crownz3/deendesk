@@ -4,12 +4,18 @@
       <div class="header-icon">
         <ion-icon name="people-outline"></ion-icon>
       </div>
-      <div>
-        <h2 mat-dialog-title>Assigned Students — {{ data.nodeTitle }}</h2>
+      <div class="header-titles">
+        <div class="title-row">
+          <h2 mat-dialog-title>{{ titleInfo.mainTitle }}</h2>
+          <span class="teacher-pill" *ngIf="titleInfo.subTitle">
+            <ion-icon name="person-outline"></ion-icon>
+            <span>{{ titleInfo.subTitle }}</span>
+          </span>
+        </div>
         <span class="subtitle">{{ filteredStudents.length }} student(s) enrolled</span>
       </div>
     </div>
-    <button mat-icon-button mat-dialog-close aria-label="Close dialog">
+    <button mat-icon-button mat-dialog-close class="close-btn" aria-label="Close dialog">
       <ion-icon name="close-outline"></ion-icon>
     </button>
   </div>
@@ -22,58 +28,106 @@
       </div>
     </div>
 
-    <div class="students-list" *ngIf="filteredStudents.length > 0; else emptyState">
-      <div class="student-card" *ngFor="let student of filteredStudents">
-        <div class="student-main">
-          <div class="student-avatar">
-            {{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}
+    <div class="grouped-madrasa-sections" *ngIf="filteredStudents.length > 0; else emptyState">
+      <div class="madrasa-section-card" *ngFor="let mSec of groupedStudentSections">
+        <div class="m-section-header">
+          <div class="m-header-title">
+            <ion-icon name="business-outline"></ion-icon>
+            <h3>{{ mSec.madrasaName }}</h3>
           </div>
-          <div class="student-info">
-            <h3>{{ student.name || student.displayName || 'Student' }}</h3>
-            <p class="email-text">{{ student.email || 'No email registered' }}</p>
-          </div>
+          <span class="m-header-count">{{ mSec.totalStudents }} {{ mSec.totalStudents === 1 ? 'Student' : 'Students' }}</span>
         </div>
 
-        <div class="student-meta">
-          <div class="meta-group">
-            <span class="meta-label">Contact Info</span>
-            <span class="meta-value">
-              <strong>Student:</strong> {{ (student.studentPhone && student.studentPhone !== 'N/A') ? student.studentPhone : (student.mobileNumber || student.phone || student.mobile || student.contactNumber || 'N/A') }}
-            </span>
-            <span class="meta-subvalue">
-              <strong>Parent:</strong> {{ (student.parentPhone && student.parentPhone !== 'N/A') ? student.parentPhone : (student.parentMobileNumber || student.fatherMobileNumber || student.fatherPhone || student.parentPhone || 'N/A') }}
-              <span *ngIf="student.parentName || student.fatherName"> ({{ student.parentName || student.fatherName }})</span>
-            </span>
+        <div class="group-section-box" *ngFor="let grp of mSec.groups">
+          <div class="grp-header-sub">
+            <ion-icon name="shapes-outline"></ion-icon>
+            <h4>{{ grp.groupName }} <span class="cls-sub" *ngIf="grp.className">({{ grp.className }})</span></h4>
+            <span class="grp-count-chip">{{ grp.studentCount }} {{ grp.studentCount === 1 ? 'Student' : 'Students' }}</span>
           </div>
 
-          <div class="meta-group">
-            <span class="meta-label">Academic Info</span>
-            <span class="meta-value">
-              {{ student.courseName || 'N/A' }}
-              <span *ngIf="student.className && student.className !== 'N/A'"> • {{ student.className }}</span>
-            </span>
-            <span class="meta-subvalue">
-              Group: <strong>{{ (student.groupName && student.groupName !== 'N/A') ? student.groupName : (student.group || student.groupId || 'N/A') }}</strong>
-              <span *ngIf="student.assignedStaffName && student.assignedStaffName !== 'None'"> (Staff: {{ student.assignedStaffName }})</span>
-            </span>
-          </div>
+          <div class="students-list">
+            <div class="student-card" *ngFor="let student of grp.students">
+              <!-- Top Row: Student Identity + Action Button & Stage -->
+              <div class="card-top-row">
+                <div class="student-identity">
+                  <div class="student-avatar">
+                    {{ (student.name || student.displayName || '?').charAt(0).toUpperCase() }}
+                  </div>
+                  <div class="student-name-box">
+                    <div class="name-stage-row">
+                      <h3 class="student-name">{{ student.name || student.displayName || 'Student' }}</h3>
+                      <span class="stage-badge" [class.active]="getStudentStage(student) !== 'N/A'">
+                        <ion-icon name="layers-outline"></ion-icon>
+                        <span>{{ getStudentStage(student) }}</span>
+                      </span>
+                    </div>
+                    <span class="student-email" *ngIf="student.email && student.email !== 'N/A'; else noEmail">
+                      <ion-icon name="mail-outline"></ion-icon>
+                      {{ student.email }}
+                    </span>
+                    <ng-template #noEmail>
+                      <span class="student-email muted">
+                        <ion-icon name="mail-unread-outline"></ion-icon>
+                        No email registered
+                      </span>
+                    </ng-template>
+                  </div>
+                </div>
 
-          <div class="meta-group">
-            <span class="meta-label">Stage / Level</span>
-            <span class="meta-value">
-              <span class="stage-chip" [class.has-stage]="getStudentStage(student) !== 'N/A'">
-                <ion-icon name="layers-outline"></ion-icon>
-                <span>{{ getStudentStage(student) }}</span>
-              </span>
-            </span>
-          </div>
-        </div>
+                <div class="card-top-actions">
+                  <button mat-flat-button color="primary" class="history-btn" (click)="viewAttendanceHistory(student)">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    <span>History</span>
+                  </button>
+                </div>
+              </div>
 
-        <div class="student-actions">
-          <button mat-flat-button color="primary" class="history-btn" (click)="viewAttendanceHistory(student)">
-            <ion-icon name="calendar-outline"></ion-icon>
-            <span>History</span>
-          </button>
+              <div class="card-divider"></div>
+
+              <!-- Bottom Grid: Structured Pillars -->
+              <div class="card-info-grid">
+                <!-- Contact Pillar -->
+                <div class="info-pillar">
+                  <div class="pillar-header">
+                    <ion-icon name="call-outline"></ion-icon>
+                    <span>Contact Info</span>
+                  </div>
+                  <div class="pillar-body">
+                    <div class="contact-item">
+                      <span class="item-label">Student:</span>
+                      <span class="item-val font-mono">{{ getStudentPhoneDisplay(student) }}</span>
+                    </div>
+                    <div class="contact-item">
+                      <span class="item-label">Parent:</span>
+                      <div class="parent-val-box">
+                        <span class="parent-name" *ngIf="getParentDisplay(student).name !== 'N/A'">{{ getParentDisplay(student).name }}</span>
+                        <span *ngIf="getParentDisplay(student).phone" class="phone-sub font-mono">{{ getParentDisplay(student).phone }}</span>
+                        <span *ngIf="getParentDisplay(student).name === 'N/A' && !getParentDisplay(student).phone" class="muted">N/A</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Academic Pillar -->
+                <div class="info-pillar">
+                  <div class="pillar-header">
+                    <ion-icon name="academic-outline"></ion-icon>
+                    <span>Academic Info</span>
+                  </div>
+                  <div class="pillar-body">
+                    <div class="academic-path">
+                      <span class="course-text">{{ student.courseName || 'N/A' }}</span>
+                      <span class="class-text" *ngIf="student.className && student.className !== 'N/A'"> • {{ student.className }}</span>
+                    </div>
+                    <div class="group-tag">
+                      <ion-icon name="shapes-outline"></ion-icon>
+                      <span>Group: <strong>{{ (student.groupName && student.groupName !== 'N/A') ? student.groupName : (student.group || student.groupId || 'N/A') }}</strong></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

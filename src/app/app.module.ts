@@ -36,12 +36,15 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatStepperModule } from '@angular/material/stepper';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { ActivityLogsPage } from './pages/activity-logs/activity-logs.page';
 import { AttendancePage } from './pages/attendance/attendance.page';
+import { ClassroomSuitePage } from './pages/classroom-suite/classroom-suite.page';
+import { SetTargetDialogComponent } from './pages/classroom-suite/set-target-dialog.component';
 import { ContinueAccountPage } from './pages/continue-account/continue-account.page';
 import { CsvImportsPage } from './pages/csv-imports/csv-imports.page';
 import { DashboardPage } from './pages/dashboard/dashboard.page';
@@ -200,6 +203,8 @@ import { ArchitectureExplorerPage } from './pages/architecture-explorer/architec
 
 @NgModule({
   declarations: [
+    ClassroomSuitePage,
+    SetTargetDialogComponent,
     ArchitectureExplorerPage,
     DuplicateUsersPage,
     SubscriptionsPage,
@@ -388,6 +393,7 @@ import { ArchitectureExplorerPage } from './pages/architecture-explorer/architec
     MatChipsModule,
     MatIconModule,
     MatStepperModule,
+    MatAutocompleteModule,
     MatSlideToggleModule,
   ],
   providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],

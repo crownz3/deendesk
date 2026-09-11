@@ -94,6 +94,18 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
     });
   }
 
+  onViewGroupStudents(row: EntityRecord, cg: any, event: Event): void {
+    event.stopPropagation();
+    const targetGroupId = String(cg.groupId || cg.id || '').trim();
+    const targetGroupName = String(cg.groupName || cg.name || '').trim();
+    const scopedRow: EntityRecord = {
+      ...row,
+      targetGroupId,
+      targetGroupName
+    };
+    this.viewStudents.emit(scopedRow);
+  }
+
   ngOnInit(): void {
     this.loadViewPreferences();
   }

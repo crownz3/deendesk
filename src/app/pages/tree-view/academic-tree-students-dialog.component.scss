@@ -2,67 +2,162 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: #ffffff;
+  background: #f8fafc;
+  font-family: var(--ion-font-family, inherit);
 }
 
 .dialog-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 16px 24px 12px;
+  padding: 16px 20px;
+  background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  gap: 12px;
+  position: relative;
 
   .header-left {
     display: flex;
-    align-items: center;
-    gap: 12px;
+    align-items: flex-start;
+    gap: 14px;
+    min-width: 0;
+    flex: 1;
 
     .header-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 10px;
-      background: #e0f2fe;
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
       color: #0284c7;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 24px;
+      font-size: 22px;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+      margin-top: 2px;
     }
 
-    h2 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 700;
+    .header-titles {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+      flex: 1;
+
+      .title-row {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        min-width: 0;
+        max-width: 100%;
+
+        h2 {
+          margin: 0;
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: #0f172a;
+          letter-spacing: -0.01em;
+          line-height: 1.3;
+          word-break: break-word;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          max-width: 100%;
+        }
+
+        .teacher-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: #f1f5f9;
+          color: #475569;
+          border: 1px solid #cbd5e1;
+          padding: 2px 10px;
+          border-radius: 999px;
+          font-size: 0.76rem;
+          font-weight: 600;
+          flex-shrink: 0;
+          max-width: 100%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+
+          ion-icon {
+            font-size: 13px;
+            color: #0284c7;
+            flex-shrink: 0;
+          }
+        }
+      }
+
+      .subtitle {
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 500;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  .close-btn {
+    color: #64748b;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    margin-top: -2px;
+    margin-right: -4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    z-index: 2;
+    transition: color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
       color: #0f172a;
-    }
-
-    .subtitle {
-      font-size: 12px;
-      color: #64748b;
+      background-color: #f1f5f9;
     }
   }
 }
 
 .dialog-content {
   padding: 20px 24px !important;
-  max-height: 560px;
+  max-height: 620px;
+  background: #f8fafc;
 
   .students-toolbar {
-    margin-bottom: 16px;
+    margin-bottom: 20px;
 
     .search-box {
       display: flex;
       align-items: center;
-      background: #f8fafc;
+      background: #ffffff;
       border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 0 14px;
-      height: 44px;
+      border-radius: 10px;
+      padding: 0 16px;
+      height: 46px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+      &:focus-within {
+        border-color: #0284c7;
+        box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
+      }
 
       ion-icon {
         color: #64748b;
         font-size: 20px;
-        margin-right: 10px;
+        margin-right: 12px;
       }
 
       input {
@@ -80,144 +175,368 @@
     }
   }
 
-  .students-list {
+  .grouped-madrasa-sections {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 20px;
+  }
 
-    .student-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 14px 18px;
+  .madrasa-section-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+
+    .m-section-header {
       display: flex;
-      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px dashed #e2e8f0;
+      margin-bottom: 18px;
 
-      &:hover {
-        border-color: #cbd5e1;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-      }
-
-      .student-main {
+      .m-header-title {
         display: flex;
         align-items: center;
-        gap: 12px;
-        min-width: 180px;
-        flex: 1 1 200px;
+        gap: 10px;
 
-        .student-avatar {
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: #0284c7;
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 18px;
-          font-weight: 700;
-          flex-shrink: 0;
+        ion-icon {
+          font-size: 22px;
+          color: #0284c7;
         }
 
-        .student-info {
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-
-          h3 {
-            margin: 0 0 2px;
-            font-size: 14.5px;
-            font-weight: 700;
-            color: #0f172a;
-          }
-
-          .email-text {
-            margin: 0;
-            font-size: 12px;
-            color: #64748b;
-            word-break: break-all;
-          }
+        h3 {
+          margin: 0;
+          font-size: 1.05rem;
+          font-weight: 800;
+          color: #0f172a;
         }
       }
 
-      .student-meta {
+      .m-header-count {
+        background: #e0f2fe;
+        color: #0369a1;
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 999px;
+      }
+    }
+
+    .group-section-box {
+      margin-bottom: 20px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      .grp-header-sub {
         display: flex;
-        flex-wrap: wrap;
-        gap: 20px;
-        flex: 2 1 280px;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
 
-        .meta-group {
+        ion-icon {
+          font-size: 17px;
+          color: #0284c7;
+        }
+
+        h4 {
+          margin: 0;
+          font-size: 0.95rem;
+          font-weight: 700;
+          color: #1e293b;
+
+          .cls-sub {
+            font-weight: 500;
+            color: #64748b;
+            font-size: 0.85rem;
+          }
+        }
+
+        .grp-count-chip {
+          background: #f1f5f9;
+          color: #475569;
+          font-size: 0.74rem;
+          font-weight: 700;
+          padding: 2px 8px;
+          border-radius: 6px;
+        }
+      }
+    }
+
+    .students-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+
+      .student-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        backface-visibility: hidden;
+
+        @media (hover: hover) {
+          &:hover {
+            transform: translateY(-2px);
+            border-color: #38bdf8;
+            box-shadow: 0 6px 16px rgba(2, 132, 199, 0.08);
+          }
+        }
+
+        .card-top-row {
           display: flex;
-          flex-direction: column;
-          min-width: 130px;
+          align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 12px;
 
-          .meta-label {
-            font-size: 10.5px;
-            text-transform: uppercase;
-            font-weight: 700;
-            color: #94a3b8;
-            letter-spacing: 0.03em;
-            margin-bottom: 3px;
-          }
-
-          .meta-value {
-            font-size: 13px;
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 2px;
-          }
-
-          .meta-subvalue {
-            font-size: 12px;
-            color: #64748b;
-          }
-
-          .stage-chip {
-            display: inline-flex;
+          .student-identity {
+            display: flex;
             align-items: center;
-            gap: 4px;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            background: #f1f5f9;
-            color: #64748b;
-            border: 1px solid #e2e8f0;
+            gap: 14px;
+            flex: 1 1 240px;
 
-            &.has-stage {
-              background: #f0fdf4;
-              color: #166534;
-              border-color: #bbf7d0;
+            .student-avatar {
+              width: 44px;
+              height: 44px;
+              border-radius: 12px;
+              background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+              color: #ffffff;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 1.15rem;
+              font-weight: 800;
+              flex-shrink: 0;
+              box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+            }
+
+            .student-name-box {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+
+              .name-stage-row {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+
+                .student-name {
+                  margin: 0;
+                  font-size: 0.98rem;
+                  font-weight: 700;
+                  color: #0f172a;
+                  line-height: 1.3;
+                }
+
+                .stage-badge {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 4px;
+                  padding: 2px 8px;
+                  border-radius: 6px;
+                  font-size: 0.72rem;
+                  font-weight: 600;
+                  background: #f1f5f9;
+                  color: #64748b;
+                  border: 1px solid #e2e8f0;
+
+                  &.active {
+                    background: #f0fdf4;
+                    color: #15803d;
+                    border-color: #bbf7d0;
+
+                    ion-icon {
+                      color: #16a34a;
+                    }
+                  }
+
+                  ion-icon {
+                    font-size: 13px;
+                  }
+                }
+              }
+
+              .student-email {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 0.78rem;
+                color: #64748b;
+
+                ion-icon {
+                  font-size: 13px;
+                  color: #94a3b8;
+                }
+
+                &.muted {
+                  color: #94a3b8;
+                  font-style: italic;
+                }
+              }
+            }
+          }
+
+          .card-top-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+
+            .history-btn {
+              display: inline-flex;
+              align-items: center;
+              gap: 6px;
+              border-radius: 8px;
+              font-size: 0.8rem;
+              font-weight: 600;
+              height: 36px;
+              padding: 0 14px;
+              box-shadow: 0 2px 4px rgba(2, 132, 199, 0.2);
 
               ion-icon {
-                color: #15803d;
+                font-size: 16px;
+              }
+            }
+          }
+        }
+
+        .card-divider {
+          height: 1px;
+          background: #f1f5f9;
+          margin: 2px 0;
+        }
+
+        .card-info-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 14px;
+          background: #f8fafc;
+          border-radius: 10px;
+          padding: 12px 14px;
+          border: 1px solid #f1f5f9;
+
+          .info-pillar {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+
+            .pillar-header {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              font-size: 0.72rem;
+              font-weight: 800;
+              text-transform: uppercase;
+              letter-spacing: 0.05em;
+              color: #64748b;
+
+              ion-icon {
+                font-size: 14px;
+                color: #0284c7;
               }
             }
 
-            ion-icon {
-              font-size: 14px;
+            .pillar-body {
+              display: flex;
+              flex-direction: column;
+              gap: 4px;
+
+              .contact-item {
+                display: flex;
+                align-items: baseline;
+                gap: 6px;
+                font-size: 0.82rem;
+
+                .item-label {
+                  font-weight: 600;
+                  color: #475569;
+                  min-width: 52px;
+                }
+
+                .item-val {
+                  font-weight: 700;
+                  color: #0f172a;
+
+                  .phone-sub {
+                    color: #475569;
+                    font-weight: 600;
+                  }
+
+                  .muted {
+                    color: #94a3b8;
+                    font-weight: 400;
+                  }
+                }
+
+                .parent-val-box {
+                  display: inline-flex;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  gap: 4px;
+
+                  .parent-name {
+                    font-weight: 700;
+                    color: #0f172a;
+                  }
+
+                  .phone-sub {
+                    background: #e2e8f0;
+                    color: #334155;
+                    padding: 1px 6px;
+                    border-radius: 4px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                  }
+
+                  .muted {
+                    color: #94a3b8;
+                    font-weight: 400;
+                  }
+                }
+
+                .font-mono {
+                  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+                  font-size: 0.83rem;
+                }
+              }
+
+              .academic-path {
+                font-size: 0.84rem;
+                font-weight: 700;
+                color: #0f172a;
+
+                .class-text {
+                  font-weight: 600;
+                  color: #475569;
+                }
+              }
+
+              .group-tag {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                font-size: 0.8rem;
+                color: #475569;
+
+                ion-icon {
+                  font-size: 14px;
+                  color: #64748b;
+                }
+
+                strong {
+                  color: #0f172a;
+                }
+              }
             }
-          }
-        }
-      }
-
-      .student-actions {
-        display: flex;
-        align-items: center;
-
-        .history-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          border-radius: 8px;
-          font-size: 12.5px;
-          font-weight: 600;
-
-          ion-icon {
-            font-size: 16px;
           }
         }
       }
@@ -231,9 +550,9 @@
     justify-content: center;
     padding: 48px 24px;
     text-align: center;
-    background: #f8fafc;
-    border: 1px dashed #cbd5e1;
-    border-radius: 12px;
+    background: #ffffff;
+    border: 2px dashed #cbd5e1;
+    border-radius: 14px;
 
     ion-icon {
       font-size: 56px;
@@ -255,3 +574,126 @@
     }
   }
 }
+
+@media (max-width: 640px) {
+  .dialog-header {
+    padding: 12px 14px;
+    gap: 10px;
+
+    .header-left {
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+
+      .header-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        border-radius: 10px;
+        margin-top: 1px;
+      }
+
+      .header-titles {
+        min-width: 0;
+        flex: 1;
+
+        .title-row {
+          gap: 6px;
+          min-width: 0;
+
+          h2 {
+            font-size: 0.95rem;
+            line-height: 1.25;
+            -webkit-line-clamp: 2;
+          }
+
+          .teacher-pill {
+            font-size: 0.72rem;
+            padding: 1px 8px;
+          }
+        }
+
+        .subtitle {
+          font-size: 0.72rem;
+        }
+      }
+    }
+
+    .close-btn {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      margin-top: 0;
+      margin-right: -2px;
+
+      ion-icon {
+        font-size: 20px;
+      }
+    }
+  }
+
+  .dialog-content {
+    padding: 12px !important;
+
+    .madrasa-section-card {
+      padding: 12px;
+      border-radius: 10px;
+
+      .m-section-header {
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+
+        .m-header-title h3 {
+          font-size: 0.95rem;
+        }
+      }
+
+      .students-list .student-card {
+        padding: 12px;
+        gap: 10px;
+
+        .card-top-row {
+          flex-direction: row;
+          align-items: center;
+          justify-content: space-between;
+
+          .student-identity {
+            gap: 10px;
+            flex: 1 1 auto;
+
+            .student-avatar {
+              width: 38px;
+              height: 38px;
+              font-size: 1rem;
+              border-radius: 10px;
+            }
+
+            .student-name-box .name-stage-row .student-name {
+              font-size: 0.92rem;
+            }
+          }
+
+          .card-top-actions {
+            .history-btn {
+              height: 32px;
+              padding: 0 10px;
+              font-size: 0.75rem;
+
+              ion-icon {
+                font-size: 14px;
+              }
+            }
+          }
+        }
+
+        .card-info-grid {
+          grid-template-columns: 1fr;
+          gap: 8px;
+          padding: 10px 12px;
+        }
+      }
+    }
+  }
+}
+

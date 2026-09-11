@@ -48,7 +48,6 @@ const DEFAULT_MENU_ITEMS: Array<{ route: string; label: string; group: string; i
   { route: '/academic-tree', label: 'Academic Tree', group: 'Academics', icon: 'git-branch-outline' },
   { route: '/subjects', label: 'Subjects', group: 'Academics', icon: 'book-outline' },
   { route: '/exams', label: 'Exams & Re-Exams', group: 'Academics', icon: 'document-text-outline' },
-  { route: '/class-plans', label: 'Class Plans', group: 'Academics', icon: 'calendar-outline' },
   { route: '/study-time', label: "Study Time (Mutala'a)", group: 'Academics', icon: 'time-outline' },
 
   { route: '/attendance', label: 'Attendance', group: 'Operations', icon: 'checkbox-outline' },

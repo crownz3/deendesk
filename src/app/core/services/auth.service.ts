@@ -115,9 +115,17 @@ export class AuthService {
               if (profileWithEntity.role === 'superAdmin' || (profileWithEntity.role as string) === 'superadmin') {
                 return of(profileWithEntity);
               }
+
+              // Fast-path: If user profile already has populated madrasaIds, emit profile immediately without blocking startup for 10 seconds!
+              const existingMIds = Array.isArray(profileWithEntity.madrasaIds) ? profileWithEntity.madrasaIds.filter(Boolean) : (profileWithEntity.madrasaId ? [profileWithEntity.madrasaId] : []);
+              if (existingMIds.length > 0 && profileWithEntity.role !== 'madrasaIncharge' && profileWithEntity.role !== 'coordinator') {
+                return of(profileWithEntity);
+              }
+
               return from(this.enrichEffectiveMadrasaIds(profileWithEntity)).pipe(
+                timeout(3000),
                 catchError(err => {
-                  console.warn('[Auth] Failed to enrich effective madrasaIds:', err);
+                  console.warn('[Auth] Madrasa enrichment fallback (timeout/error):', err);
                   return of(profileWithEntity);
                 })
               );
