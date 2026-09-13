@@ -889,3 +889,17 @@ app-global-loader,
     break-inside: avoid !important;
   }
 }
+
+.custom-target-dialog-panel {
+  .mat-mdc-dialog-container, .mat-dialog-container {
+    padding: 0 !important;
+    border-radius: 16px !important;
+    overflow: hidden !important;
+  }
+
+  @media (max-width: 600px) {
+    max-width: 95vw !important;
+    width: 95vw !important;
+    margin: 8px !important;
+  }
+}

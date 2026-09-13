@@ -5682,9 +5682,11 @@ export class ManagementPage {
     const roleOptions = await this.rolePermissionsService.getAllRoleOptions(profile?.role);
     const options: Record<string, SelectOption[]> = {
       role: roleOptions,
-      permissions: Object.entries(PERMISSION_LABELS)
-        .filter(([value]) => value !== 'manageOrganizations')
-        .map(([value, label]) => ({ label, value })),
+      permissions: this.rolePermissionsService.getValidPermissionsForRole(
+        config.fixedRole || (initial ? String(initial['role']) : undefined),
+        profile?.role,
+        profile?.permissions
+      ),
     };
 
     const hasField = (key: string) => config.fields.some(f => f.key === key);

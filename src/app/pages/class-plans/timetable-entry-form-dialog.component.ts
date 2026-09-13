@@ -18,7 +18,7 @@ import { ConfirmDialogComponent } from '../../shared/components/confirm-dialog/c
 })
 export class TimetableEntryFormDialogComponent implements OnInit {
   form = this.fb.nonNullable.group({
-    activityName: ['', Validators.required],
+    activityName: ['Quran Class', Validators.required],
     hifzSessionType: ['sabak' as 'sabak' | 'sabki' | 'manzil' | 'custom'],
     dayOfWeek: ['Monday', Validators.required],
     startTime: ['09:00'],
@@ -334,26 +334,25 @@ export class TimetableEntryFormDialogComponent implements OnInit {
       const targetDay = this.data.dayOfWeek ? String(this.data.dayOfWeek).toLowerCase().trim() : '';
       const matchedDay = targetDay ? this.daysOfWeek.find(d => String(d).toLowerCase().trim() === targetDay) : null;
 
+      // Select all 7 days of week by default for recurring week-by-week schedule
+      this.selectedDays = [...this.daysOfWeek];
       if (matchedDay) {
         patch.dayOfWeek = matchedDay;
-        this.selectedDays = [matchedDay];
       } else {
-        this.selectedDays = this.daysOfWeek.length > 0 ? [this.daysOfWeek[0]] : ['Monday'];
-        if (this.selectedDays.length > 0) {
-          patch.dayOfWeek = this.selectedDays[0];
-        }
+        patch.dayOfWeek = 'Monday';
       }
+
       if (this.data.plan?.subjectId) patch.subjectId = this.data.plan.subjectId;
 
       if (this.isHifzCourse) {
         patch.hifzSessionType = 'sabak';
-        patch.activityName = 'Sabak (New Lesson)';
+        patch.activityName = 'Quran Class - Sabak';
       } else {
         const matchingSubj = this.subjects.find(s => s.id === this.data.plan?.subjectId);
         if (matchingSubj?.['name']) {
           patch.activityName = String(matchingSubj['name']);
-        } else if (this.data.plan?.title) {
-          patch.activityName = this.data.plan.title;
+        } else {
+          patch.activityName = 'Quran Class';
         }
       }
       this.form.patchValue(patch);

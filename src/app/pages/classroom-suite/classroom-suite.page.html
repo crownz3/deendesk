@@ -10,24 +10,53 @@
     </div>
 
     <div class="selectors-section">
-      <!-- Madrasa Dropdown -->
+      <!-- Madrasa Search Autocomplete -->
       <mat-form-field appearance="outline" class="selector-field" subscriptSizing="dynamic">
         <mat-label>Madrasa</mat-label>
-        <mat-select [(ngModel)]="selectedMadrasaId" (selectionChange)="onMadrasaChanged()" [disabled]="!isSuperAdmin && !isOrgAdmin">
-          <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] || m['title'] }}</mat-option>
-        </mat-select>
+        <input 
+          type="text" 
+          matInput 
+          [(ngModel)]="madrasaSearchText" 
+          (input)="filterMadrasas()" 
+          (focus)="filterMadrasas()" 
+          (click)="filterMadrasas()"
+          [matAutocomplete]="autoMadrasa" 
+          [disabled]="!isSuperAdmin && !isOrgAdmin"
+          placeholder="Search Madrasa..."
+        />
         <mat-icon matPrefix>business</mat-icon>
+        <button mat-icon-button matSuffix type="button" *ngIf="madrasaSearchText && (isSuperAdmin || isOrgAdmin)" (click)="madrasaSearchText = ''; filterMadrasas()" matTooltip="Clear Search">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-autocomplete #autoMadrasa="matAutocomplete" (optionSelected)="onMadrasaOptionSelected($event.option.value)">
+          <mat-option *ngFor="let m of filteredMadrasas" [value]="m">
+            {{ m['name'] || m['title'] }}
+          </mat-option>
+        </mat-autocomplete>
       </mat-form-field>
 
-      <!-- Class Group Dropdown -->
+      <!-- Class Group Search Autocomplete -->
       <mat-form-field appearance="outline" class="selector-field" subscriptSizing="dynamic">
         <mat-label>Class Group</mat-label>
-        <mat-select [(ngModel)]="selectedGroupId" (selectionChange)="onGroupChanged()">
-          <mat-option *ngFor="let g of availableClassGroupsForUser" [value]="g.id">
+        <input 
+          type="text" 
+          matInput 
+          [(ngModel)]="groupSearchText" 
+          (input)="filterClassGroupsSearch()" 
+          (focus)="filterClassGroupsSearch()" 
+          (click)="filterClassGroupsSearch()"
+          [matAutocomplete]="autoGroup" 
+          placeholder="Search Class Group..."
+        />
+        <mat-icon matPrefix>groups</mat-icon>
+        <button mat-icon-button matSuffix type="button" *ngIf="groupSearchText" (click)="groupSearchText = ''; filterClassGroupsSearch()" matTooltip="Clear Search">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-autocomplete #autoGroup="matAutocomplete" (optionSelected)="onGroupOptionSelected($event.option.value)">
+          <mat-option *ngFor="let g of filteredClassGroups" [value]="g">
             {{ g['name'] || g['title'] }} <span *ngIf="g['className']">({{ g['className'] }})</span>
           </mat-option>
-        </mat-select>
-        <mat-icon matPrefix>groups</mat-icon>
+        </mat-autocomplete>
       </mat-form-field>
 
       <!-- Date Selector with Quick Shifts -->
@@ -64,39 +93,63 @@
         </button>
       </div>
     </div>
+
+    <!-- Assigned Staff / Teachers Row for Selected Class Group -->
+    <div class="assigned-staff-row" *ngIf="selectedGroupId">
+      <div class="staff-label-box">
+        <mat-icon>person</mat-icon> Assigned Staff:
+      </div>
+      <div class="staff-chips-container" *ngIf="assignedStaffList.length > 0; else noStaffTpl">
+        <span class="staff-chip" *ngFor="let s of assignedStaffList" [matTooltip]="(s.role || 'Ustadh / Teacher') + ' assigned to this group'">
+          <mat-icon class="staff-icon">account_circle</mat-icon>
+          <span class="staff-name">{{ s.name }}</span>
+          <span class="staff-role-badge" *ngIf="s.role">{{ s.role }}</span>
+          <span class="multi-group-tag" *ngIf="s.allGroupNames && s.allGroupNames.length > 1" [matTooltip]="'Teaches ' + s.allGroupNames.length + ' Class Groups: ' + s.allGroupNames.join(', ')">
+            🏫 {{ s.allGroupNames.length }} Class Groups
+          </span>
+        </span>
+      </div>
+      <ng-template #noStaffTpl>
+        <span class="no-staff-text">No staff assigned to this class group</span>
+      </ng-template>
+    </div>
   </div>
 
   <!-- Attendance Mode Switcher & Dynamic Period Slots -->
   <div class="mode-and-periods-card">
     <div class="mode-row">
+
+      <!-- Mode Toggle Pills -->
       <div class="mode-switcher">
-        <button 
-          type="button" 
-          class="mode-btn" 
+        <button
+          type="button"
+          class="mode-btn"
           [class.active]="attendanceMode === 'FULL_DAY'"
           (click)="setAttendanceMode('FULL_DAY')"
         >
-          <mat-icon style="color: #f59e0b;">wb_sunny</mat-icon> Full Day Attendance
+          <mat-icon>wb_sunny</mat-icon>
+          <span>Full Day</span>
         </button>
-
-        <button 
-          type="button" 
-          class="mode-btn" 
+        <button
+          type="button"
+          class="mode-btn"
           [class.active]="attendanceMode === 'PER_PERIOD'"
           (click)="setAttendanceMode('PER_PERIOD')"
         >
-          <mat-icon style="color: #6366f1;">alarm</mat-icon> Per-Period Routine Attendance
+          <mat-icon>alarm</mat-icon>
+          <span>Per Period</span>
         </button>
       </div>
 
+      <!-- Save Button -->
       <button mat-raised-button color="primary" class="save-all-btn" (click)="saveSuiteData()" [disabled]="!canManageAttendance">
-        <mat-icon>save</mat-icon> Save Attendance & Daily Progress
+        <mat-icon>save</mat-icon> Save Attendance
       </button>
+
     </div>
 
-    <!-- Dynamic Timetable Period Chips Bar (Visible in PER_PERIOD mode) -->
-    <div class="period-chips-bar" *ngIf="attendanceMode === 'PER_PERIOD'">
-      <span class="period-bar-title"><mat-icon>event_note</mat-icon> Daily Timetable Periods:</span>
+    <!-- Dynamic Timetable Period Chips Bar (Visible in PER_PERIOD mode or when period slots exist) -->
+    <div class="period-chips-bar" *ngIf="attendanceMode === 'PER_PERIOD' || periodSlots.length > 0">
       <div class="chips-flex">
         <button 
           type="button" 
@@ -109,8 +162,15 @@
           <span class="p-time" *ngIf="p.startTime">({{ p.startTime }} - {{ p.endTime }})</span>
         </button>
 
+        <button type="button" class="period-chip add-chip-btn" (click)="openAddTimetableDialog()" [disabled]="!selectedGroupId">
+          <span class="p-title"><mat-icon>add</mat-icon> Add Period</span>
+        </button>
+
         <span class="no-periods-text" *ngIf="periodSlots.length === 0">
-          No period schedule defined for this class group today. You can add periods under the Timetable tab.
+          No period schedule defined for this class group today. 
+          <button mat-button color="primary" type="button" (click)="openAddTimetableDialog()">
+            <mat-icon>add_circle</mat-icon> Add Timetable Slot
+          </button>
         </span>
       </div>
     </div>
@@ -202,10 +262,24 @@
               <tr *ngFor="let item of roster; let i = index">
                 <td>{{ i + 1 }}</td>
                 <td class="student-name-td st-name-cell">
-                  <div class="st-avatar"><mat-icon>person</mat-icon></div>
                   <div class="st-info">
-                    <span class="st-name">{{ item.student['fullName'] || item.student['name'] }}</span>
-                    <span class="st-id" *ngIf="item.student['admissionNo']">#{{ item.student['admissionNo'] }}</span>
+                    <div class="st-name-row">
+                      <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <span class="st-id" *ngIf="item.student['admissionNo']">#{{ item.student['admissionNo'] }}</span>
+                    </div>
+                    <div class="st-sub-meta">
+                      <span class="parent-phone" *ngIf="getParentPhone(item.student)">
+                        <mat-icon class="meta-icon">phone</mat-icon> {{ getParentPhone(item.student) }}
+                      </span>
+                      <span class="meta-dot" *ngIf="getParentPhone(item.student) && (item.attendanceHistoryText || (item.allGroupNames && item.allGroupNames.length > 1))">&bull;</span>
+                      <span class="multi-group-badge" *ngIf="item.allGroupNames && item.allGroupNames.length > 1" [matTooltip]="'Enrolled in ' + item.allGroupNames.length + ' Class Groups: ' + item.allGroupNames.join(', ')">
+                        <mat-icon class="meta-icon">groups</mat-icon> {{ item.allGroupNames.length }} Groups ({{ item.allGroupNames.join(', ') }})
+                      </span>
+                      <span class="meta-dot" *ngIf="item.allGroupNames && item.allGroupNames.length > 1 && item.attendanceHistoryText">&bull;</span>
+                      <button type="button" class="history-badge history-btn" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)" matTooltip="Click to view detailed history of present, absent, late & leave days">
+                        <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
+                      </button>
+                    </div>
                   </div>
                 </td>
                 <td>
@@ -242,7 +316,7 @@
             <button type="button" class="mode-pill dawr" [class.active]="studentTypeMode === 'dawr'" (click)="studentTypeMode = 'dawr'">
               🔄 Dawr (Revision Cycles)
             </button>
-            <button type="button" class="mode-pill" [class.active]="studentTypeMode === 'maktab'" (click)="studentTypeMode = 'maktab'">
+            <button type="button" class="mode-pill" *ngIf="!isHifzCourse" [class.active]="studentTypeMode === 'maktab'" (click)="studentTypeMode = 'maktab'">
               📚 Maktab (Academic)
             </button>
           </div>
@@ -280,14 +354,25 @@
               <tr *ngFor="let item of roster">
                 <td class="st-name-cell">
                   <div class="st-name-wrapper">
-                    <strong>{{ item.student['fullName'] || item.student['name'] }}</strong>
+                    <div class="st-info">
+                      <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <div class="st-sub-meta">
+                        <span class="parent-phone" *ngIf="getParentPhone(item.student)">
+                          <mat-icon class="meta-icon">phone</mat-icon> {{ getParentPhone(item.student) }}
+                        </span>
+                        <span class="meta-dot" *ngIf="getParentPhone(item.student) && item.attendanceHistoryText">&bull;</span>
+                        <button type="button" class="history-badge history-btn" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)" matTooltip="Click to view detailed history of present, absent, late & leave days">
+                          <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
+                        </button>
+                      </div>
+                    </div>
                     <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
                       🎯 Target
                     </button>
                   </div>
                 </td>
                 <!-- Sabaq Fields -->
-                <td><input type="text" class="inline-input" [(ngModel)]="item.sabaqSurah" placeholder="Surah" title="Surah Name" /></td>
+                <td><input type="text" class="inline-input" [(ngModel)]="item.sabaqSurah" (change)="onSabaqSurahChange(item)" placeholder="Surah" title="Surah Name" /></td>
                 <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" placeholder="From" title="From Ayah" /></td>
                 <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" placeholder="To" title="To Ayah" /></td>
                 <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" title="Sabaq Mistakes" /></td>
@@ -302,13 +387,17 @@
 
                 <!-- Rating -->
                 <td>
-                  <select class="inline-select" [(ngModel)]="item.hifzRating">
-                    <option [value]="5">⭐⭐⭐⭐⭐ (5/5)</option>
-                    <option [value]="4">⭐⭐⭐⭐ (4/5)</option>
-                    <option [value]="3">⭐⭐⭐ (3/5)</option>
-                    <option [value]="2">⭐⭐ (2/5)</option>
-                    <option [value]="1">⭐ (1/5)</option>
-                  </select>
+                  <div class="star-rating-widget">
+                    <button type="button" class="star-btn"
+                      *ngFor="let s of [1,2,3,4,5]"
+                      [class.lit]="s <= (item._hoverRating || item.hifzRating || 5)"
+                      [class.selected]="s <= (item.hifzRating || 5)"
+                      (mouseenter)="item._hoverRating = s"
+                      (mouseleave)="item._hoverRating = 0"
+                      (click)="item.hifzRating = s; item._hoverRating = 0"
+                    >★</button>
+                    <span class="star-lbl">{{ item.hifzRating || 5 }}/5</span>
+                  </div>
                 </td>
               </tr>
 
@@ -343,7 +432,18 @@
               <tr *ngFor="let item of roster">
                 <td class="st-name-cell">
                   <div class="st-name-wrapper">
-                    <strong>{{ item.student['fullName'] || item.student['name'] }}</strong>
+                    <div class="st-info">
+                      <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <div class="st-sub-meta">
+                        <span class="parent-phone" *ngIf="getParentPhone(item.student)">
+                          <mat-icon class="meta-icon">phone</mat-icon> {{ getParentPhone(item.student) }}
+                        </span>
+                        <span class="meta-dot" *ngIf="getParentPhone(item.student) && item.attendanceHistoryText">&bull;</span>
+                        <button type="button" class="history-badge history-btn" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)" matTooltip="Click to view detailed history of present, absent, late & leave days">
+                          <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
+                        </button>
+                      </div>
+                    </div>
                     <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Round Goal">
                       🎯 Target
                     </button>
@@ -370,13 +470,17 @@
 
                 <!-- Rating -->
                 <td>
-                  <select class="inline-select" [(ngModel)]="item.dawrRating">
-                    <option [value]="5">⭐⭐⭐⭐⭐ (5/5)</option>
-                    <option [value]="4">⭐⭐⭐⭐ (4/5)</option>
-                    <option [value]="3">⭐⭐⭐ (3/5)</option>
-                    <option [value]="2">⭐⭐ (2/5)</option>
-                    <option [value]="1">⭐ (1/5)</option>
-                  </select>
+                  <div class="star-rating-widget">
+                    <button type="button" class="star-btn"
+                      *ngFor="let s of [1,2,3,4,5]"
+                      [class.lit]="s <= (item._hoverRating || item.dawrRating || 5)"
+                      [class.selected]="s <= (item.dawrRating || 5)"
+                      (mouseenter)="item._hoverRating = s"
+                      (mouseleave)="item._hoverRating = 0"
+                      (click)="item.dawrRating = s; item._hoverRating = 0"
+                    >★</button>
+                    <span class="star-lbl">{{ item.dawrRating || 5 }}/5</span>
+                  </div>
                 </td>
 
                 <!-- Certificate Status -->
@@ -412,7 +516,18 @@
               <tr *ngFor="let item of roster">
                 <td class="st-name-cell">
                   <div class="st-name-wrapper">
-                    <strong>{{ item.student['fullName'] || item.student['name'] }}</strong>
+                    <div class="st-info">
+                      <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <div class="st-sub-meta">
+                        <span class="parent-phone" *ngIf="getParentPhone(item.student)">
+                          <mat-icon class="meta-icon">phone</mat-icon> {{ getParentPhone(item.student) }}
+                        </span>
+                        <span class="meta-dot" *ngIf="getParentPhone(item.student) && item.attendanceHistoryText">&bull;</span>
+                        <button type="button" class="history-badge history-btn" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)" matTooltip="Click to view detailed history of present, absent, late & leave days">
+                          <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
+                        </button>
+                      </div>
+                    </div>
                     <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
                       🎯 Target
                     </button>
@@ -437,25 +552,117 @@
       <!-- TAB 3: TIMETABLE & SCHEDULE -->
       <!-- ========================================== -->
       <div class="tab-pane" *ngIf="activeTab === 'timetable'">
-        <div class="timetable-pane-header">
-          <h3>Daily Routine Schedule for Selected Group</h3>
-          <p>Period slots defined for this class group on this day of the week:</p>
+        <!-- Weekly Range Header & Instant 1-Click Action & Week Navigation -->
+        <div class="timetable-pane-header" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; background: #ffffff; padding: 16px 20px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, 0.08); box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
+          <div>
+            <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+              <mat-icon style="color: #6366f1;">calendar_view_week</mat-icon>
+              7-Day Weekly Schedule &mdash; {{ weeklyDateRangeText || 'Current Week' }}
+            </h3>
+            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.88rem;">Weekly recurring routine schedule for all 7 days (Monday &ndash; Sunday):</p>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <!-- Week Navigation Controls -->
+            <div class="week-nav-group" style="display: flex; align-items: center; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 2px;">
+              <button mat-icon-button type="button" (click)="shiftWeek(-1)" matTooltip="Previous Week" style="width: 34px; height: 34px; line-height: 34px;">
+                <mat-icon style="font-size: 20px; color: #475569;">chevron_left</mat-icon>
+              </button>
+
+              <button mat-button type="button" (click)="jumpToCurrentWeek()" matTooltip="Jump to Current Week / Today" style="font-size: 0.82rem; font-weight: 600; color: #3b82f6; min-width: auto; padding: 0 10px;">
+                Current Week
+              </button>
+
+              <button mat-icon-button type="button" (click)="shiftWeek(1)" matTooltip="Next Week" style="width: 34px; height: 34px; line-height: 34px;">
+                <mat-icon style="font-size: 20px; color: #475569;">chevron_right</mat-icon>
+              </button>
+            </div>
+
+            <!-- Instant Add Default Schedule (Only shown if NO slots exist for the week) -->
+            <button mat-raised-button color="primary" type="button" *ngIf="!hasAnyWeeklySlots" (click)="createDefaultWeeklyQuranSchedule()" [disabled]="!selectedGroupId" style="border-radius: 8px; font-weight: 600; padding: 6px 18px;">
+              <mat-icon>auto_awesome</mat-icon> ⚡ Add Default 7-Day Quran Schedule (Instant)
+            </button>
+
+            <!-- Custom Period Slot Button -->
+            <button mat-stroked-button color="accent" type="button" (click)="openAddTimetableDialog()" [disabled]="!selectedGroupId" style="border-radius: 8px; font-weight: 600;">
+              <mat-icon>add_alarm</mat-icon> + Custom Period Slot
+            </button>
+          </div>
         </div>
 
+        <!-- 7-Day Weekday Date Switcher Bar (Modern Pills) -->
+        <div class="week-days-selector-bar">
+          <button 
+            type="button" 
+            class="week-day-btn" 
+            *ngFor="let day of weekDaysList"
+            [class.active]="selectedTimetableDay === day.dayName"
+            [class.is-today]="day.isToday"
+            (click)="selectedTimetableDay = day.dayName"
+          >
+            <div class="day-top-row">
+              <span class="day-name">{{ day.dayName }}</span>
+              <span class="today-pill" *ngIf="day.isToday">TODAY</span>
+            </div>
+            <div class="day-date">{{ day.formattedDate }}</div>
+            <div class="day-slots-badge" [class.has-slots]="(weeklyTimetableMap[day.dayName] || []).length > 0">
+              <mat-icon class="slot-icon">schedule</mat-icon>
+              <span>{{ (weeklyTimetableMap[day.dayName] || []).length }} period{{ (weeklyTimetableMap[day.dayName] || []).length === 1 ? '' : 's' }}</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Period Cards Grid for Selected Day of Week -->
         <div class="timetable-cards-grid">
-          <div class="slot-card" *ngFor="let slot of periodSlots; let i = index">
-            <div class="slot-badge">Period {{ i + 1 }}</div>
+          <div class="slot-card" *ngFor="let slot of (weeklyTimetableMap[selectedTimetableDay] || []); let i = index">
+            <div class="slot-card-header">
+              <div class="slot-badge"><mat-icon style="font-size: 14px; width: 14px; height: 14px; margin-right: 4px;">alarm</mat-icon> Period {{ i + 1 }}</div>
+              <button mat-icon-button type="button" (click)="openEditTimetableDialog(slot)" matTooltip="Edit Timing & Details" style="width: 32px; height: 32px; line-height: 32px;">
+                <mat-icon style="font-size: 18px; width: 18px; height: 18px; color: #64748b;">edit</mat-icon>
+              </button>
+            </div>
+
             <div class="slot-details">
               <h4 class="slot-title">{{ slot.periodTitle }}</h4>
-              <p class="slot-time" *ngIf="slot.startTime"><mat-icon>schedule</mat-icon> {{ slot.startTime }} - {{ slot.endTime }}</p>
-              <p class="slot-meta" *ngIf="slot.teacherName"><mat-icon>person</mat-icon> Ustadh: {{ slot.teacherName }}</p>
-              <p class="slot-meta" *ngIf="slot.subjectName"><mat-icon>book</mat-icon> Subject: {{ slot.subjectName }}</p>
+              
+              <!-- Flexible / Anytime or Specific Hours Time Pill -->
+              <div class="slot-time-pill" [class.anytime]="!slot.startTime || slot.startTime === 'Anytime' || slot.startTime === 'Flexible'">
+                <mat-icon>schedule</mat-icon>
+                <span>{{ (!slot.startTime || slot.startTime === 'Anytime' || slot.startTime === 'Flexible') ? 'Flexible Timing (Anytime)' : (slot.startTime + (slot.endTime ? ' - ' + slot.endTime : '')) }}</span>
+              </div>
+
+              <div class="slot-meta-row" *ngIf="slot.teacherName">
+                <mat-icon>person</mat-icon>
+                <span>Ustadh: <strong>{{ slot.teacherName }}</strong></span>
+              </div>
+
+              <div class="slot-meta-row" *ngIf="slot.subjectName">
+                <mat-icon>book</mat-icon>
+                <span>Subject: <strong>{{ slot.subjectName }}</strong></span>
+              </div>
+            </div>
+
+            <div class="slot-card-footer">
+              <button mat-stroked-button color="primary" type="button" class="edit-timing-btn" (click)="openEditTimetableDialog(slot)">
+                <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">edit_calendar</mat-icon> Edit Timing & Details
+              </button>
             </div>
           </div>
 
-          <div class="empty-slot-card" *ngIf="periodSlots.length === 0">
-            <mat-icon>info</mat-icon>
-            <p>No timetable period slots configured for this class group today.</p>
+          <div class="empty-slot-card" *ngIf="(weeklyTimetableMap[selectedTimetableDay] || []).length === 0" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 16px; text-align: center; background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 12px; gap: 14px; width: 100%;">
+            <mat-icon style="font-size: 48px; width: 48px; height: 48px; color: #6366f1;">event_note</mat-icon>
+            <div>
+              <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700; color: #1e293b;">No timetable period slots configured for {{ selectedTimetableDay }}.</h4>
+              <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #64748b;">Click below to instantly create the default 7-day Quran Class schedule (Monday &ndash; Sunday) with 1 click!</p>
+            </div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px;">
+              <button mat-raised-button color="primary" type="button" (click)="createDefaultWeeklyQuranSchedule()" [disabled]="!selectedGroupId" style="border-radius: 8px; font-weight: 600; padding: 6px 22px;">
+                <mat-icon>auto_awesome</mat-icon> ⚡ Add Default 7-Day Weekly Quran Schedule (Instant)
+              </button>
+              <button mat-stroked-button color="accent" type="button" (click)="openAddTimetableDialog()" [disabled]="!selectedGroupId" style="border-radius: 8px; font-weight: 600; padding: 6px 18px;">
+                <mat-icon>add_alarm</mat-icon> + Custom Period Slot
+              </button>
+            </div>
           </div>
         </div>
       </div>

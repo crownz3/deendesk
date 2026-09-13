@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { combineLatest, map, of, switchMap, catchError, Observable, BehaviorSubject, filter, distinctUntilChanged, from } from 'rxjs';
+import { combineLatest, map, of, switchMap, catchError, Observable, BehaviorSubject, filter, distinctUntilChanged, from, timer } from 'rxjs';
 import { where, documentId } from 'firebase/firestore';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -13,6 +13,7 @@ import { NameResolverService, ResolvableType } from '../../core/services/name-re
 import { BulkDeleteConfirmDialogComponent } from '../../shared/components/bulk-delete-confirm-dialog/bulk-delete-confirm-dialog.component';
 import { BulkDeleteProgressDialogComponent } from '../../shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
 import { HelpGuideDialogComponent } from '../../shared/components/help-guide-dialog/help-guide-dialog.component';
+import { ConfigureCardsDialogComponent, ConfigureCardsDialogData } from './configure-cards-dialog.component';
 
 interface DashboardStat {
   label: string;
@@ -63,12 +64,115 @@ export interface AssignedAssignmentDetail {
   madrasaName: string;
 }
 
+export interface ClassGroupAttendanceStatus {
+  groupId: string;
+  groupName: string;
+  classId?: string;
+  className: string;
+  madrasaId: string;
+  madrasaName: string;
+  isTaken: boolean;
+  takenByName?: string;
+  takenAtText?: string;
+  presentCount: number;
+  absentCount: number;
+  lateCount: number;
+  leaveCount: number;
+  totalStudents: number;
+  assignedStaffName?: string;
+}
+
+export interface TodayAttendanceOverview {
+  dateStr: string;
+  formattedDate: string;
+  totalGroups: number;
+  takenGroupsCount: number;
+  pendingGroupsCount: number;
+  completionRate: number;
+  presentTotal: number;
+  absentTotal: number;
+  lateTotal: number;
+  leaveTotal: number;
+  totalStudentsRecorded: number;
+  overallPresentPercentage: number;
+  groupStatuses: ClassGroupAttendanceStatus[];
+  madrasaBreakdown?: {
+    madrasaId: string;
+    madrasaName: string;
+    totalGroups: number;
+    takenGroups: number;
+    pendingGroups: number;
+  }[];
+}
+
+export interface GroupedMadrasaAttendance {
+  madrasaId: string;
+  madrasaName: string;
+  totalGroups: number;
+  takenGroups: number;
+  pendingGroups: number;
+  groupStatuses: ClassGroupAttendanceStatus[];
+}
+
+export interface EnhancedCourseSlice {
+  courseId: string;
+  courseName: string;
+  studentCount: number;
+  staffCount: number;
+  classGroupCount: number;
+  studentPercent: number;
+  studentTeacherRatio: string;
+  todayAttendanceRate?: number;
+}
+
+export interface WeeklyAttendanceTrendPoint {
+  dayName: string;
+  shortDay: string;
+  dateStr: string;
+  presentCount: number;
+  totalCount: number;
+  rate: number;
+}
+
+export interface AttendanceRiskStudent {
+  studentId: string;
+  name: string;
+  madrasaName: string;
+  className: string;
+  groupName: string;
+  totalDays: number;
+  presentDays: number;
+  absentDays: number;
+  rate: number;
+  riskLevel: 'high' | 'critical';
+}
+
+export interface MadrasaCapacitySlice {
+  madrasaId: string;
+  madrasaName: string;
+  enrolledStudents: number;
+  capacity: number;
+  percentFull: number;
+  status: 'available' | 'near-full' | 'at-capacity';
+}
+
+export interface TeacherWorkloadSlice {
+  teacherId: string;
+  teacherName: string;
+  email?: string;
+  assignedGroupCount: number;
+  assignedStudentCount: number;
+  assignedClassNames: string[];
+  workloadLevel: 'Light' | 'Optimal' | 'High Load';
+}
+
 interface DashboardVm {
   displayName: string;
   formattedRole: string;
   roleTitle: string;
   isSuperAdmin: boolean;
   isOrgAdmin: boolean;
+  isMadrasaIncharge: boolean;
   organizationId?: string;
   madrasaIds?: string[];
   inchargeMadrasaNames?: string[];
@@ -76,6 +180,11 @@ interface DashboardVm {
   assignedAssignments?: AssignedAssignmentDetail[];
   stats: DashboardStat[];
   courseDistribution: ChartSlice[];
+  enhancedCourseDistribution: EnhancedCourseSlice[];
+  weeklyAttendanceTrend?: WeeklyAttendanceTrendPoint[];
+  attendanceRiskStudents?: AttendanceRiskStudent[];
+  madrasaCapacityOverview?: MadrasaCapacitySlice[];
+  teacherWorkloadMatrix?: TeacherWorkloadSlice[];
   attendance: {
     present: number;
     absent: number;
@@ -83,7 +192,9 @@ interface DashboardVm {
     leave: number;
     total: number;
     rate: number;
+    isToday?: boolean;
   };
+  todayAttendance: TodayAttendanceOverview;
   notifications: NotificationItem[];
   usersByRole: ChartSlice[];
   setupSteps: SetupMapStep[];
@@ -103,6 +214,167 @@ export class DashboardPage {
   private readonly refresh$ = new BehaviorSubject<void>(undefined);
   showMadrasaDetails = false;
   statusFilter: 'all' | 'active' | 'inactive' = 'all';
+  visibleCardLabels: string[] | null = null;
+
+  readonly loadingTimer$: Observable<string> = timer(0, 100).pipe(
+    map((t) => (t * 0.1).toFixed(1) + 's')
+  );
+
+  private loadVisibleCardLabels(userId: string): string[] | null {
+    try {
+      const saved = localStorage.getItem(`deendesk_dashboard_visible_cards_${userId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse visible cards preference', e);
+    }
+    return null;
+  }
+
+  private saveVisibleCardLabels(userId: string, labels: string[]): void {
+    try {
+      localStorage.setItem(`deendesk_dashboard_visible_cards_${userId}`, JSON.stringify(labels));
+    } catch (e) {
+      console.warn('Failed to save visible cards preference', e);
+    }
+  }
+
+  selectedMadrasaFilter = '';
+  madrasaFilterSearchText = '';
+  attendanceStatusTab: 'all' | 'taken' | 'pending' = 'all';
+  attendanceSearchQuery = '';
+  workloadFilter: 'active' | 'high' | 'optimal' | 'all' = 'active';
+  workloadSearchQuery = '';
+
+  setWorkloadFilter(filter: 'active' | 'high' | 'optimal' | 'all'): void {
+    this.workloadFilter = filter;
+  }
+
+  getFilteredWorkloadMatrix(vm: DashboardVm | null): TeacherWorkloadSlice[] {
+    if (!vm || !vm.teacherWorkloadMatrix) return [];
+    let list = vm.teacherWorkloadMatrix;
+
+    if (this.workloadFilter === 'high') {
+      list = list.filter(t => t.workloadLevel === 'High Load');
+    } else if (this.workloadFilter === 'optimal') {
+      list = list.filter(t => t.workloadLevel === 'Optimal');
+    } else {
+      // Only show teachers with active class groups or assigned students
+      list = list.filter(t => t.assignedGroupCount > 0 || t.assignedStudentCount > 0);
+    }
+
+    if (this.workloadSearchQuery && this.workloadSearchQuery.trim()) {
+      const q = this.workloadSearchQuery.trim().toLowerCase();
+      list = list.filter(t =>
+        (t.teacherName || '').toLowerCase().includes(q) ||
+        (t.email || '').toLowerCase().includes(q) ||
+        (t.assignedClassNames || []).some(c => (c || '').toLowerCase().includes(q))
+      );
+    }
+
+    // Return top 5 assigned teachers
+    return list.slice(0, 5);
+  }
+
+  setSelectedMadrasaFilter(madrasaId: string): void {
+    this.selectedMadrasaFilter = madrasaId;
+  }
+
+  setAttendanceStatusTab(tab: 'all' | 'taken' | 'pending'): void {
+    this.attendanceStatusTab = tab;
+  }
+
+  getFilteredMadrasaOptions(vm: DashboardVm | null): TodayAttendanceOverview['madrasaBreakdown'] {
+    if (!vm || !vm.todayAttendance || !vm.todayAttendance.madrasaBreakdown) return [];
+    const list = vm.todayAttendance.madrasaBreakdown;
+    if (!this.madrasaFilterSearchText || !this.madrasaFilterSearchText.trim()) return list;
+
+    const q = this.madrasaFilterSearchText.trim().toLowerCase();
+    return list.filter(m => (m.madrasaName || '').toLowerCase().includes(q));
+  }
+
+  onMadrasaOptionSelected(selectedVal: string, vm: DashboardVm | null): void {
+    const breakdown = vm?.todayAttendance?.madrasaBreakdown || [];
+    const match = breakdown.find(m =>
+      m.madrasaName === selectedVal || String(m.madrasaId) === String(selectedVal)
+    );
+    if (match) {
+      this.selectedMadrasaFilter = match.madrasaId;
+      this.madrasaFilterSearchText = match.madrasaName;
+    } else {
+      this.selectedMadrasaFilter = selectedVal;
+    }
+  }
+
+  getFilteredGroupStatuses(vm: DashboardVm | null): ClassGroupAttendanceStatus[] {
+    if (!vm || !vm.todayAttendance || !vm.todayAttendance.groupStatuses) return [];
+
+    const breakdown = vm.todayAttendance.madrasaBreakdown || [];
+
+    if ((!this.selectedMadrasaFilter || this.selectedMadrasaFilter === 'all') && breakdown.length > 0) {
+      this.selectedMadrasaFilter = breakdown[0].madrasaId;
+      this.madrasaFilterSearchText = breakdown[0].madrasaName;
+    } else if (this.selectedMadrasaFilter) {
+      const match = breakdown.find(m => String(m.madrasaId) === String(this.selectedMadrasaFilter));
+      if (match && (this.madrasaFilterSearchText === this.selectedMadrasaFilter || !this.madrasaFilterSearchText)) {
+        this.madrasaFilterSearchText = match.madrasaName;
+      }
+    }
+    
+    let list = vm.todayAttendance.groupStatuses;
+
+    if (this.selectedMadrasaFilter) {
+      list = list.filter(item => String(item.madrasaId) === String(this.selectedMadrasaFilter));
+    }
+
+    if (this.attendanceStatusTab === 'taken') {
+      list = list.filter(item => item.isTaken);
+    } else if (this.attendanceStatusTab === 'pending') {
+      list = list.filter(item => !item.isTaken);
+    }
+
+    if (this.attendanceSearchQuery && this.attendanceSearchQuery.trim()) {
+      const q = this.attendanceSearchQuery.trim().toLowerCase();
+      list = list.filter(item => 
+        (item.groupName || '').toLowerCase().includes(q) ||
+        (item.className || '').toLowerCase().includes(q) ||
+        (item.madrasaName || '').toLowerCase().includes(q) ||
+        (item.takenByName || '').toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }
+
+  getGroupedMadrasaStatuses(vm: DashboardVm | null): GroupedMadrasaAttendance[] {
+    const filtered = this.getFilteredGroupStatuses(vm);
+    if (!filtered.length) return [];
+
+    const map = new Map<string, GroupedMadrasaAttendance>();
+
+    filtered.forEach(item => {
+      const mId = item.madrasaId || 'default';
+      if (!map.has(mId)) {
+        map.set(mId, {
+          madrasaId: mId,
+          madrasaName: item.madrasaName || 'Madrasa',
+          totalGroups: 0,
+          takenGroups: 0,
+          pendingGroups: 0,
+          groupStatuses: []
+        });
+      }
+      const grp = map.get(mId)!;
+      grp.groupStatuses.push(item);
+      grp.totalGroups++;
+      if (item.isTaken) grp.takenGroups++;
+      else grp.pendingGroups++;
+    });
+
+    return Array.from(map.values());
+  }
 
   setStatusFilter(filter: 'all' | 'active' | 'inactive'): void {
     this.statusFilter = filter;
@@ -118,20 +390,63 @@ export class DashboardPage {
 
   getFilteredStats(vm: DashboardVm | null): DashboardStat[] {
     if (!vm || !vm.stats) return [];
-    if (this.statusFilter === 'all') return vm.stats;
 
-    const rawData = vm._rawData || {};
-    const filteredData: Record<string, EntityRecord[]> = {};
+    if (this.visibleCardLabels === null && vm.profile?.id) {
+      this.visibleCardLabels = this.loadVisibleCardLabels(vm.profile.id);
+    }
 
-    Object.keys(rawData).forEach(key => {
-      const items = Array.isArray(rawData[key]) ? rawData[key] : [];
-      filteredData[key] = items.filter(item => {
-        const isActive = this.isEntityActive(item);
-        return this.statusFilter === 'active' ? isActive : !isActive;
+    let statsList: DashboardStat[] = [];
+    if (this.statusFilter === 'all') {
+      statsList = vm.stats;
+    } else {
+      const rawData = vm._rawData || {};
+      const filteredData: Record<string, EntityRecord[]> = {};
+
+      Object.keys(rawData).forEach(key => {
+        const items = Array.isArray(rawData[key]) ? rawData[key] : [];
+        filteredData[key] = items.filter(item => {
+          const isActive = this.isEntityActive(item);
+          return this.statusFilter === 'active' ? isActive : !isActive;
+        });
       });
+
+      statsList = this.statsForRole(vm.profile.role, filteredData);
+    }
+
+    if (this.visibleCardLabels !== null) {
+      return statsList.filter(s => this.visibleCardLabels!.includes(s.label));
+    }
+
+    return statsList;
+  }
+
+  openConfigureCardsDialog(vm: DashboardVm | null): void {
+    if (!vm) return;
+    const roleStats = this.statsForRole(vm.profile.role, vm._rawData || {});
+    const allCards = roleStats.map(s => ({ label: s.label, icon: s.icon, tone: s.tone }));
+
+    const currentVisible = this.visibleCardLabels !== null 
+      ? this.visibleCardLabels 
+      : allCards.map(c => c.label);
+
+    const dialogRef = this.dialog.open(ConfigureCardsDialogComponent, {
+      width: '560px',
+      maxWidth: '92vw',
+      panelClass: 'configure-cards-dialog-panel',
+      data: {
+        allCards,
+        visibleLabels: currentVisible,
+      } as ConfigureCardsDialogData
     });
 
-    return this.statsForRole(vm.profile.role, filteredData);
+    dialogRef.afterClosed().subscribe((selectedLabels: string[] | undefined) => {
+      if (selectedLabels) {
+        this.visibleCardLabels = selectedLabels;
+        if (vm.profile?.id) {
+          this.saveVisibleCardLabels(vm.profile.id, selectedLabels);
+        }
+      }
+    });
   }
 
   getCounts(filter: 'all' | 'active' | 'inactive', vm: DashboardVm | null): number {
@@ -185,6 +500,7 @@ export class DashboardPage {
         organizations: from(this.repo.getAllOnce<EntityRecord>('organizations', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         madrasas: from(this.repo.getAllOnce<EntityRecord>('madrasas', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         users: from(this.repo.getAllOnce<EntityRecord>('users', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        staff: from(this.repo.getAllOnce<EntityRecord>('staff', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         students: from(this.repo.getAllOnce<EntityRecord>('students', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         courses: from(this.repo.getAllOnce<EntityRecord>('courses', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         classes: from(this.repo.getAllOnce<EntityRecord>('classes', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
@@ -209,6 +525,7 @@ export class DashboardPage {
     const notifications$ = from(this.repo.getAllOnce<NotificationItem & EntityRecord>('notifications', profile)).pipe(catchError(() => of([])));
     const attendance$ = from(this.repo.getAllOnce<AttendanceRecord & EntityRecord>('attendance', profile)).pipe(catchError(() => of([])));
     const users$ = from(this.repo.getAllOnce<EntityRecord>('users', profile)).pipe(catchError(() => of([])));
+    const staff$ = from(this.repo.getAllOnce<EntityRecord>('staff', profile)).pipe(catchError(() => of([])));
     
     return combineLatest({
       classes: classes$,
@@ -217,7 +534,8 @@ export class DashboardPage {
       subjects: subjects$,
       notifications: notifications$,
       attendance: attendance$,
-      users: users$
+      users: users$,
+      staff: staff$
     }).pipe(
       switchMap((initialData) => {
         // Extract classPlanIds from timetable entries
@@ -392,7 +710,6 @@ export class DashboardPage {
       parents: allUsers.filter(u => u['role'] === 'parent'),
     };
     const stats = this.statsForRole(profile.role, data);
-    const attendance = this.attendanceSummary(data['attendance'] || []);
     const courseDistribution = this.distribution(data['students'], 'courseName', data['courses'], 'courseId');
     const usersByRole = this.distribution(data['users'], 'role');
     
@@ -555,12 +872,23 @@ export class DashboardPage {
       }
     });
 
+    const inchargeMadrasaIds = inchargeMadrasaEntities.map(m => String(m.id));
+    const todayAttendance = this.buildTodayAttendanceOverview(profile, data, inchargeMadrasaIds);
+    const attendance = this.attendanceSummary(data['attendance'] || [], todayAttendance);
+    const enhancedCourseDistribution = this.buildEnhancedCourseDistribution(data);
+    const weeklyAttendanceTrend = this.buildWeeklyAttendanceTrend(data['attendance'] || []);
+    const attendanceRiskStudents = this.buildAttendanceRiskStudents(data['students'] || [], data['attendance'] || [], data['madrasas'] || [], data['classes'] || []);
+    const madrasaCapacityOverview = this.buildMadrasaCapacityOverview(data['madrasas'] || [], data['students'] || data['allStudents'] || [], data['classGroups'] || []);
+    const teacherWorkloadMatrix = this.buildTeacherWorkloadMatrix(data['staff'] || [], data['classGroups'] || [], data['students'] || data['allStudents'] || [], data['classes'] || [], data['users'] || []);
+
+    const roleLowerNorm = String(profile.role || '').toLowerCase().replace(/_/g, '');
     return {
       displayName: this.getDisplayName(profile),
       formattedRole: this.formatRole(profile.role),
       roleTitle: ROLE_LABELS[profile.role],
-      isSuperAdmin: ['superadmin', 'super_admin'].includes(String(profile.role || '').toLowerCase()),
-      isOrgAdmin: profile.role === 'organizationAdmin',
+      isSuperAdmin: roleLowerNorm === 'superadmin',
+      isOrgAdmin: roleLowerNorm === 'organizationadmin',
+      isMadrasaIncharge: roleLowerNorm === 'madrasaincharge',
       organizationId: profile.organizationId,
       madrasaIds: Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0 ? profile.madrasaIds : (profile.madrasaId ? [profile.madrasaId] : []),
       inchargeMadrasaNames,
@@ -568,7 +896,13 @@ export class DashboardPage {
       assignedAssignments,
       stats,
       attendance,
+      todayAttendance,
       courseDistribution,
+      enhancedCourseDistribution,
+      weeklyAttendanceTrend,
+      attendanceRiskStudents,
+      madrasaCapacityOverview,
+      teacherWorkloadMatrix,
       usersByRole,
       notifications: (data['notifications'] || []).slice(0, 5),
       setupSteps,
@@ -576,6 +910,714 @@ export class DashboardPage {
       todaySchedule: finalSchedule,
       profile,
       _rawData: data
+    };
+  }
+
+  private safeToIsoDateStr(val: any): string | null {
+    if (!val) return null;
+    try {
+      let d: Date | null = null;
+      if (typeof val === 'string') {
+        d = new Date(val);
+      } else if (typeof val === 'number') {
+        d = new Date(val);
+      } else if (typeof val === 'object') {
+        if (typeof val.toDate === 'function') {
+          d = val.toDate();
+        } else if (val.seconds !== undefined) {
+          d = new Date(val.seconds * 1000);
+        } else if (val._seconds !== undefined) {
+          d = new Date(val._seconds * 1000);
+        }
+      }
+      if (d && !isNaN(d.getTime())) {
+        return d.toISOString().split('T')[0];
+      }
+    } catch (e) {
+      // Safe fallback for unparseable dates
+    }
+    return null;
+  }
+
+  private buildWeeklyAttendanceTrend(attendanceRecords: EntityRecord[]): WeeklyAttendanceTrendPoint[] {
+    // Only show trend if there is real attendance data
+    if (!attendanceRecords || attendanceRecords.length === 0) return [];
+
+    const days: WeeklyAttendanceTrendPoint[] = [];
+    const now = new Date();
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+      const shortDay = d.toLocaleDateString('en-US', { weekday: 'short' });
+
+      const dayRecords = (attendanceRecords || []).filter(r => {
+        if (r['dateStr'] === dateStr || r['date'] === dateStr) return true;
+        const parsedStr = this.safeToIsoDateStr(r['createdAt'] || r['dateTimestamp'] || r['timestamp']);
+        return parsedStr === dateStr;
+      });
+
+      const totalCount = dayRecords.length;
+      const presentCount = dayRecords.filter(r => (r['status'] || '').toLowerCase() === 'present').length;
+      // Use 0 when no real data — no fake placeholders
+      const rate = totalCount > 0 ? Math.round((presentCount / totalCount) * 100) : 0;
+
+      days.push({
+        dayName,
+        shortDay,
+        dateStr,
+        presentCount,
+        totalCount,
+        rate
+      });
+    }
+
+    return days;
+  }
+
+  private buildAttendanceRiskStudents(students: EntityRecord[], attendanceRecords: EntityRecord[], madrasas: EntityRecord[], classes: EntityRecord[]): AttendanceRiskStudent[] {
+    const riskList: AttendanceRiskStudent[] = [];
+    if (!students || students.length === 0) return [];
+
+    students.forEach(s => {
+      const sId = String(s.id || s['uid'] || '');
+      const sName = (s['name'] as string) || (s['fullName'] as string) || 'Student';
+      const mId = s['madrasaId'];
+      const madrasaObj = madrasas.find(m => String(m.id) === String(mId));
+      const mName = madrasaObj ? (madrasaObj['name'] as string) : 'Madrasa';
+      const cId = s['classId'];
+      const classObj = classes.find(c => String(c.id) === String(cId));
+      const cName = classObj ? (classObj['name'] as string) : 'Class';
+
+      const sRecords = (attendanceRecords || []).filter(r => String(r['studentId'] || r['uid']) === sId);
+      const totalDays = sRecords.length;
+      const presentDays = sRecords.filter(r => (r['status'] || '').toLowerCase() === 'present').length;
+      const absentDays = sRecords.filter(r => (r['status'] || '').toLowerCase() === 'absent').length;
+
+      let rate = 100;
+      if (totalDays > 0) {
+        rate = Math.round((presentDays / totalDays) * 100);
+      } else if (s['attendanceRate'] !== undefined) {
+        rate = Number(s['attendanceRate']);
+      } else if (absentDays > 0) {
+        rate = Math.max(0, 100 - absentDays * 15);
+      }
+
+      if (rate < 75 && totalDays > 0) {
+        riskList.push({
+          studentId: sId,
+          name: sName,
+          madrasaName: mName,
+          className: cName,
+          groupName: (s['groupName'] as string) || 'Group',
+          totalDays: totalDays || 10,
+          presentDays,
+          absentDays,
+          rate,
+          riskLevel: rate < 60 ? 'critical' : 'high'
+        });
+      }
+    });
+
+    // Do NOT generate fake risk data — only show real students with real low attendance
+    return riskList.sort((a, b) => a.rate - b.rate);
+  }
+
+  private buildMadrasaCapacityOverview(madrasas: EntityRecord[], students: EntityRecord[], classGroups: EntityRecord[] = []): MadrasaCapacitySlice[] {
+    if (!madrasas || madrasas.length === 0) return [];
+
+    return madrasas.map(m => {
+      const mId = String(m.id || m['docId'] || '');
+      const mName = (m['name'] as string) || (m['title'] as string) || 'Madrasa';
+      
+      const enrolled = (students || []).filter(s => {
+        const sMadrasaTokens = this.extractAllStrings([
+          s['madrasaId'], s['assignedMadrasaId'], s['madrasaIds'], s['madrasa'], s['centerId']
+        ]);
+        return sMadrasaTokens.includes(mId) || (mName && sMadrasaTokens.includes(mName));
+      }).length;
+
+      // 1. Direct capacity configured on madrasa record in Firestore
+      const explicitCap = Number(m['capacity'] || m['studentCapacity'] || m['maxCapacity'] || m['maxStudents'] || m['targetCapacity'] || m['totalCapacity']);
+
+      // 2. Sum of class group capacities assigned to this madrasa
+      const mClassGroups = (classGroups || []).filter(cg => {
+        const cgMadrasaTokens = this.extractAllStrings([cg['madrasaId'], cg['assignedMadrasaId'], cg['madrasaIds'], cg['madrasa']]);
+        return cgMadrasaTokens.includes(mId) || (mName && cgMadrasaTokens.includes(mName));
+      });
+
+      let sumGroupCapacity = 0;
+      mClassGroups.forEach(cg => {
+        const cgCap = Number(cg['capacity'] || cg['maxStudents'] || cg['studentCapacity'] || cg['limit']);
+        if (!isNaN(cgCap) && cgCap > 0) {
+          sumGroupCapacity += cgCap;
+        }
+      });
+
+      let capacity = 0;
+      if (!isNaN(explicitCap) && explicitCap > 0) {
+        capacity = explicitCap;
+      } else if (sumGroupCapacity > 0) {
+        capacity = sumGroupCapacity;
+      } else {
+        capacity = enrolled;
+      }
+
+      const percentFull = capacity > 0 ? Math.min(100, Math.round((enrolled / capacity) * 100)) : 0;
+
+      let status: 'available' | 'near-full' | 'at-capacity' = 'available';
+      if (percentFull >= 90) status = 'at-capacity';
+      else if (percentFull >= 75) status = 'near-full';
+
+      return {
+        madrasaId: mId,
+        madrasaName: mName,
+        enrolledStudents: enrolled,
+        capacity,
+        percentFull,
+        status
+      };
+    }).sort((a, b) => b.enrolledStudents - a.enrolledStudents);
+  }
+
+  private buildTeacherWorkloadMatrix(staff: EntityRecord[], classGroups: EntityRecord[], students: EntityRecord[], classes: EntityRecord[], users: EntityRecord[] = []): TeacherWorkloadSlice[] {
+    const rawStaffList = [...(staff || []), ...(users || [])];
+    const teacherMap = new Map<string, EntityRecord>();
+
+    rawStaffList.forEach(u => {
+      if (!u) return;
+      const role = String(u['role'] || '').toLowerCase();
+      const jobTitle = String(u['jobTitle'] || u['title'] || u['designation'] || '').toLowerCase();
+      const isTeacher = role === 'teacher' || role === 'staff' || role === 'madrasaincharge' || role === 'ustadh' || jobTitle.includes('teacher') || jobTitle.includes('usthad') || jobTitle.includes('staff');
+      if (isTeacher) {
+        const idKey = String(u.id || u['uid'] || u['docId'] || u['email'] || '');
+        if (idKey) {
+          if (!teacherMap.has(idKey) || u['classGroupIds'] || u['groupIds'] || u['assignedGroupIds']) {
+            teacherMap.set(idKey, u);
+          }
+        }
+      }
+    });
+
+    const teachers = Array.from(teacherMap.values());
+    if (!teachers || teachers.length === 0) return [];
+
+    return teachers.map(t => {
+      const tId = String(t.id || t['uid'] || t['docId'] || '');
+      const teacherTokens = new Set(this.extractAllStrings([t['id'], t['uid'], t['userId'], t['email'], t['docId'], t['entityId']]));
+
+      const tName = (t['name'] as string) ||
+                    (t['fullName'] as string) ||
+                    (t['displayName'] as string) ||
+                    (t['username'] as string) ||
+                    (t['email'] ? (t['email'] as string).split('@')[0] : 'Teacher');
+
+      const teacherGroupIds = new Set(this.extractAllStrings([
+        t['classGroupIds'], t['groupIds'], t['assignedGroupIds'], t['assignedClassGroupIds'], t['classGroup'], t['groupId'], t['assignedGroups'], t['groups']
+      ]));
+
+      const teacherClassIds = new Set(this.extractAllStrings([
+        t['classId'], t['classIds'], t['assignedClassId'], t['assignedClassIds'], t['class'], t['assignedClasses']
+      ]));
+
+      // Find assigned class groups
+      const assignedGroups = (classGroups || []).filter(g => {
+        const gId = String(g.id || g['docId'] || '');
+        if (teacherGroupIds.has(gId)) return true;
+
+        const staffTokens = this.extractAllStrings([
+          g['staffId'], g['teacherId'], g['assignedStaffId'], g['teacherUid'], g['staffIds'], g['teacherIds'], g['inchargeId'], g['staff'], g['teacher'], g['assignedStaff']
+        ]);
+        return staffTokens.some(tok => teacherTokens.has(tok));
+      });
+
+      // Find assigned classes
+      const assignedClasses = (classes || []).filter(c => {
+        const cId = String(c.id || c['docId'] || '');
+        if (teacherClassIds.has(cId)) return true;
+
+        const staffTokens = this.extractAllStrings([
+          c['teacherId'], c['staffId'], c['assignedStaffId'], c['inchargeId'], c['teacherUid'], c['staffIds'], c['teacherIds'], c['teacher']
+        ]);
+        return staffTokens.some(tok => teacherTokens.has(tok));
+      });
+
+      const rawGroupIdsCount = teacherGroupIds.size;
+      const groupCount = Math.max(assignedGroups.length, assignedClasses.length, rawGroupIdsCount);
+      const assignedGroupIds = new Set([
+        ...assignedGroups.map(g => String(g.id)),
+        ...Array.from(teacherGroupIds)
+      ]);
+      const assignedClassIds = new Set([
+        ...assignedClasses.map(c => String(c.id)),
+        ...Array.from(teacherClassIds)
+      ]);
+
+      // Find assigned students directly or via class groups / classes
+      const assignedStudents = (students || []).filter(s => {
+        const sTeacherTokens = this.extractAllStrings([
+          s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'], s['staff']
+        ]);
+        if (sTeacherTokens.some(tok => teacherTokens.has(tok))) return true;
+
+        const sGroupTokens = this.extractAllStrings([
+          s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']
+        ]);
+        if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+        const sClassTokens = this.extractAllStrings([
+          s['classId'], s['assignedClassId'], s['classIds']
+        ]);
+        return sClassTokens.some(cId => assignedClassIds.has(cId));
+      });
+
+      let groupStudentSum = 0;
+      assignedGroups.forEach(g => {
+        if (Array.isArray(g['studentIds'])) groupStudentSum += g['studentIds'].length;
+        else if (g['studentCount'] !== undefined) groupStudentSum += Number(g['studentCount']);
+        else if (g['studentsCount'] !== undefined) groupStudentSum += Number(g['studentsCount']);
+      });
+
+      const assignedStudentCount = Math.max(assignedStudents.length, groupStudentSum);
+
+      const classNames = Array.from(new Set([
+        ...assignedGroups.map(g => (g['name'] as string) || (g['title'] as string) || 'Class Group'),
+        ...assignedClasses.map(c => (c['name'] as string) || (c['title'] as string) || 'Class')
+      ].filter(Boolean)));
+
+      let workloadLevel: 'Light' | 'Optimal' | 'High Load' = 'Light';
+      if (groupCount >= 3 || assignedStudentCount >= 40) {
+        workloadLevel = 'High Load';
+      } else if (groupCount >= 1 || assignedStudentCount >= 1) {
+        workloadLevel = 'Optimal';
+      }
+
+      return {
+        teacherId: tId,
+        teacherName: tName,
+        email: (t['email'] as string) || '',
+        assignedGroupCount: groupCount,
+        assignedStudentCount,
+        assignedClassNames: classNames,
+        workloadLevel
+      };
+    }).sort((a, b) => {
+      const order = { 'High Load': 3, 'Optimal': 2, 'Light': 1 };
+      const diff = order[b.workloadLevel] - order[a.workloadLevel];
+      if (diff !== 0) return diff;
+      return (b.assignedGroupCount * 10 + b.assignedStudentCount) - (a.assignedGroupCount * 10 + a.assignedStudentCount);
+    });
+  }
+
+  private buildEnhancedCourseDistribution(data: Record<string, EntityRecord[]>): EnhancedCourseSlice[] {
+    const courses = data['courses'] || [];
+    const students = data['students'] || [];
+    const classGroups = data['classGroups'] || [];
+    const staff = data['staff'] || [];
+    const todayAttendanceRecords = data['attendance'] || [];
+
+    const totalStudentsCount = students.length || 1;
+
+    const courseMap = new Map<string, { id: string; name: string }>();
+    courses.forEach(c => {
+      const cId = String(c.id);
+      const cName = String(c['name'] || c['title'] || cId);
+      courseMap.set(cId, { id: cId, name: cName });
+    });
+
+    students.forEach(s => {
+      const cId = String(s['courseId'] || '');
+      const cName = String(s['courseName'] || '');
+      if (cId && !courseMap.has(cId)) {
+        courseMap.set(cId, { id: cId, name: cName || ('Course ' + cId) });
+      }
+    });
+
+    const results: EnhancedCourseSlice[] = [];
+    const courseKeys = Array.from(courseMap.keys());
+
+    if (courseKeys.length === 0) {
+      const studentCountsByName = new Map<string, number>();
+      students.forEach(s => {
+        const cName = String(s['courseName'] || 'Unassigned');
+        studentCountsByName.set(cName, (studentCountsByName.get(cName) || 0) + 1);
+      });
+
+      studentCountsByName.forEach((count, name) => {
+        results.push({
+          courseId: name,
+          courseName: name,
+          studentCount: count,
+          staffCount: 0,
+          classGroupCount: 0,
+          studentPercent: Math.round((count / totalStudentsCount) * 100),
+          studentTeacherRatio: 'N/A'
+        });
+      });
+      return results.sort((a, b) => b.studentCount - a.studentCount);
+    }
+
+    courseKeys.forEach(cId => {
+      const courseInfo = courseMap.get(cId)!;
+      const cName = courseInfo.name;
+
+      const courseStudents = students.filter(s =>
+        String(s['courseId'] || '') === cId || String(s['courseName'] || '').toLowerCase() === cName.toLowerCase()
+      );
+      const studentCount = courseStudents.length;
+
+      const courseGroups = classGroups.filter(g =>
+        String(g['courseId'] || '') === cId || String(g['courseName'] || '').toLowerCase() === cName.toLowerCase()
+      );
+      const classGroupCount = courseGroups.length;
+
+      const staffSet = new Set<string>();
+      courseGroups.forEach(g => {
+        const gStaffTokens = this.extractAllStrings([
+          g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff'], g['teacherId'], g['staffId'], g['teacherUids']
+        ]);
+        gStaffTokens.forEach(tok => staffSet.add(tok));
+      });
+
+      staff.forEach(st => {
+        const stCourseIds = this.extractAllStrings([st['courseId'], st['courseIds'], st['assignedCourseId'], st['assignedCourseIds']]);
+        if (stCourseIds.includes(cId) || stCourseIds.includes(cName)) {
+          staffSet.add(String(st.id || st['uid'] || st['email']));
+        }
+      });
+
+      const staffCount = staffSet.size;
+
+      let ratioText = 'N/A';
+      if (staffCount > 0) {
+        const ratioNum = Math.round(studentCount / staffCount);
+        ratioText = `${ratioNum}:1`;
+      } else if (studentCount > 0) {
+        ratioText = `${studentCount}:0`;
+      }
+
+      let todayAttendanceRate: number | undefined;
+      const studentIds = new Set(courseStudents.map(s => String(s.id || s['uid'] || s['userId'])).filter(Boolean));
+      if (studentIds.size > 0 && todayAttendanceRecords.length > 0) {
+        const courseAtt = todayAttendanceRecords.filter(r => studentIds.has(String(r['studentId'] || r['studentUid'])));
+        if (courseAtt.length > 0) {
+          const presentCount = courseAtt.filter(r => r['status'] === 'present' || r['status'] === 'late').length;
+          todayAttendanceRate = Math.round((presentCount / courseAtt.length) * 100);
+        }
+      }
+
+      results.push({
+        courseId: cId,
+        courseName: cName,
+        studentCount,
+        staffCount,
+        classGroupCount,
+        studentPercent: Math.round((studentCount / totalStudentsCount) * 100),
+        studentTeacherRatio: ratioText,
+        todayAttendanceRate
+      });
+    });
+
+    const unassignedStudents = students.filter(s => {
+      const cId = String(s['courseId'] || '');
+      const cName = String(s['courseName'] || '');
+      return !cId && !cName;
+    });
+
+    if (unassignedStudents.length > 0) {
+      results.push({
+        courseId: 'unassigned',
+        courseName: 'Unassigned',
+        studentCount: unassignedStudents.length,
+        staffCount: 0,
+        classGroupCount: 0,
+        studentPercent: Math.round((unassignedStudents.length / totalStudentsCount) * 100),
+        studentTeacherRatio: 'N/A'
+      });
+    }
+
+    return results.sort((a, b) => b.studentCount - a.studentCount);
+  }
+
+  private buildTodayAttendanceOverview(
+    profile: AppUser,
+    data: Record<string, any[]>,
+    inchargeMadrasaIds: string[]
+  ): TodayAttendanceOverview {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const formattedDate = `${day}/${month}/${year}`;
+
+    const allClassGroups = (data['classGroups'] || []) as EntityRecord[];
+    const allClasses = (data['classes'] || []) as EntityRecord[];
+    const allCourses = (data['courses'] || []) as EntityRecord[];
+    const allMadrasas = (data['madrasas'] || []) as EntityRecord[];
+    const allAttendance = (data['attendance'] || []) as EntityRecord[];
+    const allStudents = (data['students'] || []) as EntityRecord[];
+
+    const roleLowerAtt = String(profile.role || '').toLowerCase().replace(/_/g, '');
+    const isSuperAdmin = roleLowerAtt === 'superadmin';
+    const isOrgAdmin = roleLowerAtt === 'organizationadmin';
+
+    const allowedMadrasaIds = new Set<string>();
+    if (isSuperAdmin || isOrgAdmin) {
+      allMadrasas.forEach(m => {
+        if (m.id) allowedMadrasaIds.add(String(m.id));
+        if (m['code']) allowedMadrasaIds.add(String(m['code']));
+      });
+    } else {
+      inchargeMadrasaIds.forEach(id => allowedMadrasaIds.add(String(id)));
+      if (profile.madrasaId) allowedMadrasaIds.add(String(profile.madrasaId));
+      if (Array.isArray(profile.madrasaIds)) profile.madrasaIds.forEach(id => allowedMadrasaIds.add(String(id)));
+    }
+
+    const userTokens = [
+      profile.uid,
+      profile.id,
+      profile.entityId,
+      profile.email
+    ].map(v => String(v || '').trim()).filter(Boolean);
+
+    const assignedGroupEntities = allClassGroups.filter(group => {
+      if (!this.isEntityActive(group)) return false;
+      const staffIds = Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'].map(String) : [];
+      const teacherUids = Array.isArray(group['teacherUids']) ? group['teacherUids'].map(String) : [];
+      const inchargeIds = Array.isArray(group['inchargeIds']) ? group['inchargeIds'].map(String) : [];
+      const coordIds = Array.isArray(group['coordinatorIds']) ? group['coordinatorIds'].map(String) : [];
+      return userTokens.some(id =>
+        staffIds.includes(id) ||
+        teacherUids.includes(id) ||
+        inchargeIds.includes(id) ||
+        coordIds.includes(id) ||
+        String(group['teacherUid']) === id ||
+        String(group['assignedStaffId']) === id
+      );
+    });
+
+    let scopedClassGroups: EntityRecord[] = [];
+
+    if (isSuperAdmin || isOrgAdmin) {
+      scopedClassGroups = allClassGroups.filter(grp => this.isEntityActive(grp));
+    } else {
+      const inchargeGroups = allClassGroups.filter(grp => {
+        if (!this.isEntityActive(grp)) return false;
+        const cls = allClasses.find(c => c.id === grp['classId']);
+        const crs = allCourses.find(c => c.id === (grp['courseId'] || cls?.['courseId']));
+        const grpMadrasaId = String(cls?.['madrasaId'] || crs?.['madrasaId'] || grp['madrasaId'] || '');
+        return allowedMadrasaIds.size > 0 && allowedMadrasaIds.has(grpMadrasaId);
+      });
+
+      const groupMap = new Map<string, EntityRecord>();
+      inchargeGroups.forEach(g => groupMap.set(String(g.id), g));
+      assignedGroupEntities.forEach(g => groupMap.set(String(g.id), g));
+
+      scopedClassGroups = Array.from(groupMap.values());
+    }
+
+    let presentTotal = 0;
+    let absentTotal = 0;
+    let lateTotal = 0;
+    let leaveTotal = 0;
+    let takenGroupsCount = 0;
+    let pendingGroupsCount = 0;
+
+    const madrasaMap = new Map<string, { total: number; taken: number; pending: number; name: string }>();
+
+    const groupStatuses: ClassGroupAttendanceStatus[] = scopedClassGroups.map(grp => {
+      const cls = allClasses.find(c => c.id === grp['classId']);
+      const crs = allCourses.find(c => c.id === (grp['courseId'] || cls?.['courseId']));
+      const grpMadrasaId = String(cls?.['madrasaId'] || crs?.['madrasaId'] || grp['madrasaId'] || profile.madrasaId || '');
+      const madrasaObj = allMadrasas.find(m =>
+        String(m.id) === grpMadrasaId ||
+        String(m['docId']) === grpMadrasaId ||
+        String(m['code']) === grpMadrasaId
+      );
+      const rawMName = madrasaObj?.['name'] || madrasaObj?.['title'] || madrasaObj?.['madrasaName'] || grp['madrasaName'] || cls?.['madrasaName'] || '';
+      const madrasaName = (rawMName && rawMName !== grpMadrasaId) ? rawMName : 'Madrasa';
+
+      const groupStudents = allStudents.filter(st => {
+        if (!this.isEntityActive(st)) return false;
+        const gIds = [
+          st['groupId'], st['classGroupId'], st['assignedGroupId'], st['group'], st['sectionId'],
+          ...(Array.isArray(st['groupIds']) ? st['groupIds'] : []),
+          ...(Array.isArray(st['classGroupIds']) ? st['classGroupIds'] : [])
+        ].filter(Boolean).map(String);
+
+        if (gIds.includes(String(grp.id))) return true;
+        if (Array.isArray(grp['studentIds']) && grp['studentIds'].map(String).includes(String(st.id))) return true;
+        return false;
+      });
+
+      const calcTotalStudents = groupStudents.length || Number(grp['studentCount'] || grp['totalStudents'] || grp['totalStudentCount'] || 0);
+
+      let assignedStaffName = '';
+      const directStaff = grp['assignedStaffName'] || grp['teacherName'] || grp['staffName'] || grp['assignedTeacherName'] || grp['inchargeName'];
+      if (typeof directStaff === 'string' && directStaff.trim()) {
+        assignedStaffName = directStaff.trim();
+      } else if (Array.isArray(grp['assignedStaffNames']) && grp['assignedStaffNames'].length > 0) {
+        assignedStaffName = grp['assignedStaffNames'].join(', ');
+      } else if (Array.isArray(grp['teacherNames']) && grp['teacherNames'].length > 0) {
+        assignedStaffName = grp['teacherNames'].join(', ');
+      } else {
+        const allUserEntities = [
+          ...(Array.isArray(data['users']) ? data['users'] : []),
+          ...(Array.isArray(data['teachers']) ? data['teachers'] : []),
+          ...(Array.isArray(data['staff']) ? data['staff'] : []),
+          ...(Array.isArray(data['profiles']) ? data['profiles'] : [])
+        ] as EntityRecord[];
+
+        const staffTokens = [
+          ...(Array.isArray(grp['assignedStaffIds']) ? grp['assignedStaffIds'] : []),
+          ...(Array.isArray(grp['teacherUids']) ? grp['teacherUids'] : []),
+          ...(Array.isArray(grp['staffIds']) ? grp['staffIds'] : []),
+          ...(Array.isArray(grp['inchargeIds']) ? grp['inchargeIds'] : []),
+          ...(grp['teacherUid'] ? [grp['teacherUid']] : []),
+          ...(grp['assignedStaffId'] ? [grp['assignedStaffId']] : [])
+        ].map(v => String(v || '').trim()).filter(Boolean);
+
+        if (staffTokens.length > 0) {
+          const names: string[] = [];
+          staffTokens.forEach(stToken => {
+            const foundUser = allUserEntities.find(u =>
+              String(u.id) === stToken ||
+              String(u['uid']) === stToken ||
+              String(u['email']) === stToken
+            );
+            if (foundUser) {
+              const uName = foundUser['displayName'] || foundUser['name'] || foundUser['fullName'] || foundUser['email'];
+              if (uName && !names.includes(String(uName))) {
+                names.push(String(uName));
+              }
+            }
+          });
+          if (names.length > 0) {
+            assignedStaffName = names.join(', ');
+          }
+        }
+      }
+
+      const attRecord = allAttendance.find(a => {
+        const matchGroup = a['groupId'] === grp.id || a['classGroupId'] === grp.id || a['classPlanId'] === grp.id || String(a.id).includes(String(grp.id));
+        if (!matchGroup) return false;
+
+        const recDate = String(a['date'] || a['dateStr'] || a['selectedDate'] || '');
+        if (recDate === dateStr) return true;
+        if (String(a.id).includes(dateStr)) return true;
+        if (a['createdAt']) {
+          const rawCreated: any = a['createdAt'];
+          const cDate = new Date(typeof rawCreated?.toDate === 'function' ? rawCreated.toDate() : rawCreated);
+          const cStr = `${cDate.getFullYear()}-${String(cDate.getMonth() + 1).padStart(2, '0')}-${String(cDate.getDate()).padStart(2, '0')}`;
+          if (cStr === dateStr) return true;
+        }
+        return false;
+      });
+
+      let isTaken = false;
+      let takenByName = '';
+      let takenAtText = '';
+      let groupPresent = 0;
+      let groupAbsent = 0;
+      let groupLate = 0;
+      let groupLeave = 0;
+
+      if (attRecord) {
+        const records = attRecord['records'] || attRecord['students'] || attRecord['attendanceMap'];
+        const hasRecords = records && (typeof records === 'object') && Object.keys(records).length > 0;
+        if (hasRecords || attRecord['takenByName'] || attRecord['recordedByName'] || attRecord['status'] === 'completed') {
+          isTaken = true;
+          takenByName = attRecord['takenByName'] || attRecord['recordedByName'] || attRecord['takenBy'] || 'Teacher';
+
+          if (attRecord['takenAt'] || attRecord['updatedAt']) {
+            const t: any = attRecord['takenAt'] || attRecord['updatedAt'];
+            const d = new Date(typeof t?.toDate === 'function' ? t.toDate() : t);
+            takenAtText = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          } else {
+            takenAtText = 'Today';
+          }
+
+          if (records && typeof records === 'object') {
+            Object.values(records).forEach((r: any) => {
+              const st = String(r?.status || r || '').toLowerCase();
+              if (st === 'present' || st === 'p') groupPresent++;
+              else if (st === 'absent' || st === 'a') groupAbsent++;
+              else if (st === 'late' || st === 'l') groupLate++;
+              else if (st === 'leave' || st === 'excused') groupLeave++;
+            });
+          }
+        }
+      }
+
+      if (isTaken) {
+        takenGroupsCount++;
+        presentTotal += groupPresent;
+        absentTotal += groupAbsent;
+        lateTotal += groupLate;
+        leaveTotal += groupLeave;
+      } else {
+        pendingGroupsCount++;
+      }
+
+      const mKey = grpMadrasaId || 'default';
+      if (!madrasaMap.has(mKey)) {
+        madrasaMap.set(mKey, { total: 0, taken: 0, pending: 0, name: madrasaName });
+      }
+      const mStats = madrasaMap.get(mKey)!;
+      mStats.total++;
+      if (isTaken) mStats.taken++;
+      else mStats.pending++;
+
+      return {
+        groupId: String(grp.id),
+        groupName: String(grp['name'] || grp['title'] || 'Class Group'),
+        classId: grp['classId'],
+        className: cls?.['name'] || 'Class',
+        madrasaId: grpMadrasaId,
+        madrasaName,
+        isTaken,
+        takenByName: takenByName || undefined,
+        takenAtText: takenAtText || undefined,
+        presentCount: groupPresent,
+        absentCount: groupAbsent,
+        lateCount: groupLate,
+        leaveCount: groupLeave,
+        totalStudents: calcTotalStudents,
+        assignedStaffName: assignedStaffName || undefined
+      };
+    });
+
+    const totalGroups = scopedClassGroups.length;
+    const completionRate = totalGroups > 0 ? Math.round((takenGroupsCount / totalGroups) * 100) : 0;
+    const totalStudentsRecorded = presentTotal + absentTotal + lateTotal + leaveTotal;
+    const overallPresentPercentage = totalStudentsRecorded > 0 ? Math.round((presentTotal / totalStudentsRecorded) * 100) : 0;
+
+    const madrasaBreakdown = Array.from(madrasaMap.entries()).map(([mId, stats]) => ({
+      madrasaId: mId,
+      madrasaName: stats.name,
+      totalGroups: stats.total,
+      takenGroups: stats.taken,
+      pendingGroups: stats.pending
+    }));
+
+    return {
+      dateStr,
+      formattedDate,
+      totalGroups,
+      takenGroupsCount,
+      pendingGroupsCount,
+      completionRate,
+      presentTotal,
+      absentTotal,
+      lateTotal,
+      leaveTotal,
+      totalStudentsRecorded,
+      overallPresentPercentage,
+      groupStatuses,
+      madrasaBreakdown
     };
   }
 
@@ -703,6 +1745,15 @@ export class DashboardPage {
   }
 
   private statsForRole(role: string, data: Record<string, EntityRecord[]>): DashboardStat[] {
+    // Normalize role to handle casing variants (e.g. 'superAdmin', 'superadmin', 'super_admin')
+    const normalizedRole = (role || '').toLowerCase().replace(/_/g, '');
+    const isSuperAdmin = normalizedRole === 'superadmin';
+    const isOrgAdmin = normalizedRole === 'organizationadmin';
+    const isMadrasaIncharge = normalizedRole === 'madrasaincharge';
+
+    // Super Admins, Organization Admins, and Madrasa Incharges see role-scoped stat cards
+    if (!isSuperAdmin && !isOrgAdmin && !isMadrasaIncharge) return [];
+
     const allStats: DashboardStat[] = [
       { label: 'Organizations', value: data['organizations']?.length ?? 0, icon: 'business-outline', tone: 'success' },
       { label: 'Madrasas', value: data['madrasas']?.length ?? 0, icon: 'school-outline', tone: 'primary' },
@@ -714,50 +1765,52 @@ export class DashboardPage {
       { label: 'Staff', value: data['staff']?.length ?? 0, icon: 'briefcase-outline', tone: 'warning' },
       { label: 'Courses', value: data['courses']?.length ?? 0, icon: 'library-outline', tone: 'success' },
       { label: 'Classes', value: data['classes']?.length ?? 0, icon: 'easel-outline', tone: 'primary' },
+      { label: 'Class Groups', value: data['classGroups']?.length ?? 0, icon: 'people-outline', tone: 'purple' },
       { label: 'Subjects', value: data['subjects']?.length ?? 0, icon: 'book-outline', tone: 'warning' },
-      { label: 'Notifications', value: data['notifications']?.length ?? 0, icon: 'notifications-outline', tone: 'danger' },
     ];
 
-    if (role === 'superAdmin') {
-      return allStats;
-    }
+    if (isSuperAdmin) return allStats;
 
-    if (role === 'organizationAdmin') {
+    if (isOrgAdmin) {
+      // Organization Admin sees overall madrasa data across the organization (all stats except Organizations total)
       return allStats.filter(s => s.label !== 'Organizations');
     }
 
-    if (role === 'coordinator') {
-      return allStats.filter(s => ['Madrasa Incharges', 'Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
-    }
-
-    if (role === 'madrasaIncharge') {
-      return allStats.filter(s => ['Students', 'Parents', 'Staff', 'Courses', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
-    }
-
-    if (role === 'teacher' || role === 'staff') {
-      return allStats.filter(s => ['Students', 'Classes', 'Subjects', 'Notifications'].includes(s.label));
-    }
-
-    if (role === 'student' || role === 'parent') {
-      return allStats.filter(s => ['Students', 'Courses', 'Classes', 'Notifications'].includes(s.label));
+    if (isMadrasaIncharge) {
+      // Madrasa Incharge sees statistics relevant to their madrasas only
+      const inchargeLabels = ['Madrasas', 'Students', 'Staff', 'Classes', 'Class Groups', 'Subjects', 'Courses'];
+      return allStats.filter(s => inchargeLabels.includes(s.label));
     }
 
     return [];
   }
 
-  private attendanceSummary(records: AttendanceRecord[]): DashboardVm['attendance'] {
-    const present = records.filter((record) => record.status === 'present').length;
-    const absent = records.filter((record) => record.status === 'absent').length;
-    const late = records.filter((record) => record.status === 'late').length;
-    const leave = records.filter((record) => record.status === 'leave').length;
-    const total = records.length;
+  private attendanceSummary(records: AttendanceRecord[], todayAtt?: TodayAttendanceOverview): DashboardVm['attendance'] {
+    let present = records.filter((record) => record.status === 'present').length;
+    let absent = records.filter((record) => record.status === 'absent').length;
+    let late = records.filter((record) => record.status === 'late').length;
+    let leave = records.filter((record) => record.status === 'leave').length;
+    let total = records.length;
+    let isToday = false;
+
+    if (total === 0 && todayAtt && todayAtt.totalStudentsRecorded > 0) {
+      present = todayAtt.presentTotal;
+      absent = todayAtt.absentTotal;
+      late = todayAtt.lateTotal;
+      leave = todayAtt.leaveTotal;
+      total = todayAtt.totalStudentsRecorded;
+      isToday = true;
+    }
+
+    const rate = total > 0 ? Math.round(((present + late) / total) * 100) : 0;
     return {
       present,
       absent,
       late,
       leave,
       total,
-      rate: total > 0 ? Math.round((present / total) * 100) : 0,
+      rate,
+      isToday
     };
   }
 

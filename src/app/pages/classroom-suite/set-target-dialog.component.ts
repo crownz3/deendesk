@@ -1,6 +1,6 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { ALL_QURAN_SURAHS } from '../../core/constants/defaults';
+import { ALL_QURAN_SURAHS, SURAH_AYAH_COUNT, getSurahAyahCount } from '../../core/constants/defaults';
 import { EntityRecord } from '../../core/services/repository.service';
 
 export interface SetTargetDialogData {
@@ -44,16 +44,24 @@ export interface SetTargetDialogData {
         <div class="dates-grid">
           <div>
             <label>Start Date:</label>
-            <input type="date" class="dialog-input" [(ngModel)]="startDate" (change)="onDatesUpdated()" />
+            <mat-form-field appearance="outline" class="full-width-field date-mat-field" subscriptSizing="dynamic">
+              <input matInput [matDatepicker]="pickerStart" [value]="startDateObj" (dateChange)="onStartDateObjChange($event.value)" readonly />
+              <mat-datepicker-toggle matIconSuffix [for]="pickerStart"></mat-datepicker-toggle>
+              <mat-datepicker #pickerStart></mat-datepicker>
+            </mat-form-field>
           </div>
           <div>
             <label>Target End Date:</label>
-            <input type="date" class="dialog-input" [(ngModel)]="endDate" (change)="onDatesUpdated()" />
+            <mat-form-field appearance="outline" class="full-width-field date-mat-field" subscriptSizing="dynamic">
+              <input matInput [matDatepicker]="pickerEnd" [value]="endDateObj" (dateChange)="onEndDateObjChange($event.value)" readonly />
+              <mat-datepicker-toggle matIconSuffix [for]="pickerEnd"></mat-datepicker-toggle>
+              <mat-datepicker #pickerEnd></mat-datepicker>
+            </mat-form-field>
           </div>
         </div>
 
         <div class="period-summary-badge">
-          <mat-icon>info</mat-icon> Target Active: <strong>{{ startDate }}</strong> to <strong>{{ endDate }}</strong> ({{ calculatedDays }} Days)
+          <mat-icon>info</mat-icon> Target Active: <strong>{{ formatDateDisplay(startDate) }}</strong> to <strong>{{ formatDateDisplay(endDate) }}</strong> ({{ calculatedDays }} Days)
         </div>
       </div>
 
@@ -106,7 +114,7 @@ export interface SetTargetDialogData {
             <label>Target Surah Name (Auto-complete 114 Surahs):</label>
             <mat-form-field appearance="outline" class="full-width-field" subscriptSizing="dynamic">
               <input type="text" matInput [(ngModel)]="sabaqSurah" (input)="filterSurahs()" [matAutocomplete]="autoSurah" placeholder="Type Surah name (e.g. Al-Baqarah)..." />
-              <mat-autocomplete #autoSurah="matAutocomplete">
+              <mat-autocomplete #autoSurah="matAutocomplete" (optionSelected)="onSurahSelected($event.option.value)">
                 <mat-option *ngFor="let surah of filteredSurahs" [value]="surah">
                   {{ surah }}
                 </mat-option>
@@ -183,43 +191,62 @@ export interface SetTargetDialogData {
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
     .target-dialog-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 20px;
+      padding: 14px 16px;
       background: #f8fafc;
       border-bottom: 1px solid #e2e8f0;
 
       .header-title-box {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
+        min-width: 0;
+        flex: 1;
 
         .target-icon {
-          font-size: 28px;
-          width: 28px;
-          height: 28px;
+          font-size: 26px;
+          width: 26px;
+          height: 26px;
           color: #3b82f6;
+          flex-shrink: 0;
         }
 
-        h2 { margin: 0; font-size: 1.15rem; font-weight: 700; color: #0f172a; }
-        .subtitle { margin: 2px 0 0 0; font-size: 0.80rem; color: #64748b; }
+        h2 {
+          margin: 0;
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: #0f172a;
+          line-height: 1.3;
+          word-break: break-word;
+        }
+        .subtitle { margin: 2px 0 0 0; font-size: 0.78rem; color: #64748b; }
       }
     }
 
     .target-dialog-body {
-      padding: 18px 20px;
+      padding: 14px 16px;
       max-height: 75vh;
       overflow-y: auto;
+      overflow-x: hidden;
+      box-sizing: border-box;
     }
 
     .card-section {
       background: #ffffff;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      box-sizing: border-box;
 
       .section-label {
         display: flex;
@@ -230,25 +257,28 @@ export interface SetTargetDialogData {
         color: #1e293b;
         margin-bottom: 10px;
 
-        mat-icon { font-size: 18px; width: 18px; height: 18px; color: #3b82f6; }
+        mat-icon { font-size: 18px; width: 18px; height: 18px; color: #3b82f6; flex-shrink: 0; }
       }
     }
 
     .period-pills-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
       margin-bottom: 12px;
 
       .period-pill {
-        padding: 6px 12px;
+        flex: 1 1 auto;
+        text-align: center;
+        padding: 6px 10px;
         border-radius: 20px;
         border: 1px solid #cbd5e1;
         background: #f8fafc;
         color: #334155;
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 600;
         cursor: pointer;
+        white-space: nowrap;
         transition: all 0.2s ease;
 
         &.active {
@@ -262,23 +292,51 @@ export interface SetTargetDialogData {
     .dates-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 10px;
       margin-bottom: 10px;
 
+      @media (max-width: 520px) {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
       label { display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
+
+      .date-mat-field {
+        width: 100%;
+        box-sizing: border-box;
+
+        ::ng-deep .mat-mdc-text-field-wrapper {
+          height: 38px !important;
+          max-height: 38px !important;
+          padding-top: 0 !important;
+          padding-bottom: 0 !important;
+        }
+        ::ng-deep .mat-mdc-form-field-flex {
+          height: 38px !important;
+          align-items: center !important;
+        }
+        ::ng-deep .mat-mdc-form-field-infix {
+          padding-top: 6px !important;
+          padding-bottom: 6px !important;
+        }
+      }
     }
 
     .period-summary-badge {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
+      gap: 4px;
+      padding: 8px 10px;
       border-radius: 8px;
       background: #eff6ff;
       color: #1e40af;
-      font-size: 0.80rem;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      word-break: break-word;
 
-      mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      mat-icon { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
     }
 
     .warning-section {
@@ -306,6 +364,7 @@ export interface SetTargetDialogData {
         .rollover-btn {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
           gap: 6px;
           margin-top: 10px;
           padding: 8px 14px;
@@ -316,32 +375,41 @@ export interface SetTargetDialogData {
           font-size: 0.82rem;
           font-weight: 600;
           cursor: pointer;
+          width: 100%;
+          box-sizing: border-box;
 
-          mat-icon { font-size: 18px; width: 18px; height: 18px; }
+          mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
         }
       }
     }
 
     .portion-tabs-header {
       display: flex;
-      gap: 8px;
+      gap: 6px;
+      flex-wrap: wrap;
       border-bottom: 1px solid #e2e8f0;
       padding-bottom: 8px;
       margin-bottom: 12px;
 
       .p-tab-btn {
-        padding: 6px 12px;
-        border: none;
-        background: transparent;
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #64748b;
+        flex: 1 1 30%;
+        min-width: 90px;
+        padding: 6px 8px;
+        border-radius: 8px;
+        border: 1px solid #cbd5e1;
+        background: #f8fafc;
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #475569;
         cursor: pointer;
-        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+        text-align: center;
+        transition: all 0.2s ease;
 
         &.active {
           color: #2563eb;
-          border-bottom-color: #2563eb;
+          background: #eff6ff;
+          border-color: #3b82f6;
         }
       }
     }
@@ -349,7 +417,16 @@ export interface SetTargetDialogData {
     .tab-box {
       label { display: block; font-size: 0.80rem; font-weight: 600; color: #334155; margin-bottom: 4px; }
       .help-text { display: block; font-size: 0.75rem; color: #64748b; margin-top: 4px; }
-      .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+
+        @media (max-width: 420px) {
+          grid-template-columns: 1fr;
+          gap: 8px;
+        }
+      }
     }
 
     .dialog-input, .dialog-select {
@@ -372,15 +449,25 @@ export interface SetTargetDialogData {
 
     .full-width-field {
       width: 100%;
+      box-sizing: border-box;
     }
 
     .target-dialog-footer {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      padding: 14px 20px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
       background: #f8fafc;
       border-top: 1px solid #e2e8f0;
+
+      @media (max-width: 480px) {
+        button {
+          flex: 1 1 100%;
+          width: 100%;
+          justify-content: center;
+        }
+      }
     }
   `],
   standalone: false,
@@ -457,6 +544,14 @@ export class SetTargetDialogComponent implements OnInit {
     }
   }
 
+  onSurahSelected(value: string): void {
+    const ayahCount = getSurahAyahCount(value);
+    if (ayahCount) {
+      this.sabaqFromAyah = 1;
+      this.sabaqToAyah = ayahCount;
+    }
+  }
+
   setTargetPeriod(period: 'weekly' | 'monthly' | 'custom'): void {
     this.targetPeriod = period;
     if (period === 'weekly') {
@@ -504,6 +599,49 @@ export class SetTargetDialogComponent implements OnInit {
     };
 
     this.dialogRef.close(result);
+  }
+
+  get startDateObj(): Date {
+    return this.startDate ? new Date(this.startDate + 'T00:00:00') : new Date();
+  }
+
+  get endDateObj(): Date {
+    return this.endDate ? new Date(this.endDate + 'T00:00:00') : new Date();
+  }
+
+  onStartDateObjChange(val: Date | null): void {
+    if (!val) return;
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    this.startDate = `${y}-${m}-${d}`;
+    this.onDatesUpdated();
+  }
+
+  onEndDateObjChange(val: Date | null): void {
+    if (!val) return;
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    this.endDate = `${y}-${m}-${d}`;
+    this.onDatesUpdated();
+  }
+
+  formatDateDisplay(dateStr: string): string {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const [y, m, d] = parts;
+      return `${d}/${m}/${y}`;
+    }
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    return dateStr;
   }
 
   private getTodayStr(): string {

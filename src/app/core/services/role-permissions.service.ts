@@ -1,9 +1,55 @@
 import { Injectable, Injector } from '@angular/core';
+import { Subject } from 'rxjs';
 import { collection, getDocs, doc, setDoc, deleteDoc, query, where, writeBatch, addDoc, serverTimestamp } from 'firebase/firestore';
 import { getDeenDeskFirestore } from './firebase-app';
 import { PermissionKey, UserRole } from '../models/domain.model';
-import { ROLE_PERMISSIONS, ROLE_LABELS, ROLE_ORDER } from '../constants/defaults';
+import { ROLE_PERMISSIONS, ROLE_LABELS, ROLE_ORDER, PERMISSION_LABELS } from '../constants/defaults';
 import { AuditLogService } from './audit-log.service';
+
+const SUPER_ADMIN_ONLY_PERMISSIONS: PermissionKey[] = [
+  'manageOrganizations',
+  'manageBilling',
+  'viewBilling',
+  'viewFirebaseUsage',
+  'manageFirebaseUsage',
+  'viewQaTesting',
+  'manageQaBugs',
+  'manageTestRuns',
+  'manageDailyQaReports',
+  'viewArchitectureExplorer',
+  'manageArchitectureExplorer'
+];
+
+const ORG_ADMIN_EXCLUSIVE_PERMISSIONS: PermissionKey[] = [
+  'manageOrganizations',
+  'manageMadrasas',
+  'manageCoordinators',
+  'manageIncharges',
+  'manageSettings',
+  'managePermissions',
+  'manageBrandingAndMenu',
+  'manageBilling',
+  'viewBilling',
+  'importCsv',
+  'viewFirebaseUsage',
+  'manageFirebaseUsage',
+  'viewArchitectureExplorer',
+  'manageArchitectureExplorer',
+  'manageUserLifecycle',
+  'dismissStaff',
+  'relieveStaff'
+];
+
+const INCHARGE_EXCLUSIVE_PERMISSIONS: PermissionKey[] = [
+  'manageUsers',
+  'manageCoordinators',
+  'manageIncharges',
+  'manageStaff',
+  'manageStageHeads',
+  'manageParents',
+  'managePromotions',
+  'manageAcademicPlans'
+];
 
 @Injectable({
   providedIn: 'root'
@@ -12,6 +58,7 @@ export class RolePermissionsService {
   private templates: Record<string, PermissionKey[]> = { ...ROLE_PERMISSIONS };
   private labels: Record<string, string> = { ...ROLE_LABELS };
   private loaded = false;
+  readonly permissionsUpdated$ = new Subject<void>();
 
   private readonly firestore = getDeenDeskFirestore();
 
@@ -101,6 +148,7 @@ export class RolePermissionsService {
     await setDoc(docRef, payload, { merge: true });
     this.templates[docKey] = permissions;
     this.templates[role] = permissions;
+    this.permissionsUpdated$.next();
 
     this.auditLogService.logAction({
       module: 'Permissions',
@@ -109,6 +157,46 @@ export class RolePermissionsService {
       targetName: this.labels[docKey] || ROLE_LABELS[role as UserRole] || role,
       status: 'success'
     });
+  }
+
+  /** Calculates permitted custom permission options for user creation/editing forms based on creator role & target user role */
+  getValidPermissionsForRole(targetRole?: string, creatorRole?: string, creatorPermissions?: PermissionKey[]): { label: string; value: PermissionKey }[] {
+    const isSuperAdmin = creatorRole === 'superAdmin';
+    const isOrgAdmin = creatorRole === 'organizationAdmin' || isSuperAdmin;
+    const isTeacherOrStaffOrLower = targetRole === 'teacher' || targetRole === 'staff' || targetRole === 'student' || targetRole === 'parent';
+
+    return Object.entries(PERMISSION_LABELS)
+      .filter(([permKey]) => {
+        const key = permKey as PermissionKey;
+
+        // Super Admin only permissions
+        if (!isSuperAdmin && SUPER_ADMIN_ONLY_PERMISSIONS.includes(key)) {
+          return false;
+        }
+
+        // Non-org admin creators cannot assign org-level exclusive permissions (e.g. madrasaIncharge creating users)
+        if (!isOrgAdmin && ORG_ADMIN_EXCLUSIVE_PERMISSIONS.includes(key)) {
+          return false;
+        }
+
+        // If target role is madrasaIncharge or coordinator, exclude org-level administrative permissions
+        if ((targetRole === 'madrasaIncharge' || targetRole === 'coordinator') && ORG_ADMIN_EXCLUSIVE_PERMISSIONS.includes(key)) {
+          return false;
+        }
+
+        // If target role is teacher/staff/student/parent, exclude incharge/org-level exclusive permissions
+        if (isTeacherOrStaffOrLower && (ORG_ADMIN_EXCLUSIVE_PERMISSIONS.includes(key) || INCHARGE_EXCLUSIVE_PERMISSIONS.includes(key))) {
+          return false;
+        }
+
+        // Non-org-admins can only grant permissions that they themselves possess
+        if (!isOrgAdmin && creatorPermissions && creatorPermissions.length > 0) {
+          if (!creatorPermissions.includes(key)) return false;
+        }
+
+        return true;
+      })
+      .map(([value, label]) => ({ label, value: value as PermissionKey }));
   }
 
   /** Delete a custom role template, clear it from all affected users, and notify them */

@@ -8,142 +8,199 @@
     </header>
 
     <mat-tab-group animationDuration="0ms" class="responsive-tabs">
-      <!-- TODAY'S SCHEDULE -->
-      <mat-tab label="Today's Schedule">
+      <!-- TAB 1: REGULAR ASSIGNMENTS -->
+      <mat-tab label="Regular Assignments">
         <div class="tab-content">
-          <section *ngIf="vm.todaySchedule.length > 0; else noToday">
-            <div class="panel">
-              <div class="panel-heading">
-                <h2>Activities for Today</h2>
-                <span class="count-badge">{{ vm.todaySchedule.length }} activities</span>
+          <section *ngIf="vm.regularAssignments.length > 0; else noRegular">
+            <div class="panel-heading-bar mb-3">
+              <div>
+                <h2>Regular Class & Group Assignments</h2>
+                <p class="sub-text">Your assigned regular Class Groups, Classes, and syllabus courses.</p>
               </div>
+              <span class="count-badge">{{ vm.regularAssignments.length }} Regular Assignments</span>
+            </div>
 
-              <div class="cards-grid">
-                <mat-card *ngFor="let entry of vm.todaySchedule" class="activity-card">
-                  <div class="card-top-bar">
-                    <div class="time-tag">
-                      <ion-icon name="time-outline"></ion-icon>
-                      <span *ngIf="entry.startTime">{{ entry.startTime }} - {{ entry.endTime }}</span>
-                      <span *ngIf="!entry.startTime">All Day</span>
+            <div class="cards-grid">
+              <div *ngFor="let item of vm.regularAssignments" class="regular-card-v2">
+                <div class="card-header-v2">
+                  <div class="card-header-info">
+                    <div class="card-type-chip">
+                      <ion-icon name="people-outline"></ion-icon>
+                      <span>{{ item.type === 'classGroup' ? 'Regular Class Group' : 'Regular Class' }}</span>
                     </div>
-                    <span *ngIf="entry.scheduleType === 'fullDay'" class="full-day-badge">FULL DAY</span>
+                    <h3 class="card-title">{{ item.name }}</h3>
                   </div>
-                  
-                  <div class="card-body">
-                    <div class="activity-title">
-                      {{ entry.activityName }}
+                  <span class="students-badge" title="Total Enrolled Students">
+                    <ion-icon name="person-outline"></ion-icon>
+                    <strong>{{ item.studentCount }}</strong> Students
+                  </span>
+                </div>
+
+                <div class="card-body-v2">
+                  <div class="meta-row" *ngIf="item.madrasaId">
+                    <div class="meta-icon-wrapper icon-bg-blue">
+                      <ion-icon name="business-outline"></ion-icon>
                     </div>
-                    
-                    <div class="meta-list">
-                      <div *ngIf="entry.classId" class="meta-item">
-                        <ion-icon name="people-outline" class="icon-secondary"></ion-icon> 
-                        <span>Class: <strong>{{ entry.className }}</strong></span>
-                      </div>
-                      <div *ngIf="entry.subjectId" class="meta-item">
-                        <ion-icon name="book-outline" class="icon-tertiary"></ion-icon> 
-                        <span>Subject: <strong>{{ (resolver.resolveName(entry.subjectId, 'subject') | async) || 'Loading...' }}</strong></span>
-                      </div>
-                      <div *ngIf="entry.teacherId" class="meta-item">
-                        <ion-icon name="person-outline" class="icon-warning"></ion-icon> 
-                        <span>Teacher: <strong>{{ (resolver.resolveName(entry.teacherId, 'user') | async) || 'Loading...' }}</strong></span>
-                      </div>
-                      <div *ngIf="entry.roomId" class="meta-item">
-                        <ion-icon name="location-outline" class="icon-danger"></ion-icon> 
-                        <span>Room: <strong>{{ entry.roomId }}</strong></span>
-                      </div>
+                    <div class="meta-details">
+                      <span class="meta-label">Madrasa</span>
+                      <strong class="meta-value">{{ resolver.resolveName(item.madrasaId, 'madrasa') | async }}</strong>
                     </div>
                   </div>
-                </mat-card>
+
+                  <div class="meta-row" *ngIf="item.classId">
+                    <div class="meta-icon-wrapper icon-bg-indigo">
+                      <ion-icon name="easel-outline"></ion-icon>
+                    </div>
+                    <div class="meta-details">
+                      <span class="meta-label">Class</span>
+                      <strong class="meta-value">{{ resolver.resolveName(item.classId, 'class') | async }}</strong>
+                    </div>
+                  </div>
+
+                  <div class="meta-row" *ngIf="item.courseId">
+                    <div class="meta-icon-wrapper icon-bg-purple">
+                      <ion-icon name="book-outline"></ion-icon>
+                    </div>
+                    <div class="meta-details">
+                      <span class="meta-label">Course / Syllabus</span>
+                      <strong class="meta-value">{{ resolver.resolveName(item.courseId, 'course') | async }}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="card-actions-v2">
+                  <ion-button fill="solid" color="primary" class="action-btn-main" routerLink="/attendance">
+                    <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+                    Take Attendance
+                  </ion-button>
+                  <ion-button fill="outline" color="secondary" class="action-btn-sub" routerLink="/class-plans">
+                    <ion-icon slot="start" name="journal-outline"></ion-icon>
+                    View Plan
+                  </ion-button>
+                </div>
               </div>
             </div>
           </section>
-          <ng-template #noToday>
-            <app-empty-state icon="calendar-clear-outline" title="No activities today" message="You don't have any classes scheduled for today."></app-empty-state>
+
+          <ng-template #noRegular>
+            <app-empty-state icon="easel-outline" title="No Regular Assignments" message="You don't have any regular classes or class groups assigned to you."></app-empty-state>
           </ng-template>
         </div>
       </mat-tab>
 
-      <!-- WEEKLY TIMETABLE -->
-      <mat-tab label="Weekly Timetable">
+      <!-- TAB 2: SPECIFIC ASSIGNMENTS -->
+      <mat-tab label="Specific Assignments">
         <div class="tab-content">
-          <section class="weekly-grid">
-            <article class="panel" *ngFor="let day of days">
-              <div class="panel-heading">
-                <h2>{{ day }}</h2>
-                <span class="count-badge">{{ vm.weeklySchedule[day].length }} activities</span>
-              </div>
-              <div class="schedule-list" *ngIf="vm.weeklySchedule[day].length > 0; else noDay">
-                <div class="schedule-list-item" *ngFor="let entry of vm.weeklySchedule[day]">
-                  <div class="time-block">
-                    <strong>{{ entry.startTime || 'All Day' }}</strong>
-                    <span *ngIf="entry.endTime">{{ entry.endTime }}</span>
-                  </div>
-                  <div class="details-block">
-                    <strong>{{ entry.activityName }}</strong>
-                    <span *ngIf="entry.classId">{{ entry.className }}</span>
-                  </div>
-                </div>
-              </div>
-              <ng-template #noDay>
-                <div class="no-activity-msg">No activities scheduled.</div>
-              </ng-template>
-            </article>
-          </section>
-        </div>
-      </mat-tab>
+          <div class="panel-heading-bar mb-3">
+            <div>
+              <h2>Specific Assignments</h2>
+              <p class="sub-text">Specific scheduled periods, exams, and event assignments.</p>
+            </div>
 
-      <!-- MY CLASSES/PLANS -->
-      <mat-tab label="My Classes">
-        <div class="tab-content">
-          <section class="dashboard-grid" *ngIf="vm.allPlans.length > 0; else noPlans">
-            <article class="access-card" *ngFor="let plan of vm.allPlans">
-              <div class="card-header">
-                <div class="icon-box warning">
+            <div class="specific-nav-toggle">
+              <ion-segment [(ngModel)]="specificSubTab" color="primary">
+                <ion-segment-button value="periods">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <ion-label>Period Slots</ion-label>
+                </ion-segment-button>
+                <ion-segment-button value="events">
                   <ion-icon name="calendar-outline"></ion-icon>
-                </div>
-                <div class="title-box">
-                  <h3>{{ plan.title }}</h3>
-                  <p>{{ plan.className }} ({{ plan.courseName }})</p>
-                </div>
-              </div>
-              <div class="card-stats">
-                <div class="stat-item">
-                  <span>Schedule Type</span>
-                  <strong class="text-capitalize">{{ plan.scheduleType }}</strong>
-                </div>
-                <div class="stat-item">
-                  <span>Status</span>
-                  <strong>{{ plan.status }}</strong>
-                </div>
-              </div>
-              <div class="card-actions">
-                <ion-button fill="clear" size="small" routerLink="/class-plans">
-                  <ion-icon slot="start" name="eye-outline"></ion-icon>
-                  View Plan
-                </ion-button>
-                <ion-button fill="clear" size="small" routerLink="/attendance">
-                  <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
-                  Take Attendance
-                </ion-button>
-              </div>
-            </article>
-          </section>
-          <ng-template #noPlans>
-            <app-empty-state icon="easel-outline" title="No assigned classes" message="You don't have any class plans assigned to you yet."></app-empty-state>
-          </ng-template>
-        </div>
-      </mat-tab>
+                  <ion-label>Events & Exams ({{ vm.assignedEvents.length }})</ion-label>
+                </ion-segment-button>
+              </ion-segment>
+            </div>
+          </div>
 
-      <!-- ASSIGNED EVENTS -->
-      <mat-tab label="Assigned Events">
-        <div class="tab-content">
-          <section *ngIf="vm.assignedEvents.length > 0; else noEvents">
-            <div class="panel">
-              <div class="panel-heading">
-                <h2>Your Assigned Events</h2>
-                <span class="count-badge">{{ vm.assignedEvents.length }} events</span>
-              </div>
+          <!-- SUB-VIEW 1: PERIOD SLOTS / TIMETABLE -->
+          <div *ngIf="specificSubTab === 'periods'">
+            <div class="period-toggle-bar mb-3">
+              <ion-segment [(ngModel)]="periodViewMode" color="secondary" mode="ios" style="max-width: 320px;">
+                <ion-segment-button value="today">
+                  <ion-label>Today's Schedule ({{ vm.todaySchedule.length }})</ion-label>
+                </ion-segment-button>
+                <ion-segment-button value="weekly">
+                  <ion-label>Weekly Timetable</ion-label>
+                </ion-segment-button>
+              </ion-segment>
+            </div>
 
+            <!-- TODAY'S SCHEDULE -->
+            <section *ngIf="periodViewMode === 'today'">
+              <div *ngIf="vm.todaySchedule.length > 0; else noToday">
+                <div class="cards-grid">
+                  <mat-card *ngFor="let entry of vm.todaySchedule" class="activity-card">
+                    <div class="card-top-bar">
+                      <div class="time-tag">
+                        <ion-icon name="time-outline"></ion-icon>
+                        <span *ngIf="entry.startTime">{{ entry.startTime }} - {{ entry.endTime }}</span>
+                        <span *ngIf="!entry.startTime">All Day</span>
+                      </div>
+                      <span *ngIf="entry.scheduleType === 'fullDay'" class="full-day-badge">FULL DAY</span>
+                    </div>
+                    
+                    <div class="card-body">
+                      <div class="activity-title">
+                        {{ entry.activityName }}
+                      </div>
+                      
+                      <div class="meta-list">
+                        <div *ngIf="entry.classId" class="meta-item">
+                          <ion-icon name="people-outline" class="icon-secondary"></ion-icon> 
+                          <span>Class: <strong>{{ entry.className }}</strong></span>
+                        </div>
+                        <div *ngIf="entry.subjectId" class="meta-item">
+                          <ion-icon name="book-outline" class="icon-tertiary"></ion-icon> 
+                          <span>Subject: <strong>{{ (resolver.resolveName(entry.subjectId, 'subject') | async) || 'Loading...' }}</strong></span>
+                        </div>
+                        <div *ngIf="entry.teacherId" class="meta-item">
+                          <ion-icon name="person-outline" class="icon-warning"></ion-icon> 
+                          <span>Teacher: <strong>{{ (resolver.resolveName(entry.teacherId, 'user') | async) || 'Loading...' }}</strong></span>
+                        </div>
+                        <div *ngIf="entry.roomId" class="meta-item">
+                          <ion-icon name="location-outline" class="icon-danger"></ion-icon> 
+                          <span>Room: <strong>{{ entry.roomId }}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+                  </mat-card>
+                </div>
+              </div>
+              <ng-template #noToday>
+                <app-empty-state icon="calendar-clear-outline" title="No period activities today" message="You don't have any period classes scheduled for today."></app-empty-state>
+              </ng-template>
+            </section>
+
+            <!-- WEEKLY TIMETABLE -->
+            <section *ngIf="periodViewMode === 'weekly'">
+              <div class="weekly-grid">
+                <article class="panel" *ngFor="let day of days">
+                  <div class="panel-heading">
+                    <h2>{{ day }}</h2>
+                    <span class="count-badge">{{ vm.weeklySchedule[day].length }} activities</span>
+                  </div>
+                  <div class="schedule-list" *ngIf="vm.weeklySchedule[day].length > 0; else noDay">
+                    <div class="schedule-list-item" *ngFor="let entry of vm.weeklySchedule[day]">
+                      <div class="time-block">
+                        <strong>{{ entry.startTime || 'All Day' }}</strong>
+                        <span *ngIf="entry.endTime">{{ entry.endTime }}</span>
+                      </div>
+                      <div class="details-block">
+                        <strong>{{ entry.activityName }}</strong>
+                        <span *ngIf="entry.classId">{{ entry.className }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <ng-template #noDay>
+                    <div class="no-activity-msg">No activities scheduled.</div>
+                  </ng-template>
+                </article>
+              </div>
+            </section>
+          </div>
+
+          <!-- SUB-VIEW 2: ASSIGNED EVENTS & EXAMS -->
+          <div *ngIf="specificSubTab === 'events'">
+            <section *ngIf="vm.assignedEvents.length > 0; else noEvents">
               <div class="cards-grid">
                 <mat-card *ngFor="let e of vm.assignedEvents" class="event-card">
                   <div class="event-top-bar" [ngClass]="e.status">
@@ -187,11 +244,12 @@
                   </div>
                 </mat-card>
               </div>
-            </div>
-          </section>
-          <ng-template #noEvents>
-            <app-empty-state icon="calendar-outline" title="No Assigned Events" message="You don't have any events assigned to you."></app-empty-state>
-          </ng-template>
+            </section>
+            <ng-template #noEvents>
+              <app-empty-state icon="calendar-outline" title="No Assigned Events" message="You don't have any specific events or exams assigned to you."></app-empty-state>
+            </ng-template>
+          </div>
+
         </div>
       </mat-tab>
     </mat-tab-group>

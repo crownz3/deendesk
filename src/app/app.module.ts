@@ -25,7 +25,17 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDatepickerModule } from '@angular/material/datepicker';
-import { MatNativeDateModule } from '@angular/material/core';
+import { MatNativeDateModule, MAT_DATE_FORMATS, MAT_DATE_LOCALE } from '@angular/material/core';
+
+const DD_MM_YYYY_FORMATS = {
+  parse:   { dateInput: 'DD/MM/YYYY' },
+  display: {
+    dateInput:          'DD/MM/YYYY',
+    monthYearLabel:     'MMM YYYY',
+    dateA11yLabel:      'DD/MM/YYYY',
+    monthYearA11yLabel: 'MMMM YYYY',
+  },
+};
 import { MatIcon, MatIconModule } from '@angular/material/icon';
 import { MatSortModule } from '@angular/material/sort';
 import { MatCardModule } from '@angular/material/card';
@@ -45,6 +55,7 @@ import { ActivityLogsPage } from './pages/activity-logs/activity-logs.page';
 import { AttendancePage } from './pages/attendance/attendance.page';
 import { ClassroomSuitePage } from './pages/classroom-suite/classroom-suite.page';
 import { SetTargetDialogComponent } from './pages/classroom-suite/set-target-dialog.component';
+import { StudentAttendanceHistoryDialogComponent } from './pages/classroom-suite/student-attendance-history-dialog.component';
 import { ContinueAccountPage } from './pages/continue-account/continue-account.page';
 import { CsvImportsPage } from './pages/csv-imports/csv-imports.page';
 import { DashboardPage } from './pages/dashboard/dashboard.page';
@@ -92,6 +103,7 @@ import { StudentEvaluationDialogComponent } from './pages/attendance/student-eva
 import { ClassPlanTimetableComponent } from './pages/class-plans/class-plan-timetable.component';
 import { ClassPlanTimetableCopyDialogComponent } from './pages/class-plans/class-plan-timetable-copy-dialog.component';
 import { TimetableEntryFormDialogComponent } from './pages/class-plans/timetable-entry-form-dialog.component';
+import { SimpleTimetableSlotDialogComponent } from './pages/classroom-suite/simple-timetable-slot-dialog.component';
 import { ScheduleTypesHelpDialogComponent } from './pages/class-plans/schedule-types-help-dialog.component';
 import { BulkDeleteConfirmDialogComponent } from './shared/components/bulk-delete-confirm-dialog/bulk-delete-confirm-dialog.component';
 import { BulkDeleteProgressDialogComponent } from './shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
@@ -200,11 +212,14 @@ import { SubscriptionEditDialogComponent } from './pages/subscriptions/subscript
 import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
 import { ShiftClassGroupsDialogComponent } from './pages/course-catalog/shift-class-groups-dialog.component';
 import { ArchitectureExplorerPage } from './pages/architecture-explorer/architecture-explorer.page';
+import { ConfigureCardsDialogComponent } from './pages/dashboard/configure-cards-dialog.component';
 
 @NgModule({
   declarations: [
+    ConfigureCardsDialogComponent,
     ClassroomSuitePage,
     SetTargetDialogComponent,
+    StudentAttendanceHistoryDialogComponent,
     ArchitectureExplorerPage,
     DuplicateUsersPage,
     SubscriptionsPage,
@@ -266,6 +281,7 @@ import { ArchitectureExplorerPage } from './pages/architecture-explorer/architec
     ClassPlanTimetableComponent,
     ClassPlanTimetableCopyDialogComponent,
     TimetableEntryFormDialogComponent,
+    SimpleTimetableSlotDialogComponent,
     PlanStudentsDialogComponent,
     ScheduleTypesHelpDialogComponent,
     BulkDeleteConfirmDialogComponent,
@@ -396,7 +412,11 @@ import { ArchitectureExplorerPage } from './pages/architecture-explorer/architec
     MatAutocompleteModule,
     MatSlideToggleModule,
   ],
-  providers: [{ provide: RouteReuseStrategy, useClass: IonicRouteStrategy }],
+  providers: [
+    { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
+    { provide: MAT_DATE_LOCALE,   useValue: 'en-GB' },
+    { provide: MAT_DATE_FORMATS,  useValue: DD_MM_YYYY_FORMATS },
+  ],
   bootstrap: [AppComponent],
 })
 export class AppModule {}

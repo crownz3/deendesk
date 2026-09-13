@@ -1092,8 +1092,17 @@ service cloud.firestore {
     // Student Daily Progress & Evaluation Module
     // ==========================================
     match /studentDailyProgress/{id} {
-      allow read: if signedIn() && (isSuper() || sameOrg(resource.data));
-      allow create, update: if signedIn() && (isSuper() || sameOrg(request.resource.data));
+      allow read: if signedIn() && (isSuper() || resource == null || sameOrg(resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
+      allow create, update: if signedIn() && (isSuper() || sameOrg(request.resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
+      allow delete: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+    }
+
+    // ==========================================
+    // Attendance Module
+    // ==========================================
+    match /attendance/{id} {
+      allow read: if signedIn() && (isSuper() || resource == null || sameOrg(resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
+      allow create, update: if signedIn() && (isSuper() || sameOrg(request.resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
       allow delete: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
     }
 

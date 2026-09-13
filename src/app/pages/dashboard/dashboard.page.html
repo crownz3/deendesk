@@ -11,21 +11,26 @@
           <ion-icon name="cloud-outline" slot="start"></ion-icon>
           <span class="btn-text">Usage & Billing</span>
         </button>
-        <button mat-stroked-button color="primary" type="button" (click)="openHelpGuide()" class="header-action-btn help-btn">
+        <!-- <button mat-stroked-button color="primary" type="button" (click)="openHelpGuide()" class="header-action-btn help-btn">
           <ion-icon name="help-circle-outline" slot="start"></ion-icon>
           <span class="btn-text">Help Guide / உதவி</span>
-        </button>
-        <button mat-stroked-button color="primary" type="button" (click)="refreshData()" class="header-action-btn refresh-btn">
+        </button> -->
+        <!-- <button mat-stroked-button color="primary" type="button" (click)="refreshData()" class="header-action-btn refresh-btn">
           <ion-icon name="refresh-outline" slot="start"></ion-icon>
           <span class="btn-text">Refresh</span>
-        </button>
+        </button> -->
       </div>
     </header>
 
     <div class="dashboard-welcome-card" [class.org-admin-header]="vm.isOrgAdmin">
+      <!-- Organization Admin Hero View -->
       <div *ngIf="vm.isOrgAdmin" class="org-admin-title-container">
-        <h1 class="org-name-display">{{ (resolver.resolveName(vm.organizationId || '', 'organization') | async) || 'Loading Organization...' }}</h1>
-        <p class="welcome-subtext">Welcome back {{ vm.displayName }}, you are logged in as {{ vm.formattedRole }}</p>
+        <h1 class="org-name-display">
+          {{ (resolver.resolveName(vm.organizationId || '', 'organization') | async) || 'Loading Organization...' }}
+        </h1>
+        <p class="welcome-subtext">
+          Welcome back {{ vm.displayName }}, you are logged in as {{ vm.formattedRole }}
+        </p>
       </div>
       <div *ngIf="!vm.isOrgAdmin">
         <p class="welcome-eyebrow">Welcome back</p>
@@ -136,18 +141,25 @@
         <span>Overview Filter:</span>
       </div>
 
-      <div class="filter-toggle-wrapper">
-        <mat-button-toggle-group [value]="statusFilter" (change)="setStatusFilter($event.value)" class="custom-toggle-group">
-          <mat-button-toggle value="all">
-            All <span class="count-badge">({{ getCounts('all', vm) }})</span>
-          </mat-button-toggle>
-          <mat-button-toggle value="active">
-            <span class="active-text">Active</span> <span class="count-badge green">({{ getCounts('active', vm) }})</span>
-          </mat-button-toggle>
-          <mat-button-toggle value="inactive">
-            <span class="inactive-text">Inactive</span> <span class="count-badge red">({{ getCounts('inactive', vm) }})</span>
-          </mat-button-toggle>
-        </mat-button-toggle-group>
+      <div class="filter-actions-right">
+        <div class="filter-toggle-wrapper">
+          <mat-button-toggle-group [value]="statusFilter" (change)="setStatusFilter($event.value)" class="custom-toggle-group">
+            <mat-button-toggle value="all">
+              All <span class="count-badge">({{ getCounts('all', vm) }})</span>
+            </mat-button-toggle>
+            <mat-button-toggle value="active">
+              <span class="active-text">Active</span> <span class="count-badge green">({{ getCounts('active', vm) }})</span>
+            </mat-button-toggle>
+            <mat-button-toggle value="inactive">
+              <span class="inactive-text">Inactive</span> <span class="count-badge red">({{ getCounts('inactive', vm) }})</span>
+            </mat-button-toggle>
+          </mat-button-toggle-group>
+        </div>
+
+        <button mat-stroked-button color="primary" type="button" class="configure-cards-btn" (click)="openConfigureCardsDialog(vm)">
+          <ion-icon name="grid-outline"></ion-icon>
+          <span>Configure Cards</span>
+        </button>
       </div>
     </div>
 
@@ -156,99 +168,425 @@
         [icon]="stat.icon" [tone]="stat.tone"></app-stats-card>
     </section>
 
-
-
-
-
-
-    <app-setup-map [steps]="vm.setupSteps"></app-setup-map>
-
-    <section class="dashboard-grid">
-      <article class="panel">
-        <div class="panel-heading">
-          <h2>Attendance summary</h2>
-          <span>{{ vm.attendance.total }} records</span>
-        </div>
-        <div class="status-bars">
-          <div>
-            <span>Present</span>
-            <strong>{{ vm.attendance.present }}</strong>
-            <i [style.width.%]="vm.attendance.total ? (vm.attendance.present / vm.attendance.total) * 100 : 0"></i>
+    <!-- ─────────────────────────────────────────────────────────────────────
+         TODAY'S ATTENDANCE STATUS & ANALYTICS CHART
+         ───────────────────────────────────────────────────────────────────── -->
+    <section class="today-attendance-section" *ngIf="vm.todayAttendance as todayAtt">
+      <div class="today-attendance-card">
+        
+        <!-- Header Row -->
+        <div class="today-att-header">
+          <div class="header-left">
+            <div class="att-date-badge">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span>{{ todayAtt.formattedDate }}</span>
+            </div>
+            <div class="title-block">
+              <h2>Today's Attendance Overview</h2>
+              <p *ngIf="vm.isOrgAdmin || vm.isSuperAdmin">Live attendance status across all Madrasas & Class Groups</p>
+              <p *ngIf="!vm.isOrgAdmin && !vm.isSuperAdmin">Live attendance status for your assigned Madrasa class groups</p>
+            </div>
           </div>
-          <div>
-            <span>Absent</span>
-            <strong>{{ vm.attendance.absent }}</strong>
-            <i class="danger"
-              [style.width.%]="vm.attendance.total ? (vm.attendance.absent / vm.attendance.total) * 100 : 0"></i>
-          </div>
-          <div>
-            <span>Late</span>
-            <strong>{{ vm.attendance.late }}</strong>
-            <i class="warn"
-              [style.width.%]="vm.attendance.total ? (vm.attendance.late / vm.attendance.total) * 100 : 0"></i>
-          </div>
-          <div>
-            <span>Leave</span>
-            <strong>{{ vm.attendance.leave }}</strong>
-            <i class="blue"
-              [style.width.%]="vm.attendance.total ? (vm.attendance.leave / vm.attendance.total) * 100 : 0"></i>
-          </div>
-        </div>
-      </article>
 
-      <article class="panel">
-        <div class="panel-heading">
-          <h2>Course distribution</h2>
-          <span>Students by course</span>
-        </div>
-        <div class="chart-list" *ngIf="vm.courseDistribution.length; else noCourses">
-          <div class="chart-row" *ngFor="let item of vm.courseDistribution; trackBy: trackByLabel">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <i [style.width.%]="item.percent"></i>
-          </div>
-        </div>
-        <ng-template #noCourses>
-          <app-empty-state icon="library-outline" title="No course data"
-            message="Course analytics will appear after students are mapped."></app-empty-state>
-        </ng-template>
-      </article>
-
-      <article class="panel">
-        <div class="panel-heading">
-          <h2>User roles</h2>
-          <span>Access distribution</span>
-        </div>
-        <div class="chart-list" *ngIf="vm.usersByRole.length; else noUsers">
-          <div class="chart-row" *ngFor="let item of vm.usersByRole; trackBy: trackByLabel">
-            <span>{{ item.label }}</span>
-            <strong>{{ item.value }}</strong>
-            <i [style.width.%]="item.percent"></i>
-          </div>
-        </div>
-        <ng-template #noUsers>
-          <app-empty-state icon="people-outline" title="No user data"
-            message="Role analytics will appear after users are created."></app-empty-state>
-        </ng-template>
-      </article>
-
-      <article class="panel">
-        <div class="panel-heading">
-          <h2>Notifications</h2>
-          <span>{{ vm.notifications.length }} recent</span>
-        </div>
-        <div class="notification-list" *ngIf="vm.notifications.length; else noNotifications">
-          <div class="notification-item" *ngFor="let item of vm.notifications; trackBy: trackByNotification">
-            <ion-icon name="notifications-outline"></ion-icon>
-            <div>
-              <strong>{{ item.title }}</strong>
-              <span>{{ item.message }}</span>
+          <div class="header-right-kpis">
+            <div class="kpi-mini-card">
+              <span class="kpi-label">Completion Rate</span>
+              <span class="kpi-val highlight">{{ todayAtt.completionRate }}%</span>
+            </div>
+            <div class="kpi-mini-card success">
+              <span class="kpi-label">Taken Groups</span>
+              <span class="kpi-val">{{ todayAtt.takenGroupsCount }} / {{ todayAtt.totalGroups }}</span>
+            </div>
+            <div class="kpi-mini-card warning" [class.danger]="todayAtt.pendingGroupsCount > 0">
+              <span class="kpi-label">Pending Entry</span>
+              <span class="kpi-val">{{ todayAtt.pendingGroupsCount }}</span>
             </div>
           </div>
         </div>
-        <ng-template #noNotifications>
-          <app-empty-state icon="notifications-off-outline" title="No notifications"
-            message="New approvals, reports, and attendance alerts will appear here."></app-empty-state>
+
+        <!-- Body Grid: Chart & Status Breakdown -->
+        <div class="today-att-body">
+          
+          <!-- Visual Chart Panel -->
+          <div class="att-chart-panel">
+            <div class="chart-header">
+              <h3>Attendance Visual Chart</h3>
+              <span class="sub-tag">Today's Distribution</span>
+            </div>
+
+            <div class="visual-chart-wrap">
+              <!-- Visual Ring & Progress Bar Breakdown -->
+              <div class="ring-and-legend">
+                <div class="ring-container">
+                  <svg viewBox="0 0 100 100" class="donut-svg">
+                    <circle cx="50" cy="50" r="38" class="donut-ring-bg" />
+                    <circle cx="50" cy="50" r="38" class="donut-ring-fill"
+                      [style.strokeDasharray]="238.76"
+                      [style.strokeDashoffset]="238.76 - (238.76 * todayAtt.completionRate / 100)" />
+                  </svg>
+                  <div class="ring-center-content">
+                    <span class="center-percent">{{ todayAtt.completionRate }}%</span>
+                    <span class="center-label">Entered</span>
+                  </div>
+                </div>
+
+                <div class="chart-stats-bars">
+                  <div class="stat-bar-item">
+                    <div class="bar-header">
+                      <span class="dot green"></span>
+                      <span class="label">Taken Class Groups</span>
+                      <strong class="val">{{ todayAtt.takenGroupsCount }}</strong>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill green" [style.width.%]="todayAtt.totalGroups ? (todayAtt.takenGroupsCount / todayAtt.totalGroups * 100) : 0"></div>
+                    </div>
+                  </div>
+
+                  <div class="stat-bar-item">
+                    <div class="bar-header">
+                      <span class="dot orange"></span>
+                      <span class="label">Pending Class Groups</span>
+                      <strong class="val">{{ todayAtt.pendingGroupsCount }}</strong>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill orange" [style.width.%]="todayAtt.totalGroups ? (todayAtt.pendingGroupsCount / todayAtt.totalGroups * 100) : 0"></div>
+                    </div>
+                  </div>
+
+                  <div class="stat-bar-item">
+                    <div class="bar-header">
+                      <span class="dot blue"></span>
+                      <span class="label">Total Class Groups</span>
+                      <strong class="val">{{ todayAtt.totalGroups }}</strong>
+                    </div>
+                    <div class="bar-track">
+                      <div class="bar-fill blue" style="width: 100%;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Class Group Status Tracker Panel -->
+          <div class="att-tracker-panel">
+            <div class="tracker-toolbar">
+              
+              <!-- Madrasa Searchable Autocomplete Filter -->
+              <div class="madrasa-select-filter" *ngIf="todayAtt.madrasaBreakdown && todayAtt.madrasaBreakdown.length > 0">
+                <mat-form-field appearance="outline" class="searchable-madrasa-field" subscriptSizing="dynamic">
+                  <mat-icon matPrefix>business</mat-icon>
+                  <input
+                    type="text"
+                    matInput
+                    placeholder="Search Madrasa..."
+                    [(ngModel)]="madrasaFilterSearchText"
+                    (focus)="madrasaFilterSearchText = ''"
+                    [matAutocomplete]="autoMadrasaFilter"
+                  />
+                  <button mat-icon-button matSuffix type="button" class="clear-search-btn" *ngIf="madrasaFilterSearchText" (click)="madrasaFilterSearchText = ''" title="Clear filter">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                  <mat-autocomplete #autoMadrasaFilter="matAutocomplete" (optionSelected)="onMadrasaOptionSelected($event.option.value, vm)">
+                    <mat-option *ngFor="let m of getFilteredMadrasaOptions(vm)" [value]="m.madrasaName">
+                      <div class="auto-option-row" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%;">
+                        <span style="font-weight: 700; color: #0f172a;">{{ m.madrasaName }}</span>
+                        <span style="font-size: 0.78rem; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 2px 8px; border-radius: 10px;">{{ m.takenGroups }}/{{ m.totalGroups }} taken</span>
+                      </div>
+                    </mat-option>
+                  </mat-autocomplete>
+                </mat-form-field>
+              </div>
+
+              <!-- Segment Tabs -->
+              <div class="segment-tabs">
+                <button type="button" [class.active]="attendanceStatusTab === 'all'" (click)="setAttendanceStatusTab('all')">
+                  All ({{ getFilteredGroupStatuses(vm).length }})
+                </button>
+                <button type="button" class="taken-tab" [class.active]="attendanceStatusTab === 'taken'" (click)="setAttendanceStatusTab('taken')">
+                  🟢 Taken ({{ todayAtt.takenGroupsCount }})
+                </button>
+                <button type="button" class="pending-tab" [class.active]="attendanceStatusTab === 'pending'" (click)="setAttendanceStatusTab('pending')">
+                  🟠 Pending ({{ todayAtt.pendingGroupsCount }})
+                </button>
+              </div>
+
+              <!-- Search Bar -->
+              <div class="search-box">
+                <ion-icon name="search-outline"></ion-icon>
+                <input type="text" [value]="attendanceSearchQuery" (input)="attendanceSearchQuery = $any($event.target).value" placeholder="Search class group..." />
+              </div>
+            </div>
+
+            <!-- Grouped by Madrasa List -->
+            <div class="madrasa-grouped-container" *ngIf="getGroupedMadrasaStatuses(vm).length > 0; else noGroupStatus">
+              <div class="madrasa-group-block" *ngFor="let mGroup of getGroupedMadrasaStatuses(vm)">
+                
+                <!-- Madrasa Header Bar -->
+                <div class="madrasa-header-bar">
+                  <div class="madrasa-title-wrap">
+                    <ion-icon name="business-outline" class="m-icon"></ion-icon>
+                    <h3 class="m-name">{{ mGroup.madrasaName }}</h3>
+                    <span class="m-count-badge">{{ mGroup.totalGroups }} {{ mGroup.totalGroups === 1 ? 'group' : 'groups' }}</span>
+                  </div>
+                  <div class="madrasa-stats-badges">
+                    <span class="status-chip taken">🟢 {{ mGroup.takenGroups }} Taken</span>
+                    <span class="status-chip pending" *ngIf="mGroup.pendingGroups > 0">🟠 {{ mGroup.pendingGroups }} Pending</span>
+                  </div>
+                </div>
+
+                <!-- Class Group Cards under this Madrasa -->
+                <div class="class-groups-status-list">
+                  <div class="group-status-card" *ngFor="let item of mGroup.groupStatuses" [class.taken]="item.isTaken" [class.pending]="!item.isTaken">
+                    
+                    <div class="card-left-info">
+                      <div class="group-title-row">
+                        <h4 class="group-name">{{ item.groupName }}</h4>
+                        <span class="students-count-chip">
+                          <ion-icon name="people-outline"></ion-icon>
+                          {{ item.totalStudents }} {{ item.totalStudents === 1 ? 'Student' : 'Students' }}
+                        </span>
+                      </div>
+
+                      <div class="meta-row">
+                        <span class="staff-assigned-text">
+                          <ion-icon name="person-circle-outline" class="staff-icon"></ion-icon>
+                          Staff: <strong>{{ item.assignedStaffName || 'Not Assigned' }}</strong>
+                        </span>
+
+                        <ng-container *ngIf="item.isTaken">
+                          <span class="meta-separator">&bull;</span>
+                          <span class="taken-by-text">
+                            <ion-icon name="checkmark-circle-outline"></ion-icon>
+                            Taken by <strong>{{ item.takenByName }}</strong>
+                          </span>
+                          <span class="time-text" *ngIf="item.takenAtText">
+                            <ion-icon name="time-outline"></ion-icon>
+                            {{ item.takenAtText }}
+                          </span>
+                        </ng-container>
+                      </div>
+                    </div>
+
+                    <div class="card-right-stats">
+                      <div class="status-pill-badge" [class.taken]="item.isTaken" [class.pending]="!item.isTaken">
+                        <span class="dot"></span>
+                        <span>{{ item.isTaken ? 'Taken' : 'Still Not Entered' }}</span>
+                      </div>
+
+                      <a [routerLink]="['/attendance']" [queryParams]="{ groupId: item.groupId, madrasaId: item.madrasaId }" class="action-btn">
+                        <ion-icon [name]="item.isTaken ? 'create-outline' : 'checkbox-outline'"></ion-icon>
+                        <span>{{ item.isTaken ? 'Edit' : 'Take Attendance' }}</span>
+                      </a>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <ng-template #noGroupStatus>
+              <div class="empty-status-state">
+                <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+                <p *ngIf="attendanceStatusTab === 'pending'">🎉 All class group attendances have been entered for today!</p>
+                <p *ngIf="attendanceStatusTab === 'taken'">No attendances have been entered yet for today.</p>
+                <p *ngIf="attendanceStatusTab === 'all'">No matching class groups found.</p>
+              </div>
+            </ng-template>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────────────────────────────────────────────
+         REAL-TIME ATTENDANCE TRENDS & LOW-ATTENDANCE RISK ALERTS (Option 2)
+         ───────────────────────────────────────────────────────────────────── -->
+    <section class="analytics-row-section" *ngIf="vm.weeklyAttendanceTrend && vm.weeklyAttendanceTrend.length > 0">
+      <div class="analytics-grid-two">
+        
+        <!-- 7-Day Weekly Attendance Trend Bar Chart -->
+        <div class="analytics-card trend-card">
+          <div class="card-header-flex">
+            <div class="header-left-title">
+              <ion-icon name="trending-up-outline" class="title-icon green"></ion-icon>
+              <div>
+                <h3>7-Day Attendance Trend</h3>
+                <p>Weekly attendance rate comparison (Mon – Sun)</p>
+              </div>
+            </div>
+            <span class="trend-badge-avg">Avg Rate: 88%</span>
+          </div>
+
+          <div class="weekly-trend-bars">
+            <div class="trend-col" *ngFor="let item of vm.weeklyAttendanceTrend">
+              <span class="col-percent" [class.high]="item.rate >= 85" [class.med]="item.rate >= 70 && item.rate < 85" [class.low]="item.rate < 70">
+                {{ item.rate }}%
+              </span>
+              <div class="col-bar-track">
+                <div class="col-bar-fill" [style.height.%]="item.rate" [class.fill-green]="item.rate >= 85" [class.fill-amber]="item.rate >= 70 && item.rate < 85" [class.fill-red]="item.rate < 70"></div>
+              </div>
+              <span class="col-day-label">{{ item.shortDay }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Attendance Risk / Low Attendance Alerts Card -->
+        <div class="analytics-card risk-card">
+          <div class="card-header-flex">
+            <div class="header-left-title">
+              <ion-icon name="alert-circle-outline" class="title-icon red"></ion-icon>
+              <div>
+                <h3>Attendance Risk Alerts</h3>
+                <p>Students with attendance rate below 75%</p>
+              </div>
+            </div>
+            <span class="risk-count-badge" *ngIf="vm.attendanceRiskStudents">{{ vm.attendanceRiskStudents.length }} At Risk</span>
+          </div>
+
+          <div class="risk-students-list" *ngIf="vm.attendanceRiskStudents && vm.attendanceRiskStudents.length > 0; else noRisk">
+            <div class="risk-student-item" *ngFor="let student of vm.attendanceRiskStudents">
+              <div class="student-info-meta">
+                <div class="student-avatar-badge" [class.critical]="student.riskLevel === 'critical'">
+                  <ion-icon name="person-outline"></ion-icon>
+                </div>
+                <div class="student-text">
+                  <strong class="name">{{ student.name }}</strong>
+                  <span class="sub">{{ student.className }} &bull; {{ student.madrasaName }}</span>
+                </div>
+              </div>
+
+              <div class="student-rate-chip" [class.critical]="student.riskLevel === 'critical'">
+                <ion-icon [name]="student.riskLevel === 'critical' ? 'warning-outline' : 'alert-circle-outline'"></ion-icon>
+                <span>{{ student.rate }}% Rate</span>
+              </div>
+            </div>
+          </div>
+          <ng-template #noRisk>
+            <div class="empty-risk-state">
+              <ion-icon name="checkmark-shield-outline"></ion-icon>
+              <p>Great news! All students meet the minimum 75% attendance threshold.</p>
+            </div>
+          </ng-template>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ─────────────────────────────────────────────────────────────────────
+         OPERATIONAL & STAFF WORKLOAD DETAILS (Option 5)
+         (Shown for Super Admin, Org Admin, Incharge & Coordinator)
+         ───────────────────────────────────────────────────────────────────── -->
+    <section class="analytics-row-section" *ngIf="vm.isSuperAdmin || vm.isOrgAdmin || (vm.inchargeMadrasaNames && vm.inchargeMadrasaNames.length > 0)">
+      <div class="analytics-grid-two">
+        
+
+
+        <!-- Teacher Allocation & Workload Matrix -->
+        <div class="analytics-card workload-card">
+          <div class="card-header-flex">
+            <div class="header-left-title">
+              <ion-icon name="people-outline" class="title-icon purple"></ion-icon>
+              <div>
+                <h3>Teacher Workload Matrix</h3>
+                <p>Assigned class groups & student allocation</p>
+              </div>
+            </div>
+            
+            <!-- Workload Filter Segment Tabs -->
+            <div class="workload-filter-pills">
+              <button type="button" class="filter-pill-btn" [class.active]="workloadFilter === 'active'" (click)="setWorkloadFilter('active')">
+                Active
+              </button>
+              <button type="button" class="filter-pill-btn high" [class.active]="workloadFilter === 'high'" (click)="setWorkloadFilter('high')">
+                High
+              </button>
+              <button type="button" class="filter-pill-btn optimal" [class.active]="workloadFilter === 'optimal'" (click)="setWorkloadFilter('optimal')">
+                Medium
+              </button>
+            </div>
+          </div>
+
+          <div class="workload-list" *ngIf="getFilteredWorkloadMatrix(vm).length > 0; else noWorkload">
+            <div class="workload-row" *ngFor="let teacher of getFilteredWorkloadMatrix(vm)">
+              <div class="teacher-meta">
+                <div class="t-avatar">
+                  <ion-icon name="person-circle-outline"></ion-icon>
+                </div>
+                <div class="t-details">
+                  <strong class="t-name">{{ teacher.teacherName }}</strong>
+                  <span class="t-groups">
+                    {{ teacher.assignedGroupCount }} {{ teacher.assignedGroupCount === 1 ? 'Class Group' : 'Class Groups' }} &bull; {{ teacher.assignedStudentCount }} Students
+                    <ng-container *ngIf="teacher.assignedClassNames && teacher.assignedClassNames.length > 0">
+                      &bull; <small style="color: #475569;">({{ teacher.assignedClassNames.slice(0, 2).join(', ') }})</small>
+                    </ng-container>
+                  </span>
+                </div>
+              </div>
+
+              <span class="workload-badge" [class.high]="teacher.workloadLevel === 'High Load'" [class.optimal]="teacher.workloadLevel === 'Optimal'" [class.light]="teacher.workloadLevel === 'Light'">
+                {{ teacher.workloadLevel === 'Optimal' ? 'Medium' : teacher.workloadLevel }}
+              </span>
+            </div>
+          </div>
+          <ng-template #noWorkload>
+            <div class="empty-mini-state" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; text-align: center;">
+              <ion-icon name="briefcase-outline" style="font-size: 2.2rem; color: #94a3b8; margin-bottom: 8px;"></ion-icon>
+              <p style="font-size: 0.9rem; font-weight: 700; color: #334155; margin: 0 0 4px 0;">No Active Teacher Assignments</p>
+              <small style="font-size: 0.78rem; color: #64748b;">No teachers currently have assigned class groups or students.</small>
+            </div>
+          </ng-template>
+        </div>
+
+      </div>
+    </section>
+
+    <section class="dashboard-grid">
+      <article class="panel enhanced-course-panel">
+        <div class="panel-heading">
+          <h2>Course distribution</h2>
+          <span>Students & Staff Breakdown</span>
+        </div>
+
+        <div class="enhanced-course-list" *ngIf="vm.enhancedCourseDistribution && vm.enhancedCourseDistribution.length; else noCourses">
+          <div class="enhanced-course-card" *ngFor="let course of vm.enhancedCourseDistribution">
+            <div class="course-card-top">
+              <div class="course-title-wrap">
+                <span class="course-name">{{ course.courseName }}</span>
+                <span class="course-ratio-tag" title="Student to Staff Ratio">
+                  <ion-icon name="people-outline"></ion-icon>
+                  Ratio {{ course.studentTeacherRatio }}
+                </span>
+              </div>
+              <span class="course-student-count">{{ course.studentCount }} Students</span>
+            </div>
+
+            <div class="course-bar-container">
+              <div class="course-bar-fill" [style.width.%]="course.studentPercent"></div>
+            </div>
+
+            <div class="course-meta-pills">
+              <div class="meta-pill">
+                <ion-icon name="briefcase-outline"></ion-icon>
+                <span><strong>{{ course.staffCount }}</strong> Teachers</span>
+              </div>
+              <div class="meta-pill">
+                <ion-icon name="easel-outline"></ion-icon>
+                <span><strong>{{ course.classGroupCount }}</strong> Groups</span>
+              </div>
+              <div class="meta-pill highlight" *ngIf="course.todayAttendanceRate !== undefined">
+                <ion-icon name="checkmark-circle-outline"></ion-icon>
+                <span><strong>{{ course.todayAttendanceRate }}%</strong> Today</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <ng-template #noCourses>
+          <app-empty-state icon="library-outline" title="No course data"
+            message="Course analytics will appear after students & staff are mapped."></app-empty-state>
         </ng-template>
       </article>
     </section>
@@ -363,18 +701,35 @@
 
   <ng-template #loading>
     <main class="page">
-      <div class="dashboard-loading-container" style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 48px 24px; min-height: 420px; text-align: center; width: 100%; box-sizing: border-box;">
-        <mat-spinner diameter="44" style="margin-bottom: 20px; color: #2563eb;"></mat-spinner>
-        <h2 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 6px 0;">Loading Dashboard...</h2>
-        <p style="font-size: 13px; color: #64748b; margin: 0 0 32px 0;">Fetching operational overview & analytics</p>
-
-        <div style="width: 100%; max-width: 1000px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; box-sizing: border-box;">
-          <div class="skeleton-card" style="height: 100px;" *ngFor="let i of [1,2,3,4]"></div>
-        </div>
-        <div style="width: 100%; max-width: 1000px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 24px; box-sizing: border-box;">
-          <div class="skeleton-card" style="height: 240px;" *ngFor="let i of [1,2]"></div>
+      <div class="dashboard-loading-banner" style="display: flex; align-items: center; justify-content: space-between; background: #ffffff; padding: 16px 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.03); margin-bottom: 20px;">
+        <div style="display: flex; align-items: center; gap: 14px;">
+          <mat-spinner diameter="28" style="color: #2563eb;"></mat-spinner>
+          <div>
+            <h2 style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;">Loading Dashboard... Please wait</h2>
+            <p style="font-size: 12px; font-weight: 500; color: #64748b; margin: 2px 0 0 0;">Fetching your operational overview & analytics</p>
+          </div>
         </div>
       </div>
+
+      <div class="dashboard-welcome-card" style="min-height: 100px; border-radius: 20px; background: #ffffff; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; margin-bottom: 20px;">
+        <div style="width: 180px; height: 22px; border-radius: 6px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmerSkeleton 1.5s infinite; margin-bottom: 12px;"></div>
+        <div style="width: 280px; height: 16px; border-radius: 4px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmerSkeleton 1.5s infinite;"></div>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+        <div style="width: 160px; height: 42px; border-radius: 24px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmerSkeleton 1.5s infinite;"></div>
+        <div style="width: 180px; height: 42px; border-radius: 24px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmerSkeleton 1.5s infinite;"></div>
+      </div>
+
+      <section class="stats-grid">
+        <div class="skeleton-card" style="height: 110px; border-radius: 16px; background: #ffffff; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); border: 1px solid #e2e8f0; box-sizing: border-box;" *ngFor="let i of [1,2,3,4,5,6]">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <div style="width: 90px; height: 14px; border-radius: 4px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmerSkeleton 1.5s infinite;"></div>
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmerSkeleton 1.5s infinite;"></div>
+          </div>
+          <div style="width: 60px; height: 26px; border-radius: 6px; background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%); background-size: 200% 100%; animation: shimmerSkeleton 1.5s infinite;"></div>
+        </div>
+      </section>
     </main>
   </ng-template>
 </ion-content>

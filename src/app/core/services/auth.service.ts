@@ -404,7 +404,11 @@ export class AuthService {
       return true;
     }
 
-    const rolePermissions = this.rolePermissionsService.getPermissionsForRole(user.role);
+    const rolePermissions = this.rolePermissionsService.getPermissionsForRole(
+      user.role,
+      (user as any).customPermissions,
+      user.organizationId
+    );
     if (rolePermissions.includes(permission)) {
       return true;
     }

@@ -18,9 +18,24 @@ type ScheduleEntry = EntityRecord & TimetableEntry & {
   courseName?: string;
 };
 
+export interface RegularAssignmentCard {
+  id: string;
+  type: 'classGroup' | 'class';
+  name: string;
+  className?: string;
+  courseName?: string;
+  madrasaName?: string;
+  madrasaId?: string;
+  classId?: string;
+  courseId?: string;
+  studentCount: number;
+  assignedStaffIds: string[];
+}
+
 interface AssignmentsVm {
   displayName: string;
   roleTitle: string;
+  regularAssignments: RegularAssignmentCard[];
   todaySchedule: ScheduleEntry[];
   upcomingSchedule: ScheduleEntry[]; // Full week excluding today
   weeklySchedule: Record<string, ScheduleEntry[]>;
@@ -41,6 +56,9 @@ interface AssignmentsVm {
 export class MyAssignmentsPage {
   readonly days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   readonly refresh$ = new Subject<void>();
+  
+  specificSubTab: 'periods' | 'events' = 'periods';
+  periodViewMode: 'today' | 'weekly' = 'today';
   
   readonly vm$: Observable<AssignmentsVm | null> = combineLatest([
     this.auth.profile$,
@@ -71,43 +89,102 @@ export class MyAssignmentsPage {
   ) {}
 
   private buildVm(profile: AppUser, data: { classPlans: (EntityRecord & ClassPlan)[], timetableEntries: (EntityRecord & TimetableEntry)[], classes: EntityRecord[], classGroups: EntityRecord[], events: (EntityRecord & EventEntity)[], staff: EntityRecord[] }): AssignmentsVm {
-    console.log('[MyAssignmentsPage] Raw events fetched:', data.events);
-    
     const userIdentities = [
       profile.uid,
+      profile.id,
       profile.entityId,
       (profile as any).userId,
       profile.email
     ].filter(Boolean).map(s => String(s).trim());
 
-    // Resolve user's assigned class groups
+    // 1. Resolve user's assigned class groups strictly for this user
     const myClassGroups = data.classGroups.filter(g => {
-      const assigned = Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'].map(String) : [];
-      return assigned.some(id => userIdentities.includes(id));
+      const groupTokens = [
+        ...(Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'] : []),
+        ...(Array.isArray(g['teacherUids']) ? g['teacherUids'] : []),
+        ...(Array.isArray(g['staffIds']) ? g['staffIds'] : []),
+        ...(Array.isArray(g['inchargeIds']) ? g['inchargeIds'] : []),
+        ...(Array.isArray(g['coordinatorIds']) ? g['coordinatorIds'] : []),
+        ...(g['teacherUid'] ? [g['teacherUid']] : []),
+        ...(g['teacherId'] ? [g['teacherId']] : []),
+        ...(g['assignedStaffId'] ? [g['assignedStaffId']] : []),
+        ...(g['staffId'] ? [g['staffId']] : [])
+      ].filter(Boolean).map(s => String(s).trim());
+
+      return groupTokens.some(id => userIdentities.includes(id));
     });
 
-    const userGroupIds = myClassGroups.map(g => String(g.id));
-    const userClassIds = Array.from(new Set(myClassGroups.map(g => String(g['classId'])).filter(Boolean)));
+    const userGroupIds = Array.from(new Set(myClassGroups.map(g => String(g.id)).filter(Boolean)));
 
-    const myClasses = data.classes.filter(c => userClassIds.includes(String(c.id)));
+    // 2. Resolve user's assigned classes
+    const myClasses = data.classes.filter(c => {
+      const classIdStr = String(c.id);
+      if (myClassGroups.some(g => String(g['classId']) === classIdStr)) return true;
+
+      const classTokens = [
+        ...(Array.isArray(c['assignedStaffIds']) ? c['assignedStaffIds'] : []),
+        ...(Array.isArray(c['teacherUids']) ? c['teacherUids'] : []),
+        ...(Array.isArray(c['staffIds']) ? c['staffIds'] : []),
+        ...(c['teacherId'] ? [c['teacherId']] : []),
+        ...(c['teacherUid'] ? [c['teacherUid']] : []),
+        ...(c['assignedStaffId'] ? [c['assignedStaffId']] : [])
+      ].filter(Boolean).map(s => String(s).trim());
+
+      return classTokens.some(id => userIdentities.includes(id));
+    });
+
+    const userClassIds = Array.from(new Set(myClasses.map(c => String(c.id)).filter(Boolean)));
+
+    // 3. Resolve user's assigned class plans
+    const myClassPlans = data.classPlans.filter(plan => {
+      const planTokens = [
+        ...(Array.isArray(plan['teacherIds']) ? plan['teacherIds'] : []),
+        ...(Array.isArray(plan['assignedStaffIds']) ? plan['assignedStaffIds'] : []),
+        ...(Array.isArray(plan['teacherUids']) ? plan['teacherUids'] : []),
+        ...(plan['teacherId'] ? [plan['teacherId']] : []),
+        ...(plan['teacherUid'] ? [plan['teacherUid']] : []),
+        ...(plan['assignedStaffId'] ? [plan['assignedStaffId']] : [])
+      ].filter(Boolean).map(s => String(s).trim());
+
+      if (planTokens.some(id => userIdentities.includes(id))) return true;
+
+      const planGroupIds = Array.isArray(plan.groupIds) ? plan.groupIds.map(String) : (plan.groupId ? [String(plan.groupId)] : []);
+      if (planGroupIds.some(gId => userGroupIds.includes(gId))) return true;
+
+      if (plan.classId && userClassIds.includes(String(plan.classId))) return true;
+
+      return false;
+    });
+
+    const userPlanIds = Array.from(new Set(myClassPlans.map(p => String(p.id)).filter(Boolean)));
 
     const todayIndex = new Date().getDay();
     const mappedTodayIndex = todayIndex === 0 ? 6 : todayIndex - 1;
     const todayName = this.days[mappedTodayIndex];
 
-    // Filter timetable entries specifically assigned to the user or user's class groups
+    // 4. Filter timetable entries specifically assigned for ANY period
     const userEntries = data.timetableEntries.filter(entry => {
-      if (entry.teacherId && userIdentities.includes(String(entry.teacherId))) {
-        return true;
-      }
-      const plan = data.classPlans.find(p => p.id === entry.classPlanId);
-      if (plan) {
-        const planGroupIds = Array.isArray(plan.groupIds) ? plan.groupIds : (plan.groupId ? [plan.groupId] : []);
-        if (planGroupIds.some(gId => userGroupIds.includes(gId))) return true;
-        if (planGroupIds.length === 0 && plan.classId && userClassIds.includes(plan.classId)) return true;
-      }
-      // Admins/Incharges see all entries
-      return profile.role === 'organizationAdmin' || profile.role === 'superAdmin' || profile.role === 'madrasaIncharge';
+      const entryTokens = [
+        ...(Array.isArray(entry['teacherIds']) ? entry['teacherIds'] : []),
+        ...(Array.isArray(entry['assignedStaffIds']) ? entry['assignedStaffIds'] : []),
+        ...(Array.isArray(entry['staffIds']) ? entry['staffIds'] : []),
+        ...(entry['teacherId'] ? [entry['teacherId']] : []),
+        ...(entry['teacherUid'] ? [entry['teacherUid']] : []),
+        ...(entry['assignedStaffId'] ? [entry['assignedStaffId']] : []),
+        ...(entry['staffId'] ? [entry['staffId']] : [])
+      ].filter(Boolean).map(s => String(s).trim());
+
+      if (entryTokens.some(id => userIdentities.includes(id))) return true;
+
+      if (entry.classPlanId && userPlanIds.includes(String(entry.classPlanId))) return true;
+
+      const entryGroupId = String(entry['groupId'] || entry['classGroupId'] || '');
+      if (entryGroupId && userGroupIds.includes(entryGroupId)) return true;
+
+      const entryClassId = String(entry['classId'] || '');
+      if (entryClassId && userClassIds.includes(entryClassId)) return true;
+
+      return false;
     });
 
     const enhancedEntries: ScheduleEntry[] = userEntries.map(entry => {
@@ -130,26 +207,72 @@ export class MyAssignmentsPage {
       weeklySchedule[day] = enhancedEntries.filter(e => e.dayOfWeek === day);
     });
 
-    // Filter assigned events
+    // Filter assigned events strictly for this user
     const assignedEvents = data.events
       .filter(e => {
         if (e.isDeleted) return false;
         const staffId = profile.entityType === 'staff' ? profile.entityId : null;
-        return (staffId && (e.staffInChargeId === staffId || e.additionalResponsibleStaffIds?.includes(staffId))) ||
-               profile.role === 'organizationAdmin' || profile.role === 'superAdmin' || profile.role === 'madrasaIncharge';
+        const eventTokens = [
+          e.staffInChargeId,
+          ...(Array.isArray(e.additionalResponsibleStaffIds) ? e.additionalResponsibleStaffIds : []),
+          ...(Array.isArray(e['assignedStaffIds']) ? e['assignedStaffIds'] : []),
+          ...(Array.isArray(e['staffIds']) ? e['staffIds'] : [])
+        ].filter(Boolean).map(s => String(s).trim());
+
+        return eventTokens.some(id => userIdentities.includes(id) || (staffId && id === staffId));
       })
       .map(e => ({
         ...e,
         status: computeEventStatus(e)
       }));
 
+    // Build structured regular assignment items
+    const regularAssignments: RegularAssignmentCard[] = myClassGroups.map(g => {
+      const studentCount = Number(g['totalStudents'] || g['studentCount'] || (Array.isArray(g['studentIds']) ? g['studentIds'].length : 0));
+      return {
+        id: String(g.id),
+        type: 'classGroup',
+        name: g['name'] || g['groupName'] || 'Class Group',
+        madrasaId: g['madrasaId'] ? String(g['madrasaId']) : undefined,
+        classId: g['classId'] ? String(g['classId']) : undefined,
+        courseId: g['courseId'] ? String(g['courseId']) : undefined,
+        studentCount,
+        assignedStaffIds: [
+          ...(Array.isArray(g['assignedStaffIds']) ? g['assignedStaffIds'] : []),
+          ...(Array.isArray(g['staffIds']) ? g['staffIds'] : []),
+          ...(g['teacherId'] ? [g['teacherId']] : []),
+          ...(g['assignedStaffId'] ? [g['assignedStaffId']] : [])
+        ].map(String)
+      };
+    });
+
+    if (regularAssignments.length === 0) {
+      myClasses.forEach(c => {
+        const studentCount = Number(c['totalStudents'] || c['studentCount'] || (Array.isArray(c['studentIds']) ? c['studentIds'].length : 0));
+        regularAssignments.push({
+          id: String(c.id),
+          type: 'class',
+          name: c['name'] || c['className'] || 'Class',
+          madrasaId: c['madrasaId'] ? String(c['madrasaId']) : undefined,
+          classId: String(c.id),
+          courseId: c['courseId'] ? String(c['courseId']) : undefined,
+          studentCount,
+          assignedStaffIds: [
+            ...(Array.isArray(c['assignedStaffIds']) ? c['assignedStaffIds'] : []),
+            ...(c['teacherId'] ? [c['teacherId']] : [])
+          ].map(String)
+        });
+      });
+    }
+
     return {
       displayName: profile.displayName || profile.email,
       roleTitle: this.formatRole(profile.role),
+      regularAssignments,
       todaySchedule,
       upcomingSchedule: enhancedEntries.filter(e => e.dayOfWeek !== todayName),
       weeklySchedule,
-      allPlans: data.classPlans,
+      allPlans: myClassPlans,
       assignedEvents,
       myClasses,
       myClassGroups,

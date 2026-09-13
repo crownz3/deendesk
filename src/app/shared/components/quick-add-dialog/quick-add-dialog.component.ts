@@ -191,6 +191,16 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
         orgControl.disable();
       }
 
+      const permissionsField = this.data.fields.find(f => f.key === 'permissions');
+      if (permissionsField && profile) {
+        const targetRole = (this.form.get('role')?.value || this.data.initialValue?.['role']) as string;
+        permissionsField.options = this.rolePermissionsService.getValidPermissionsForRole(
+          targetRole,
+          profile.role,
+          profile.permissions
+        );
+      }
+
       this.applyAutoSelectCascade();
     });
 
@@ -199,11 +209,11 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
     if (roleControl && permissionsControl) {
       // Load templates and initialize default permissions for the selected role
-      this.rolePermissionsService.loadTemplates().then(() => {
+      this.rolePermissionsService.loadTemplates(this.currentUserProfile?.organizationId).then(() => {
         const currentRole = roleControl.value as UserRole;
         const currentPermissions = permissionsControl.value;
         if (currentRole && (!this.data.isEdit || !currentPermissions || currentPermissions.length === 0)) {
-          permissionsControl.setValue(this.rolePermissionsService.getPermissionsForRole(currentRole), { emitEvent: false });
+          permissionsControl.setValue(this.rolePermissionsService.getPermissionsForRole(currentRole, undefined, this.currentUserProfile?.organizationId), { emitEvent: false });
         }
       });
 
@@ -212,14 +222,23 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
       this.subscriptions.push(
         roleControl.valueChanges.subscribe(async (newRole: UserRole) => {
           if (!newRole) return;
-          await this.rolePermissionsService.loadTemplates();
-          const defaultPerms = this.rolePermissionsService.getPermissionsForRole(newRole);
+          await this.rolePermissionsService.loadTemplates(this.currentUserProfile?.organizationId);
+          const defaultPerms = this.rolePermissionsService.getPermissionsForRole(newRole, undefined, this.currentUserProfile?.organizationId);
           const existingPerms = permissionsControl.value || [];
+
+          const permissionsField = this.data.fields.find(f => f.key === 'permissions');
+          if (permissionsField && this.currentUserProfile) {
+            permissionsField.options = this.rolePermissionsService.getValidPermissionsForRole(
+              newRole,
+              this.currentUserProfile.role,
+              this.currentUserProfile.permissions
+            );
+          }
 
           if (!this.data.isEdit || existingPerms.length === 0) {
             permissionsControl.setValue(defaultPerms);
           } else {
-            const previousDefaults = previousRole ? this.rolePermissionsService.getPermissionsForRole(previousRole) : [];
+            const previousDefaults = previousRole ? this.rolePermissionsService.getPermissionsForRole(previousRole, undefined, this.currentUserProfile?.organizationId) : [];
             const isUnmodified = existingPerms.length === previousDefaults.length && 
                                  existingPerms.every((p: PermissionKey) => previousDefaults.includes(p));
 
@@ -422,8 +441,8 @@ export class QuickAddDialogComponent implements OnInit, OnDestroy {
 
     if (!role || !permissionsControl) return;
 
-    await this.rolePermissionsService.loadTemplates();
-    const defaultPerms = this.rolePermissionsService.getPermissionsForRole(role);
+    await this.rolePermissionsService.loadTemplates(this.currentUserProfile?.organizationId);
+    const defaultPerms = this.rolePermissionsService.getPermissionsForRole(role, undefined, this.currentUserProfile?.organizationId);
     permissionsControl.setValue(defaultPerms);
     permissionsControl.markAsDirty();
   }

@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { Location } from '@angular/common';
-import { BehaviorSubject, Observable, combineLatest, filter, map, startWith } from 'rxjs';
+import { BehaviorSubject, Observable, combineLatest, filter, map, startWith, timer } from 'rxjs';
 import { App as CapacitorApp } from '@capacitor/app';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { CustomMenuItemConfig, PermissionKey, UserRole } from './core/models/domain.model';
@@ -53,6 +53,14 @@ export class AppComponent {
   readonly appName$ = this.orgBranding.appName$;
   readonly logoUrl$ = this.orgBranding.logoUrl$;
   readonly subTitle$ = this.orgBranding.subTitle$;
+
+  readonly loadingTimer$: Observable<string> = timer(0, 100).pipe(
+    map((t) => (t * 0.1).toFixed(1) + 's')
+  );
+
+  readonly loadingProgress$: Observable<number> = timer(0, 30).pipe(
+    map((t) => Math.min(96, Math.floor(t * 2.5)))
+  );
 
   expandedMenus: Record<string, boolean> = { '/users': true };
 
