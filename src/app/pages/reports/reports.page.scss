@@ -650,13 +650,28 @@ td.grouped-cell-merged {
   vertical-align: middle !important;
   font-weight: 700 !important;
   color: #0f172a !important;
-  background-color: #ffffff !important;
-  border-right: 1px solid #e2e8f0;
+  background-color: #f8fafc !important;
+  border-right: 2px solid #e2e8f0;
 }
 
 .grouped-header-text {
   font-weight: 700 !important;
   color: #0f172a !important;
+}
+
+.group-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 6px;
+  vertical-align: middle;
+  border: 1px solid #bae6fd;
 }
 
 .suppressed-cell {

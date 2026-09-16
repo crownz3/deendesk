@@ -701,7 +701,10 @@ export class ManagementPage {
 
   private readonly config$ = this.route.data.pipe(
     map((data) => MANAGEMENT_CONFIGS[String(data['resource'])]),
-    tap(() => this.repo.clearCache())
+    tap(() => {
+      this.repo.clearCache();
+      this.assignmentFilter$.next('all');
+    })
   );
 
   orgSearch = '';
@@ -785,6 +788,7 @@ export class ManagementPage {
   readonly stageFilter$ = new BehaviorSubject<string>('all');
   readonly statusFilter$ = new BehaviorSubject<string>('active');
   readonly genderFilter$ = new BehaviorSubject<string>('all');
+  readonly assignmentFilter$ = new BehaviorSubject<string>('all');
 
   readonly searchQuery$ = new BehaviorSubject<string>('');
   readonly debouncedSearchQuery$ = this.searchQuery$.pipe(
@@ -814,24 +818,19 @@ export class ManagementPage {
     this.genderFilter$,
     this.pageIndex$,
     this.pageSize$,
-    combineLatest([this.courseFilter$, this.classFilter$, this.classGroupFilter$, this.stageFilter$, this.statusFilter$])
+    combineLatest([this.courseFilter$, this.classFilter$, this.classGroupFilter$, this.stageFilter$, this.statusFilter$, this.assignmentFilter$])
   ]).pipe(
     // Micro-debounce: batch rapid filter changes (e.g. dropdown selects) into a single vm$ evaluation.
     // Without this, selecting a madrasa could fire multiple switchMap cycles in quick succession
     // because combineLatest emits once per source change.
     debounceTime(50),
-    switchMap(([_, config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, classGroupFilter, stageFilter, statusFilter]]) => {
+    switchMap(([_, config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, classGroupFilter, stageFilter, statusFilter, assignmentFilter]]) => {
       if (!profile) {
         return of({
           loading: true,
         } as PageState<ManagementVm>);
       }
       const studentExtraConstraints: QueryConstraint[] = [];
-      if (madrasaFilter && madrasaFilter !== 'all') {
-        studentExtraConstraints.push(where('madrasaId', '==', madrasaFilter));
-      } else if (organizationFilter && organizationFilter !== 'all') {
-        studentExtraConstraints.push(where('organizationId', '==', organizationFilter));
-      }
 
       // Determine which secondary collections are actually needed for this resource
       // to avoid opening unnecessary Firestore listeners. repo.list() caches streams via
@@ -1464,6 +1463,40 @@ export class ManagementPage {
                  }
                  if (stageFilter !== 'all' && config.resource === 'students') {
                    filteredRows = filteredRows.filter(r => r['stage'] === stageFilter || r['level'] === stageFilter);
+                 }
+                 if (assignmentFilter !== 'all' && config.resource === 'students') {
+                   const allGroupExplicitStudentSet = new Set<string>();
+                   classGroups.forEach(g => {
+                     [
+                       ...this.extractAllStrings(g['assignedStudentIds']),
+                       ...this.extractAllStrings(g['assignedStudents']),
+                       ...this.extractAllStrings(g['studentIds']),
+                       ...this.extractAllStrings(g['students']),
+                       ...this.extractAllStrings(g['assignedStudentId']),
+                       ...this.extractAllStrings(g['studentId'])
+                     ].forEach(id => {
+                       if (id) allGroupExplicitStudentSet.add(id.toLowerCase().trim());
+                     });
+                   });
+
+                   filteredRows = filteredRows.filter(r => {
+                     const hasGroupId = Boolean(
+                       extractId(r['groupId'] || r['classGroupId'] || r['assignedGroupId'] || r['group'] || r['sectionId'] || r['section'])
+                     );
+                     let isAssigned = hasGroupId;
+                     if (!isAssigned) {
+                       const gIds = Array.isArray(r['groupIds']) ? r['groupIds'] : (Array.isArray(r['classGroupIds']) ? r['classGroupIds'] : []);
+                       if (gIds.some((id: any) => Boolean(extractId(id)))) isAssigned = true;
+                     }
+                     if (!isAssigned && allGroupExplicitStudentSet.size > 0) {
+                       const identities = [
+                         r.id, r['uid'], r['userId'], r['entityId'], r['docId'], r['studentId'], r['email']
+                       ].filter(Boolean).map(v => String(v).toLowerCase().trim());
+                       if (identities.some(id => allGroupExplicitStudentSet.has(id))) isAssigned = true;
+                     }
+
+                     return assignmentFilter === 'assigned' ? isAssigned : !isAssigned;
+                   });
                  }
               }
 

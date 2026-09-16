@@ -147,22 +147,32 @@
                     </mat-form-field>
                   </ng-container>
                   <ng-template #standardData>
-                    <ng-container *ngIf="guessTypeForKey(col.key, element[col.key]) as type; else plainValue">
-                       <span class="resolved-name" [class.grouped-header-text]="isGroupField(col.key)">{{ (element[col.key] | resolveName:type | async) || '-' }}</span>
-                    </ng-container>
-                    <ng-template #plainValue>
-                      <span [class.grouped-header-text]="isGroupField(col.key)">
-                        {{ element[col.key] !== undefined && element[col.key] !== null && element[col.key] !== '' ? element[col.key] : '-' }} 
-                      </span>
-                    </ng-template>
+                    <div class="grouped-cell-content-box" style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                      <ng-container *ngIf="guessTypeForKey(col.key, element[col.key]) as type; else plainValue">
+                         <span class="resolved-name" [class.grouped-header-text]="isGroupField(col.key)">{{ (element[col.key] | resolveName:type | async) || '-' }}</span>
+                      </ng-container>
+                      <ng-template #plainValue>
+                        <span [class.grouped-header-text]="isGroupField(col.key)">
+                          {{ element[col.key] !== undefined && element[col.key] !== null && element[col.key] !== '' ? element[col.key] : '-' }} 
+                        </span>
+                      </ng-template>
+                      <div class="group-badges-row" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center;">
+                        <span class="group-count-badge" *ngIf="isGroupField(col.key) && shouldShowCell(element, col.key, i) && getGroupRowSpan(element, col.key, i) && getGroupRowSpan(element, col.key, i)! > 1" matTooltip="Total records in group">
+                          {{ getGroupRowSpan(element, col.key, i) }} records
+                        </span>
+                        <span class="group-subtotal-badge" *ngIf="enableGroupSubtotals && isGroupField(col.key) && shouldShowCell(element, col.key, i)" style="background: #eff6ff; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; border: 1px solid #bfdbfe; margin-top: 2px;" matTooltip="Group Subtotal">
+                          Subtotal: {{ getGroupSubtotalSummary(element) }}
+                        </span>
+                      </div>
+                    </div>
                   </ng-template>
                 </td>
                 <td mat-footer-cell *matFooterCellDef style="font-weight: 700; background: #f8fafc; color: #0f172a; border-top: 2px solid #cbd5e1;">
-                  <ng-container *ngIf="isTotalColumnSelected(col.key); else footerPlaceholder">
+                  <ng-container *ngIf="isTotalColumnSelected(col.key) || isNumericKey(col.key); else footerPlaceholder">
                     <span style="color: #2563eb; font-weight: 800; font-size: 14px;">{{ getColumnSum(col.key) }}</span>
                   </ng-container>
                   <ng-template #footerPlaceholder>
-                    <span *ngIf="col.key === selectedColumns[0]?.key" style="font-weight: 800; color: #0f172a;">Total Summary</span>
+                    <span *ngIf="col.key === selectedColumns[0]?.key" style="font-weight: 800; color: #0f172a;">Overall Grand Total</span>
                   </ng-template>
                 </td>
               </ng-container>
@@ -179,7 +189,7 @@
               </ng-container>
 
               <tr mat-header-row *matHeaderRowDef="displayColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; let i = index; columns: displayColumns;" [class.new-group-row]="isNewGroupRow(i)"></tr>
+              <tr mat-row *matRowDef="let row; let i = index; columns: displayColumns;" [class.new-group-row]="isNewGroupRow(i)" [class.group-subtotal-table-row]="row.isSubtotalRow"></tr>
               <tr mat-footer-row *matFooterRowDef="enableTotalSummary ? displayColumns : []; sticky: true" style="background: #f1f5f9;"></tr>
               
               <!-- Empty state -->
@@ -293,7 +303,13 @@
 
               <div class="setting-box" style="background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
                 <mat-slide-toggle [checked]="enableTotalSummary" (change)="enableTotalSummary = $event.checked; updateDisplayColumns()" color="primary">
-                  <span style="font-weight: 600; font-size: 13.5px;">Enable Bottom Total Summary Row</span>
+                  <span style="font-weight: 600; font-size: 13.5px;">Enable Bottom Overall Grand Total Row</span>
+                </mat-slide-toggle>
+              </div>
+
+              <div class="setting-box" style="background: #f8fafc; padding: 14px; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <mat-slide-toggle [checked]="enableGroupSubtotals" (change)="enableGroupSubtotals = $event.checked" color="primary">
+                  <span style="font-weight: 600; font-size: 13.5px;">Enable Per-Group Subtotals (Madrasa Subtotals)</span>
                 </mat-slide-toggle>
               </div>
 

@@ -224,17 +224,19 @@ export class ReportBuilderService {
         const idKey = `id_${entityId}`;
         if (seenEntityKeys.has(idKey)) return false;
         seenEntityKeys.add(idKey);
+        return true;
       }
 
-      // 2. Check display signature (name + madrasa + class/course + admissionDate/amount + status)
+      // 2. Check display signature as fallback for un-identified items
       const name = item.studentNameDisplay || item.name || item.studentName || item.title || '';
+      const father = item.parentName || item.fatherName || item.guardianName || '';
       const madrasa = item.madrasaNameDisplay || item.madrasaId || '';
       const cls = item.classNameDisplay || item.classId || item.courseNameDisplay || item.courseId || '';
       const dateVal = item.admissionDate || item.actionDate || item.startDate || item.createdAt || item.amount || '';
       const status = item.status || item.paymentStatus || '';
 
       if (name) {
-        const signature = `${name}___${madrasa}___${cls}___${dateVal}___${status}`.toLowerCase().trim();
+        const signature = `${name}___${father}___${madrasa}___${cls}___${dateVal}___${status}`.toLowerCase().trim();
         if (seenDisplaySignatures.has(signature)) return false;
         seenDisplaySignatures.add(signature);
       }
@@ -402,7 +404,21 @@ export class ReportBuilderService {
         return matchToken || matchRoster;
       });
 
-      classGroupStudentCounts.set(gIdStr, matchingStudents.length);
+      const studentIdentitySet = new Set<string>();
+      matchingStudents.forEach((st: any) => {
+        [st.id, st.uid, st.userId, st.entityId, st.docId, st.studentId, st.email]
+          .filter(Boolean).forEach(v => studentIdentitySet.add(String(v).toLowerCase().trim()));
+      });
+
+      let totalCount = matchingStudents.length;
+      groupStudentRoster.forEach(id => {
+        if (id && !studentIdentitySet.has(id)) {
+          totalCount++;
+          studentIdentitySet.add(id);
+        }
+      });
+
+      classGroupStudentCounts.set(gIdStr, totalCount);
     });
 
     function extractTokens(val: any): string[] {
@@ -738,10 +754,10 @@ export class ReportBuilderService {
 
       const rowIdStr = String(row.id || row.docId || '').trim();
       let resolvedStudentCount = 0;
-      if (Array.isArray(row.students || row.studentIds)) {
-        resolvedStudentCount = (row.students || row.studentIds).length;
-      } else if (classGroupStudentCounts.has(rowIdStr)) {
+      if (classGroupStudentCounts.has(rowIdStr)) {
         resolvedStudentCount = classGroupStudentCounts.get(rowIdStr)!;
+      } else if (Array.isArray(row.students || row.studentIds)) {
+        resolvedStudentCount = (row.students || row.studentIds).length;
       } else if (row.studentCount !== undefined && row.studentCount !== null && Number(row.studentCount) > 0) {
         resolvedStudentCount = Number(row.studentCount);
       } else {

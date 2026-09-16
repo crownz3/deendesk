@@ -253,6 +253,16 @@
           </mat-select>
         </mat-form-field>
 
+        <!-- Assignment Status Filter (Students only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
+          <mat-label>Assignment Status</mat-label>
+          <mat-select [ngModel]="assignmentFilter$ | async" (ngModelChange)="assignmentFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Students</mat-option>
+            <mat-option value="assigned">Assigned Students</mat-option>
+            <mat-option value="unassigned">Unassigned Students</mat-option>
+          </mat-select>
+        </mat-form-field>
+
         <!-- Gender Filter -->
         <mat-form-field appearance="outline" class="filter-field" *ngIf="['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(vm.config.resource)">
           <mat-label>Gender</mat-label>

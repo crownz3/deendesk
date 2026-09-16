@@ -112,29 +112,86 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   setGroupFields(fieldKeys: string[]): void {
     const grouping = Array.isArray(fieldKeys) ? fieldKeys.filter(Boolean) : [];
     this.builder.updateGrouping(grouping);
+    this.sortDataByGrouping(grouping);
+  }
+
+  public getActiveGroupingKeys(): string[] {
+    if (this.state?.grouping && this.state.grouping.length > 0) {
+      return this.state.grouping;
+    }
+    if (this._sort && this._sort.active && this._sort.direction) {
+      return [this._sort.active];
+    }
+    return [];
+  }
+
+  public isSameOrAliasField(keyA: string, keyB: string): boolean {
+    if (keyA === keyB) return true;
+    const madrasaAliases = ['madrasaNameDisplay', 'madrasaName', 'madrasa', 'madrasaId', 'madrasas', 'matharasaName', 'madrasa_id'];
+    if (madrasaAliases.includes(keyA) && madrasaAliases.includes(keyB)) return true;
+
+    const courseAliases = ['courseNameDisplay', 'courseName', 'courseTitle', 'course', 'courseId'];
+    if (courseAliases.includes(keyA) && courseAliases.includes(keyB)) return true;
+
+    const classAliases = ['classNameDisplay', 'className', 'classTitle', 'class', 'classId'];
+    if (classAliases.includes(keyA) && classAliases.includes(keyB)) return true;
+
+    const groupAliases = ['assignedClassGroupDisplay', 'groupName', 'classGroupName', 'classGroupId', 'groupId', 'group'];
+    if (groupAliases.includes(keyA) && groupAliases.includes(keyB)) return true;
+
+    const staffAliases = ['assignedStaffNamesDisplay', 'usthadhName', 'staffName', 'teacherName', 'staff', 'teacher'];
+    if (staffAliases.includes(keyA) && staffAliases.includes(keyB)) return true;
+
+    return false;
+  }
+
+  private getNormalizedValue(row: any, key: string): string {
+    if (!row) return '';
+    if (['madrasaNameDisplay', 'madrasaName', 'madrasa', 'madrasaId', 'madrasas', 'matharasaName'].includes(key)) {
+      const val = row['madrasaNameDisplay'] || row['madrasaName'] || row['matharasaName'] || row['madrasa'] || row['madrasaId'] || '';
+      return String(val || '').trim().toLowerCase();
+    }
+    if (['courseNameDisplay', 'courseName', 'courseTitle', 'course', 'courseId'].includes(key)) {
+      const val = row['courseNameDisplay'] || row['courseName'] || row['courseTitle'] || row['course'] || row['courseId'] || '';
+      return String(val || '').trim().toLowerCase();
+    }
+    if (['classNameDisplay', 'className', 'classTitle', 'class', 'classId'].includes(key)) {
+      const val = row['classNameDisplay'] || row['className'] || row['classTitle'] || row['class'] || row['classId'] || '';
+      return String(val || '').trim().toLowerCase();
+    }
+    if (['assignedClassGroupDisplay', 'groupName', 'classGroupName', 'classGroupId', 'groupId', 'group'].includes(key)) {
+      const val = row['assignedClassGroupDisplay'] || row['groupName'] || row['classGroupName'] || row['classGroupId'] || row['groupId'] || row['group'] || '';
+      return String(val || '').trim().toLowerCase();
+    }
+    if (['assignedStaffNamesDisplay', 'usthadhName', 'staffName', 'teacherName', 'staff'].includes(key)) {
+      const val = row['assignedStaffNamesDisplay'] || row['usthadhName'] || row['staffName'] || row['teacherName'] || row['staff'] || '';
+      return String(val || '').trim().toLowerCase();
+    }
+    return String(row[key] || '').trim().toLowerCase();
   }
 
   isGroupField(colKey: string): boolean {
-    if (!this.state?.grouping || this.state.grouping.length === 0) return false;
-    const grouping = this.state.grouping;
-    return grouping.includes(colKey) ||
-      (grouping.includes('madrasaNameDisplay') && colKey === 'madrasaInchargeDisplay') ||
-      (grouping.includes('madrasaId') && (colKey === 'madrasaNameDisplay' || colKey === 'madrasaInchargeDisplay'));
+    const activeGrouping = this.getActiveGroupingKeys();
+    if (!activeGrouping || activeGrouping.length === 0) return false;
+
+    return activeGrouping.some(gKey => this.isSameOrAliasField(gKey, colKey));
   }
 
   private isMultiLevelMatch(rowA: any, rowB: any, colKey: string): boolean {
-    if (!rowA || !rowB || !this.state?.grouping || this.state.grouping.length === 0) return false;
-    const grouping = this.state.grouping;
-    let targetIndex = grouping.indexOf(colKey);
-    if (targetIndex === -1 && colKey === 'madrasaInchargeDisplay') {
-      targetIndex = grouping.indexOf('madrasaNameDisplay');
+    if (!rowA || !rowB) return false;
+    const grouping = this.getActiveGroupingKeys();
+    if (!grouping || grouping.length === 0) return false;
+
+    let targetIndex = grouping.findIndex(g => this.isSameOrAliasField(g, colKey));
+    if (targetIndex === -1 && (colKey === 'madrasaInchargeDisplay' || colKey === 'madrasaIncharge')) {
+      targetIndex = grouping.findIndex(g => this.isSameOrAliasField(g, 'madrasaNameDisplay'));
     }
     const keysToCheck = targetIndex >= 0 ? grouping.slice(0, targetIndex + 1) : [colKey];
 
     return keysToCheck.every(key => {
-      const valA = String(rowA[key] || '').trim().toLowerCase();
-      const valB = String(rowB[key] || '').trim().toLowerCase();
-      return valA === valB;
+      const valA = this.getNormalizedValue(rowA, key);
+      const valB = this.getNormalizedValue(rowB, key);
+      return valA !== '' && valA === valB;
     });
   }
 
@@ -148,16 +205,14 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   shouldShowCell(element: any, colKey: string, pageIndexOnScreen: number): boolean {
-    if (!this.state?.grouping || this.state.grouping.length === 0) {
-      return true;
-    }
-    if (!this.isGroupField(colKey)) {
+    const grouping = this.getActiveGroupingKeys();
+    if (!grouping || grouping.length === 0 || !this.isGroupField(colKey)) {
       return true;
     }
     const absIndex = this.getAbsoluteIndex(pageIndexOnScreen);
     if (absIndex === 0) return true;
 
-    const data = this.dataSource.filteredData;
+    const data = this.dataSource.filteredData || this.dataSource.data;
     const prevElement = data[absIndex - 1];
     if (!prevElement) return true;
 
@@ -165,26 +220,28 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   isNewGroupRow(pageIndexOnScreen: number): boolean {
-    if (!this.state?.grouping || this.state.grouping.length === 0) {
+    const grouping = this.getActiveGroupingKeys();
+    if (!grouping || grouping.length === 0) {
       return false;
     }
     const absIndex = this.getAbsoluteIndex(pageIndexOnScreen);
     if (absIndex === 0) return false;
 
-    const data = this.dataSource.filteredData;
+    const data = this.dataSource.filteredData || this.dataSource.data;
     const currentElem = data[absIndex];
     const prevElement = data[absIndex - 1];
     if (!currentElem || !prevElement) return false;
 
-    const primaryGroupKey = this.state.grouping[0];
-    const currentVal = String(currentElem[primaryGroupKey] || '').trim().toLowerCase();
-    const prevVal = String(prevElement[primaryGroupKey] || '').trim().toLowerCase();
+    const primaryGroupKey = grouping[0];
+    const currentVal = this.getNormalizedValue(currentElem, primaryGroupKey);
+    const prevVal = this.getNormalizedValue(prevElement, primaryGroupKey);
 
     return currentVal !== prevVal;
   }
 
   getGroupRowSpan(element: any, colKey: string, pageIndexOnScreen: number): number | null {
-    if (!this.state?.grouping || this.state.grouping.length === 0 || !this.isGroupField(colKey)) {
+    const grouping = this.getActiveGroupingKeys();
+    if (!grouping || grouping.length === 0 || !this.isGroupField(colKey)) {
       return 1;
     }
     
@@ -193,7 +250,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     }
 
     const absIndex = this.getAbsoluteIndex(pageIndexOnScreen);
-    const data = this.dataSource.filteredData;
+    const data = this.dataSource.filteredData || this.dataSource.data;
 
     let span = 1;
     for (let k = absIndex + 1; k < data.length; k++) {
@@ -216,8 +273,55 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     return span > 1 ? span : 1;
   }
 
+  public sortDataByGrouping(grouping: string[]): void {
+    if (!this.dataSource || !this.dataSource.data || !grouping || grouping.length === 0) return;
+
+    const sorted = [...this.dataSource.data].sort((a, b) => {
+      for (const gKey of grouping) {
+        const valA = this.getNormalizedValue(a, gKey);
+        const valB = this.getNormalizedValue(b, gKey);
+        const cmp = valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' });
+        if (cmp !== 0) return cmp;
+      }
+      return 0;
+    });
+
+    this.dataSource.data = sorted;
+  }
+
+  public getGroupSubtotalSummary(element: any): string {
+    if (!element || !this.dataSource || !this.dataSource.filteredData) return '';
+    const grouping = this.getActiveGroupingKeys();
+    if (!grouping || grouping.length === 0) return '';
+    
+    const primaryGroupKey = grouping[0];
+    const targetVal = this.getNormalizedValue(element, primaryGroupKey);
+    if (!targetVal) return '';
+
+    const groupRows = this.dataSource.filteredData.filter(r => 
+      this.getNormalizedValue(r, primaryGroupKey) === targetVal
+    );
+
+    const numericCols = this.selectedColumns.filter(c => this.isNumericKey(c.key));
+    if (numericCols.length === 0) {
+      return `${groupRows.length} item(s)`;
+    }
+
+    const parts = numericCols.map(col => {
+      const sum = groupRows.reduce((acc, r) => {
+        const v = parseFloat(r[col.key]);
+        return acc + (isNaN(v) ? 0 : v);
+      }, 0);
+      const sumVal = Number.isInteger(sum) ? sum : parseFloat(sum.toFixed(2));
+      return `${col.label}: ${sumVal}`;
+    });
+
+    return parts.join(' | ');
+  }
+
   // Totals & Aggregation Settings
-  public enableTotalSummary = false;
+  public enableTotalSummary = true;
+  public enableGroupSubtotals = true;
   public showRowTotalColumn = false;
   public selectedTotalColumnKeys: string[] = [];
   public totalDisplayScope: 'lastPage' | 'everyPage' = 'lastPage';
@@ -395,6 +499,10 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
         }
 
         this.dataSource.data = state.data || [];
+        const activeGrouping = this.getActiveGroupingKeys();
+        if (activeGrouping.length > 0) {
+          this.sortDataByGrouping(activeGrouping);
+        }
         if (this.tableSearchQuery) {
           this.dataSource.filter = this.tableSearchQuery.trim().toLowerCase();
         }
@@ -417,6 +525,11 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     }
     if (this._sort) {
       this.dataSource.sort = this._sort;
+      this._sort.sortChange.subscribe(() => {
+        if (this._sort.active && this._sort.direction) {
+          this.sortDataByGrouping([this._sort.active]);
+        }
+      });
     }
   }
 
@@ -793,6 +906,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
       highlightRows: true,
       grouping: this.state?.grouping || [],
       enableTotalSummary: this.enableTotalSummary,
+      enableGroupSubtotals: this.enableGroupSubtotals,
       totalDisplayScope: this.enableTotalSummary ? this.totalDisplayScope : 'none',
       selectedTotalColumnKeys: this.enableTotalSummary ? this.selectedTotalColumnKeys : [],
       columnTotalModes: this.columnTotalModes
@@ -829,6 +943,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
             ...result.pdfOptions,
             grouping: this.state?.grouping || [],
             enableTotalSummary: this.enableTotalSummary,
+            enableGroupSubtotals: this.enableGroupSubtotals,
             totalDisplayScope: this.enableTotalSummary ? this.totalDisplayScope : 'none',
             selectedTotalColumnKeys: this.enableTotalSummary ? this.selectedTotalColumnKeys : [],
             columnTotalModes: this.columnTotalModes

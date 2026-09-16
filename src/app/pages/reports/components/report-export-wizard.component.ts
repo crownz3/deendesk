@@ -134,6 +134,8 @@ import { ReportFieldMetadata } from '../../../core/models/report.model';
                 <mat-checkbox [(ngModel)]="pdfOptions.showPageNumbers">Show Page Numbers</mat-checkbox>
                 <mat-checkbox [(ngModel)]="pdfOptions.repeatHeader">Repeat Header on Every Page</mat-checkbox>
                 <mat-checkbox [(ngModel)]="pdfOptions.highlightRows">Highlight Alternate Rows</mat-checkbox>
+                <mat-checkbox [(ngModel)]="pdfOptions.enableGroupSubtotals">Include Per-Group Subtotals (Madrasa Subtotals)</mat-checkbox>
+                <mat-checkbox [(ngModel)]="pdfOptions.enableTotalSummary">Include Overall Grand Total Row on Last Page</mat-checkbox>
               </div>
             </div>
 
@@ -348,7 +350,9 @@ export class ReportExportWizardComponent {
     alignColumns: 'center',
     highlightRows: true,
     highlightColor: '#f8fafc',
-    maxRows: 'all' as number | 'all'
+    maxRows: 'all' as number | 'all',
+    enableTotalSummary: true,
+    enableGroupSubtotals: true
   };
 
   public mockRows = [1, 2, 3, 4];
