@@ -366,10 +366,16 @@ export class ReportBuilderService {
       });
     }
 
-    const activeStudents = Array.from(allStudentsMap.values()).filter((s: any) => {
+    const uniqueActiveStudents = Array.from(new Set(allStudentsMap.values())).filter((s: any) => {
       const st = String(s.status || s.state || '').toLowerCase();
       return !['inactive', 'disabled', 'suspended', 'archived', 'deleted'].includes(st);
     });
+
+    console.log('[ReportBuilder DEBUG] Raw studentsDocs count:', refs.studentsDocs?.length);
+    console.log('[ReportBuilder DEBUG] Raw users map size:', refs.users?.size);
+    console.log('[ReportBuilder DEBUG] Unique activeStudents count:', uniqueActiveStudents.length);
+
+    const activeStudents = uniqueActiveStudents;
 
     // 2. Pre-calculate exact active student counts for each classGroup (matching Management Page scope logic)
     const classGroupStudentCounts = new Map<string, number>();
@@ -420,6 +426,11 @@ export class ReportBuilderService {
 
       classGroupStudentCounts.set(gIdStr, totalCount);
     });
+
+    let totalGroupStudentsSum = 0;
+    classGroupStudentCounts.forEach((c) => { totalGroupStudentsSum += c; });
+    console.log('[ReportBuilder DEBUG] Total Class Groups count:', allClassGroups.length);
+    console.log('[ReportBuilder DEBUG] Total studentCount sum across all Class Groups:', totalGroupStudentsSum);
 
     function extractTokens(val: any): string[] {
       if (!val) return [];

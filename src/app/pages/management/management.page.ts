@@ -927,7 +927,12 @@ export class ManagementPage {
               }
             });
 
-            const allActiveStudents: EntityRecord[] = Array.from(allStudentsMap.values()).map(s => {
+            const uniqueStudentInstances = Array.from(new Set(allStudentsMap.values()));
+            console.log('[Management DEBUG] Raw students collection count:', students?.length);
+            console.log('[Management DEBUG] Student user rows count:', studentUserRows?.length);
+            console.log('[Management DEBUG] Unique student instances count:', uniqueStudentInstances.length);
+
+            const allActiveStudents: EntityRecord[] = uniqueStudentInstances.map(s => {
               let updated = { ...s };
               if (!updated['madrasaId'] || !updated['organizationId']) {
                 const sGId = extractId(updated['groupId'] || updated['classGroupId']);
@@ -2063,7 +2068,8 @@ export class ManagementPage {
             }
           }
         });
-        let targetStudents: EntityRecord[] = Array.from(allStudentsMap.values());
+        let targetStudents: EntityRecord[] = Array.from(new Set(allStudentsMap.values()));
+        console.log('[Management DEBUG] studentRows targetStudents unique count:', targetStudents.length);
 
         const isTeacherOrStaffRole = profile && ['teacher', 'staff', 'ustadh', 'teacher_assistant', 'stagehead', 'headteacher'].includes(String(profile.role).toLowerCase()) && !['superadmin', 'organizationadmin', 'super_admin', 'orgadmin', 'madrasaincharge', 'coordinator'].includes(String(profile.role).toLowerCase());
 
