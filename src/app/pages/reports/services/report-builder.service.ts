@@ -18,6 +18,7 @@ export interface ReportState {
   savedReports: SavedReportTemplate[];
   loading: boolean;
   error: string | null;
+  unassignedCount?: number;
   references: {
     organizations: Map<string, any>;
     madrasas: Map<string, any>;
@@ -46,6 +47,7 @@ export class ReportBuilderService {
     savedReports: [],
     loading: false,
     error: null,
+    unassignedCount: 0,
     references: {
       organizations: new Map(),
       madrasas: new Map(),
@@ -57,6 +59,7 @@ export class ReportBuilderService {
       staffDocs: []
     }
   });
+  private cachedRawData: any[] | null = null;
 
   public state$ = this.state.asObservable();
 
@@ -141,10 +144,16 @@ export class ReportBuilderService {
   }
 
   public updateFilters(filters: any): void {
-    this.updateState({ filters });
-    const currentDef = this.state.value.baseDefinition;
-    if (currentDef) {
-      this.fetchData(currentDef, filters);
+    this.updateState({ filters, loading: true });
+    // Re-process from cached raw data — no Firestore refetch needed
+    if (this.cachedRawData !== null) {
+      // Use setTimeout to allow the loading indicator to render before heavy computation
+      setTimeout(() => this.processData(this.cachedRawData!), 0);
+    } else {
+      const currentDef = this.state.value.baseDefinition;
+      if (currentDef) {
+        this.fetchData(currentDef, filters);
+      }
     }
   }
 
@@ -203,6 +212,7 @@ export class ReportBuilderService {
         }
       }
 
+      this.cachedRawData = data;
       this.processData(data);
     } catch (e) {
       console.error(e);
@@ -218,6 +228,7 @@ export class ReportBuilderService {
     const seenDisplaySignatures = new Set<string>();
 
     processed = processed.filter(item => {
+      if (item._isUnassignedRow) return true;
       // 1. Check primary ID / entity ID
       const entityId = item.id || item.uid || item.studentId || item.userId || item.assignmentId || item.transactionId;
       if (entityId) {
@@ -283,6 +294,7 @@ export class ReportBuilderService {
     if (!filters || !Array.isArray(filters) || filters.length === 0) return data;
 
     return data.filter(row => {
+      if (row._isUnassignedRow) return true;
       return filters.every(f => {
         if (!f.fieldKey || f.fieldKey === 'month') return true;
         
@@ -329,7 +341,8 @@ export class ReportBuilderService {
     });
   }
 
-  private resolveReferences(data: any[]): any[] {
+  private resolveReferences(inputData: any[]): any[] {
+    let data = inputData;
     const refs = this.state.value.references;
     const allStaffDocs = refs.staffDocs || [];
     const allClassGroups = refs.classGroups || [];
@@ -379,10 +392,28 @@ export class ReportBuilderService {
 
     // 2. Pre-calculate exact active student counts for each classGroup (matching Management Page scope logic)
     const classGroupStudentCounts = new Map<string, number>();
+    const allMatchedStudentIdentities = new Set<string>(); // Collected during first loop
+
+    const extractId = extractCleanId;
 
     allClassGroups.forEach((group: any) => {
       const gIdStr = extractCleanId(group.id || group.docId);
       if (!gIdStr) return;
+
+      const gIdTokens = new Set<string>([
+        extractId(group.id),
+        extractId(group.docId),
+        extractId(group.groupId),
+        extractId(group.classGroupId),
+        String(group.id || '').trim(),
+        String(group.docId || '').trim(),
+        String(group.groupId || '').trim(),
+        ...extractTokens(group.id),
+        ...extractTokens(group.docId),
+        ...extractTokens(group.groupId),
+        ...extractTokens(group.classGroupId),
+        ...extractTokens(group.code)
+      ].filter(Boolean).map(v => String(v).toLowerCase().trim()));
 
       const groupStudentRoster = new Set<string>([
         ...extractTokens(group.assignedStudentIds),
@@ -394,13 +425,32 @@ export class ReportBuilderService {
       ].map(s => String(s).toLowerCase().trim()));
 
       const matchingStudents = activeStudents.filter((s: any) => {
-        const sGroupTokens = [
-          s.groupId, s.classGroupId, s.assignedGroupId, s.group, s.sectionId, s.section,
-          ...(Array.isArray(s.groupIds) ? s.groupIds : []),
-          ...(Array.isArray(s.classGroupIds) ? s.classGroupIds : [])
-        ].map(extractCleanId).filter(Boolean);
+        const sGroupTokens = new Set<string>([
+          ...extractTokens(s.groupId),
+          ...extractTokens(s.classGroupId),
+          ...extractTokens(s.assignedGroupId),
+          ...extractTokens(s.group),
+          ...extractTokens(s.classGroup),
+          ...extractTokens(s.assignedClassGroup),
+          ...extractTokens(s.sectionId),
+          ...extractTokens(s.section),
+          ...extractTokens(s.batchId),
+          ...extractTokens(s.batch),
+          ...extractTokens(s.groupIds),
+          ...extractTokens(s.classGroupIds),
+          ...extractTokens(s.assignedGroupIds),
+          ...extractTokens(s.groups),
+          ...extractTokens(s.sections),
+          ...extractTokens(s.batches)
+        ].filter(Boolean).map(v => String(v).toLowerCase().trim()));
 
-        const matchToken = sGroupTokens.includes(gIdStr);
+        let matchToken = false;
+        for (const tok of sGroupTokens) {
+          if (gIdTokens.has(tok)) {
+            matchToken = true;
+            break;
+          }
+        }
 
         const sIdentities = [
           s.id, s.uid, s.userId, s.entityId, s.docId, s.studentId, s.email
@@ -413,16 +463,14 @@ export class ReportBuilderService {
       const studentIdentitySet = new Set<string>();
       matchingStudents.forEach((st: any) => {
         [st.id, st.uid, st.userId, st.entityId, st.docId, st.studentId, st.email]
-          .filter(Boolean).forEach(v => studentIdentitySet.add(String(v).toLowerCase().trim()));
+          .filter(Boolean).forEach(v => {
+            const k = String(v).toLowerCase().trim();
+            studentIdentitySet.add(k);
+            allMatchedStudentIdentities.add(k); // Collect in single pass
+          });
       });
 
-      let totalCount = matchingStudents.length;
-      groupStudentRoster.forEach(id => {
-        if (id && !studentIdentitySet.has(id)) {
-          totalCount++;
-          studentIdentitySet.add(id);
-        }
-      });
+      const totalCount = matchingStudents.length;
 
       classGroupStudentCounts.set(gIdStr, totalCount);
     });
@@ -431,6 +479,60 @@ export class ReportBuilderService {
     classGroupStudentCounts.forEach((c) => { totalGroupStudentsSum += c; });
     console.log('[ReportBuilder DEBUG] Total Class Groups count:', allClassGroups.length);
     console.log('[ReportBuilder DEBUG] Total studentCount sum across all Class Groups:', totalGroupStudentsSum);
+
+    // 3. Find unassigned students — built from identities collected during the first pass (no second O(n×m) loop)
+    const unassignedStudents = activeStudents.filter((s: any) => {
+      const ids = [s.id, s.uid, s.userId, s.entityId, s.docId, s.studentId, s.email]
+        .filter(Boolean).map(v => String(v).toLowerCase().trim());
+      return !ids.some(id => allMatchedStudentIdentities.has(id));
+    });
+
+    const unassignedCount = unassignedStudents.length;
+    console.log('[ReportBuilder DEBUG] Unassigned students (no Class Group):', unassignedCount);
+    console.log('[ReportBuilder DEBUG] Unassigned student details list:', unassignedStudents.map((s: any) => ({ name: s.displayName || s.name || s.studentName || 'N/A', id: s.id || s.docId || s.uid, email: s.email || 'N/A', madrasaId: s.madrasaId || 'N/A' })));
+    this.updateState({ unassignedCount });
+
+    // Inject a synthetic "Unassigned Students" row for Class Group reports if there are unassigned students
+    const baseDef = this.state.value.baseDefinition;
+    const isClassGroupReport = !baseDef || baseDef.collection === 'classGroups' || baseDef.id === 'class-group-list';
+
+    if (isClassGroupReport && unassignedCount > 0) {
+      const unassignedRow: any = {
+        id: '__unassigned_students__',
+        docId: '__unassigned_students__',
+        name: 'Unassigned Students',
+        groupName: 'Unassigned Students',
+        title: 'Unassigned Students',
+        assignedClassGroupDisplay: 'Unassigned / No Group',
+        studentCount: unassignedCount,
+        capacity: '-',
+        maxCapacity: '-',
+        assignedStaffNamesDisplay: '-',
+        madrasaNameDisplay: 'All Madrasas',
+        courseNameDisplay: '-',
+        classNameDisplay: '-',
+        status: 'Active',
+        _isUnassignedRow: true
+      };
+      data = [...data, unassignedRow];
+    }
+
+    function localExtractTokens(val: any): string[] {
+      if (!val) return [];
+      if (typeof val === 'string') {
+        if (val.includes(',')) return val.split(',').map((v: string) => v.trim()).filter(Boolean);
+        return [val.trim()];
+      }
+      if (typeof val === 'number') return [String(val)];
+      if (typeof val === 'object') {
+        if (Array.isArray(val)) return val.flatMap(localExtractTokens);
+        const keys = ['id', 'uid', 'userId', 'docId'];
+        const found: string[] = [];
+        for (const k of keys) { if (val[k]) found.push(...localExtractTokens(val[k])); }
+        return found;
+      }
+      return [String(val).trim()];
+    }
 
     function extractTokens(val: any): string[] {
       if (!val) return [];
@@ -452,6 +554,9 @@ export class ReportBuilderService {
     }
 
     return data.map(row => {
+      // Short-circuit: return synthetic rows (e.g. Unassigned Students) as-is
+      if (row._isUnassignedRow) return row;
+
       const studentId = row.studentId || row.userId || row.id || row.uid;
       const user = refs.users?.get(studentId) || row;
       const targetCleanId = String(studentId || '').trim();
@@ -1020,6 +1125,8 @@ export class ReportBuilderService {
     if (sorting.length === 0) return data;
 
     return data.sort((a, b) => {
+      if (a._isUnassignedRow) return 1;
+      if (b._isUnassignedRow) return -1;
       for (const sort of sorting) {
         const valA = a[sort.key];
         const valB = b[sort.key];

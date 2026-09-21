@@ -132,6 +132,7 @@ export class AppComponent {
       label: 'Operations',
       items: [
         { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
+        { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
         { label: 'External Activities', route: '/external-activities', icon: 'briefcase-outline', permissionsAny: ['manageExternalActivities'] },
         { label: 'Hostel Management', route: '/hostels', icon: 'bed-outline', permissionsAny: ['manageHostels'] },
         { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees'] },
@@ -139,7 +140,6 @@ export class AppComponent {
         { label: 'Competitions & Prizes', route: '/competitions', icon: 'trophy-outline', permissionsAny: ['manageCompetitions'] },
         { label: 'Issues', route: '/issues', icon: 'warning-outline', permissionsAny: ['manageIssues', 'reportIssues'] },
         { label: 'Properties & Assets', route: '/properties', icon: 'cube-outline', permissionsAny: ['manageProperties'] },
-        { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
         { label: 'CSV Imports', route: '/csv-imports', icon: 'cloud-upload-outline', permission: 'importCsv' },
         { label: 'Password Requests', route: '/password-requests', icon: 'lock-open-outline', permission: 'managePasswordRequests' },
         { label: 'QA & Bug Tracker', route: '/qa-testing', icon: 'bug-outline', permissionsAny: ['viewQaTesting', 'manageQaBugs'], rolesAny: ['qaTester', 'superAdmin', 'organizationAdmin'] },

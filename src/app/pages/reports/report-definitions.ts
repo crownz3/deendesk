@@ -326,6 +326,56 @@ export const REPORT_DEFINITIONS: ReportDefinition[] = [
       { key: 'groupLabel', label: 'Stage Level', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
       { key: 'count', label: 'Total Students', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
     ]
+  },
+
+  // --- ATTENDANCE & DAILY PROGRESS REPORTS ---
+  {
+    id: 'student-attendance-summary-report',
+    name: 'Student Attendance & Absence Summary Report',
+    category: 'student',
+    collection: 'students',
+    requiredFilters: ['madrasa', 'course', 'class', 'status', 'search'],
+    emptyText: 'No student attendance summary records found.',
+    columns: [
+      { key: 'studentNameDisplay', label: 'Student Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'assignedClassGroupDisplay', label: 'Class Group', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'classNameDisplay', label: 'Class / Level', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'student-daily-progress-report',
+    name: 'Daily Progress & Quran Memorization Report',
+    category: 'student',
+    collection: 'students',
+    requiredFilters: ['madrasa', 'course', 'class', 'status', 'search'],
+    emptyText: 'No daily memorization progress records found.',
+    columns: [
+      { key: 'studentNameDisplay', label: 'Student Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'fatherNameDisplay', label: 'Father Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'assignedClassGroupDisplay', label: 'Class Group', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'stageDisplay', label: 'Stage / Level', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
+  },
+  {
+    id: 'class-plan-timetable-schedule-report',
+    name: 'Class Plan & Timetable Schedule Report',
+    category: 'client',
+    collection: 'classGroups',
+    requiredFilters: ['madrasa', 'course', 'class', 'status', 'search'],
+    emptyText: 'No timetable schedule entries found.',
+    columns: [
+      { key: 'name', label: 'Class Group Name', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'madrasaNameDisplay', label: 'Madrasa', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'courseNameDisplay', label: 'Course / Shift', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'classNameDisplay', label: 'Class / Level', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'assignedStaffNamesDisplay', label: 'Assigned Teacher(s)', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'studentCount', label: 'Enrolled Students', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true },
+      { key: 'status', label: 'Status', type: 'status', defaultVisible: true, sortable: true, filterable: true, groupable: true, exportable: true }
+    ]
   }
 ];
 

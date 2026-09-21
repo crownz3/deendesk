@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ViewChild, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ViewChild, AfterViewInit, HostListener } from '@angular/core';
 import { CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTableDataSource } from '@angular/material/table';
@@ -403,6 +403,26 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   
   public isLeftSidebarVisible = true;
   public isRightSidebarVisible = true;
+  public isMobileView = false;
+  public mobileDisplayMode: 'table' | 'cards' = 'table';
+
+  @HostListener('window:resize', [])
+  onResize() {
+    this.checkMobileViewport();
+  }
+
+  private checkMobileViewport() {
+    const wasMobile = this.isMobileView;
+    this.isMobileView = window.innerWidth <= 768;
+    if (this.isMobileView && !wasMobile) {
+      this.isLeftSidebarVisible = false;
+      this.isRightSidebarVisible = false;
+    }
+  }
+
+  public toggleMobileDisplayMode(mode: 'table' | 'cards'): void {
+    this.mobileDisplayMode = mode;
+  }
   
   private _paginator!: MatPaginator;
   @ViewChild(MatPaginator) set paginator(paginator: MatPaginator) {
@@ -436,6 +456,23 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     this.ngOnInit();
   }
 
+  get isClassGroupReport(): boolean {
+    const baseDef = this.state?.baseDefinition;
+    return baseDef?.collection === 'classGroups' || baseDef?.id === 'class-group-list';
+  }
+
+  get unassignedCount(): number {
+    return this.state?.unassignedCount || 0;
+  }
+
+  get paginatedData(): any[] {
+    if (!this.dataSource || !this.dataSource.filteredData) return [];
+    const data = this.dataSource.filteredData;
+    if (!this._paginator) return data;
+    const startIndex = this._paginator.pageIndex * this._paginator.pageSize;
+    return data.slice(startIndex, startIndex + this._paginator.pageSize);
+  }
+
   get allFilterableFields(): ReportFieldMetadata[] {
     if (!this.state || !this.state.baseDefinition) return [];
     
@@ -460,6 +497,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   }
 
   ngOnInit() {
+    this.checkMobileViewport();
     this.dataSource.sortingDataAccessor = (data: any, sortHeaderId: string) => {
       const value = data[sortHeaderId];
       if (value === null || value === undefined || value === '' || value === '-') {
