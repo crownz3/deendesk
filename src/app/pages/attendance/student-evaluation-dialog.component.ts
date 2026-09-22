@@ -5,6 +5,8 @@ import { AppUser, StudentDailyProgress } from '../../core/models/domain.model';
 import { RepositoryService, EntityRecord } from '../../core/services/repository.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
+import { ALL_QURAN_SURAHS, getSurahAyahCount } from '../../core/constants/defaults';
+
 export interface StudentEvaluationDialogData {
   studentId: string;
   studentName: string;
@@ -29,20 +31,17 @@ export class StudentEvaluationDialogComponent implements OnInit {
   saving = false;
   courseType: string = 'hifz';
 
-  surahList: string[] = [
-    'Al-Fatiha', 'Al-Baqarah', 'Ali Imran', 'An-Nisa', 'Al-Ma\'idah', 'Al-An\'am', 'Al-A\'raf', 'Al-Anfal', 'At-Tawbah',
-    'Yunus', 'Hud', 'Yusuf', 'Ar-Ra\'d', 'Ibrahim', 'Al-Hijr', 'An-Nahl', 'Al-Isra', 'Al-Kahf', 'Maryam', 'Ta-Ha',
-    'Al-Anbiya', 'Al-Hajj', 'Al-Mu\'minun', 'An-Nur', 'Al-Furqan', 'Ash-Shu\'ara', 'An-Naml', 'Al-Qasas', 'Al-Ankabut',
-    'Ar-Rum', 'Luqman', 'As-Sajdah', 'Al-Ahzab', 'Saba', 'Fatir', 'Ya-Sin', 'As-Saffat', 'Sad', 'Az-Zumar', 'Ghafir',
-    'Fussilat', 'Ash-Shura', 'Az-Zukhruf', 'Ad-Dukhan', 'Al-Jathiyah', 'Al-Ahqaf', 'Muhammad', 'Al-Fath', 'Al-Hujurat',
-    'Qaf', 'Adh-Dhariyat', 'At-Tur', 'An-Najm', 'Al-Qamar', 'Ar-Rahman', 'Al-Waqi\'ah', 'Al-Hadid', 'Al-Mujadila',
-    'Al-Hashr', 'Al-Mumtahanah', 'As-Saff', 'Al-Jumu\'ah', 'Al-Munafiqun', 'At-Taghabun', 'At-Talaq', 'At-Tahrim',
-    'Al-Mulk', 'Al-Qalam', 'Al-Haqqah', 'Al-Ma\'arij', 'Nuh', 'Al-Jinn', 'Al-Muzzammil', 'Al-Muddaththir', 'Al-Qiyamah',
-    'Al-Insan', 'Al-Mursalat', 'An-Naba', 'An-Nazi\'at', 'Abasa', 'At-Takwir', 'Al-Infitar', 'Al-Mutaffifin', 'Al-Inshiqaq',
-    'Al-Buruj', 'At-Tariq', 'Al-A\'la', 'Al-Ghashiyah', 'Al-Fajr', 'Al-Balad', 'Ash-Shams', 'Al-Layl', 'Ad-Duha',
-    'Ash-Sharh', 'At-Tin', 'Al-Alaq', 'Al-Qadr', 'Al-Bayyinah', 'Az-Zalzalah', 'Al-Adiyat', 'Al-Qari\'ah', 'At-Takathur',
-    'Al-Asr', 'Al-Humazah', 'Al-Fil', 'Quraysh', 'Al-Ma\'un', 'Al-Kawthar', 'Al-Kafirun', 'An-Nasr', 'Al-Masad', 'Al-Ikhlas',
-    'Al-Falaq', 'An-Nas'
+  evalUnitMode: 'surah' | 'juz' = 'surah';
+
+  surahList: string[] = ALL_QURAN_SURAHS;
+  juzPortionOptions: string[] = [
+    'Full Juz',
+    '1st Quarter (Rub 1)',
+    '2nd Quarter (Rub 2)',
+    '3rd Quarter (Rub 3)',
+    '4th Quarter (Rub 4)',
+    '1st Half (Nisf 1)',
+    '2nd Half (Nisf 2)'
   ];
 
   maktabSubjects: string[] = ['Nurani Qaida', 'Juz Amma', 'Masnoon Duas', 'Fiqh & Akhlaq', 'Seerah', 'Tajweed Practice'];
@@ -67,10 +66,21 @@ export class StudentEvaluationDialogComponent implements OnInit {
       sabaqAyahFrom: [exist?.sabaqAyahFrom || 1],
       sabaqAyahTo: [exist?.sabaqAyahTo || 10],
       sabaqMistakes: [exist?.sabaqMistakes || 0, [Validators.min(0)]],
+      
+      sabqiSurah: [exist?.['sabqiSurah'] || 'Al-Fatihah'],
+      sabqiAyahFrom: [exist?.['sabqiAyahFrom'] || 1],
+      sabqiAyahTo: [exist?.['sabqiAyahTo'] || 7],
       sabqiJuz: [exist?.sabqiJuz || 'Juz 1'],
+      sabqiJuzPortion: [exist?.['sabqiJuzPortion'] || 'Full Juz'],
       sabqiMistakes: [exist?.sabqiMistakes || 0, [Validators.min(0)]],
-      manzilJuz: [exist?.manzilJuz || 'Para 1'],
+      
+      manzilSurah: [exist?.['manzilSurah'] || 'Yaseen'],
+      manzilAyahFrom: [exist?.['manzilAyahFrom'] || 1],
+      manzilAyahTo: [exist?.['manzilAyahTo'] || 83],
+      manzilJuz: [exist?.manzilJuz || 'Juz 22'],
+      manzilJuzPortion: [exist?.['manzilJuzPortion'] || 'Full Juz'],
       manzilMistakes: [exist?.manzilMistakes || 0, [Validators.min(0)]],
+
       daurJuzFrom: [exist?.daurJuzFrom || 1],
       daurJuzTo: [exist?.daurJuzTo || 5],
       daurRoundNumber: [exist?.daurRoundNumber || 1],
@@ -109,7 +119,7 @@ export class StudentEvaluationDialogComponent implements OnInit {
 
     try {
       const val = this.form.value;
-      const record: Partial<StudentDailyProgress> = {
+      const record: Partial<StudentDailyProgress> & Record<string, any> = {
         date: this.data.date,
         studentId: this.data.studentId,
         studentName: this.data.studentName,
@@ -122,15 +132,26 @@ export class StudentEvaluationDialogComponent implements OnInit {
         madrasaId: this.data.profile.madrasaId || '',
         evaluatedByUid: this.data.profile.uid,
         evaluatedByName: this.data.profile.displayName || '',
+        evalUnitMode: this.evalUnitMode,
         
         // Form Values
         sabaqSurah: val.sabaqSurah,
         sabaqAyahFrom: val.sabaqAyahFrom,
         sabaqAyahTo: val.sabaqAyahTo,
         sabaqMistakes: Number(val.sabaqMistakes || 0),
+
+        sabqiSurah: val.sabqiSurah,
+        sabqiAyahFrom: val.sabqiAyahFrom,
+        sabqiAyahTo: val.sabqiAyahTo,
         sabqiJuz: val.sabqiJuz,
+        sabqiJuzPortion: val.sabqiJuzPortion,
         sabqiMistakes: Number(val.sabqiMistakes || 0),
+
+        manzilSurah: val.manzilSurah,
+        manzilAyahFrom: val.manzilAyahFrom,
+        manzilAyahTo: val.manzilAyahTo,
         manzilJuz: val.manzilJuz,
+        manzilJuzPortion: val.manzilJuzPortion,
         manzilMistakes: Number(val.manzilMistakes || 0),
         daurJuzFrom: val.daurJuzFrom,
         daurJuzTo: val.daurJuzTo,
@@ -169,6 +190,11 @@ export class StudentEvaluationDialogComponent implements OnInit {
     } finally {
       this.saving = false;
     }
+  }
+
+  getSurahMaxAyah(surahInput: string | null | undefined): number {
+    if (!surahInput) return 286;
+    return getSurahAyahCount(surahInput) || 286;
   }
 
   cancel(): void {

@@ -2,7 +2,7 @@
   <div class="header-title-wrapper">
     <mat-icon class="header-icon">quiz</mat-icon>
     <div>
-      <h2 mat-dialog-title>Student Progress & Evaluation</h2>
+      <h2 mat-dialog-title>Student Progress &amp; Evaluation</h2>
       <p class="dialog-subtitle">
         {{ data.studentName }} • {{ data.date }} • Course: <strong class="course-badge">{{ courseType | uppercase }}</strong>
       </p>
@@ -18,66 +18,172 @@
     
     <!-- HIFZ COURSE FORM -->
     <ng-container *ngIf="courseType === 'hifz'">
+      <div class="eval-unit-bar" style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+        <span class="eval-unit-label" style="font-weight: 600; font-size: 0.9rem; color: #475569;">Evaluation Unit:</span>
+        <button type="button" class="unit-pill" [class.active]="evalUnitMode === 'surah'" (click)="evalUnitMode = 'surah'">
+          📖 Surah &amp; Ayah-wise
+        </button>
+        <button type="button" class="unit-pill" [class.active]="evalUnitMode === 'juz'" (click)="evalUnitMode = 'juz'">
+          📑 Juz &amp; Quarter-wise
+        </button>
+      </div>
+
+      <!-- New Lesson (Sabaq) -->
       <div class="section-card sabaq-card">
         <h3 class="section-title">
-          <mat-icon>menu_book</mat-icon> Sabaq (New Lesson)
+          <mat-icon>menu_book</mat-icon> New Lesson (Sabaq)
         </h3>
-        <div class="form-grid">
+        <div class="form-grid" *ngIf="evalUnitMode === 'surah'">
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Surah</mat-label>
+            <mat-label>Surah Name</mat-label>
             <mat-select formControlName="sabaqSurah">
               <mat-option *ngFor="let s of surahList" [value]="s">{{ s }}</mat-option>
             </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Ayah From</mat-label>
-            <input matInput type="number" formControlName="sabaqAyahFrom" min="1" />
+            <mat-label>From Ayah</mat-label>
+            <input matInput type="number" formControlName="sabaqAyahFrom" min="1" [max]="getSurahMaxAyah(form.get('sabaqSurah')?.value)" />
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Ayah To</mat-label>
-            <input matInput type="number" formControlName="sabaqAyahTo" min="1" />
+            <mat-label>To Ayah</mat-label>
+            <input matInput type="number" formControlName="sabaqAyahTo" min="1" [max]="getSurahMaxAyah(form.get('sabaqSurah')?.value)" />
+            <span matSuffix class="field-unit" *ngIf="form.get('sabaqSurah')?.value">
+              (Max {{ getSurahMaxAyah(form.get('sabaqSurah')?.value) }})
+            </span>
           </mat-form-field>
 
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Sabaq Ayah/Tajweed Mistakes</mat-label>
+            <mat-label>New Lesson Mistakes</mat-label>
+            <input matInput type="number" formControlName="sabaqMistakes" min="0" />
+            <span matSuffix class="field-unit">mistakes</span>
+          </mat-form-field>
+        </div>
+
+        <div class="form-grid" *ngIf="evalUnitMode === 'juz'">
+          <mat-form-field appearance="outline">
+            <mat-label>Juz # (1-30)</mat-label>
+            <input matInput formControlName="sabqiJuz" placeholder="e.g. Juz 1" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Portion / Quarter</mat-label>
+            <mat-select formControlName="sabaqSurah">
+              <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>New Lesson Mistakes</mat-label>
             <input matInput type="number" formControlName="sabaqMistakes" min="0" />
             <span matSuffix class="field-unit">mistakes</span>
           </mat-form-field>
         </div>
       </div>
 
+      <!-- Recent Lesson (Sabqi) -->
       <div class="section-card sabqi-card">
         <h3 class="section-title">
-          <mat-icon>replay</mat-icon> Sabqi (Recent Revision)
+          <mat-icon>replay</mat-icon> Recent Lesson (Sabqi)
         </h3>
-        <div class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Juz / Quarter</mat-label>
-            <input matInput formControlName="sabqiJuz" placeholder="e.g. Juz 1, Quarter 2" />
+        <div class="form-grid" *ngIf="evalUnitMode === 'surah'">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Surah Name</mat-label>
+            <mat-select formControlName="sabqiSurah">
+              <mat-option *ngFor="let s of surahList" [value]="s">{{ s }}</mat-option>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Sabqi Mistakes</mat-label>
+            <mat-label>From Ayah</mat-label>
+            <input matInput type="number" formControlName="sabqiAyahFrom" min="1" [max]="getSurahMaxAyah(form.get('sabqiSurah')?.value)" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>To Ayah</mat-label>
+            <input matInput type="number" formControlName="sabqiAyahTo" min="1" [max]="getSurahMaxAyah(form.get('sabqiSurah')?.value)" />
+            <span matSuffix class="field-unit" *ngIf="form.get('sabqiSurah')?.value">
+              (Max {{ getSurahMaxAyah(form.get('sabqiSurah')?.value) }})
+            </span>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Recent Lesson Mistakes</mat-label>
+            <input matInput type="number" formControlName="sabqiMistakes" min="0" />
+            <span matSuffix class="field-unit">mistakes</span>
+          </mat-form-field>
+        </div>
+
+        <div class="form-grid" *ngIf="evalUnitMode === 'juz'">
+          <mat-form-field appearance="outline">
+            <mat-label>Juz / Portion</mat-label>
+            <input matInput formControlName="sabqiJuz" placeholder="e.g. Juz 1" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Portion / Quarter</mat-label>
+            <mat-select formControlName="sabqiJuzPortion">
+              <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Recent Lesson Mistakes</mat-label>
             <input matInput type="number" formControlName="sabqiMistakes" min="0" />
             <span matSuffix class="field-unit">mistakes</span>
           </mat-form-field>
         </div>
       </div>
 
+      <!-- Revision / Old Lesson (Manzil) -->
       <div class="section-card manzil-card">
         <h3 class="section-title">
-          <mat-icon>auto_stories</mat-icon> Manzil (Old Revision)
+          <mat-icon>auto_stories</mat-icon> Revision / Old Lesson (Manzil)
         </h3>
-        <div class="form-grid">
-          <mat-form-field appearance="outline">
-            <mat-label>Para / Juz Number</mat-label>
-            <input matInput formControlName="manzilJuz" placeholder="e.g. Para 15" />
+        <div class="form-grid" *ngIf="evalUnitMode === 'surah'">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Surah Name</mat-label>
+            <mat-select formControlName="manzilSurah">
+              <mat-option *ngFor="let s of surahList" [value]="s">{{ s }}</mat-option>
+            </mat-select>
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Manzil Mistakes</mat-label>
+            <mat-label>From Ayah</mat-label>
+            <input matInput type="number" formControlName="manzilAyahFrom" min="1" [max]="getSurahMaxAyah(form.get('manzilSurah')?.value)" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>To Ayah</mat-label>
+            <input matInput type="number" formControlName="manzilAyahTo" min="1" [max]="getSurahMaxAyah(form.get('manzilSurah')?.value)" />
+            <span matSuffix class="field-unit" *ngIf="form.get('manzilSurah')?.value">
+              (Max {{ getSurahMaxAyah(form.get('manzilSurah')?.value) }})
+            </span>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Revision Mistakes</mat-label>
+            <input matInput type="number" formControlName="manzilMistakes" min="0" />
+            <span matSuffix class="field-unit">mistakes</span>
+          </mat-form-field>
+        </div>
+
+        <div class="form-grid" *ngIf="evalUnitMode === 'juz'">
+          <mat-form-field appearance="outline">
+            <mat-label>Para / Juz Portion</mat-label>
+            <input matInput formControlName="manzilJuz" placeholder="e.g. Juz 15" />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Portion / Quarter</mat-label>
+            <mat-select formControlName="manzilJuzPortion">
+              <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Revision Mistakes</mat-label>
             <input matInput type="number" formControlName="manzilMistakes" min="0" />
             <span matSuffix class="field-unit">mistakes</span>
           </mat-form-field>

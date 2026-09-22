@@ -2,6 +2,7 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { AttendanceHistoryDialogComponent } from '../../shared/components/attendance-history-dialog/attendance-history-dialog.component';
+import { StudentProgressTrackerDialogComponent } from '../../shared/components/student-progress-tracker-dialog/student-progress-tracker-dialog.component';
 
 export interface AcademicTreeStudentsDialogData {
   nodeTitle: string;
@@ -162,6 +163,17 @@ export class AcademicTreeStudentsDialogComponent implements OnInit {
         title: `Attendance History for ${student.name || student.displayName || 'Student'}`,
         studentId: String(student.id)
       }
+    });
+  }
+
+  openProgressTracker(student: any): void {
+    this.dialog.open(StudentProgressTrackerDialogComponent, {
+      data: { student },
+      width: '90vw',
+      maxWidth: '1200px',
+      height: '90vh',
+      maxHeight: '90vh',
+      panelClass: 'student-progress-tracker-dialog-panel'
     });
   }
 }

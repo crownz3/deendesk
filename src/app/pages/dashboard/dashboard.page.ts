@@ -226,6 +226,14 @@ export class DashboardPage {
   showMadrasaDetails = false;
   statusFilter: 'all' | 'active' | 'inactive' = 'all';
   visibleCardLabels: string[] | null = null;
+  isAttendanceOverviewLoaded = false;
+  isAttendanceLoading = false;
+
+  loadAttendanceOverview(): void {
+    this.isAttendanceLoading = true;
+    this.isAttendanceOverviewLoaded = true;
+    this.refresh$.next();
+  }
 
   readonly loadingTimer$: Observable<string> = timer(0, 100).pipe(
     map((t) => (t * 0.1).toFixed(1) + 's')
@@ -601,7 +609,9 @@ export class DashboardPage {
         classes: from(this.repo.getAllOnce<EntityRecord>('classes', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         classGroups: from(this.repo.getAllOnce<EntityRecord>('classGroups', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         subjects: from(this.repo.getAllOnce<EntityRecord>('subjects', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
-        attendance: from(this.repo.getAllOnce<AttendanceRecord & EntityRecord>('attendance', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
+        attendance: this.isAttendanceOverviewLoaded
+          ? from(this.repo.getAllOnce<AttendanceRecord & EntityRecord>('attendance', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); }))
+          : of([]),
         notifications: from(this.repo.getAllOnce<NotificationItem & EntityRecord>('notifications', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         classPlans: from(this.repo.getAllOnce<EntityRecord & ClassPlan>('classPlans', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
         timetableEntries: from(this.repo.getAllOnce<EntityRecord & TimetableEntry>('timetableEntries', profile)).pipe(catchError(error => { console.warn('[Dashboard] Skipped:', error); return of([]); })),
@@ -618,7 +628,9 @@ export class DashboardPage {
     const timetable$ = from(this.repo.getAllOnce<EntityRecord & TimetableEntry>('timetableEntries', profile)).pipe(catchError(() => of([])));
     const subjects$ = from(this.repo.getAllOnce<EntityRecord>('subjects', profile)).pipe(catchError(() => of([])));
     const notifications$ = from(this.repo.getAllOnce<NotificationItem & EntityRecord>('notifications', profile)).pipe(catchError(() => of([])));
-    const attendance$ = from(this.repo.getAllOnce<AttendanceRecord & EntityRecord>('attendance', profile)).pipe(catchError(() => of([])));
+    const attendance$ = this.isAttendanceOverviewLoaded
+      ? from(this.repo.getAllOnce<AttendanceRecord & EntityRecord>('attendance', profile)).pipe(catchError(() => of([])))
+      : of([]);
     const users$ = from(this.repo.getAllOnce<EntityRecord>('users', profile)).pipe(catchError(() => of([])));
     const staff$ = from(this.repo.getAllOnce<EntityRecord>('staff', profile)).pipe(catchError(() => of([])));
     
@@ -1512,6 +1524,25 @@ export class DashboardPage {
     const dateStr = `${year}-${month}-${day}`;
     const formattedDate = `${day}/${month}/${year}`;
 
+    if (!this.isAttendanceOverviewLoaded) {
+      return {
+        dateStr,
+        formattedDate,
+        totalGroups: 0,
+        takenGroupsCount: 0,
+        pendingGroupsCount: 0,
+        completionRate: 0,
+        presentTotal: 0,
+        absentTotal: 0,
+        lateTotal: 0,
+        leaveTotal: 0,
+        totalStudentsRecorded: 0,
+        overallPresentPercentage: 0,
+        groupStatuses: [],
+        madrasaBreakdown: []
+      };
+    }
+
     const allClassGroups = (data['classGroups'] || []) as EntityRecord[];
     const allClasses = (data['classes'] || []) as EntityRecord[];
     const allCourses = (data['courses'] || []) as EntityRecord[];
@@ -1767,6 +1798,8 @@ export class DashboardPage {
       takenGroups: stats.taken,
       pendingGroups: stats.pending
     }));
+
+    this.isAttendanceLoading = false;
 
     return {
       dateStr,

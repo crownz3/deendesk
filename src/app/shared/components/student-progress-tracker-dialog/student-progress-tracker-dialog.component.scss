@@ -1057,3 +1057,155 @@
     }
   }
 }
+
+.loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #64748b;
+
+  .spin-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    animation: spin 1s linear infinite;
+    color: #10b981;
+  }
+
+  p {
+    font-size: 0.95rem;
+    font-weight: 600;
+  }
+}
+
+.empty-state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 50px 20px;
+  text-align: center;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px dashed #cbd5e1;
+
+  .empty-icon-circle {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+
+    ion-icon {
+      font-size: 32px;
+    }
+
+    &.blue {
+      background: #e0f2fe;
+      color: #0284c7;
+    }
+
+    &.green {
+      background: #d1fae5;
+      color: #10b981;
+    }
+  }
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.88rem;
+    color: #64748b;
+  }
+}
+
+.hifz-breakdown-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 16px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chips-flex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+
+  .surah-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 700;
+
+    &.strong {
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    &.weak {
+      background: #fff7ed;
+      color: #c2410c;
+      border: 1px solid rgba(249, 115, 22, 0.3);
+    }
+  }
+}
+
+.empty-hint {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 10px 0 0;
+}
+
+.mistake-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 700;
+  font-size: 0.78rem;
+
+  &.has-mistakes {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+}
+
+.rating-stars {
+  color: #f59e0b;
+  font-weight: 800;
+  font-size: 0.82rem;
+}
+
+.margin-top {
+  margin-top: 20px;
+}
+
+.green-icon {
+  color: #10b981;
+  vertical-align: middle;
+}
+
+.orange-icon {
+  color: #f97316;
+  vertical-align: middle;
+}
+

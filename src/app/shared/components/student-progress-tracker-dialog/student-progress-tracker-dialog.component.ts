@@ -1,8 +1,10 @@
 import { Component, Inject, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewChild } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Chart, registerables } from 'chart.js';
-import { DEFAULT_STAGES_BY_COURSE_TYPE } from '../../../core/constants/defaults';
+import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { DEFAULT_STAGES_BY_COURSE_TYPE, getSurahAyahCount } from '../../../core/constants/defaults';
 import { EntityRecord } from '../../../core/services/repository.service';
+import { getDeenDeskFirestore } from '../../../core/services/firebase-app';
 
 Chart.register(...registerables);
 
@@ -49,7 +51,10 @@ export interface HifzRangeMastery {
 })
 export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewInit, OnDestroy {
   student: EntityRecord;
-  activeTab: 'overview' | 'courses' | 'trajectory' | 'analytics' | 'hifz-analytics' = 'overview';
+  activeTab: 'attendance' | 'hifz' | 'courses' | 'overview' | 'trajectory' | 'analytics' | 'hifz-analytics' = 'attendance';
+  isLoading = true;
+  hasAttendanceData = false;
+  hasProgressData = false;
 
   @ViewChild('attendanceCanvas') attendanceCanvas?: ElementRef<HTMLCanvasElement>;
   @ViewChild('skillsCanvas') skillsCanvas?: ElementRef<HTMLCanvasElement>;
@@ -61,12 +66,34 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
   private hifzDoughnutChart?: Chart;
   private hifzBarChart?: Chart;
 
-  // Metrics
+  // Real Attendance Summary State
+  attendanceSummary = {
+    totalDays: 0,
+    presentDays: 0,
+    absentDays: 0,
+    lateDays: 0,
+    leaveDays: 0,
+    attendanceRatePct: 0,
+    records: [] as { date: string; status: string; note?: string; recordedBy?: string }[]
+  };
+
+  // Real Hifz & Dawr Analytics State
+  hifzAnalytics = {
+    strongSurahs: [] as { surahName: string; mistakes: number; rating: number; date: string }[],
+    weakSurahs: [] as { surahName: string; mistakes: number; rating: number; date: string }[],
+    strongJuz: [] as { juzNo: number; mistakes: number; date: string }[],
+    weakJuz: [] as { juzNo: number; mistakes: number; date: string }[],
+    totalAyahsMemorized: 0,
+    progressLogs: [] as any[]
+  };
+
+  // Real Maktab Analytics State
+  maktabLogs: any[] = [];
+
+  // Metrics (Fallback / Computed)
   overallProgressPercent = 0;
-  attendancePercent = 94;
-  quizScorePercent = 88;
-  totalPromotionsCount = 3;
-  totalDemotionsCount = 0;
+  attendancePercent = 0;
+  totalPromotionsCount = 1;
 
   courseDetails: CourseProgressDetail[] = [];
   trajectoryEvents: TrajectoryEvent[] = [];
@@ -81,10 +108,153 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
   }
 
   ngOnInit(): void {
+    this.loadRealStudentData();
     this.buildCourseProgressDetails();
     this.buildTrajectoryEvents();
-    this.buildMonthlyAttendance();
-    this.buildHifzRanges();
+  }
+
+  setTab(tab: 'attendance' | 'hifz' | 'courses' | 'overview' | 'trajectory' | 'analytics' | 'hifz-analytics'): void {
+    this.activeTab = tab;
+  }
+
+  private async loadRealStudentData(): Promise<void> {
+    this.isLoading = true;
+    const stId = String(this.student.id || this.student['uid'] || '').trim();
+    if (!stId) {
+      this.isLoading = false;
+      return;
+    }
+
+    try {
+      const db = getDeenDeskFirestore();
+
+      // 1. Fetch Student Daily Progress records
+      const pRef = collection(db, 'studentDailyProgress');
+      const pQuery = query(pRef, where('studentId', '==', stId), limit(100));
+      const pSnap = await getDocs(pQuery);
+
+      const progressDocs: any[] = [];
+      pSnap.forEach(d => progressDocs.push(d.data()));
+
+      // 2. Fetch Attendance collection
+      const aRef = collection(db, 'attendance');
+      const aQuery = query(aRef, limit(100));
+      const aSnap = await getDocs(aQuery);
+
+      const attDocs: { date: string; status: string; note?: string; recordedBy?: string }[] = [];
+      aSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data['records'] && data['records'][stId]) {
+          const rec = data['records'][stId];
+          attDocs.push({
+            date: data['date'] || '',
+            status: rec['status'] || 'present',
+            note: rec['note'] || '',
+            recordedBy: data['takenByName'] || ''
+          });
+        }
+      });
+
+      // Sort by date descending
+      attDocs.sort((a, b) => b.date.localeCompare(a.date));
+      progressDocs.sort((a, b) => (b['date'] || '').localeCompare(a['date'] || ''));
+
+      // Process Attendance
+      this.processAttendance(attDocs);
+
+      // Process Progress
+      this.processProgress(progressDocs);
+
+    } catch (err) {
+      console.error('Error fetching student progress data:', err);
+    } finally {
+      this.isLoading = false;
+      setTimeout(() => this.initCharts(), 150);
+    }
+  }
+
+  private processAttendance(records: { date: string; status: string; note?: string; recordedBy?: string }[]): void {
+    this.attendanceSummary.records = records;
+    this.attendanceSummary.totalDays = records.length;
+    this.hasAttendanceData = records.length > 0;
+
+    let present = 0, absent = 0, late = 0, leave = 0;
+    records.forEach(r => {
+      const st = r.status.toLowerCase();
+      if (st === 'present') present++;
+      else if (st === 'absent') absent++;
+      else if (st === 'late') late++;
+      else if (st === 'leave') leave++;
+    });
+
+    this.attendanceSummary.presentDays = present;
+    this.attendanceSummary.absentDays = absent;
+    this.attendanceSummary.lateDays = late;
+    this.attendanceSummary.leaveDays = leave;
+
+    const rate = records.length > 0 ? Math.round(((present + late * 0.5) / records.length) * 100) : 0;
+    this.attendanceSummary.attendanceRatePct = rate;
+    this.attendancePercent = rate;
+  }
+
+  private processProgress(logs: any[]): void {
+    this.hasProgressData = logs.length > 0;
+    this.hifzAnalytics.progressLogs = logs;
+    this.maktabLogs = logs.filter(l => l.studentType === 'maktab' || l.maktabProgress);
+
+    const strongSurahsMap = new Map<string, { surahName: string; mistakes: number; rating: number; date: string }>();
+    const weakSurahsMap = new Map<string, { surahName: string; mistakes: number; rating: number; date: string }>();
+    const strongJuzMap = new Map<number, { juzNo: number; mistakes: number; date: string }>();
+    const weakJuzMap = new Map<number, { juzNo: number; mistakes: number; date: string }>();
+    let totalAyahs = 0;
+
+    logs.forEach(l => {
+      const hData = l.hifzProgress || {};
+      const date = l.date || 'N/A';
+      const surah = hData.sabaqSurahName || l.sabaqSurah || '';
+      const mistakes = Number(hData.sabaqMistakes ?? l.sabaqMistakes ?? 0);
+      const rating = Number(hData.rating ?? l.hifzRating ?? 5);
+
+      // Ayah Memorized Count
+      const fromA = Number(hData.sabaqFromAyah ?? l.sabaqFromAyah ?? 1);
+      const toA = Number(hData.sabaqToAyah ?? l.sabaqToAyah ?? 0);
+      if (toA >= fromA) {
+        totalAyahs += (toA - fromA + 1);
+      } else if (surah) {
+        const verseCount = getSurahAyahCount(surah);
+        if (verseCount) totalAyahs += verseCount;
+      }
+
+      // Stronger vs Weaker Surah classification
+      if (surah) {
+        if (mistakes === 0 && rating >= 4) {
+          if (!strongSurahsMap.has(surah)) {
+            strongSurahsMap.set(surah, { surahName: surah, mistakes, rating, date });
+          }
+        } else if (mistakes > 0 || rating <= 3) {
+          if (!weakSurahsMap.has(surah)) {
+            weakSurahsMap.set(surah, { surahName: surah, mistakes, rating, date });
+          }
+        }
+      }
+
+      // Sabqi / Manzil Juz classification
+      const sabqiJuz = Number(hData.sabqiJuzNo ?? l.sabqiJuz ?? 0);
+      const sabqiMistakes = Number(hData.sabqiMistakes ?? l.sabqiMistakes ?? 0);
+      if (sabqiJuz > 0) {
+        if (sabqiMistakes === 0) {
+          strongJuzMap.set(sabqiJuz, { juzNo: sabqiJuz, mistakes: sabqiMistakes, date });
+        } else {
+          weakJuzMap.set(sabqiJuz, { juzNo: sabqiJuz, mistakes: sabqiMistakes, date });
+        }
+      }
+    });
+
+    this.hifzAnalytics.strongSurahs = Array.from(strongSurahsMap.values());
+    this.hifzAnalytics.weakSurahs = Array.from(weakSurahsMap.values());
+    this.hifzAnalytics.strongJuz = Array.from(strongJuzMap.values());
+    this.hifzAnalytics.weakJuz = Array.from(weakJuzMap.values());
+    this.hifzAnalytics.totalAyahsMemorized = totalAyahs;
   }
 
   ngAfterViewInit(): void {
@@ -95,15 +265,6 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
 
   ngOnDestroy(): void {
     this.destroyCharts();
-  }
-
-  setTab(tab: 'overview' | 'courses' | 'trajectory' | 'analytics' | 'hifz-analytics'): void {
-    this.activeTab = tab;
-    if (['analytics', 'overview', 'hifz-analytics'].includes(tab)) {
-      setTimeout(() => {
-        this.initCharts();
-      }, 100);
-    }
   }
 
   get strongHifzRangesCount(): number {

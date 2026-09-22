@@ -175,8 +175,27 @@
     <section class="today-attendance-section" *ngIf="vm.todayAttendance as todayAtt">
       <div class="today-attendance-card">
         
-        <!-- Header Row -->
-        <div class="today-att-header">
+        <!-- Unloaded State CTA Box -->
+        <div class="today-att-unloaded-cta" *ngIf="!isAttendanceOverviewLoaded">
+          <div class="cta-content">
+            <div class="cta-icon-badge">
+              <ion-icon name="calendar-outline"></ion-icon>
+            </div>
+            <div class="cta-text-block">
+              <h3>Today's Attendance Overview</h3>
+              <p>Attendance status is not loaded automatically on dashboard launch to save network requests. Click below to load today's class group attendance status.</p>
+            </div>
+            <button type="button" mat-raised-button color="primary" class="load-att-btn" (click)="loadAttendanceOverview()" [disabled]="isAttendanceLoading">
+              <mat-icon *ngIf="!isAttendanceLoading">cloud_download</mat-icon>
+              <mat-icon *ngIf="isAttendanceLoading" class="spin-icon">sync</mat-icon>
+              <span>{{ isAttendanceLoading ? 'Loading Attendance Overview...' : 'Load Attendance Overview' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <ng-container *ngIf="isAttendanceOverviewLoaded">
+          <!-- Header Row -->
+          <div class="today-att-header">
           <div class="header-left">
             <div class="att-date-badge">
               <ion-icon name="calendar-outline"></ion-icon>
@@ -202,6 +221,9 @@
               <span class="kpi-label">Pending Entry</span>
               <span class="kpi-val">{{ todayAtt.pendingGroupsCount }}</span>
             </div>
+            <button type="button" mat-icon-button color="primary" class="refresh-att-btn" (click)="loadAttendanceOverview()" [disabled]="isAttendanceLoading" title="Refresh Attendance Data">
+              <mat-icon [class.spin-icon]="isAttendanceLoading">refresh</mat-icon>
+            </button>
           </div>
         </div>
 
@@ -413,6 +435,7 @@
 
           </div>
         </div>
+        </ng-container>
 
       </div>
     </section>

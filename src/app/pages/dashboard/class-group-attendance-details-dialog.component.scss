@@ -1,0 +1,249 @@
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.group-icon-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  ion-icon {
+    font-size: 22px;
+  }
+}
+
+.subtitle {
+  margin: 2px 0 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+h2[mat-dialog-title] {
+  margin: 0;
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.close-btn {
+  color: #64748b;
+}
+
+.dialog-content {
+  padding: 16px 20px !important;
+  max-height: 68vh;
+}
+
+.taken-info-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  color: #166534;
+  margin-bottom: 14px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
+    color: #10b981;
+  }
+}
+
+.taken-time {
+  color: #475569;
+
+  mat-icon {
+    color: #64748b;
+  }
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.metric-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 4px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+
+  .value {
+    font-size: 1.15rem;
+    font-weight: 800;
+  }
+
+  .label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-top: 1px;
+  }
+
+  &.present { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  &.absent { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+  &.late { background: #fffbe6; border-color: #fef08a; color: #b45309; }
+  &.leave { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  &.total { background: #f8fafc; border-color: #cbd5e1; color: #334155; }
+}
+
+.search-wrap {
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  outline: none;
+  box-sizing: border-box;
+  background: #ffffff !important;
+  color: #0f172a !important;
+
+  &::placeholder {
+    color: #94a3b8;
+    opacity: 1;
+  }
+
+  &:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+  }
+}
+
+.students-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.student-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: white;
+  border: 1px solid #e2e8f0;
+}
+
+.st-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.st-index {
+  font-weight: 700;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  min-width: 20px;
+}
+
+.st-name {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.st-meta {
+  font-size: 0.76rem;
+  color: #64748b;
+}
+
+.st-status-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+
+  &.present { background: #d1fae5; color: #065f46; }
+  &.absent { background: #fee2e2; color: #991b1b; }
+  &.late { background: #fef3c7; color: #92400e; }
+  &.leave { background: #dbeafe; color: #1e40af; }
+  &.unmarked { background: #f1f5f9; color: #64748b; }
+}
+
+.st-note {
+  font-size: 0.72rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+
+  mat-icon {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+}
+
+.dialog-actions {
+  padding: 12px 20px;
+  border-top: 1px solid #e2e8f0;
+  gap: 8px;
+}
+
+.empty-list {
+  text-align: center;
+  padding: 20px;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.empty-icon {
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  color: #94a3b8;
+}

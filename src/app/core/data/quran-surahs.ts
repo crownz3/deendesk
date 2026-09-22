@@ -114,3 +114,59 @@ export const quranIndex = [
   { surahNumber: 113, chapter: "al-falaq", revelationPlace: "makki", verses: 5 },
   { surahNumber: 114, chapter: "an-nas", revelationPlace: "makki", verses: 6 }
 ];
+
+export function getSurahMaxAyah(surahInput: string | number | undefined | null): number {
+  if (!surahInput) return 286;
+  const str = String(surahInput).trim().toLowerCase();
+  if (!str) return 286;
+
+  // If number or string starting with number e.g. "2" or "2. Al-Baqarah"
+  const numMatch = str.match(/^(\d+)/);
+  if (numMatch) {
+    const sNum = parseInt(numMatch[1], 10);
+    const foundByNum = quranIndex.find(s => s.surahNumber === sNum);
+    if (foundByNum) return foundByNum.verses;
+  }
+
+  // Clean chapter name matching e.g. "al-baqarah" or "baqarah"
+  const cleanName = str.replace(/^\d+[\.\s-]*/, '').trim();
+  const foundByName = quranIndex.find(s =>
+    s.chapter.toLowerCase() === cleanName ||
+    s.chapter.toLowerCase().includes(cleanName) ||
+    cleanName.includes(s.chapter.toLowerCase())
+  );
+
+  return foundByName ? foundByName.verses : 286;
+}
+
+export function searchSurahs(query: string): { surahNumber: number; chapter: string; label: string; verses: number }[] {
+  if (!query) {
+    return quranIndex.map(s => ({
+      surahNumber: s.surahNumber,
+      chapter: s.chapter,
+      label: `${s.surahNumber}. ${capitalizeSurah(s.chapter)} (${s.verses} Ayahs)`,
+      verses: s.verses
+    }));
+  }
+  const q = query.trim().toLowerCase();
+  const numMatch = q.match(/^(\d+)/);
+  const num = numMatch ? parseInt(numMatch[1], 10) : null;
+
+  return quranIndex
+    .filter(s =>
+      (num !== null && s.surahNumber === num) ||
+      s.chapter.toLowerCase().includes(q) ||
+      `${s.surahNumber}`.startsWith(q)
+    )
+    .map(s => ({
+      surahNumber: s.surahNumber,
+      chapter: s.chapter,
+      label: `${s.surahNumber}. ${capitalizeSurah(s.chapter)} (${s.verses} Ayahs)`,
+      verses: s.verses
+    }));
+}
+
+function capitalizeSurah(str: string): string {
+  return str.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join('-');
+}
+

@@ -14,6 +14,26 @@ import { ALL_QURAN_SURAHS, getSurahAyahCount } from '../../core/constants/defaul
 import { SetTargetDialogComponent } from './set-target-dialog.component';
 import { SimpleTimetableSlotDialogComponent } from './simple-timetable-slot-dialog.component';
 import { StudentAttendanceHistoryDialogComponent, StudentAttendanceHistoryRecord } from './student-attendance-history-dialog.component';
+import { ClassGroupAttendanceDetailsDialogComponent, ClassGroupAttendanceDetailsDialogData, StudentAttendanceDetailRecord } from '../dashboard/class-group-attendance-details-dialog.component';
+import { StudentEvaluationDialogComponent } from '../attendance/student-evaluation-dialog.component';
+
+export interface OverviewClassGroupStatus {
+  groupId: string;
+  groupName: string;
+  classId?: string;
+  className: string;
+  madrasaId: string;
+  madrasaName: string;
+  isTaken: boolean;
+  takenByName?: string;
+  takenAtText?: string;
+  presentCount: number;
+  absentCount: number;
+  lateCount: number;
+  leaveCount: number;
+  totalStudents: number;
+  assignedStaffName?: string;
+}
 
 export interface StudentSuiteRosterItem {
   student: EntityRecord;
@@ -40,13 +60,26 @@ export interface StudentSuiteRosterItem {
   targetIncompleteReason?: string;
   targetIncompleteNotes?: string;
   // Hifz Progress Fields
+  evalUnitMode?: 'surah' | 'juz' | 'page';
   sabaqSurah: string;
   sabaqFromAyah: number | null;
   sabaqToAyah: number | null;
   sabaqMistakes: number | null;
+  sabaqJuz?: number | null;
+  sabaqJuzPortion?: string;
+
+  sabqiSurah?: string;
+  sabqiFromAyah?: number | null;
+  sabqiToAyah?: number | null;
   sabqiJuz: number | null;
+  sabqiJuzPortion?: string;
   sabqiMistakes: number | null;
+
+  manzilSurah?: string;
+  manzilFromAyah?: number | null;
+  manzilToAyah?: number | null;
   manzilJuz: number | null;
+  manzilJuzPortion?: string;
   manzilMistakes: number | null;
   hifzRating: number; // 1-5
   // Dawr (Full Quran Revision) Progress Fields
@@ -145,9 +178,29 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   recordedAtText = '';
 
   // Tab State & Auto-Detected Progress Mode
-  activeTab: 'attendance' | 'progress' | 'timetable' | 'reports' = 'attendance';
+  activeTab: 'attendance' | 'overview' | 'progress' | 'timetable' | 'reports' = 'attendance';
   studentTypeMode: 'hifz' | 'maktab' | 'dawr' = 'hifz';
   isHifzCourse = false;
+
+  // Hifz & Dawr Evaluation Mode & Unit Options
+  hifzEvalMode: 'surah' | 'juz' | 'page' = 'surah';
+  allQuranSurahs = ALL_QURAN_SURAHS;
+  juzPortionOptions: string[] = [
+    'Full Juz',
+    '1st Quarter (Rub\' 1)',
+    '2nd Quarter (Rub\' 2)',
+    '3rd Quarter (Rub\' 3)',
+    '4th Quarter (Rub\' 4)',
+    '1st Half (Nisf 1)',
+    '2nd Half (Nisf 2)'
+  ];
+
+  // Status Overview State for Org Admin & Madrasa Incharge
+  overviewStatusTab: 'all' | 'taken' | 'pending' = 'all';
+  overviewSearchQuery = '';
+  overviewMadrasaFilterId = '';
+  isOverviewLoading = false;
+  overviewGroupStatuses: OverviewClassGroupStatus[] = [];
 
   // Target Editing State
   editingTargetItem: StudentSuiteRosterItem | null = null;
@@ -160,9 +213,22 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   // Timetable Staff Options
   staffOptions: { id: string; name: string; role?: string; madrasaName?: string; groupName?: string }[] = [];
 
-  // Roster Data
+  // Roster Data & Filtered Search
   roster: StudentSuiteRosterItem[] = [];
   searchQuery = '';
+
+  get filteredRoster(): StudentSuiteRosterItem[] {
+    if (!this.searchQuery || !this.searchQuery.trim()) {
+      return this.roster;
+    }
+    const q = this.searchQuery.trim().toLowerCase();
+    return this.roster.filter(item => {
+      const name = (item.student['fullName'] || item.student['name'] || '').toLowerCase();
+      const phone = (item.student['parentPhone'] || item.student['phone'] || '').toLowerCase();
+      const id = (item.student['admissionNo'] || item.student['id'] || '').toLowerCase();
+      return name.includes(q) || phone.includes(q) || id.includes(q);
+    });
+  }
 
   // Summary Metrics
   totalEnrolled = 0;
@@ -188,19 +254,31 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
-      if (params['madrasaId']) this.selectedMadrasaId = params['madrasaId'];
-      if (params['groupId']) this.selectedGroupId = params['groupId'];
+      let changed = false;
+      if (params['madrasaId'] && this.selectedMadrasaId !== params['madrasaId']) {
+        this.selectedMadrasaId = params['madrasaId'];
+        changed = true;
+      }
+      if (params['groupId'] && this.selectedGroupId !== params['groupId']) {
+        this.selectedGroupId = params['groupId'];
+        changed = true;
+      }
       if (params['classId']) this.selectedClassId = params['classId'];
       if (params['date']) {
         const dStr = String(params['date']);
         const parts = dStr.split('-');
         if (parts.length === 3) {
           const parsedDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-          if (!isNaN(parsedDate.getTime())) {
+          if (!isNaN(parsedDate.getTime()) && this.selectedDateStr !== dStr) {
             this.selectedDateObj = parsedDate;
             this.selectedDateStr = dStr;
+            changed = true;
           }
         }
+      }
+
+      if (changed && this.classGroups.length > 0) {
+        this.filterGroupsForActiveScope();
       }
     });
 
@@ -553,8 +631,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     if (this.availableClassGroupsForUser.length > 0) {
       if (!this.availableClassGroupsForUser.some(g => g.id === this.selectedGroupId)) {
         this.selectedGroupId = this.availableClassGroupsForUser[0]?.id || '';
-        this.onGroupChanged();
       }
+      this.onGroupChanged();
     } else {
       this.selectedGroupId = '';
       this.roster = [];
@@ -830,6 +908,9 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     this.selectedDateStr = `${y}-${m}-${d}`;
     this.loadTimetablePeriods();
     this.loadRosterAndAttendance();
+    if (this.activeTab === 'overview') {
+      this.loadOverviewStatusData();
+    }
   }
 
   shiftDate(days: number): void {
@@ -1145,6 +1226,9 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         addToken(s['group']);
         addToken(s['sectionId']);
         addToken(s['section']);
+        addToken(s['classPlanId']);
+        addToken(s['classPlan']);
+        addToken(s['planId']);
         addToken(s['groupIds']);
         addToken(s['classGroupIds']);
         addToken(s['assignedGroupIds']);
@@ -1292,9 +1376,18 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           sabaqFromAyah: hifz.sabaqFromAyah || targets.sabaqFromAyah || null,
           sabaqToAyah: hifz.sabaqToAyah || targets.sabaqToAyah || null,
           sabaqMistakes: hifz.sabaqMistakes || 0,
+          sabaqJuzPortion: hifz.sabaqJuzPortion || 'Full Juz',
+          sabqiSurah: hifz.sabqiSurahName || '',
+          sabqiFromAyah: hifz.sabqiFromAyah || null,
+          sabqiToAyah: hifz.sabqiToAyah || null,
           sabqiJuz: hifz.sabqiJuzNo || null,
+          sabqiJuzPortion: hifz.sabqiJuzPortion || 'Full Juz',
           sabqiMistakes: hifz.sabqiMistakes || 0,
+          manzilSurah: hifz.manzilSurahName || '',
+          manzilFromAyah: hifz.manzilFromAyah || null,
+          manzilToAyah: hifz.manzilToAyah || null,
           manzilJuz: hifz.manzilJuzNo || null,
+          manzilJuzPortion: hifz.manzilJuzPortion || 'Full Juz',
           manzilMistakes: hifz.manzilMistakes || 0,
           hifzRating: hifz.rating || 5,
           dawrRoundNo: dawr.roundNo || 1,
@@ -1322,6 +1415,339 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     } finally {
       this.loader.hide();
     }
+  }
+
+  setOverviewTabActive(): void {
+    this.activeTab = 'overview';
+    this.loadOverviewStatusData();
+  }
+
+  async loadOverviewStatusData(): Promise<void> {
+    if (!this.currentUser) return;
+
+    try {
+      this.isOverviewLoading = true;
+      const firestore = getDeenDeskFirestore();
+
+      const allAttendance = await this.repo.getAllOnce<EntityRecord>('attendance', this.currentUser);
+      const dateStr = this.selectedDateStr;
+
+      const dateAttendanceList = allAttendance.filter(a => {
+        const recDate = String(a['date'] || a['dateStr'] || a['selectedDate'] || '');
+        if (recDate === dateStr) return true;
+        if (String(a.id).includes(dateStr)) return true;
+        if (a['createdAt']) {
+          const rawCreated: any = a['createdAt'];
+          const cDate = new Date(typeof rawCreated?.toDate === 'function' ? rawCreated.toDate() : rawCreated);
+          const cStr = `${cDate.getFullYear()}-${String(cDate.getMonth() + 1).padStart(2, '0')}-${String(cDate.getDate()).padStart(2, '0')}`;
+          if (cStr === dateStr) return true;
+        }
+        return false;
+      });
+
+      const studentsList = await this.repo.getAllOnce<EntityRecord>('students', this.currentUser);
+
+      let targetGroups: EntityRecord[] = [];
+      if (this.isSuperAdmin || this.isOrgAdmin) {
+        targetGroups = [...this.classGroups];
+      } else {
+        targetGroups = this.classGroups.filter(g => {
+          const mId = String(g['madrasaId'] || '');
+          const mIds = Array.isArray(g['madrasaIds']) ? g['madrasaIds'].map(String) : [];
+          return this.userAssignedMadrasaIds.has(mId) || mIds.some(id => this.userAssignedMadrasaIds.has(id));
+        });
+
+        if (targetGroups.length === 0) {
+          targetGroups = [...this.availableClassGroupsForUser];
+        }
+      }
+
+      const madrasaMap = new Map<string, string>();
+      this.madrasas.forEach(m => {
+        if (m.id) madrasaMap.set(m.id, m['name'] || m['title'] || '');
+      });
+
+      const classMap = new Map<string, string>();
+      this.classes.forEach(c => {
+        if (c.id) classMap.set(c.id, c['name'] || c['title'] || '');
+      });
+
+      const results: OverviewClassGroupStatus[] = targetGroups.map(grp => {
+        const grpId = String(grp.id);
+        const grpMadrasaId = String(grp['madrasaId'] || '');
+        const madrasaName = madrasaMap.get(grpMadrasaId) || grp['madrasaName'] || 'Madrasa';
+        const className = classMap.get(grp['classId']) || grp['className'] || 'Class';
+
+        const groupStudents = studentsList.filter(s => {
+          const status = String(s['status'] || s['state'] || '').toLowerCase();
+          if (['inactive', 'disabled', 'archived', 'deleted', 'left'].includes(status)) return false;
+          if (s['isArchived'] === true || s['isDeleted'] === true) return false;
+
+          const gIds = [
+            s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'],
+            ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
+            ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : [])
+          ].filter(Boolean).map(String);
+
+          return gIds.includes(grpId);
+        });
+
+        const totalStudents = groupStudents.length || Number(grp['studentCount'] || grp['totalStudents'] || 0);
+
+        const directStaff = grp['assignedStaffName'] || grp['teacherName'] || grp['staffName'] || grp['inchargeName'];
+        let assignedStaffName = typeof directStaff === 'string' ? directStaff.trim() : '';
+
+        const attRecord = dateAttendanceList.find(a =>
+          a['groupId'] === grpId || a['classGroupId'] === grpId || a['classPlanId'] === grpId || String(a.id).includes(grpId)
+        );
+
+        let isTaken = false;
+        let takenByName = '';
+        let takenAtText = '';
+        let presentCount = 0;
+        let absentCount = 0;
+        let lateCount = 0;
+        let leaveCount = 0;
+
+        if (attRecord) {
+          const records = attRecord['records'] || attRecord['students'] || attRecord['attendanceMap'];
+          const hasRecords = records && typeof records === 'object' && Object.keys(records).length > 0;
+
+          if (hasRecords || attRecord['takenByName'] || attRecord['recordedByName'] || attRecord['status'] === 'completed') {
+            isTaken = true;
+            takenByName = attRecord['takenByName'] || attRecord['recordedByName'] || attRecord['takenBy'] || 'Teacher';
+
+            if (attRecord['takenAt'] || attRecord['updatedAt']) {
+              const t: any = attRecord['takenAt'] || attRecord['updatedAt'];
+              const d = new Date(typeof t?.toDate === 'function' ? t.toDate() : t);
+              takenAtText = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+              takenAtText = 'Saved';
+            }
+
+            if (records && typeof records === 'object') {
+              Object.values(records).forEach((r: any) => {
+                const st = String(r?.status || r || '').toLowerCase();
+                if (st === 'present' || st === 'p') presentCount++;
+                else if (st === 'absent' || st === 'a') absentCount++;
+                else if (st === 'late' || st === 'l') lateCount++;
+                else if (st === 'leave' || st === 'excused') leaveCount++;
+              });
+            }
+          }
+        }
+
+        return {
+          groupId: grpId,
+          groupName: String(grp['name'] || grp['title'] || 'Class Group'),
+          classId: grp['classId'],
+          className,
+          madrasaId: grpMadrasaId,
+          madrasaName,
+          isTaken,
+          takenByName: takenByName || undefined,
+          takenAtText: takenAtText || undefined,
+          presentCount,
+          absentCount,
+          lateCount,
+          leaveCount,
+          totalStudents,
+          assignedStaffName: assignedStaffName || 'Not Assigned'
+        };
+      });
+
+      this.overviewGroupStatuses = results;
+    } catch (err) {
+      console.error('Error loading overview status data:', err);
+    } finally {
+      this.isOverviewLoading = false;
+    }
+  }
+
+  get filteredOverviewGroupStatuses(): OverviewClassGroupStatus[] {
+    let list = this.overviewGroupStatuses;
+
+    if (this.overviewMadrasaFilterId) {
+      list = list.filter(item => item.madrasaId === this.overviewMadrasaFilterId || item.madrasaName.toLowerCase().includes(this.overviewMadrasaFilterId.toLowerCase()));
+    }
+
+    if (this.overviewStatusTab === 'taken') {
+      list = list.filter(item => item.isTaken);
+    } else if (this.overviewStatusTab === 'pending') {
+      list = list.filter(item => !item.isTaken);
+    }
+
+    if (this.overviewSearchQuery && this.overviewSearchQuery.trim()) {
+      const q = this.overviewSearchQuery.trim().toLowerCase();
+      list = list.filter(item =>
+        item.groupName.toLowerCase().includes(q) ||
+        item.className.toLowerCase().includes(q) ||
+        item.madrasaName.toLowerCase().includes(q) ||
+        (item.assignedStaffName && item.assignedStaffName.toLowerCase().includes(q))
+      );
+    }
+
+    return list;
+  }
+
+  get groupedOverviewMadrasas(): { madrasaId: string; madrasaName: string; totalGroups: number; takenGroups: number; pendingGroups: number; groupStatuses: OverviewClassGroupStatus[] }[] {
+    const map = new Map<string, { madrasaId: string; madrasaName: string; totalGroups: number; takenGroups: number; pendingGroups: number; groupStatuses: OverviewClassGroupStatus[] }>();
+
+    this.filteredOverviewGroupStatuses.forEach(item => {
+      const key = item.madrasaId || item.madrasaName || 'default';
+      if (!map.has(key)) {
+        map.set(key, {
+          madrasaId: item.madrasaId,
+          madrasaName: item.madrasaName,
+          totalGroups: 0,
+          takenGroups: 0,
+          pendingGroups: 0,
+          groupStatuses: []
+        });
+      }
+      const mData = map.get(key)!;
+      mData.totalGroups++;
+      if (item.isTaken) mData.takenGroups++;
+      else mData.pendingGroups++;
+      mData.groupStatuses.push(item);
+    });
+
+    return Array.from(map.values());
+  }
+
+  get overviewTakenCount(): number {
+    return this.overviewGroupStatuses.filter(g => g.isTaken).length;
+  }
+
+  get overviewPendingCount(): number {
+    return this.overviewGroupStatuses.filter(g => !g.isTaken).length;
+  }
+
+  get overviewCompletionRate(): number {
+    if (this.overviewGroupStatuses.length === 0) return 0;
+    return Math.round((this.overviewTakenCount / this.overviewGroupStatuses.length) * 100);
+  }
+
+  navigateToTakeOrEditAttendance(item: OverviewClassGroupStatus): void {
+    if (item.madrasaId) this.selectedMadrasaId = item.madrasaId;
+    if (item.groupId) this.selectedGroupId = item.groupId;
+    if (item.classId) this.selectedClassId = item.classId;
+
+    this.activeTab = 'attendance';
+    this.onGroupChanged();
+  }
+
+  async openOverviewDetailsModal(item: OverviewClassGroupStatus): Promise<void> {
+    try {
+      this.loader.show();
+      const firestore = getDeenDeskFirestore();
+
+      const studentsList = await this.repo.getAllOnce<EntityRecord>('students', this.currentUser);
+      const groupStudents = studentsList.filter(s => {
+        const gIds = [
+          s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'],
+          ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
+          ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : [])
+        ].filter(Boolean).map(String);
+        return gIds.includes(item.groupId);
+      });
+
+      const docId = `${item.madrasaId || 'default'}_${item.groupId}_${this.selectedDateStr}_${this.selectedPeriodId}`;
+      const attendanceDocRef = doc(firestore, 'attendance', docId);
+      let snap: any = null;
+      try {
+        snap = await getDoc(attendanceDocRef);
+      } catch (e) {
+        console.warn('Could not fetch attendance doc:', e);
+      }
+
+      const recordsMap = (snap && snap.exists()) ? (snap.data()['records'] || {}) : {};
+
+      const studentRecords: StudentAttendanceDetailRecord[] = groupStudents.map(st => {
+        const stId = String(st.id || st['uid'] || '');
+        const rec = recordsMap[stId];
+        const rawStatus = String(rec?.status || rec || 'unmarked').toLowerCase();
+        let status: 'present' | 'absent' | 'late' | 'leave' | 'unmarked' = 'unmarked';
+        if (['present', 'p'].includes(rawStatus)) status = 'present';
+        else if (['absent', 'a'].includes(rawStatus)) status = 'absent';
+        else if (['late', 'l'].includes(rawStatus)) status = 'late';
+        else if (['leave', 'excused'].includes(rawStatus)) status = 'leave';
+
+        return {
+          studentId: stId,
+          studentName: String(st['name'] || st['fullName'] || st['displayName'] || 'Student'),
+          rollNumber: String(st['rollNumber'] || st['registerNo'] || st['rollNo'] || ''),
+          status,
+          note: typeof rec === 'object' && rec?.note ? String(rec.note) : '',
+          parentPhone: this.getParentPhone(st)
+        };
+      });
+
+      const dialogData: ClassGroupAttendanceDetailsDialogData = {
+        groupId: item.groupId,
+        groupName: item.groupName,
+        madrasaName: item.madrasaName,
+        className: item.className,
+        dateStr: this.selectedDateStr,
+        takenByName: item.takenByName,
+        takenAtText: item.takenAtText,
+        presentCount: item.presentCount,
+        absentCount: item.absentCount,
+        lateCount: item.lateCount,
+        leaveCount: item.leaveCount,
+        totalStudents: item.totalStudents,
+        studentRecords,
+        madrasaId: item.madrasaId,
+        classId: item.classId
+      };
+
+      this.dialog.open(ClassGroupAttendanceDetailsDialogComponent, {
+        width: '640px',
+        maxWidth: '95vw',
+        panelClass: 'custom-attendance-details-panel',
+        data: dialogData
+      });
+    } catch (err) {
+      console.error('Error opening details modal:', err);
+    } finally {
+      this.loader.hide();
+    }
+  }
+
+  exportOverviewReport(): void {
+    const dataList = this.filteredOverviewGroupStatuses;
+    if (dataList.length === 0) {
+      this.snackBar.open('No class group status records to export', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    const headers = ['Date', 'Madrasa', 'Class Group', 'Class', 'Status', 'Assigned Staff', 'Taken By', 'Taken Time', 'Present', 'Absent', 'Late', 'Leave', 'Total Students'];
+    const rows = dataList.map(item => [
+      `"${this.selectedDateStr}"`,
+      `"${(item.madrasaName || '').replace(/"/g, '""')}"`,
+      `"${(item.groupName || '').replace(/"/g, '""')}"`,
+      `"${(item.className || '').replace(/"/g, '""')}"`,
+      `"${item.isTaken ? 'Taken' : 'Pending'}"`,
+      `"${(item.assignedStaffName || '').replace(/"/g, '""')}"`,
+      `"${(item.takenByName || '-').replace(/"/g, '""')}"`,
+      `"${(item.takenAtText || '-').replace(/"/g, '""')}"`,
+      item.presentCount,
+      item.absentCount,
+      item.lateCount,
+      item.leaveCount,
+      item.totalStudents
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `ClassGroup_Attendance_Status_${this.selectedDateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    this.snackBar.open('Attendance Status Report exported successfully!', 'Dismiss', { duration: 3500 });
   }
 
   // Target MatDialog Launcher
@@ -1383,6 +1809,70 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         }
 
         this.snackBar.open(`Target Goal set for ${item.student['fullName'] || item.student['name']}`, 'OK', { duration: 3000 });
+      }
+    });
+  }
+
+  // Single Student Evaluation Dialog Launcher
+  openSingleStudentEvaluationModal(item: StudentSuiteRosterItem): void {
+    const dialogRef = this.dialog.open(StudentEvaluationDialogComponent, {
+      width: '540px',
+      maxWidth: '95vw',
+      data: {
+        studentId: item.student.id,
+        studentName: item.student['fullName'] || item.student['name'],
+        date: this.selectedDateStr,
+        courseType: this.studentTypeMode,
+        classId: this.selectedClassId,
+        groupId: this.selectedGroupId,
+        profile: this.currentUser!,
+        existingRecord: {
+          sabaqSurah: item.sabaqSurah,
+          sabaqAyahFrom: item.sabaqFromAyah,
+          sabaqAyahTo: item.sabaqToAyah,
+          sabaqMistakes: item.sabaqMistakes || 0,
+          sabqiSurah: item.sabqiSurah,
+          sabqiAyahFrom: item.sabqiFromAyah,
+          sabqiAyahTo: item.sabqiToAyah,
+          sabqiJuz: item.sabqiJuz ? `Juz ${item.sabqiJuz}` : '',
+          sabqiJuzPortion: item.sabqiJuzPortion,
+          sabqiMistakes: item.sabqiMistakes || 0,
+          manzilSurah: item.manzilSurah,
+          manzilAyahFrom: item.manzilFromAyah,
+          manzilAyahTo: item.manzilToAyah,
+          manzilJuz: item.manzilJuz ? `Juz ${item.manzilJuz}` : '',
+          manzilJuzPortion: item.manzilJuzPortion,
+          manzilMistakes: item.manzilMistakes || 0,
+          daurRoundNumber: item.dawrRoundNo || 1,
+          daurPortionJuz: item.dawrPortionJuz,
+          daurFromAyah: item.dawrFromAyah,
+          daurToAyah: item.dawrToAyah,
+          daurMistakes: item.dawrMistakes || 0,
+          maktabSubject: item.maktabSubject,
+          maktabPageNo: item.maktabPage,
+          maktabLessonNo: item.maktabLineNo,
+          grade: item.hifzRating >= 4 ? 'Good' : 'Needs Revision',
+          starRating: item.hifzRating || 5
+        } as any
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res && res.record) {
+        const rec = res.record;
+        if (rec.sabaqSurah) item.sabaqSurah = rec.sabaqSurah;
+        if (rec.sabaqAyahFrom) item.sabaqFromAyah = rec.sabaqAyahFrom;
+        if (rec.sabaqAyahTo) item.sabaqToAyah = rec.sabaqAyahTo;
+        if (rec.sabaqMistakes !== undefined) item.sabaqMistakes = rec.sabaqMistakes;
+        if (rec.sabqiSurah) item.sabqiSurah = rec.sabqiSurah;
+        if (rec.sabqiAyahFrom) item.sabqiFromAyah = rec.sabqiAyahFrom;
+        if (rec.sabqiAyahTo) item.sabqiToAyah = rec.sabqiAyahTo;
+        if (rec.sabqiMistakes !== undefined) item.sabqiMistakes = rec.sabqiMistakes;
+        if (rec.manzilSurah) item.manzilSurah = rec.manzilSurah;
+        if (rec.manzilAyahFrom) item.manzilFromAyah = rec.manzilAyahFrom;
+        if (rec.manzilAyahTo) item.manzilToAyah = rec.manzilAyahTo;
+        if (rec.manzilMistakes !== undefined) item.manzilMistakes = rec.manzilMistakes;
+        if (rec.starRating) item.hifzRating = rec.starRating;
       }
     });
   }
@@ -1449,15 +1939,6 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       console.error('Error copying previous targets:', err);
     } finally {
       this.loader.hide();
-    }
-  }
-
-  onSabaqSurahChange(item: StudentSuiteRosterItem): void {
-    if (!item.sabaqSurah) return;
-    const ayahCount = getSurahAyahCount(item.sabaqSurah);
-    if (ayahCount) {
-      if (!item.sabaqFromAyah) item.sabaqFromAyah = 1;
-      item.sabaqToAyah = ayahCount;
     }
   }
 
@@ -1540,15 +2021,25 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
               incompleteNotes: item.targetIncompleteNotes || '',
             },
             hifzProgress: {
-              sabaqSurahName: item.sabaqSurah,
-              sabaqFromAyah: item.sabaqFromAyah,
-              sabaqToAyah: item.sabaqToAyah,
-              sabaqMistakes: item.sabaqMistakes,
-              sabqiJuzNo: item.sabqiJuz,
-              sabqiMistakes: item.sabqiMistakes,
-              manzilJuzNo: item.manzilJuz,
-              manzilMistakes: item.manzilMistakes,
-              rating: item.hifzRating,
+              sabaqSurahName: item.sabaqSurah || '',
+              sabaqFromAyah: item.sabaqFromAyah || null,
+              sabaqToAyah: item.sabaqToAyah || null,
+              sabaqMistakes: item.sabaqMistakes || 0,
+              sabaqJuzPortion: item.sabaqJuzPortion || 'Full Juz',
+              sabqiSurahName: item.sabqiSurah || '',
+              sabqiFromAyah: item.sabqiFromAyah || null,
+              sabqiToAyah: item.sabqiToAyah || null,
+              sabqiJuzNo: item.sabqiJuz || null,
+              sabqiJuzPortion: item.sabqiJuzPortion || 'Full Juz',
+              sabqiMistakes: item.sabqiMistakes || 0,
+              manzilSurahName: item.manzilSurah || '',
+              manzilFromAyah: item.manzilFromAyah || null,
+              manzilToAyah: item.manzilToAyah || null,
+              manzilJuzNo: item.manzilJuz || null,
+              manzilJuzPortion: item.manzilJuzPortion || 'Full Juz',
+              manzilMistakes: item.manzilMistakes || 0,
+              rating: item.hifzRating || 5,
+              evalUnitMode: this.hifzEvalMode
             },
             dawrProgress: {
               roundNo: item.dawrRoundNo,
@@ -1608,5 +2099,29 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  }
+
+  getSurahMaxAyah(surahInput: string | null | undefined): number {
+    if (!surahInput) return 286;
+    const count = getSurahAyahCount(surahInput);
+    return count || 286;
+  }
+
+  onSabaqSurahChange(item: StudentSuiteRosterItem): void {
+    if (!item.sabaqSurah) return;
+    const maxAyah = this.getSurahMaxAyah(item.sabaqSurah);
+    if (!item.sabaqFromAyah) item.sabaqFromAyah = 1;
+    if (!item.sabaqToAyah || item.sabaqToAyah > maxAyah) {
+      item.sabaqToAyah = maxAyah;
+    }
+  }
+
+  validateAyahBounds(item: StudentSuiteRosterItem): void {
+    if (!item.sabaqSurah) return;
+    const maxAyah = this.getSurahMaxAyah(item.sabaqSurah);
+    if (item.sabaqToAyah && item.sabaqToAyah > maxAyah) {
+      item.sabaqToAyah = maxAyah;
+      this.snackBar.open(`Maximum Ayah for ${item.sabaqSurah} is ${maxAyah}`, 'Dismiss', { duration: 3000 });
+    }
   }
 }

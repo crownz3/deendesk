@@ -75,7 +75,11 @@
                 </div>
 
                 <div class="card-top-actions">
-                  <button mat-flat-button color="primary" class="history-btn" (click)="viewAttendanceHistory(student)">
+                  <button mat-flat-button color="accent" class="tracker-btn" (click)="openProgressTracker(student)" matTooltip="View Attendance & Progress Tracker">
+                    <ion-icon name="analytics-outline"></ion-icon>
+                    <span>Attendance & Progress</span>
+                  </button>
+                  <button mat-stroked-button color="primary" class="history-btn" (click)="viewAttendanceHistory(student)" matTooltip="View Quick Attendance History">
                     <ion-icon name="calendar-outline"></ion-icon>
                     <span>History</span>
                   </button>
