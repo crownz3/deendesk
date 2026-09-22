@@ -321,22 +321,27 @@ export class DashboardPage {
   getFilteredGroupStatuses(vm: DashboardVm | null): ClassGroupAttendanceStatus[] {
     if (!vm || !vm.todayAttendance || !vm.todayAttendance.groupStatuses) return [];
 
-    const breakdown = vm.todayAttendance.madrasaBreakdown || [];
-
-    if ((!this.selectedMadrasaFilter || this.selectedMadrasaFilter === 'all') && breakdown.length > 0) {
-      this.selectedMadrasaFilter = breakdown[0].madrasaId;
-      this.madrasaFilterSearchText = breakdown[0].madrasaName;
-    } else if (this.selectedMadrasaFilter) {
-      const match = breakdown.find(m => String(m.madrasaId) === String(this.selectedMadrasaFilter));
-      if (match && (this.madrasaFilterSearchText === this.selectedMadrasaFilter || !this.madrasaFilterSearchText)) {
-        this.madrasaFilterSearchText = match.madrasaName;
-      }
-    }
-    
     let list = vm.todayAttendance.groupStatuses;
 
-    if (this.selectedMadrasaFilter) {
-      list = list.filter(item => String(item.madrasaId) === String(this.selectedMadrasaFilter));
+    // Filter by Madrasa if a specific madrasa filter is active (and not 'all' or empty)
+    if (this.selectedMadrasaFilter && this.selectedMadrasaFilter !== 'all' && this.selectedMadrasaFilter.trim()) {
+      const targetFilter = this.selectedMadrasaFilter.trim().toLowerCase();
+      const targetSearchText = (this.madrasaFilterSearchText || '').trim().toLowerCase();
+
+      list = list.filter(item => {
+        const itemMId = String(item.madrasaId || '').trim().toLowerCase();
+        const itemMName = String(item.madrasaName || '').trim().toLowerCase();
+
+        return itemMId === targetFilter ||
+               itemMName === targetFilter ||
+               (targetSearchText && itemMName.includes(targetSearchText));
+      });
+    } else if (this.madrasaFilterSearchText && this.madrasaFilterSearchText.trim()) {
+      const targetSearchText = this.madrasaFilterSearchText.trim().toLowerCase();
+      list = list.filter(item => {
+        const itemMName = String(item.madrasaName || '').trim().toLowerCase();
+        return itemMName.includes(targetSearchText);
+      });
     }
 
     if (this.attendanceStatusTab === 'taken') {

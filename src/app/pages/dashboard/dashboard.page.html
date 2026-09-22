@@ -285,7 +285,7 @@
                     (focus)="madrasaFilterSearchText = ''"
                     [matAutocomplete]="autoMadrasaFilter"
                   />
-                  <button mat-icon-button matSuffix type="button" class="clear-search-btn" *ngIf="madrasaFilterSearchText" (click)="madrasaFilterSearchText = ''" title="Clear filter">
+                  <button mat-icon-button matSuffix type="button" class="clear-search-btn" *ngIf="madrasaFilterSearchText" (click)="madrasaFilterSearchText = ''; selectedMadrasaFilter = ''" title="Clear filter">
                     <mat-icon>close</mat-icon>
                   </button>
                   <mat-autocomplete #autoMadrasaFilter="matAutocomplete" (optionSelected)="onMadrasaOptionSelected($event.option.value, vm)">
