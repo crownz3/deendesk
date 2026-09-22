@@ -14,6 +14,7 @@ import { BulkDeleteConfirmDialogComponent } from '../../shared/components/bulk-d
 import { BulkDeleteProgressDialogComponent } from '../../shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
 import { HelpGuideDialogComponent } from '../../shared/components/help-guide-dialog/help-guide-dialog.component';
 import { ConfigureCardsDialogComponent, ConfigureCardsDialogData } from './configure-cards-dialog.component';
+import { ClassGroupAttendanceDetailsDialogComponent, ClassGroupAttendanceDetailsDialogData, StudentAttendanceDetailRecord } from './class-group-attendance-details-dialog.component';
 
 interface DashboardStat {
   label: string;
@@ -389,6 +390,85 @@ export class DashboardPage {
     });
 
     return Array.from(map.values());
+  }
+
+  openAttendanceDetailsModal(item: ClassGroupAttendanceStatus, vm: DashboardVm | null): void {
+    if (!vm || !item) return;
+
+    const rawData = vm._rawData || {};
+    const allStudents = (Array.isArray(rawData['students']) ? rawData['students'] : []) as EntityRecord[];
+    const allAttendance = (Array.isArray(rawData['attendance']) ? rawData['attendance'] : []) as EntityRecord[];
+    const dateStr = vm.todayAttendance?.dateStr || new Date().toISOString().split('T')[0];
+
+    // Filter students belonging to this class group
+    const groupStudents = allStudents.filter(st => {
+      if (!this.isEntityActive(st)) return false;
+      const gIds = [
+        st['groupId'], st['classGroupId'], st['assignedGroupId'], st['group'], st['sectionId'],
+        ...(Array.isArray(st['groupIds']) ? st['groupIds'] : []),
+        ...(Array.isArray(st['classGroupIds']) ? st['classGroupIds'] : [])
+      ].filter(Boolean).map(String);
+
+      if (gIds.includes(String(item.groupId))) return true;
+      if (Array.isArray(st['studentIds']) && st['studentIds'].map(String).includes(String(item.groupId))) return true;
+      return false;
+    });
+
+    // Find attendance record for this group and date
+    const attRecord = allAttendance.find(a => {
+      const matchGroup = a['groupId'] === item.groupId || a['classGroupId'] === item.groupId || a['classPlanId'] === item.groupId || String(a.id).includes(String(item.groupId));
+      if (!matchGroup) return false;
+      const recDate = String(a['date'] || a['dateStr'] || a['selectedDate'] || '');
+      if (recDate === dateStr || String(a.id).includes(dateStr)) return true;
+      return false;
+    });
+
+    const recordsMap = (attRecord?.['records'] || attRecord?.['students'] || attRecord?.['attendanceMap'] || {}) as Record<string, any>;
+
+    const studentRecords: StudentAttendanceDetailRecord[] = groupStudents.map(st => {
+      const stId = String(st.id || st['uid'] || '');
+      const rec = recordsMap[stId] || recordsMap[st['name'] || ''];
+      const rawStatus = String(rec?.status || rec || 'unmarked').toLowerCase();
+      let status: 'present' | 'absent' | 'late' | 'leave' | 'unmarked' = 'unmarked';
+      if (['present', 'p'].includes(rawStatus)) status = 'present';
+      else if (['absent', 'a'].includes(rawStatus)) status = 'absent';
+      else if (['late', 'l'].includes(rawStatus)) status = 'late';
+      else if (['leave', 'excused'].includes(rawStatus)) status = 'leave';
+
+      return {
+        studentId: stId,
+        studentName: String(st['name'] || st['fullName'] || st['displayName'] || 'Student'),
+        rollNumber: String(st['rollNumber'] || st['registerNo'] || st['rollNo'] || ''),
+        status,
+        note: typeof rec === 'object' && rec?.note ? String(rec.note) : '',
+        parentPhone: String(st['phone'] || st['parentPhone'] || st['mobileNumber'] || '')
+      };
+    });
+
+    const dialogData: ClassGroupAttendanceDetailsDialogData = {
+      groupId: item.groupId,
+      groupName: item.groupName,
+      madrasaName: item.madrasaName,
+      className: item.className,
+      dateStr,
+      takenByName: item.takenByName,
+      takenAtText: item.takenAtText,
+      presentCount: item.presentCount,
+      absentCount: item.absentCount,
+      lateCount: item.lateCount,
+      leaveCount: item.leaveCount,
+      totalStudents: item.totalStudents,
+      studentRecords,
+      madrasaId: item.madrasaId,
+      classId: item.classId
+    };
+
+    this.dialog.open(ClassGroupAttendanceDetailsDialogComponent, {
+      width: '640px',
+      maxWidth: '95vw',
+      panelClass: 'custom-attendance-details-panel',
+      data: dialogData
+    });
   }
 
   setStatusFilter(filter: 'all' | 'active' | 'inactive'): void {

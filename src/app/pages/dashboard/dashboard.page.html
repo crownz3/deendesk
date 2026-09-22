@@ -367,6 +367,14 @@
                           </span>
                         </ng-container>
                       </div>
+
+                      <!-- Attendance Counts Breakdown Row when taken -->
+                      <div class="att-counts-row" *ngIf="item.isTaken">
+                        <span class="count-chip present" title="Present Students"><span class="dot"></span> {{ item.presentCount }} Present</span>
+                        <span class="count-chip absent" *ngIf="item.absentCount > 0" title="Absent Students"><span class="dot"></span> {{ item.absentCount }} Absent</span>
+                        <span class="count-chip late" *ngIf="item.lateCount > 0" title="Late Students"><span class="dot"></span> {{ item.lateCount }} Late</span>
+                        <span class="count-chip leave" *ngIf="item.leaveCount > 0" title="Leave Students"><span class="dot"></span> {{ item.leaveCount }} Leave</span>
+                      </div>
                     </div>
 
                     <div class="card-right-stats">
@@ -375,10 +383,17 @@
                         <span>{{ item.isTaken ? 'Taken' : 'Still Not Entered' }}</span>
                       </div>
 
-                      <a [routerLink]="['/attendance']" [queryParams]="{ groupId: item.groupId, madrasaId: item.madrasaId }" class="action-btn">
-                        <ion-icon [name]="item.isTaken ? 'create-outline' : 'checkbox-outline'"></ion-icon>
-                        <span>{{ item.isTaken ? 'Edit' : 'Take Attendance' }}</span>
-                      </a>
+                      <div class="card-action-btns">
+                        <button type="button" class="action-btn view-btn" *ngIf="item.isTaken" (click)="openAttendanceDetailsModal(item, vm)" title="View Detailed Attendance">
+                          <ion-icon name="eye-outline"></ion-icon>
+                          <span>View</span>
+                        </button>
+
+                        <a [routerLink]="['/classroom-suite']" [queryParams]="{ groupId: item.groupId, classId: item.classId, madrasaId: item.madrasaId, date: todayAtt.dateStr }" class="action-btn edit-btn">
+                          <ion-icon [name]="item.isTaken ? 'create-outline' : 'checkbox-outline'"></ion-icon>
+                          <span>{{ item.isTaken ? 'Edit' : 'Take Attendance' }}</span>
+                        </a>
+                      </div>
                     </div>
 
                   </div>

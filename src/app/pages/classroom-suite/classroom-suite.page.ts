@@ -3,6 +3,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, combineLatest, of, Subject } from 'rxjs';
 import { catchError, map, switchMap, takeUntil } from 'rxjs/operators';
+import { ActivatedRoute } from '@angular/router';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { AppUser, AttendanceStatus, TimetableEntry } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
@@ -181,10 +182,28 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     private readonly repo: RepositoryService,
     private readonly loader: LoaderService,
     private readonly snackBar: MatSnackBar,
-    private readonly dialog: MatDialog
+    private readonly dialog: MatDialog,
+    private readonly route: ActivatedRoute
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      if (params['madrasaId']) this.selectedMadrasaId = params['madrasaId'];
+      if (params['groupId']) this.selectedGroupId = params['groupId'];
+      if (params['classId']) this.selectedClassId = params['classId'];
+      if (params['date']) {
+        const dStr = String(params['date']);
+        const parts = dStr.split('-');
+        if (parts.length === 3) {
+          const parsedDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          if (!isNaN(parsedDate.getTime())) {
+            this.selectedDateObj = parsedDate;
+            this.selectedDateStr = dStr;
+          }
+        }
+      }
+    });
+
     this.refresh$.pipe(
       takeUntil(this.destroy$),
       switchMap(() => this.auth.profile$),
