@@ -39,19 +39,20 @@
           <span class="role-pill-badge">{{ vm.formattedRole }}</span>
         </div>
 
-        <!-- Managed Madrasas Badges -->
-        <div *ngIf="vm.inchargeMadrasaNames && vm.inchargeMadrasaNames.length > 0" class="incharge-madrasas-container">
-          <span class="incharge-label">Incharge for:</span>
+        <!-- Managed Madrasas Role Badges — shown for Incharge or Coordinator roles only (avoids showing madrasa name twice alongside assignedAssignments) -->
+        <div *ngIf="vm.madrasaRolesBreakdown && vm.madrasaRolesBreakdown.length > 0 && (vm.isMadrasaIncharge || vm.isCoordinator)" class="incharge-madrasas-container">
+          <span class="incharge-label">Your Madrasa Roles:</span>
           <div class="incharge-chips-list">
-            <div class="incharge-madrasa-chip" *ngFor="let name of vm.inchargeMadrasaNames">
-              <ion-icon name="business-outline" class="chip-icon"></ion-icon>
-              <span class="chip-name">{{ name }}</span>
+            <div class="incharge-madrasa-chip" *ngFor="let item of vm.madrasaRolesBreakdown">
+              <ion-icon [name]="item.role === 'madrasaIncharge' ? 'shield-checkmark-outline' : (item.role === 'coordinator' ? 'git-network-outline' : 'briefcase-outline')" class="chip-icon"></ion-icon>
+              <span class="chip-role">{{ item.roleLabel }}:</span>
+              <span class="chip-name">{{ item.madrasaName }}</span>
             </div>
           </div>
         </div>
         
-        <!-- Assigned Class Groups & Madrasas Information -->
-        <div *ngIf="vm.assignedAssignments && vm.assignedAssignments.length > 0" class="welcome-madrasa-wrapper">
+        <!-- Assigned Class Groups & Madrasas — shown for Staff / Teacher only (incharge/coordinator already see their madrasas above) -->
+        <div *ngIf="vm.assignedAssignments && vm.assignedAssignments.length > 0 && vm.isStaff" class="welcome-madrasa-wrapper">
           <div class="madrasa-summary-badge">
             <ion-icon name="easel-outline" class="school-badge-icon"></ion-icon>
 

@@ -430,8 +430,6 @@ export class AuthService {
     }
 
     try {
-      console.log('[Auth] Auth user changed:', firebaseUser.uid, firebaseUser.email);
-      console.log('[Auth] Resolving profile for uid:', firebaseUser.uid);
 
       await this.rolePermissionsService.loadTemplates();
 
@@ -440,7 +438,6 @@ export class AuthService {
       const snapshot = await getDoc(userRef);
       const normalizedEmail = firebaseUser.email.toLowerCase();
 
-      console.log('[Auth] Profile doc exists:', snapshot.exists());
 
       if (snapshot.exists()) {
         const data = snapshot.data() as AppUser;

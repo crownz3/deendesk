@@ -169,7 +169,6 @@ export class RepositoryService {
     const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${user?.role || ''}_${rolesKey}_${this.stringifyConstraints(extra)}`;
 
     if (user?.uid && this.streamCache.has(cacheKey)) {
-      console.log(`⚡ [Stream Cache HIT] collection="${collectionName}" | networkReads=0`);
       return this.streamCache.get(cacheKey)! as Observable<T[]>;
     }
 
@@ -805,7 +804,6 @@ export class RepositoryService {
         });
 
         const result = this.inMemoryFilter(collectionName, Array.from(uniqueMap.values()), user);
-        console.log(`🌐 [Firestore Query Fetched] collection="${collectionName}" | docs=${result.length} | cachedFor5Min`);
         this.memoryCache.set(cacheKey, { timestamp: Date.now(), data: result });
         return result;
       } finally {
@@ -838,11 +836,9 @@ export class RepositoryService {
       );
       const snaps = await Promise.all(promises);
       const total = snaps.reduce((acc, s) => acc + (s.data().count || 0), 0);
-      console.log(`📊 [Server Aggregation Count] collection="${collectionName}" | totalCount=${total} | readCost=1`);
       this.usageTracker.recordRead(this.mapCollectionToModule(collectionName), user?.organizationId, 1);
       return total;
     } catch (e) {
-      console.warn(`[Repository count] Failed for ${collectionName}:`, e);
       return 0;
     }
   }

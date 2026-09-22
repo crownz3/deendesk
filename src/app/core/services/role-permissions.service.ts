@@ -150,6 +150,40 @@ export class RolePermissionsService {
     this.templates[role] = permissions;
     this.permissionsUpdated$.next();
 
+    // Automatically sync updated role permissions to all existing users with this role
+    try {
+      const targetRoleLower = role.toLowerCase();
+      const usersRef = collection(this.firestore, 'users');
+      const snap = await getDocs(usersRef);
+      if (!snap.empty) {
+        const batch = writeBatch(this.firestore);
+        let updatedCount = 0;
+        snap.forEach(userDoc => {
+          const data = userDoc.data();
+          const uRole = String(data['role'] || '').toLowerCase();
+          const uRoles = Array.isArray(data['roles']) ? data['roles'].map((r: any) => String(r).toLowerCase()) : [];
+          const uOrgId = data['organizationId'];
+
+          const matchesRole = uRole === targetRoleLower || uRoles.includes(targetRoleLower);
+          const matchesOrg = !organizationId || !uOrgId || uOrgId === organizationId;
+
+          if (matchesRole && matchesOrg) {
+            batch.update(userDoc.ref, {
+              permissions: permissions,
+              updatedAt: serverTimestamp()
+            });
+            updatedCount++;
+          }
+        });
+        if (updatedCount > 0) {
+          await batch.commit();
+          console.log(`[RolePermissionsService] Propagated permissions for role "${role}" to ${updatedCount} user(s).`);
+        }
+      }
+    } catch (err) {
+      console.warn('[RolePermissionsService] Failed to propagate permissions to users:', err);
+    }
+
     this.auditLogService.logAction({
       module: 'Permissions',
       action: 'Update',

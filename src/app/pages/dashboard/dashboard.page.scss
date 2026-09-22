@@ -298,6 +298,19 @@ h2 {
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       transition: all 0.2s ease;
 
+      &.staff-chip {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+
+        .chip-icon {
+          color: #059669;
+        }
+
+        .chip-role {
+          color: #047857;
+        }
+      }
+
       &:hover {
         background: #f8fafc;
         border-color: #94a3b8;
@@ -308,6 +321,14 @@ h2 {
       .chip-icon {
         font-size: 1.15rem;
         color: #2563eb;
+      }
+
+      .chip-role {
+        font-size: 0.75rem;
+        font-weight: 800;
+        color: #1e40af;
+        text-transform: uppercase;
+        letter-spacing: 0.4px;
       }
 
       .chip-name {

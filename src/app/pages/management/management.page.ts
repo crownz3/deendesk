@@ -928,10 +928,6 @@ export class ManagementPage {
             });
 
             const uniqueStudentInstances = Array.from(new Set(allStudentsMap.values()));
-            console.log('[Management DEBUG] Raw students collection count:', students?.length);
-            console.log('[Management DEBUG] Student user rows count:', studentUserRows?.length);
-            console.log('[Management DEBUG] Unique student instances count:', uniqueStudentInstances.length);
-
             const allActiveStudents: EntityRecord[] = uniqueStudentInstances.map(s => {
               let updated = { ...s };
               if (!updated['madrasaId'] || !updated['organizationId']) {
@@ -5062,69 +5058,47 @@ export class ManagementPage {
             if ('madrasaIds' in payload) processedPayload['madrasaIds'] = this.asStringArray(payload['madrasaIds']);
             if ('linkedStudentIds' in payload) processedPayload['linkedStudentIds'] = this.asStringArray(payload['linkedStudentIds']);
 
-            const isStaffResource = config.resource === 'staff';
-            const isUserCollection = config.collection === 'users';
+            const isStaffOrUserCollection = config.collection === 'users' || config.resource === 'staff';
 
-            // Case 1: Editing on the Staff page directly (initial.id is staff entity doc ID)
-            if (isStaffResource) {
-              const staffPayload = { ...processedPayload };
-              const newName = processedPayload['name'] || processedPayload['displayName'];
-              if (newName) {
-                staffPayload['name'] = newName;
-                staffPayload['displayName'] = newName;
-              }
-              await this.repo.update('staff', initial.id, staffPayload, profile);
-
-              const staffUserUid = String(initial['uid'] || initial['userId'] || '');
-              if (staffUserUid) {
-                await this.repo.update('users', staffUserUid, staffPayload, profile, true).catch(e =>
-                  console.warn('[Staff Update] Failed to sync user doc:', e)
-                );
-              }
-            }
-            // Case 2: Editing on Users / Coordinators / Incharges page (initial.id is user uid)
-            else if (isUserCollection) {
+            if (isStaffOrUserCollection) {
               const targetUid = initial.id;
-              let entityCollection = initial['entityType'] === 'student' ? 'students' :
-                                     initial['entityType'] === 'parent' ? 'parents' : 'staff';
-              let entityId = initial['entityId'] ? String(initial['entityId']) : null;
-
-              if (!entityId && targetUid) {
-                const staffSnap = await this.repo.getAllOnce<EntityRecord>('staff', profile);
-                const matchedStaff = staffSnap.find(s => String(s['userId'] || s['uid'] || s.id) === targetUid);
-                if (matchedStaff && matchedStaff.id) {
-                  entityCollection = 'staff';
-                  entityId = String(matchedStaff.id);
-                } else if (initial['role'] !== 'student' && initial['role'] !== 'parent') {
-                  const newStaffPayload: Record<string, unknown> = {
-                    ...processedPayload,
-                    userId: targetUid,
-                    uid: targetUid,
-                    name: processedPayload['displayName'] || processedPayload['name'] || initial['displayName'] || initial['name'] || 'User',
-                    role: initial['role'] || processedPayload['role'] || 'staff',
-                    organizationId: profile?.organizationId || initial['organizationId'] || '',
-                    status: processedPayload['status'] || initial['status'] || 'active',
-                  };
-                  entityId = await this.repo.create('staff', newStaffPayload, profile);
-                  entityCollection = 'staff';
-                }
-              }
-
-              const entityPayload = { ...processedPayload };
               const newName = processedPayload['name'] || processedPayload['displayName'];
+
+              const userPayload: Record<string, any> = { ...processedPayload };
               if (newName) {
-                entityPayload['name'] = newName;
-                entityPayload['displayName'] = newName;
+                userPayload['name'] = newName;
+                userPayload['displayName'] = newName;
               }
+              const orgId = initial['organizationId'] || profile?.organizationId;
+              if (orgId) userPayload['organizationId'] = orgId;
+              const role = processedPayload['role'] || initial['role'];
+              if (role) userPayload['role'] = role;
 
-              if (entityId) {
-                await this.repo.update(entityCollection, entityId, entityPayload, profile);
+              console.log('=============== 🛠️ [STAFF / USER UPDATE DEBUG START] ===============');
+              console.log('👉 [Staff/User Update] targetUid (User UID):', targetUid);
+              console.log('👉 [Staff/User Update] initial object:', initial);
+              console.log('👉 [Staff/User Update] userPayload being written to users collection:', userPayload);
+
+              // 1. Update the primary user document in users/{uid} collection
+              await this.repo.update('users', targetUid, userPayload, profile);
+              console.log('✅ [Staff/User Update] Successfully updated users/' + targetUid);
+
+              // 2. Sync linked staff entity document if it exists in staff collection
+              const staffSnap = await this.repo.getAllOnce<EntityRecord>('staff', profile).catch(() => []);
+              const matchedStaff = staffSnap.find(s => String(s['userId'] || s['uid'] || s.id).trim() === targetUid);
+
+              if (matchedStaff && matchedStaff.id) {
+                const staffPayload: Record<string, any> = { ...processedPayload };
+                if (newName) {
+                  staffPayload['name'] = newName;
+                  staffPayload['displayName'] = newName;
+                }
+                await this.repo.update('staff', matchedStaff.id, staffPayload, profile);
+                console.log('✅ [Staff/User Update] Successfully synced linked staff/' + matchedStaff.id);
+              } else {
+                console.log('ℹ️ [Staff/User Update] No separate linked staff entity doc found for UID:', targetUid);
               }
-
-              // Shadow sync to users/{uid} document with skipAudit=true & catch
-              await this.repo.update('users', targetUid, entityPayload, profile, true).catch(e => {
-                console.warn(`[openEditor] Shadow update for users/${targetUid} skipped:`, e);
-              });
+              console.log('=============== 🛠️ [STAFF / USER UPDATE DEBUG END] =================');
             }
             // Case 3: Other collections (students, courses, classes, subjects, madrasas, etc.)
             else {
@@ -5248,6 +5222,14 @@ export class ManagementPage {
 
     if (!result) {
       return;
+    }
+
+    // Invalidate caches and trigger table UI refresh for updated collection
+    this.repo.clearCache(config.collection);
+    if (config.resource === 'staff') this.repo.clearCache('staff');
+    if (config.collection === 'users') this.repo.clearCache('users');
+    if (this.pageIndex$) {
+      this.pageIndex$.next(this.pageIndex$.value);
     }
 
     if (result.quickAddResource) {
@@ -5830,6 +5812,14 @@ export class ManagementPage {
       options['linkedStudentIds'] = this.toOptions(students, 'name');
     }
 
+    if (hasField('permissions')) {
+      options['permissions'] = this.rolePermissionsService.getValidPermissionsForRole(
+        config.fixedRole ?? (initial?.['role'] as string),
+        profile?.role,
+        profile?.permissions
+      );
+    }
+
     return config.fields
       .map((field) => {
         if (initial && (field.key === 'password' || field.key === 'organizerPassword')) {
@@ -5873,8 +5863,21 @@ export class ManagementPage {
       };
     }
 
+    const userRole = String(initial['role'] || config.fixedRole || '');
+    const userOrgId = String(initial['organizationId'] || '');
+
+    // Use the user's stored `customPermissions` (extra permissions beyond role template) if present.
+    // Do NOT pass the entire `permissions` array as customPermissions — that would cause removed
+    // role permissions to be re-added on top of the updated template (double-counting).
+    // The stored `permissions` field already reflects what the system computed last (role template + custom).
+    const storedCustom = Array.isArray(initial['customPermissions']) ? initial['customPermissions'] as PermissionKey[] : undefined;
+    const effectivePermissions = userRole
+      ? this.rolePermissionsService.getPermissionsForRole(userRole, storedCustom, userOrgId)
+      : (Array.isArray(initial['permissions']) ? initial['permissions'] : []);
+
     return {
       ...initial,
+      permissions: effectivePermissions,
       passwordStatus: initial['mustChangePassword'] ? 'Temporary password pending' : 'Password changed',
     };
   }

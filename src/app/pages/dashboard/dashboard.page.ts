@@ -166,6 +166,13 @@ export interface TeacherWorkloadSlice {
   workloadLevel: 'Light' | 'Optimal' | 'High Load';
 }
 
+export interface DashboardMadrasaRoleBreakdown {
+  madrasaId: string;
+  madrasaName: string;
+  role: string;
+  roleLabel: string;
+}
+
 interface DashboardVm {
   displayName: string;
   formattedRole: string;
@@ -173,10 +180,13 @@ interface DashboardVm {
   isSuperAdmin: boolean;
   isOrgAdmin: boolean;
   isMadrasaIncharge: boolean;
+  isCoordinator: boolean;
+  isStaff: boolean;
   organizationId?: string;
   madrasaIds?: string[];
   inchargeMadrasaNames?: string[];
   inchargeMadrasasText?: string;
+  madrasaRolesBreakdown?: DashboardMadrasaRoleBreakdown[];
   assignedAssignments?: AssignedAssignmentDetail[];
   stats: DashboardStat[];
   courseDistribution: ChartSlice[];
@@ -809,68 +819,129 @@ export class DashboardPage {
       profile.email
     ].map(v => String(v || '').trim()).filter(Boolean);
 
+    const madrasaRoleMap = (profile as any).madrasaRoleMap || {};
+    const inchargeMadrasaIdsProfile = Array.isArray((profile as any).inchargeMadrasaIds) ? (profile as any).inchargeMadrasaIds.map(String) : [];
+    const coordinatorMadrasaIdsProfile = Array.isArray((profile as any).coordinatorMadrasaIds) ? (profile as any).coordinatorMadrasaIds.map(String) : [];
+
     const inchargeMadrasaEntities = madrasasList.filter(m => {
+      const mId = String(m.id);
+      const mCode = String(m['code'] || '');
+
       const mIncharges = [
         ...(Array.isArray(m['inchargeIds']) ? m['inchargeIds'] : []),
         ...(m['inchargeId'] ? [m['inchargeId']] : []),
         ...(m['incharge'] ? [m['incharge']] : []),
-        ...(Array.isArray(m['coordinatorIds']) ? m['coordinatorIds'] : []),
-        ...(m['coordinatorId'] ? [m['coordinatorId']] : []),
-        ...(m['coordinator'] ? [m['coordinator']] : [])
       ].map(v => String(v || '').trim()).filter(Boolean);
 
       if (mIncharges.some(id => userTokens.includes(id))) return true;
-
-      const mId = String(m.id);
-      const mCode = String(m['code'] || '');
-      const inchargeIds = Array.isArray(profile.inchargeMadrasaIds) ? profile.inchargeMadrasaIds.map(String) : [];
-      if (inchargeIds.includes(mId) || (mCode && inchargeIds.includes(mCode))) return true;
+      if (inchargeMadrasaIdsProfile.includes(mId) || (mCode && inchargeMadrasaIdsProfile.includes(mCode))) return true;
+      if (madrasaRoleMap[mId] === 'madrasaIncharge' || madrasaRoleMap[mCode] === 'madrasaIncharge') return true;
 
       return false;
     });
 
-    if (inchargeMadrasaEntities.length === 0 && (profile.role === 'madrasaIncharge' || profile.role === 'coordinator')) {
-      const pMadrasaIds = Array.from(new Set([
-        ...(Array.isArray(profile.madrasaIds) ? profile.madrasaIds : []),
-        ...(profile.madrasaId ? [profile.madrasaId] : [])
-      ].map(String).filter(Boolean)));
+    const coordinatorMadrasaEntities = madrasasList.filter(m => {
+      const mId = String(m.id);
+      const mCode = String(m['code'] || '');
 
-      pMadrasaIds.forEach(id => {
-        const mObj = madrasasList.find(m => String(m.id) === id || String(m['code']) === id);
-        if (mObj && !inchargeMadrasaEntities.some(existing => existing.id === mObj.id)) {
-          inchargeMadrasaEntities.push(mObj);
-        }
-      });
+      const mCoords = [
+        ...(Array.isArray(m['coordinatorIds']) ? m['coordinatorIds'] : []),
+        ...(m['coordinatorId'] ? [m['coordinatorId']] : []),
+        ...(m['coordinator'] ? [m['coordinator']] : []),
+      ].map(v => String(v || '').trim()).filter(Boolean);
+
+      if (mCoords.some(id => userTokens.includes(id))) return true;
+      if (coordinatorMadrasaIdsProfile.includes(mId) || (mCode && coordinatorMadrasaIdsProfile.includes(mCode))) return true;
+      if (madrasaRoleMap[mId] === 'coordinator' || madrasaRoleMap[mCode] === 'coordinator') return true;
+
+      return false;
+    });
+
+    // Fallback: Only if user has a single main madrasaId and no explicit map matched
+    if (inchargeMadrasaEntities.length === 0 && profile.role === 'madrasaIncharge') {
+      const primaryMId = profile.madrasaId || (Array.isArray(profile.madrasaIds) && profile.madrasaIds.length === 1 ? profile.madrasaIds[0] : null);
+      if (primaryMId) {
+        const mObj = madrasasList.find(m => String(m.id) === String(primaryMId) || String(m['code']) === String(primaryMId));
+        if (mObj) inchargeMadrasaEntities.push(mObj);
+      }
+    }
+
+    if (coordinatorMadrasaEntities.length === 0 && profile.role === 'coordinator') {
+      const primaryMId = profile.madrasaId || (Array.isArray(profile.madrasaIds) && profile.madrasaIds.length === 1 ? profile.madrasaIds[0] : null);
+      if (primaryMId) {
+        const mObj = madrasasList.find(m => String(m.id) === String(primaryMId) || String(m['code']) === String(primaryMId));
+        if (mObj) coordinatorMadrasaEntities.push(mObj);
+      }
     }
 
     const inchargeMadrasaNames = inchargeMadrasaEntities.map(m => String(m['name'] || m['title'] || m['code'] || m.id));
     const inchargeMadrasasText = inchargeMadrasaNames.length > 0 ? inchargeMadrasaNames.join(' & ') : '';
 
-    const allMadrasaIds = Array.from(new Set([
-      ...inchargeMadrasaEntities.map(m => String(m.id)),
+    const userAssignedMadrasaIds = Array.from(new Set([
       ...(Array.isArray(profile.madrasaIds) ? profile.madrasaIds : []),
-      ...(Array.isArray(profile.inchargeMadrasaIds) ? profile.inchargeMadrasaIds : []),
-      ...(profile.madrasaId ? [profile.madrasaId] : [])
-    ].map(v => String(v || '').trim()).filter(Boolean)));
+      ...(profile.madrasaId ? [profile.madrasaId] : []),
+      ...inchargeMadrasaEntities.map(m => String(m.id)),
+      ...coordinatorMadrasaEntities.map(m => String(m.id)),
+    ].map(String).filter(Boolean)));
 
-    const coveredMadrasaIds = new Set(assignedAssignments.map(a => String(a.madrasaId || '')).filter(Boolean));
+    const madrasaRolesBreakdown: DashboardMadrasaRoleBreakdown[] = [];
 
-    allMadrasaIds.forEach((mId) => {
-      const madrasaObj = madrasasList.find((m) => String(m.id) === mId || String(m['code']) === mId);
-      const actualMadrasaId = madrasaObj ? String(madrasaObj.id) : mId;
+    userAssignedMadrasaIds.forEach(mId => {
+      const mObj = madrasasList.find(m => String(m.id) === mId || String(m['code']) === mId);
+      const mName = String(mObj?.['name'] || mObj?.['title'] || mId);
 
-      if (!coveredMadrasaIds.has(mId) && !coveredMadrasaIds.has(actualMadrasaId)) {
-        assignedAssignments.push({
-          groupName: 'General Assignment',
-          className: 'All Classes',
-          courseName: 'All Courses',
-          madrasaId: actualMadrasaId,
-          madrasaName: madrasaObj?.['name'] || 'Madrasa',
-        });
-        coveredMadrasaIds.add(mId);
-        coveredMadrasaIds.add(actualMadrasaId);
+      const isIncharge = inchargeMadrasaEntities.some(im => String(im.id) === mId || String(im['code']) === mId);
+      const isCoord = coordinatorMadrasaEntities.some(cm => String(cm.id) === mId || String(cm['code']) === mId);
+
+      let rKey = 'staff';
+      let rLabel = 'Staff / Teacher';
+
+      if (isIncharge) {
+        rKey = 'madrasaIncharge';
+        rLabel = 'Madrasa Incharge';
+      } else if (isCoord) {
+        rKey = 'coordinator';
+        rLabel = 'Coordinator';
+      } else if (profile.role === 'madrasaIncharge' && userAssignedMadrasaIds.length === 1) {
+        rKey = 'madrasaIncharge';
+        rLabel = 'Madrasa Incharge';
+      } else if (profile.role === 'coordinator' && userAssignedMadrasaIds.length === 1) {
+        rKey = 'coordinator';
+        rLabel = 'Coordinator';
       }
+
+      madrasaRolesBreakdown.push({
+        madrasaId: mId,
+        madrasaName: mName,
+        role: rKey,
+        roleLabel: rLabel
+      });
     });
+
+    // Only add "General Assignment" fallback for staff/teacher roles that have a madrasa
+    // but no specific class group assignment yet. Skip it for incharge/coordinator madrasas
+    // since those are already shown clearly in the madrasaRolesBreakdown section.
+    const isStaffLikeRole = ['staff', 'teacher', 'ustadh', 'teacher_assistant'].includes(String(profile.role || '').toLowerCase());
+    if (isStaffLikeRole) {
+      const coveredMadrasaIds = new Set(assignedAssignments.map(a => String(a.madrasaId || '')).filter(Boolean));
+
+      userAssignedMadrasaIds.forEach((mId) => {
+        const madrasaObj = madrasasList.find((m) => String(m.id) === mId || String(m['code']) === mId);
+        const actualMadrasaId = madrasaObj ? String(madrasaObj.id) : mId;
+
+        if (!coveredMadrasaIds.has(mId) && !coveredMadrasaIds.has(actualMadrasaId)) {
+          assignedAssignments.push({
+            groupName: 'General Assignment',
+            className: 'All Classes',
+            courseName: 'All Courses',
+            madrasaId: actualMadrasaId,
+            madrasaName: madrasaObj?.['name'] || 'Madrasa',
+          });
+          coveredMadrasaIds.add(mId);
+          coveredMadrasaIds.add(actualMadrasaId);
+        }
+      });
+    }
 
     const inchargeMadrasaIds = inchargeMadrasaEntities.map(m => String(m.id));
     const todayAttendance = this.buildTodayAttendanceOverview(profile, data, inchargeMadrasaIds);
@@ -889,10 +960,13 @@ export class DashboardPage {
       isSuperAdmin: roleLowerNorm === 'superadmin',
       isOrgAdmin: roleLowerNorm === 'organizationadmin',
       isMadrasaIncharge: roleLowerNorm === 'madrasaincharge',
+      isCoordinator: roleLowerNorm === 'coordinator',
+      isStaff: ['staff', 'teacher', 'ustadh', 'teacher_assistant'].includes(roleLowerNorm),
       organizationId: profile.organizationId,
       madrasaIds: Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 0 ? profile.madrasaIds : (profile.madrasaId ? [profile.madrasaId] : []),
       inchargeMadrasaNames,
       inchargeMadrasasText,
+      madrasaRolesBreakdown,
       assignedAssignments,
       stats,
       attendance,
@@ -1401,9 +1475,15 @@ export class DashboardPage {
 
     let scopedClassGroups: EntityRecord[] = [];
 
+    const isStaffLike = ['staff', 'teacher', 'ustadh', 'teacher_assistant'].includes(String(profile.role || '').toLowerCase());
+
     if (isSuperAdmin || isOrgAdmin) {
       scopedClassGroups = allClassGroups.filter(grp => this.isEntityActive(grp));
+    } else if (isStaffLike) {
+      // Staff/Teacher: ONLY show their specifically assigned class groups
+      scopedClassGroups = assignedGroupEntities;
     } else {
+      // Incharge / Coordinator: show all groups from their managed madrasas
       const inchargeGroups = allClassGroups.filter(grp => {
         if (!this.isEntityActive(grp)) return false;
         const cls = allClasses.find(c => c.id === grp['classId']);

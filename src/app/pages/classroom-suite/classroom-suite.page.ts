@@ -513,8 +513,17 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       available = available.filter(g => g['stageId'] === targetStageId || g['stage'] === targetStageId);
     }
 
-    // Strict Filter by Assigned Groups if Teacher/Staff (and not SuperAdmin / OrgAdmin / MadrasaIncharge)
-    if (!this.isSuperAdmin && !this.isOrgAdmin && !this.isMadrasaIncharge && !this.isStageHead) {
+    // Determine if the selected madrasa is an Incharge Madrasa for this user
+    const u = this.currentUser as any;
+    const inchargeMadrasaIds = new Set<string>([
+      u.madrasaId,
+      ...(Array.isArray(u.madrasaIds) ? u.madrasaIds : [])
+    ].filter(Boolean).map(v => String(v).trim()));
+
+    const isSelectedMadrasaInchargeScope = this.isMadrasaIncharge && this.selectedMadrasaId && inchargeMadrasaIds.has(String(this.selectedMadrasaId).trim());
+
+    // Strict Filter by Assigned Groups if Teacher/Staff OR if MadrasaIncharge operating outside their incharge madrasa
+    if (!this.isSuperAdmin && !this.isOrgAdmin && !isSelectedMadrasaInchargeScope) {
       if (this.userAssignedGroupIds.size > 0) {
         available = available.filter(g => g.id && this.userAssignedGroupIds.has(g.id));
       }
