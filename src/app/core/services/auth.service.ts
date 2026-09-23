@@ -116,9 +116,9 @@ export class AuthService {
                 return of(profileWithEntity);
               }
 
-              // Fast-path: If user profile already has populated madrasaIds, emit profile immediately without blocking startup for 10 seconds!
+              // Fast-path: If user profile already has populated madrasaIds and inchargeMadrasaIds is explicitly set, emit profile immediately
               const existingMIds = Array.isArray(profileWithEntity.madrasaIds) ? profileWithEntity.madrasaIds.filter(Boolean) : (profileWithEntity.madrasaId ? [profileWithEntity.madrasaId] : []);
-              if (existingMIds.length > 0 && profileWithEntity.role !== 'madrasaIncharge' && profileWithEntity.role !== 'coordinator') {
+              if (existingMIds.length > 0 && profileWithEntity.role !== 'madrasaIncharge' && profileWithEntity.role !== 'coordinator' && Array.isArray(profileWithEntity.inchargeMadrasaIds)) {
                 return of(profileWithEntity);
               }
 
@@ -404,6 +404,7 @@ export class AuthService {
       return true;
     }
 
+    // Gather permissions from primary role
     const rolePermissions = this.rolePermissionsService.getPermissionsForRole(
       user.role,
       (user as any).customPermissions,
@@ -411,6 +412,20 @@ export class AuthService {
     );
     if (rolePermissions.includes(permission)) {
       return true;
+    }
+
+    // Also check permissions from any secondary roles (e.g., teacher who is also a madrasaIncharge)
+    const secondaryRoles: string[] = Array.isArray((user as any).roles) ? (user as any).roles : [];
+    for (const secondaryRole of secondaryRoles) {
+      if (secondaryRole === user.role) continue; // already checked above
+      const secondaryPerms = this.rolePermissionsService.getPermissionsForRole(
+        secondaryRole,
+        undefined,
+        user.organizationId
+      );
+      if (secondaryPerms.includes(permission)) {
+        return true;
+      }
     }
 
     return user.permissions?.includes(permission) ?? false;
@@ -421,7 +436,14 @@ export class AuthService {
   }
 
   hasRole(user: AppUser | null | undefined, roles: UserRole[]): boolean {
-    return Boolean(user && user.status === 'active' && roles.includes(user.role));
+    if (!user || user.status !== 'active') {
+      return false;
+    }
+    if (roles.includes(user.role)) {
+      return true;
+    }
+    const secondaryRoles: UserRole[] = Array.isArray((user as any).roles) ? (user as any).roles : [];
+    return secondaryRoles.some((r) => roles.includes(r));
   }
 
   private async resolveProfile(firebaseUser: User | null): Promise<AppUser | null> {
@@ -438,26 +460,98 @@ export class AuthService {
       const snapshot = await getDoc(userRef);
       const normalizedEmail = firebaseUser.email.toLowerCase();
 
+      const ROLE_PRIORITY: UserRole[] = [
+        'superAdmin', 'organizationAdmin', 'coordinator', 'madrasaIncharge',
+        'stageHead', 'teacher', 'parent', 'student', 'qaTester'
+      ];
 
       if (snapshot.exists()) {
         const data = snapshot.data() as AppUser;
-        const profile: AppUser = { id: snapshot.id, ...data };
+        let profile: AppUser = { id: snapshot.id, ...data };
 
         const isSuperAdminEmail = normalizedEmail === SUPER_ADMIN_EMAIL.toLowerCase() || normalizedEmail.includes('mohamedibrahim');
         if (isSuperAdminEmail || profile.role === 'superAdmin') {
           profile.role = 'superAdmin';
           profile.status = 'active';
           profile.permissions = ALL_PERMISSIONS;
+        } else {
+          // Resolve multi-roles from profile or linked staff record
+          let allRoles: UserRole[] = Array.isArray((data as any).roles)
+            ? (data as any).roles as UserRole[]
+            : (data.role ? [data.role] : ['teacher']);
+          if (data.role && !allRoles.includes(data.role)) allRoles.unshift(data.role);
+
+          // If profile only has 1 role, check if linked staff record has additional roles
+          try {
+            let staffData: any = null;
+            if (data['entityId']) {
+              try {
+                const eSnap = await getDoc(doc(this.firestore, `staff/${data['entityId']}`));
+                if (eSnap.exists()) staffData = eSnap.data();
+              } catch (e) {}
+            }
+
+            if (!staffData) {
+              const staffRef = collection(this.firestore, 'staff');
+              let staffQ = query(staffRef, where('userId', '==', firebaseUser.uid), limit(1));
+              let staffSnap = await getDocs(staffQ);
+              if (staffSnap.empty) {
+                staffQ = query(staffRef, where('uid', '==', firebaseUser.uid), limit(1));
+                staffSnap = await getDocs(staffQ);
+              }
+              if (staffSnap.empty) {
+                staffQ = query(staffRef, where('email', '==', normalizedEmail), limit(1));
+                staffSnap = await getDocs(staffQ);
+              }
+              if (staffSnap.empty && firebaseUser.email) {
+                staffQ = query(staffRef, where('email', '==', firebaseUser.email), limit(1));
+                staffSnap = await getDocs(staffQ);
+              }
+              if (!staffSnap.empty) {
+                staffData = staffSnap.docs[0].data();
+              }
+            }
+
+            if (staffData) {
+              const staffRoles = Array.isArray(staffData['roles']) ? staffData['roles'] as UserRole[] : [];
+              if (staffData['role'] && !staffRoles.includes(staffData['role'])) staffRoles.unshift(staffData['role']);
+              for (const sr of staffRoles) {
+                if (!allRoles.includes(sr)) allRoles.push(sr);
+              }
+              // Sync inchargeMadrasaIds & madrasaIds onto profile
+              if (staffData['inchargeMadrasaIds']?.length) {
+                profile.inchargeMadrasaIds = staffData['inchargeMadrasaIds'];
+              }
+              if (staffData['madrasaIds']?.length) {
+                profile.madrasaIds = staffData['madrasaIds'];
+              }
+              if (staffData['madrasaId'] && !profile.madrasaId) {
+                profile.madrasaId = staffData['madrasaId'];
+              }
+            }
+          } catch (e) {
+            console.warn('[Auth] Staff roles check skipped:', e);
+          }
+
+          const effectiveRole = ROLE_PRIORITY.find(r => allRoles.includes(r)) ?? profile.role;
+          profile.role = effectiveRole;
+          (profile as any).roles = allRoles;
+
+          // Merge permissions across all user roles
+          const mergedPerms = Array.from(new Set([
+            ...(profile.permissions || []),
+            ...allRoles.flatMap(r => this.rolePermissionsService.getPermissionsForRole(r, (profile as any).customPermissions, profile.organizationId))
+          ])) as PermissionKey[];
+          profile.permissions = mergedPerms;
         }
 
+        profile = await this.enrichEffectiveMadrasaIds(profile);
         console.log('[Auth] Profile data:', profile);
         try {
           await updateDoc(userRef, {
             lastLoginAt: serverTimestamp(),
             email: normalizedEmail,
             photoURL: profile.photoURL || firebaseUser.photoURL || '',
-            role: profile.role,
-            status: profile.status,
           });
         } catch (updErr) {
           console.warn('[Auth] Profile touch update skipped:', updErr);
@@ -487,30 +581,50 @@ export class AuthService {
         if (!staffSnap.empty) {
           const staffDoc = staffSnap.docs[0];
           const staffData = staffDoc.data();
-          const staffRole = (staffData['role'] as UserRole) || 'teacher';
+          const primaryRole = (staffData['role'] as UserRole) || 'teacher';
+          // Resolve secondary roles from staff record
+          const allRoles: UserRole[] = Array.isArray(staffData['roles'])
+            ? staffData['roles'] as UserRole[]
+            : [primaryRole];
+          if (!allRoles.includes(primaryRole)) allRoles.unshift(primaryRole);
+
+          // Role priority order — pick the highest privilege role as displayed primary role
+          const ROLE_PRIORITY: UserRole[] = [
+            'superAdmin', 'organizationAdmin', 'coordinator', 'madrasaIncharge',
+            'stageHead', 'teacher', 'parent', 'student', 'qaTester'
+          ];
+          const effectiveRole = ROLE_PRIORITY.find(r => allRoles.includes(r)) ?? primaryRole;
+
+          // Merge permissions from all roles the staff member holds
+          const mergedPermissions = Array.from(new Set(
+            allRoles.flatMap(r => this.rolePermissionsService.getPermissionsForRole(r))
+          )) as PermissionKey[];
 
           const linkedStaffProfile: AppUser = {
             id: firebaseUser.uid,
             uid: firebaseUser.uid,
             email: normalizedEmail,
             displayName: staffData['name'] || staffData['displayName'] || firebaseUser.displayName || normalizedEmail.split('@')[0],
-            role: staffRole,
-            permissions: this.rolePermissionsService.getPermissionsForRole(staffRole),
+            role: effectiveRole,
+            permissions: mergedPermissions,
             status: staffData['status'] || 'active',
             organizationId: staffData['organizationId'] || '',
             madrasaId: staffData['madrasaId'] || '',
             madrasaIds: staffData['madrasaIds'] || [],
+            inchargeMadrasaIds: staffData['inchargeMadrasaIds'] || [],
             entityId: staffDoc.id,
             entityType: 'staff',
             authProvider: firebaseUser.providerData[0]?.providerId === 'google.com' ? 'google' : 'password',
             lastLoginAt: serverTimestamp(),
           };
+          // Store the full roles array on the profile so hasPermission() can use it
+          (linkedStaffProfile as any).roles = allRoles;
 
           await setDoc(userRef, linkedStaffProfile, { merge: true });
           localStorage.setItem('deendesk.lastProfile', JSON.stringify({
             displayName: linkedStaffProfile.displayName,
             email: linkedStaffProfile.email,
-            role: ROLE_LABELS[linkedStaffProfile.role],
+            role: ROLE_LABELS[linkedStaffProfile.role] || linkedStaffProfile.role,
           }));
           return linkedStaffProfile;
         }
@@ -699,12 +813,33 @@ export class AuthService {
           ? (finalMadrasaIds.length > 0 ? finalMadrasaIds : (profile.madrasaId ? [String(profile.madrasaId)] : []))
           : []);
 
+      let allRoles: UserRole[] = Array.isArray((profile as any).roles)
+        ? [...(profile as any).roles]
+        : (profile.role ? [profile.role] : ['teacher']);
+
+      if (finalInchargeMadrasaIds.length > 0 && !allRoles.includes('madrasaIncharge')) {
+        allRoles.unshift('madrasaIncharge');
+      }
+
+      const ROLE_PRIORITY: UserRole[] = [
+        'superAdmin', 'organizationAdmin', 'coordinator', 'madrasaIncharge',
+        'stageHead', 'teacher', 'parent', 'student', 'qaTester'
+      ];
+      const effectiveRole = ROLE_PRIORITY.find(r => allRoles.includes(r)) ?? profile.role;
+
+      const mergedPerms = Array.from(new Set([
+        ...(profile.permissions || []),
+        ...allRoles.flatMap(r => this.rolePermissionsService.getPermissionsForRole(r, (profile as any).customPermissions, profile.organizationId))
+      ])) as PermissionKey[];
+
       console.log('🔍 [AuthService] Enriched Profile MadrasaIds Debug:', {
         uid: profile.uid,
         userTokens,
         rawExisting,
         finalMadrasaIds,
-        finalInchargeMadrasaIds
+        finalInchargeMadrasaIds,
+        effectiveRole,
+        allRoles
       });
 
       // Persist cleaned doc IDs back to Firestore if different or enlarged
@@ -717,12 +852,16 @@ export class AuthService {
         }
       }
 
-      return {
+      const enriched: AppUser = {
         ...profile,
+        role: effectiveRole,
+        permissions: mergedPerms,
         madrasaIds: finalMadrasaIds,
         inchargeMadrasaIds: finalInchargeMadrasaIds,
         madrasaId: finalMadrasaIds[0] || profile.madrasaId || ''
       };
+      (enriched as any).roles = allRoles;
+      return enriched;
     } catch (e) {
       console.warn('[AuthService] enrichEffectiveMadrasaIds warning:', e);
       return profile;

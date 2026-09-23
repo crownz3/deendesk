@@ -52,7 +52,7 @@
         </div>
         
         <!-- Assigned Class Groups & Madrasas — shown for Staff / Teacher only (incharge/coordinator already see their madrasas above) -->
-        <div *ngIf="vm.assignedAssignments && vm.assignedAssignments.length > 0 && vm.isStaff" class="welcome-madrasa-wrapper">
+        <div *ngIf="vm.assignedAssignments && vm.assignedAssignments.length > 0 && vm.isStaff && !vm.isMadrasaIncharge && !vm.isCoordinator" class="welcome-madrasa-wrapper">
           <div class="madrasa-summary-badge">
             <ion-icon name="easel-outline" class="school-badge-icon"></ion-icon>
 

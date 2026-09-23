@@ -105,11 +105,11 @@ export class AppComponent {
           children: [
             { label: 'All Users', route: '/users', icon: 'people-outline', permission: 'manageUsers' },
             { label: 'Duplicate Users Audit', route: '/duplicate-users', icon: 'copy-outline', roleRequired: 'superAdmin' },
-            { label: 'Coordinators', route: '/coordinators', icon: 'git-network-outline', permissionsAny: ['manageCoordinators', 'manageUsers'] },
-            { label: 'Madrasa Incharges', route: '/madrasa-incharges', icon: 'person-circle-outline', permissionsAny: ['manageIncharges', 'manageUsers'] },
-            { label: 'Staff / Teachers', route: '/staff', icon: 'briefcase-outline', permissionsAny: ['manageStaff', 'manageUsers'] },
-            { label: 'Students', route: '/students', icon: 'school-outline', permissionsAny: ['manageStudents', 'manageUsers'] },
-            { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permissionsAny: ['manageParents', 'manageUsers'] },
+            { label: 'Coordinators', route: '/coordinators', icon: 'git-network-outline', permission: 'manageCoordinators' },
+            { label: 'Madrasa Incharges', route: '/madrasa-incharges', icon: 'person-circle-outline', permission: 'manageIncharges' },
+            { label: 'Staff / Teachers', route: '/staff', icon: 'briefcase-outline', permission: 'manageStaff' },
+            { label: 'Students', route: '/students', icon: 'school-outline', permission: 'manageStudents' },
+            { label: 'Parents', route: '/parents', icon: 'people-circle-outline', permission: 'manageParents' },
           ]
         },
         { label: 'Lifecycle History', route: '/lifecycle', icon: 'time-outline', permissionsAny: ['manageUserLifecycle'] },
@@ -346,6 +346,23 @@ export class AppComponent {
     await this.loader.withLoader('Signing out...', async () => {
       await this.auth.logout();
     });
+  }
+
+  getEffectiveNavRoute(item: NavItem, profile: AppUser | null): string {
+    if (!item.children || item.children.length === 0) {
+      return item.route;
+    }
+    if (profile && profile.role === 'superAdmin') {
+      return item.route;
+    }
+    if (item.permission) {
+      const permKey = Array.isArray(item.permission) ? item.permission[0] : item.permission;
+      if (this.auth.hasPermission(profile, permKey)) {
+        return item.route;
+      }
+    }
+    const firstVisibleChild = item.children.find(child => !child.hidden && this.visible(child, profile));
+    return firstVisibleChild ? firstVisibleChild.route : item.route;
   }
 
   private visible(item: NavItem, user: AppUser | null): boolean {

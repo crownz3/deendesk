@@ -513,10 +513,19 @@ export class DashboardPage {
         });
       });
 
-      statsList = this.statsForRole(vm.profile.role, filteredData);
+      statsList = this.statsForRole(vm.profile.role, filteredData, vm.profile);
     }
 
     if (this.visibleCardLabels !== null) {
+      // If stored visibleCardLabels is missing any stat label defined for this role (e.g. stale localStorage from a previous role),
+      // reset visibleCardLabels so all cards for the user's current role are displayed.
+      const hasMissingRoleCard = statsList.some(s => !this.visibleCardLabels!.includes(s.label));
+      if (hasMissingRoleCard) {
+        this.visibleCardLabels = statsList.map(s => s.label);
+        if (vm.profile?.id) {
+          this.saveVisibleCardLabels(vm.profile.id, this.visibleCardLabels);
+        }
+      }
       return statsList.filter(s => this.visibleCardLabels!.includes(s.label));
     }
 
@@ -525,7 +534,7 @@ export class DashboardPage {
 
   openConfigureCardsDialog(vm: DashboardVm | null): void {
     if (!vm) return;
-    const roleStats = this.statsForRole(vm.profile.role, vm._rawData || {});
+    const roleStats = this.statsForRole(vm.profile.role, vm._rawData || {}, vm.profile);
     const allCards = roleStats.map(s => ({ label: s.label, icon: s.icon, tone: s.tone }));
 
     const currentVisible = this.visibleCardLabels !== null 
@@ -816,7 +825,7 @@ export class DashboardPage {
       students: studentCollection,
       parents: allUsers.filter(u => u['role'] === 'parent'),
     };
-    const stats = this.statsForRole(profile.role, data);
+    const stats = this.statsForRole(profile.role, data, profile);
     const courseDistribution = this.distribution(data['students'], 'courseName', data['courses'], 'courseId');
     const usersByRole = this.distribution(data['users'], 'role');
     
@@ -1052,7 +1061,7 @@ export class DashboardPage {
     const roleLowerNorm = String(profile.role || '').toLowerCase().replace(/_/g, '');
     return {
       displayName: this.getDisplayName(profile),
-      formattedRole: this.formatRole(profile.role),
+      formattedRole: this.formatRole(profile.role, profile),
       roleTitle: ROLE_LABELS[profile.role],
       isSuperAdmin: roleLowerNorm === 'superadmin',
       isOrgAdmin: roleLowerNorm === 'organizationadmin',
@@ -1561,9 +1570,17 @@ export class DashboardPage {
         if (m['code']) allowedMadrasaIds.add(String(m['code']));
       });
     } else {
-      inchargeMadrasaIds.forEach(id => allowedMadrasaIds.add(String(id)));
-      if (profile.madrasaId) allowedMadrasaIds.add(String(profile.madrasaId));
-      if (Array.isArray(profile.madrasaIds)) profile.madrasaIds.forEach(id => allowedMadrasaIds.add(String(id)));
+      const targetIncharges = (inchargeMadrasaIds && inchargeMadrasaIds.length > 0)
+        ? inchargeMadrasaIds
+        : (Array.isArray(profile.inchargeMadrasaIds) && profile.inchargeMadrasaIds.length > 0
+          ? profile.inchargeMadrasaIds
+          : []);
+      if (targetIncharges.length > 0) {
+        targetIncharges.forEach(id => allowedMadrasaIds.add(String(id)));
+      } else {
+        if (profile.madrasaId) allowedMadrasaIds.add(String(profile.madrasaId));
+        if (Array.isArray(profile.madrasaIds)) profile.madrasaIds.forEach(id => allowedMadrasaIds.add(String(id)));
+      }
     }
 
     const userTokens = [
@@ -1942,28 +1959,75 @@ export class DashboardPage {
     return String(item.id ?? item.title);
   }
 
-  private statsForRole(role: string, data: Record<string, EntityRecord[]>): DashboardStat[] {
+  private statsForRole(role: string, data: Record<string, EntityRecord[]>, profile?: AppUser): DashboardStat[] {
     // Normalize role to handle casing variants (e.g. 'superAdmin', 'superadmin', 'super_admin')
     const normalizedRole = (role || '').toLowerCase().replace(/_/g, '');
     const isSuperAdmin = normalizedRole === 'superadmin';
     const isOrgAdmin = normalizedRole === 'organizationadmin';
     const isMadrasaIncharge = normalizedRole === 'madrasaincharge';
+    const isTeacherOrStaff = ['teacher', 'staff', 'ustadh', 'teacherassistant'].includes(normalizedRole);
 
-    // Super Admins, Organization Admins, and Madrasa Incharges see role-scoped stat cards
-    if (!isSuperAdmin && !isOrgAdmin && !isMadrasaIncharge) return [];
+    let classGroupCount = data['classGroups']?.length ?? 0;
+    let studentCount = data['students']?.length ?? 0;
+    let staffCount = data['staff']?.length ?? 0;
+    let classCount = data['classes']?.length ?? 0;
+    let madrasaCount = data['madrasas']?.length ?? 0;
+
+    if (isMadrasaIncharge && profile) {
+      // Use STRICTLY inchargeMadrasaIds if populated so Madrasas where the user is ONLY a staff/teacher are EXCLUDED!
+      const rawInchargeIds: string[] = (Array.isArray((profile as any)?.inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0)
+        ? (profile as any).inchargeMadrasaIds
+        : (Array.isArray((profile as any)?.madrasaIds) ? (profile as any).madrasaIds : [(profile as any)?.madrasaId].filter(Boolean));
+
+      const inchargeMadrasaIds = new Set<string>(rawInchargeIds.map(String));
+
+      if (inchargeMadrasaIds.size > 0) {
+        if (Array.isArray(data['classGroups'])) {
+          classGroupCount = data['classGroups'].filter(cg => {
+            const cgMadrasaId = String(cg['madrasaId'] || cg['assignedMadrasaId'] || '');
+            return cgMadrasaId && inchargeMadrasaIds.has(cgMadrasaId);
+          }).length;
+        }
+
+        if (Array.isArray(data['students'])) {
+          studentCount = data['students'].filter(st => {
+            const stMadrasaId = String(st['madrasaId'] || st['assignedMadrasaId'] || '');
+            return stMadrasaId && inchargeMadrasaIds.has(stMadrasaId);
+          }).length;
+        }
+
+        if (Array.isArray(data['staff'])) {
+          staffCount = data['staff'].filter(st => {
+            const stMadrasaId = String(st['madrasaId'] || st['assignedMadrasaId'] || '');
+            return stMadrasaId && inchargeMadrasaIds.has(stMadrasaId);
+          }).length;
+        }
+
+        if (Array.isArray(data['classes'])) {
+          classCount = data['classes'].filter(cls => {
+            const clsMadrasaId = String(cls['madrasaId'] || cls['assignedMadrasaId'] || '');
+            return clsMadrasaId && inchargeMadrasaIds.has(clsMadrasaId);
+          }).length;
+        }
+
+        if (Array.isArray(data['madrasas'])) {
+          madrasaCount = data['madrasas'].filter(m => inchargeMadrasaIds.has(String(m.id))).length;
+        }
+      }
+    }
 
     const allStats: DashboardStat[] = [
       { label: 'Organizations', value: data['organizations']?.length ?? 0, icon: 'business-outline', tone: 'success' },
-      { label: 'Madrasas', value: data['madrasas']?.length ?? 0, icon: 'school-outline', tone: 'primary' },
+      { label: 'Madrasas', value: madrasaCount, icon: 'school-outline', tone: 'primary' },
       { label: 'Users', value: data['users']?.length ?? 0, icon: 'people-outline', tone: 'warning' },
       { label: 'Coordinators', value: data['coordinators']?.length ?? 0, icon: 'star-outline', tone: 'primary' },
       { label: 'Madrasa Incharges', value: data['incharges']?.length ?? 0, icon: 'shield-checkmark-outline', tone: 'success' },
-      { label: 'Students', value: data['students']?.length ?? 0, icon: 'person-outline', tone: 'success' },
+      { label: 'Students', value: studentCount, icon: 'person-outline', tone: 'success' },
       { label: 'Parents', value: data['parents']?.length ?? 0, icon: 'people-circle-outline', tone: 'primary' },
-      { label: 'Staff', value: data['staff']?.length ?? 0, icon: 'briefcase-outline', tone: 'warning' },
+      { label: 'Staff', value: staffCount, icon: 'briefcase-outline', tone: 'warning' },
       { label: 'Courses', value: data['courses']?.length ?? 0, icon: 'library-outline', tone: 'success' },
-      { label: 'Classes', value: data['classes']?.length ?? 0, icon: 'easel-outline', tone: 'primary' },
-      { label: 'Class Groups', value: data['classGroups']?.length ?? 0, icon: 'people-outline', tone: 'purple' },
+      { label: 'Classes', value: classCount, icon: 'easel-outline', tone: 'primary' },
+      { label: 'Class Groups', value: classGroupCount, icon: 'people-outline', tone: 'purple' },
       { label: 'Subjects', value: data['subjects']?.length ?? 0, icon: 'book-outline', tone: 'warning' },
     ];
 
@@ -1978,6 +2042,12 @@ export class DashboardPage {
       // Madrasa Incharge sees statistics relevant to their madrasas only
       const inchargeLabels = ['Madrasas', 'Students', 'Staff', 'Classes', 'Class Groups', 'Subjects', 'Courses'];
       return allStats.filter(s => inchargeLabels.includes(s.label));
+    }
+
+    if (isTeacherOrStaff) {
+      // Teachers & staff see stats scoped to their assigned classes/courses/students/subjects (Class Groups card removed)
+      const teacherLabels = ['Students', 'Classes', 'Courses', 'Subjects'];
+      return allStats.filter(s => teacherLabels.includes(s.label));
     }
 
     return [];
@@ -2041,17 +2111,26 @@ export class DashboardPage {
     return 'User';
   }
 
-  private formatRole(role: string | null | undefined): string {
-    if (!role) return 'User';
+  private formatRole(role: string | null | undefined, profile?: AppUser): string {
+    const roles: string[] = Array.isArray((profile as any)?.roles) && (profile as any).roles.length > 0
+      ? (profile as any).roles
+      : (role ? [role] : []);
 
-    const normalized = role.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
-    
-    return normalized
-      .toLowerCase()
-      .split(' ')
-      .filter(Boolean)
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+    if (roles.length === 0) return 'User';
+
+    const formattedList = roles.map(r => {
+      const label = (ROLE_LABELS as Record<string, string>)[r];
+      if (label) return label;
+      const normalized = r.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
+      return normalized
+        .toLowerCase()
+        .split(' ')
+        .filter(Boolean)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+    });
+
+    return Array.from(new Set(formattedList)).join(' • ');
   }
 
   private buildAccessOverview(profile: AppUser, data: Record<string, EntityRecord[]>): AccessOverview | undefined {

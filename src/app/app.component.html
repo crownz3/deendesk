@@ -120,7 +120,7 @@
               <ng-container *ngIf="item.children && item.children.length; else singleMenuItem">
                 <div class="menu-item-with-children">
                   <ion-menu-toggle auto-hide="false">
-                    <ion-item class="menu-item parent-menu-item" button="true" routerDirection="root" [routerLink]="item.route" routerLinkActive="active" lines="none">
+                    <ion-item class="menu-item parent-menu-item" button="true" routerDirection="root" [routerLink]="getEffectiveNavRoute(item, profile)" routerLinkActive="active" lines="none">
                       <ion-icon slot="start" [name]="item.icon"></ion-icon>
                       <ion-label>{{ item.displayLabel || item.label }}</ion-label>
                       <span slot="end" class="submenu-arrow-btn" (click)="toggleMenuExpand(item.route, $event)" role="button" tabindex="0" aria-label="Toggle submenu">

@@ -3016,7 +3016,7 @@ export class ManagementPage {
       (profile as any).inchargeMadrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
     }
 
-    if (isMadrasaInchargeRole) {
+    if (isMadrasaInchargeRole && inchargeMadrasaIds.size === 0) {
       if ((profile as any).madrasaId) inchargeMadrasaIds.add(String((profile as any).madrasaId).trim());
       if (Array.isArray((profile as any).madrasaIds)) {
         (profile as any).madrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
@@ -3167,7 +3167,7 @@ export class ManagementPage {
       (profile as any).inchargeMadrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
     }
 
-    if (isMadrasaInchargeRole) {
+    if (isMadrasaInchargeRole && inchargeMadrasaIds.size === 0) {
       if ((profile as any).madrasaId) inchargeMadrasaIds.add(String((profile as any).madrasaId).trim());
       if (Array.isArray((profile as any).madrasaIds)) {
         (profile as any).madrasaIds.forEach((id: string) => inchargeMadrasaIds.add(String(id).trim()));
@@ -3428,6 +3428,8 @@ export class ManagementPage {
       classes: ['addClasses', 'manageClasses'],
       classGroups: ['addClassGroups', 'manageClassGroups', 'addClasses', 'manageClasses'],
       madrasas: ['manageMadrasas'],
+      coordinators: ['manageCoordinators'],
+      incharges: ['manageIncharges'],
       staff: ['manageStaff'],
       students: ['manageStudents'],
       parents: ['manageParents'],
@@ -3449,11 +3451,29 @@ export class ManagementPage {
     }
     if (role === 'superadmin' || role === 'organizationadmin') return true;
 
+    // Madrasa Incharge cannot edit org-level resources (organizations, madrasas, coordinators, incharges)
+    if (role === 'madrasaincharge') {
+      if (['organizations', 'madrasas', 'coordinators', 'incharges'].includes(config.resource)) {
+        return false;
+      }
+      return true;
+    }
+
+    // Coordinator cannot edit organizations or coordinators
+    if (role === 'coordinator') {
+      if (['organizations', 'coordinators'].includes(config.resource)) {
+        return false;
+      }
+      return true;
+    }
+
     const resourceEditPermissionMap: Record<string, PermissionKey[]> = {
       courses: ['editCourses', 'manageCourses'],
       classes: ['editClasses', 'manageClasses'],
       classGroups: ['editClassGroups', 'manageClassGroups', 'editClasses', 'manageClasses'],
       madrasas: ['manageMadrasas'],
+      coordinators: ['manageCoordinators'],
+      incharges: ['manageIncharges'],
       staff: ['manageStaff'],
       students: ['manageStudents'],
       parents: ['manageParents'],
@@ -5864,15 +5884,20 @@ export class ManagementPage {
     }
 
     const userRole = String(initial['role'] || config.fixedRole || '');
+    const userRoles: string[] = Array.isArray(initial['roles'])
+      ? (initial['roles'] as string[])
+      : (userRole ? [userRole] : []);
+    if (userRole && !userRoles.includes(userRole)) userRoles.unshift(userRole);
     const userOrgId = String(initial['organizationId'] || '');
 
     // Use the user's stored `customPermissions` (extra permissions beyond role template) if present.
-    // Do NOT pass the entire `permissions` array as customPermissions — that would cause removed
-    // role permissions to be re-added on top of the updated template (double-counting).
-    // The stored `permissions` field already reflects what the system computed last (role template + custom).
+    // Union permissions across all assigned roles for multi-role users.
     const storedCustom = Array.isArray(initial['customPermissions']) ? initial['customPermissions'] as PermissionKey[] : undefined;
-    const effectivePermissions = userRole
-      ? this.rolePermissionsService.getPermissionsForRole(userRole, storedCustom, userOrgId)
+    const effectivePermissions = userRoles.length > 0
+      ? Array.from(new Set([
+          ...(Array.isArray(initial['permissions']) ? initial['permissions'] as PermissionKey[] : []),
+          ...userRoles.flatMap(r => this.rolePermissionsService.getPermissionsForRole(r, storedCustom, userOrgId))
+        ]))
       : (Array.isArray(initial['permissions']) ? initial['permissions'] : []);
 
     return {
