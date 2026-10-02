@@ -76,6 +76,16 @@
           </button> -->
 
           <button
+            *ngIf="(vm.profile?.role === 'superAdmin' || vm.profile?.role === 'organizationAdmin') && vm.config.resource === 'staff'"
+            mat-stroked-button
+            color="accent"
+            type="button"
+            (click)="syncStaffMadrasaIds()">
+            <ion-icon name="sync-outline"></ion-icon>
+            Sync Madrasa Assignments
+          </button>
+
+          <button
             *ngIf="dataTable?.selection?.selected?.length && vm.config.resource === 'students'"
             mat-stroked-button
             color="primary"

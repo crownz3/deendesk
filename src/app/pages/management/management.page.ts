@@ -4805,6 +4805,60 @@ export class ManagementPage {
     });
   }
 
+  async syncStaffMadrasaIds(): Promise<void> {
+    const confirmed = await firstValueFrom(this.dialog.open(ConfirmDialogComponent, {
+      data: {
+        title: `Sync Staff Madrasa Assignments`,
+        message: `This will scan all class groups and ensure that assigned staff members have the correct Madrasa IDs in their profile, making them visible to Madrasa Incharges. Proceed?`,
+        confirmLabel: 'Run Sync',
+      },
+    }).afterClosed());
+
+    if (!confirmed) return;
+
+    await this.loader.withLoader('Syncing staff madrasa assignments...', async () => {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const allClassGroups = await this.repo.getAllOnce<EntityRecord>('classGroups', profile);
+      const allUsers = await this.repo.getAllOnce<EntityRecord>('users', profile);
+      
+      let syncedCount = 0;
+      const userUpdates = new Map<string, Set<string>>();
+
+      for (const group of allClassGroups) {
+        const mId = String(group['madrasaId'] || group['madrasa'] || group['parentMadrasaId'] || '').trim();
+        const staffIds = Array.isArray(group['assignedStaffIds']) ? group['assignedStaffIds'] : [];
+        if (mId && staffIds.length > 0) {
+          for (const staffId of staffIds) {
+            if (!userUpdates.has(staffId)) userUpdates.set(staffId, new Set<string>());
+            userUpdates.get(staffId)!.add(mId);
+          }
+        }
+      }
+
+      for (const [userId, mIds] of Array.from(userUpdates.entries())) {
+        const userDoc = allUsers.find(u => String(u.id) === userId || String(u['uid']) === userId || String(u['entityId']) === userId);
+        if (userDoc) {
+          const currentMadrasaIds = Array.isArray(userDoc['madrasaIds']) ? userDoc['madrasaIds'].map(String) : [];
+          let updated = false;
+          const newMadrasaIds = [...currentMadrasaIds];
+          for (const mId of Array.from(mIds)) {
+            if (!newMadrasaIds.includes(mId)) {
+              newMadrasaIds.push(mId);
+              updated = true;
+            }
+          }
+          if (updated) {
+            await this.repo.update('users', userDoc.id!, { madrasaIds: newMadrasaIds }, profile).catch(() => {});
+            syncedCount++;
+          }
+        }
+      }
+
+      this.snackBar.open(`Sync complete. ${syncedCount} users updated.`, 'Close', { duration: 4000 });
+      this.refreshData();
+    });
+  }
+
   async sendPasswordResetEmail(row: EntityRecord): Promise<void> {
     try {
       const email = String(row['email'] || row['generatedEmail'] || '');

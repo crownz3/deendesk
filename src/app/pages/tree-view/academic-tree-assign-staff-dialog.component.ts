@@ -418,6 +418,22 @@ export class AcademicTreeAssignStaffDialogComponent implements OnInit {
         this.selectedUsers.map(staff => this.getStaffAssignmentId(staff)).filter(Boolean)
       ));
       await this.repo.update('classGroups', this.node.id, { assignedStaffIds: selectedStaffIds }, userProfile);
+
+      // Auto-sync madrasaIds for staff to ensure visibility for incharges
+      const nodeMadrasaId = String(this.node?.madrasaId || this.node?.parentMadrasaId || this.node?.madrasa || this.data?.node?.madrasaId || this.data?.node?.parentMadrasaId || '').trim();
+      if (nodeMadrasaId) {
+        for (const staff of this.selectedUsers) {
+          const staffId = this.getStaffAssignmentId(staff);
+          if (staffId) {
+            const currentMadrasaIds = Array.isArray(staff.madrasaIds) ? [...staff.madrasaIds] : [];
+            if (!currentMadrasaIds.includes(nodeMadrasaId)) {
+              currentMadrasaIds.push(nodeMadrasaId);
+              await this.repo.update('users', staffId, { madrasaIds: currentMadrasaIds }, userProfile).catch(e => console.warn('[Staff Auto-sync Failed]', e));
+            }
+          }
+        }
+      }
+
       this.dialogRef.close({ updated: true });
     } catch (error: any) {
       console.error('[Staff Assignment Update Failed]', {
