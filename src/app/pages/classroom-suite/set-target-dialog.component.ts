@@ -254,7 +254,8 @@ export interface SetTargetDialogData {
 
     .target-dialog-body {
       padding: 14px 16px;
-      max-height: 75vh;
+      max-height: calc(90vh - 130px);
+      flex: 1 1 auto;
       overflow-y: auto;
       overflow-x: hidden;
       box-sizing: border-box;

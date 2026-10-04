@@ -569,6 +569,7 @@
         <!-- Evaluation Unit bar removed: toggle is now per-student inside the name cell -->
 
         <!-- Mobile Card List for Evaluation (Visible on Mobile <= 768px) -->
+        <!-- HIFZ MOBILE CARDS -->
         <div class="mobile-eval-cards-list" *ngIf="studentTypeMode === 'hifz'">
           <div class="eval-card-item" *ngFor="let item of roster">
             <div class="card-st-header">
@@ -583,7 +584,7 @@
               </div>
               <div class="header-action-btns">
                 <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)">
-                  📈 Update Progress
+                  📈 Progress
                 </button>
                 <button type="button" class="target-btn" (click)="openSetTargetModal(item)">
                   🎯 Target
@@ -751,6 +752,217 @@
                     (click)="item.hifzRating = s"
                   >★</button>
                   <span class="star-lbl">{{ item.hifzRating || 5 }}/5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-mobile-eval" *ngIf="roster.length === 0">
+            No students enrolled in this group.
+          </div>
+        </div>
+
+        <!-- DAWR MOBILE CARDS -->
+        <div class="mobile-eval-cards-list" *ngIf="studentTypeMode === 'dawr'">
+          <div class="eval-card-item" *ngFor="let item of roster">
+            <div class="card-st-header">
+              <div class="st-info">
+                <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                <span class="dawr-badge" [class.certified]="(item.dawrRoundNo || 1) >= (item.targetDawrRounds || 3)">
+                  <mat-icon>workspace_premium</mat-icon> Round {{ item.dawrRoundNo || 1 }} / {{ item.targetDawrRounds || 3 }} Target
+                </span>
+              </div>
+              <div class="header-action-btns">
+                <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)">
+                  📈 Progress
+                </button>
+                <button type="button" class="target-btn" (click)="openSetTargetModal(item)">
+                  🎯 Target
+                </button>
+              </div>
+            </div>
+
+            <div class="mobile-eval-body">
+              <div class="eval-section sabaq-section">
+                <div class="sec-label">🔄 Dawr Daily Revision:</div>
+                <div class="fields-grid">
+                  <div class="input-wrap">
+                    <label>Round #:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.dawrRoundNo" placeholder="Round" />
+                  </div>
+                  <div class="input-wrap full-width">
+                    <label>Juz Portion:</label>
+                    <input type="text" class="inline-input" [(ngModel)]="item.dawrPortionJuz" placeholder="e.g. Juz 1-2" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>From Ayah:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.dawrFromAyah" placeholder="From" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>To Ayah:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.dawrToAyah" placeholder="To" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Rev. Mistakes:</label>
+                    <input type="number" class="inline-input num mist" [(ngModel)]="item.dawrMistakes" placeholder="0" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Old Mistakes:</label>
+                    <input type="number" class="inline-input num mist" [(ngModel)]="item.dawrManzilMistakes" placeholder="0" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Rating Row -->
+              <div class="eval-card-rating">
+                <span class="rating-lbl">Rating:</span>
+                <div class="star-rating-widget">
+                  <button type="button" class="star-btn"
+                    *ngFor="let s of [1,2,3,4,5]"
+                    [class.lit]="s <= (item._hoverRating || item.dawrRating || 5)"
+                    [class.selected]="s <= (item.dawrRating || 5)"
+                    (click)="item.dawrRating = s"
+                  >★</button>
+                  <span class="star-lbl">{{ item.dawrRating || 5 }}/5</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-mobile-eval" *ngIf="roster.length === 0">
+            No students enrolled in this group.
+          </div>
+        </div>
+
+        <!-- MAKTAB MOBILE CARDS -->
+        <div class="mobile-eval-cards-list" *ngIf="studentTypeMode === 'maktab'">
+          <!-- Maktab Sub-Mode Selector Bar -->
+          <div class="maktab-mode-bar-mobile">
+            <div class="mode-bar-row">
+              <span class="mode-bar-label">Evaluation Type:</span>
+              <div class="eval-unit-toggle-row">
+                <button type="button" class="unit-mini-pill" [class.active]="maktabEvalMode === 'subject'" (click)="maktabEvalMode = 'subject'">
+                  📚 Subject-wise
+                </button>
+                <button type="button" class="unit-mini-pill" [class.active]="maktabEvalMode === 'quran'" (click)="maktabEvalMode = 'quran'">
+                  📖 Quran / Qaida
+                </button>
+              </div>
+            </div>
+
+            <!-- Sub-toggle for Quran mode (Surah vs Juz) -->
+            <div class="mode-bar-row" *ngIf="maktabEvalMode === 'quran'">
+              <span class="mode-bar-label sub">Unit:</span>
+              <div class="eval-unit-toggle-row">
+                <button type="button" class="unit-mini-pill" [class.active]="maktabQuranEvalMode === 'surah'" (click)="maktabQuranEvalMode = 'surah'">📖 Surah & Ayah</button>
+                <button type="button" class="unit-mini-pill" [class.active]="maktabQuranEvalMode === 'juz'" (click)="maktabQuranEvalMode = 'juz'">📑 Juz & Quarter</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="eval-card-item" *ngFor="let item of roster">
+            <div class="card-st-header">
+              <div class="st-info">
+                <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                <span class="history-badge progress-badge" *ngIf="getStudentProgressText(item.student)">
+                  <mat-icon class="meta-icon">menu_book</mat-icon> {{ getStudentProgressText(item.student) }}
+                </span>
+              </div>
+              <div class="header-action-btns">
+                <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)">
+                  📈 Progress
+                </button>
+                <button type="button" class="target-btn" (click)="openSetTargetModal(item)">
+                  🎯 Target
+                </button>
+              </div>
+            </div>
+
+            <div class="mobile-eval-body">
+              <!-- SUBJECT-WISE INPUTS -->
+              <div class="eval-section sabaq-section" *ngIf="maktabEvalMode === 'subject'">
+                <div class="fields-grid">
+                  <div class="input-wrap full-width">
+                    <label>Subject / Course:</label>
+                    <input type="text" class="inline-input" [(ngModel)]="item.maktabSubject" placeholder="e.g. Fiqh, Hadith, Deeniyyat" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Page No:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.maktabPage" placeholder="Page #" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Line No:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.maktabLineNo" placeholder="Line #" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Mistakes:</label>
+                    <input type="number" class="inline-input num mist" [(ngModel)]="item.maktabMistakes" placeholder="0" />
+                  </div>
+                  <div class="input-wrap full-width">
+                    <label>Remarks:</label>
+                    <input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." />
+                  </div>
+                </div>
+              </div>
+
+              <!-- QURAN-WISE SURAH INPUTS -->
+              <div class="eval-section sabaq-section" *ngIf="maktabEvalMode === 'quran' && maktabQuranEvalMode === 'surah'">
+                <div class="fields-grid">
+                  <div class="input-wrap full-width">
+                    <label>Surah Name:</label>
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text" class="inline-input" style="padding-right: 20px;" list="quranSurahListOptions" [(ngModel)]="item.sabaqSurah" (change)="onSabaqSurahChange(item)" (input)="onSabaqSurahChange(item)" placeholder="Type Surah" />
+                      <button *ngIf="item.sabaqSurah" type="button" (click)="item.sabaqSurah = ''; onSabaqSurahChange(item); item.sabaqFromAyah = null; item.sabaqToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
+                    </div>
+                  </div>
+                  <div class="input-wrap">
+                    <label>From Ayah:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" min="1" [max]="getSurahMaxAyah(item.sabaqSurah)" placeholder="From" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>To Ayah:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" min="1" [max]="getSurahMaxAyah(item.sabaqSurah)" (change)="validateAyahBounds(item)" placeholder="To" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Mistakes:</label>
+                    <input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" />
+                  </div>
+                  <div class="input-wrap full-width">
+                    <label>Remarks:</label>
+                    <input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." />
+                  </div>
+                </div>
+              </div>
+
+              <!-- QURAN-WISE JUZ INPUTS -->
+              <div class="eval-section sabaq-section" *ngIf="maktabEvalMode === 'quran' && maktabQuranEvalMode === 'juz'">
+                <div class="fields-grid">
+                  <div class="input-wrap">
+                    <label>Juz #:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.sabaqJuz" min="1" max="30" placeholder="1-30" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Portion / Quarter:</label>
+                    <select class="inline-select" [(ngModel)]="item.sabaqJuzPortion">
+                      <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
+                    </select>
+                  </div>
+                  <div class="input-wrap">
+                    <label>From:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" placeholder="From" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>To:</label>
+                    <input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" placeholder="To" />
+                  </div>
+                  <div class="input-wrap">
+                    <label>Mistakes:</label>
+                    <input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" />
+                  </div>
+                  <div class="input-wrap full-width">
+                    <label>Remarks:</label>
+                    <input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." />
+                  </div>
                 </div>
               </div>
             </div>
@@ -967,7 +1179,7 @@
         </div>
 
         <!-- Inline Table for DAWR (Full Quran Revision) Mode -->
-        <div class="table-responsive" *ngIf="studentTypeMode === 'dawr'">
+        <div class="table-responsive desktop-eval-table" *ngIf="studentTypeMode === 'dawr'">
           <table class="suite-table ilmflow-table">
             <thead>
               <tr>
@@ -1067,7 +1279,7 @@
         </div>
 
         <!-- Inline Table for MAKTAB Mode -->
-        <div class="table-responsive" *ngIf="studentTypeMode === 'maktab'">
+        <div class="table-responsive desktop-eval-table" *ngIf="studentTypeMode === 'maktab'">
           <!-- Maktab Sub-Mode Selector Bar -->
           <div class="maktab-mode-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; margin-bottom: -1px;">
             <div style="display: flex; align-items: center; gap: 8px;">
