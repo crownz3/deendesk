@@ -168,7 +168,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
   madrasas: {
     resource: 'madrasas',
     title: 'Madrasas',
-    subtitle: 'Map madrasas to organizations, coordinators, and incharges.',
+    subtitle: 'Map madrasas to organizations, coordinators, incharges, and course types.',
     collection: 'madrasas',
     allowDelete: true,
     allowDetails: true,
@@ -179,6 +179,11 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
     columns: [
       { key: 'name', label: 'Madrasa' },
       { key: 'code', label: 'Code' },
+      { key: 'courseType', label: 'Course Type', type: 'select', options: [
+        { label: 'Maktab (Academic)', value: 'maktab' },
+        { label: 'Hifz (Quran Memorization)', value: 'hifz' },
+        { label: 'Both (Maktab & Hifz)', value: 'both' },
+      ] },
       { key: 'organizationId', label: 'Organization', type: 'idRef', referenceType: 'organization' },
       { key: 'coordinatorIds', label: 'Coordinators', type: 'idRef', referenceType: 'coordinator' },
       { key: 'inchargeIds', label: 'Incharges', type: 'idRef', referenceType: 'incharge' },
@@ -188,6 +193,11 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'organizationId', label: 'Organization', type: 'select', required: true, quickAddResource: 'organizations' },
       { key: 'name', label: 'Madrasa name', type: 'text', required: true },
       { key: 'code', label: 'Code', type: 'text', required: true },
+      { key: 'courseType', label: 'Course Type', type: 'select', required: true, options: [
+        { label: 'Maktab (Academic)', value: 'maktab' },
+        { label: 'Hifz (Quran Memorization)', value: 'hifz' },
+        { label: 'Both (Maktab & Hifz)', value: 'both' },
+      ] },
       { key: 'coordinatorIds', label: 'Coordinators', type: 'multiselect', quickAddResource: 'coordinators' },
       { key: 'inchargeIds', label: 'Madrasa incharges', type: 'multiselect', quickAddResource: 'incharges' },
       { key: 'address', label: 'Address', type: 'textarea' },

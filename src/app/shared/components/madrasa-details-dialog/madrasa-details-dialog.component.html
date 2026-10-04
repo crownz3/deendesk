@@ -71,6 +71,15 @@
                 <span class="value">{{ madrasa['code'] || '-' }}</span>
               </div>
               <div class="info-row">
+                <span class="label">Course Type</span>
+                <span class="value">
+                  <span class="badge" style="background: #eef2ff; color: #3730a3; padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 0.82rem;" *ngIf="madrasa['courseType'] === 'maktab'">Maktab (Academic)</span>
+                  <span class="badge" style="background: #ecfdf5; color: #065f46; padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 0.82rem;" *ngIf="madrasa['courseType'] === 'hifz'">Hifz (Quran Memorization)</span>
+                  <span class="badge" style="background: #fef3c7; color: #92400e; padding: 3px 8px; border-radius: 6px; font-weight: 600; font-size: 0.82rem;" *ngIf="madrasa['courseType'] === 'both'">Both (Maktab & Hifz)</span>
+                  <span *ngIf="!madrasa['courseType']">-</span>
+                </span>
+              </div>
+              <div class="info-row">
                 <span class="label">Address</span>
                 <span class="value">{{ madrasa['address'] || '-' }}</span>
               </div>

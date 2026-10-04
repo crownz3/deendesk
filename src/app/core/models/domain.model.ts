@@ -268,6 +268,7 @@ export interface Organization extends ScopedEntity {
 export interface Madrasa extends ScopedEntity {
   name: string;
   code: string;
+  courseType?: 'maktab' | 'hifz' | 'both';
   coordinatorIds: string[];
   inchargeIds: string[];
   address?: string;
@@ -552,8 +553,9 @@ export interface CsvImportLog extends ScopedEntity {
 export interface TableColumn {
   key: string;
   label: string;
-  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef' | 'staffChips' | 'studentCount' | 'madrasaCount' | 'classCount' | 'groupCount' | 'stageChips';
+  type?: 'text' | 'date' | 'status' | 'role' | 'list' | 'temporaryPassword' | 'credentialStatus' | 'avatar' | 'boolean' | 'idRef' | 'staffChips' | 'studentCount' | 'madrasaCount' | 'classCount' | 'groupCount' | 'stageChips' | 'select';
   referenceType?: 'organization' | 'madrasa' | 'user' | 'course' | 'class' | 'classGroup' | 'subject' | 'student' | 'parent' | 'staff' | 'teacher' | 'coordinator' | 'incharge';
+  options?: SelectOption[];
 }
 
 export interface SelectOption {
