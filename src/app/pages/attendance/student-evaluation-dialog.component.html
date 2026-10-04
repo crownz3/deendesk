@@ -28,12 +28,23 @@
         </button>
       </div>
 
-      <!-- New Lesson (Sabaq) -->
+      <!-- New Lesson -->
       <div class="section-card sabaq-card">
-        <h3 class="section-title">
-          <mat-icon>menu_book</mat-icon> New Lesson (Sabaq)
-        </h3>
-        <div class="form-grid" *ngIf="evalUnitMode === 'surah'">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h3 class="section-title" style="margin-bottom: 0;">
+            <mat-icon>menu_book</mat-icon> New Lesson
+          </h3>
+          <div class="eval-unit-bar" style="display: flex; align-items: center; gap: 6px;">
+            <button type="button" class="unit-pill" [class.active]="sabaqEvalUnitMode === 'surah'" (click)="sabaqEvalUnitMode = 'surah'">
+              📖 Surah &amp; Ayah
+            </button>
+            <button type="button" class="unit-pill" [class.active]="sabaqEvalUnitMode === 'juz'" (click)="sabaqEvalUnitMode = 'juz'">
+              📑 Juz &amp; Quarter
+            </button>
+          </div>
+        </div>
+
+        <div class="form-grid" *ngIf="sabaqEvalUnitMode === 'surah'">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Surah Name</mat-label>
             <mat-select formControlName="sabaqSurah">
@@ -61,7 +72,7 @@
           </mat-form-field>
         </div>
 
-        <div class="form-grid" *ngIf="evalUnitMode === 'juz'">
+        <div class="form-grid" *ngIf="sabaqEvalUnitMode === 'juz'">
           <mat-form-field appearance="outline">
             <mat-label>Juz # (1-30)</mat-label>
             <input matInput formControlName="sabqiJuz" placeholder="e.g. Juz 1" />
@@ -82,12 +93,23 @@
         </div>
       </div>
 
-      <!-- Recent Lesson (Sabqi) -->
+      <!-- Old Lesson (Sabaq) -->
       <div class="section-card sabqi-card">
-        <h3 class="section-title">
-          <mat-icon>replay</mat-icon> Recent Lesson (Sabqi)
-        </h3>
-        <div class="form-grid" *ngIf="evalUnitMode === 'surah'">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h3 class="section-title" style="margin-bottom: 0;">
+            <mat-icon>replay</mat-icon> Old Lesson (Sabaq)
+          </h3>
+          <div class="eval-unit-bar" style="display: flex; align-items: center; gap: 6px;">
+            <button type="button" class="unit-pill" [class.active]="sabqiEvalUnitMode === 'surah'" (click)="sabqiEvalUnitMode = 'surah'">
+              📖 Surah &amp; Ayah
+            </button>
+            <button type="button" class="unit-pill" [class.active]="sabqiEvalUnitMode === 'juz'" (click)="sabqiEvalUnitMode = 'juz'">
+              📑 Juz &amp; Quarter
+            </button>
+          </div>
+        </div>
+
+        <div class="form-grid" *ngIf="sabqiEvalUnitMode === 'surah'">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Surah Name</mat-label>
             <mat-select formControlName="sabqiSurah">
@@ -115,7 +137,7 @@
           </mat-form-field>
         </div>
 
-        <div class="form-grid" *ngIf="evalUnitMode === 'juz'">
+        <div class="form-grid" *ngIf="sabqiEvalUnitMode === 'juz'">
           <mat-form-field appearance="outline">
             <mat-label>Juz / Portion</mat-label>
             <input matInput formControlName="sabqiJuz" placeholder="e.g. Juz 1" />
@@ -136,12 +158,23 @@
         </div>
       </div>
 
-      <!-- Revision / Old Lesson (Manzil) -->
+      <!-- Revision / Old Lesson -->
       <div class="section-card manzil-card">
-        <h3 class="section-title">
-          <mat-icon>auto_stories</mat-icon> Revision / Old Lesson (Manzil)
-        </h3>
-        <div class="form-grid" *ngIf="evalUnitMode === 'surah'">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <h3 class="section-title" style="margin-bottom: 0;">
+            <mat-icon>auto_stories</mat-icon> Revision / Old Lesson
+          </h3>
+          <div class="eval-unit-bar" style="display: flex; align-items: center; gap: 6px;">
+            <button type="button" class="unit-pill" [class.active]="manzilEvalUnitMode === 'surah'" (click)="manzilEvalUnitMode = 'surah'">
+              📖 Surah &amp; Ayah
+            </button>
+            <button type="button" class="unit-pill" [class.active]="manzilEvalUnitMode === 'juz'" (click)="manzilEvalUnitMode = 'juz'">
+              📑 Juz &amp; Quarter
+            </button>
+          </div>
+        </div>
+
+        <div class="form-grid" *ngIf="manzilEvalUnitMode === 'surah'">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Surah Name</mat-label>
             <mat-select formControlName="manzilSurah">
@@ -169,7 +202,7 @@
           </mat-form-field>
         </div>
 
-        <div class="form-grid" *ngIf="evalUnitMode === 'juz'">
+        <div class="form-grid" *ngIf="manzilEvalUnitMode === 'juz'">
           <mat-form-field appearance="outline">
             <mat-label>Para / Juz Portion</mat-label>
             <input matInput formControlName="manzilJuz" placeholder="e.g. Juz 15" />

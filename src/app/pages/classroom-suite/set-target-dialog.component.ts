@@ -7,6 +7,7 @@ export interface SetTargetDialogData {
   student: EntityRecord;
   studentTypeMode: 'hifz' | 'maktab' | 'dawr';
   currentTarget?: any;
+  defaultDawrRounds?: number;
 }
 
 @Component({
@@ -44,7 +45,7 @@ export interface SetTargetDialogData {
         <div class="dates-grid">
           <div>
             <label>Start Date:</label>
-            <mat-form-field appearance="outline" class="full-width-field date-mat-field" subscriptSizing="dynamic">
+            <mat-form-field appearance="outline" class="full-width-field" subscriptSizing="dynamic">
               <input matInput [matDatepicker]="pickerStart" [value]="startDateObj" (dateChange)="onStartDateObjChange($event.value)" readonly />
               <mat-datepicker-toggle matIconSuffix [for]="pickerStart"></mat-datepicker-toggle>
               <mat-datepicker #pickerStart></mat-datepicker>
@@ -52,7 +53,7 @@ export interface SetTargetDialogData {
           </div>
           <div>
             <label>Target End Date:</label>
-            <mat-form-field appearance="outline" class="full-width-field date-mat-field" subscriptSizing="dynamic">
+            <mat-form-field appearance="outline" class="full-width-field" subscriptSizing="dynamic">
               <input matInput [matDatepicker]="pickerEnd" [value]="endDateObj" (dateChange)="onEndDateObjChange($event.value)" readonly />
               <mat-datepicker-toggle matIconSuffix [for]="pickerEnd"></mat-datepicker-toggle>
               <mat-datepicker #pickerEnd></mat-datepicker>
@@ -99,27 +100,46 @@ export interface SetTargetDialogData {
         <div *ngIf="studentTypeMode === 'hifz'">
           <div class="portion-tabs-header">
             <button type="button" class="p-tab-btn" [class.active]="activeHifzTab === 'sabaq'" (click)="activeHifzTab = 'sabaq'">
-              📖 Sabaq Target
+              📖 New Lesson
             </button>
             <button type="button" class="p-tab-btn" [class.active]="activeHifzTab === 'sabqi'" (click)="activeHifzTab = 'sabqi'">
-              📗 Sabqi Target
+              📗 Old Lesson (Sabaq)
             </button>
             <button type="button" class="p-tab-btn" [class.active]="activeHifzTab === 'manzil'" (click)="activeHifzTab = 'manzil'">
-              📙 Manzil Target
+              📙 Revision / Old Lesson
             </button>
           </div>
 
           <!-- Sabaq Target -->
           <div class="tab-box" *ngIf="activeHifzTab === 'sabaq'">
-            <label>Target Surah Name (Auto-complete 114 Surahs):</label>
-            <mat-form-field appearance="outline" class="full-width-field" subscriptSizing="dynamic">
+            
+            <div style="margin-bottom: 12px; display: flex; gap: 16px; align-items: center;">
+              <label style="margin:0;">Target Mode:</label>
+              <mat-radio-group [(ngModel)]="sabaqTargetMode" style="display:flex; gap: 12px;">
+                <mat-radio-button value="surah">By Surah</mat-radio-button>
+                <mat-radio-button value="juz">By Juz</mat-radio-button>
+              </mat-radio-group>
+            </div>
+
+            <ng-container *ngIf="sabaqTargetMode === 'surah'">
+              <label>Target Surah Name (Auto-complete 114 Surahs):</label>
+              <mat-form-field appearance="outline" class="full-width-field" subscriptSizing="dynamic">
               <input type="text" matInput [(ngModel)]="sabaqSurah" (input)="filterSurahs()" [matAutocomplete]="autoSurah" placeholder="Type Surah name (e.g. Al-Baqarah)..." />
+              <button mat-icon-button matSuffix *ngIf="sabaqSurah" (click)="sabaqSurah=''; filterSurahs(); sabaqFromAyah=null; sabaqToAyah=null;">
+                <mat-icon>close</mat-icon>
+              </button>
               <mat-autocomplete #autoSurah="matAutocomplete" (optionSelected)="onSurahSelected($event.option.value)">
                 <mat-option *ngFor="let surah of filteredSurahs" [value]="surah">
                   {{ surah }}
                 </mat-option>
               </mat-autocomplete>
             </mat-form-field>
+            </ng-container>
+
+            <ng-container *ngIf="sabaqTargetMode === 'juz'">
+              <label>Target Juz Number (1-30):</label>
+              <input type="number" class="dialog-input" [(ngModel)]="sabaqJuz" placeholder="e.g. 30" min="1" max="30" />
+            </ng-container>
 
             <div class="grid-2" style="margin-top: 10px;">
               <div>
@@ -302,25 +322,6 @@ export interface SetTargetDialogData {
 
       label { display: block; font-size: 0.78rem; font-weight: 600; color: #475569; margin-bottom: 4px; }
 
-      .date-mat-field {
-        width: 100%;
-        box-sizing: border-box;
-
-        ::ng-deep .mat-mdc-text-field-wrapper {
-          height: 38px !important;
-          max-height: 38px !important;
-          padding-top: 0 !important;
-          padding-bottom: 0 !important;
-        }
-        ::ng-deep .mat-mdc-form-field-flex {
-          height: 38px !important;
-          align-items: center !important;
-        }
-        ::ng-deep .mat-mdc-form-field-infix {
-          padding-top: 6px !important;
-          padding-bottom: 6px !important;
-        }
-      }
     }
 
     .period-summary-badge {
@@ -402,7 +403,7 @@ export interface SetTargetDialogData {
         font-weight: 700;
         color: #475569;
         cursor: pointer;
-        white-space: nowrap;
+        white-space: normal;
         text-align: center;
         transition: all 0.2s ease;
 
@@ -487,7 +488,9 @@ export class SetTargetDialogComponent implements OnInit {
   incompleteNotes = '';
 
   activeHifzTab: 'sabaq' | 'sabqi' | 'manzil' = 'sabaq';
+  sabaqTargetMode: 'surah' | 'juz' = 'surah';
   sabaqSurah = '';
+  sabaqJuz: number | null = null;
   sabaqFromAyah: number | null = 1;
   sabaqToAyah: number | null = 25;
   sabqiJuzRange = 'Juz 1 to 5';
@@ -509,15 +512,18 @@ export class SetTargetDialogComponent implements OnInit {
   ) {
     this.student = data.student;
     this.studentTypeMode = data.studentTypeMode || 'hifz';
+    this.dawrRounds = data.defaultDawrRounds || 3;
 
     if (data.currentTarget) {
       const cur = data.currentTarget;
+      this.sabaqTargetMode = cur.sabaqTargetMode || 'surah';
+      this.sabaqJuz = cur.sabaqJuz || null;
       this.sabaqSurah = cur.sabaqSurah || '';
       this.sabaqFromAyah = cur.sabaqFromAyah || 1;
       this.sabaqToAyah = cur.sabaqToAyah || 25;
       this.sabqiJuzRange = cur.sabqiJuzRange || 'Juz 1 to 5';
       this.manzilJuzRange = cur.manzilJuzRange || 'Juz 1 to 15';
-      this.dawrRounds = cur.targetDawrRounds || 3;
+      this.dawrRounds = cur.targetDawrRounds || data.defaultDawrRounds || 3;
       this.dawrDailyJuz = cur.dawrDailyJuz || '2 Juz / day';
       this.maktabSubject = cur.maktabSubject || '';
       this.maktabPage = cur.maktabPage || null;
@@ -584,7 +590,9 @@ export class SetTargetDialogComponent implements OnInit {
       targetPeriod: this.targetPeriod,
       startDate: this.startDate,
       endDate: this.endDate,
+      sabaqTargetMode: this.sabaqTargetMode,
       sabaqSurah: this.sabaqSurah,
+      sabaqJuz: this.sabaqJuz,
       sabaqFromAyah: this.sabaqFromAyah,
       sabaqToAyah: this.sabaqToAyah,
       sabqiJuzRange: this.sabqiJuzRange,

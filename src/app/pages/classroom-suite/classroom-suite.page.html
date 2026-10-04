@@ -21,11 +21,11 @@
           (focus)="filterMadrasas()" 
           (click)="filterMadrasas()"
           [matAutocomplete]="autoMadrasa" 
-          [disabled]="!isSuperAdmin && !isOrgAdmin"
+          [disabled]="!canSelectMadrasa"
           placeholder="Search Madrasa..."
         />
         <mat-icon matPrefix>business</mat-icon>
-        <button mat-icon-button matSuffix type="button" *ngIf="madrasaSearchText && (isSuperAdmin || isOrgAdmin)" (click)="madrasaSearchText = ''; filterMadrasas()" matTooltip="Clear Search">
+        <button mat-icon-button matSuffix type="button" *ngIf="madrasaSearchText && canSelectMadrasa" (click)="madrasaSearchText = ''; filterMadrasas()" matTooltip="Clear Search">
           <mat-icon>close</mat-icon>
         </button>
         <mat-autocomplete #autoMadrasa="matAutocomplete" (optionSelected)="onMadrasaOptionSelected($event.option.value)">
@@ -208,9 +208,10 @@
         <mat-icon>schedule</mat-icon> Schedule & Timetable
       </button>
 
-      <!-- Reports Tab (Permission Gated) -->
-      <button type="button" class="tab-nav-btn" [class.active]="activeTab === 'reports'" (click)="activeTab = 'reports'" *ngIf="canManageReports">
-        <mat-icon>bar_chart</mat-icon> Reports & Analytics
+
+      <!-- Configure Dawr Button (Org Admin / Super Admin only) -->
+      <button mat-stroked-button class="tab-nav-dawr-cfg-btn" *ngIf="isOrgAdmin || isSuperAdmin" (click)="openConfigureDawrRounds()" matTooltip="Set the required number of Dawr revision cycles for your organisation">
+        <mat-icon>settings</mat-icon> Configure Dawr
       </button>
     </div>
 
@@ -542,10 +543,10 @@
         <div class="progress-actions-header">
           <div class="mode-toggle-pills">
             <span class="mode-toggle-label">Evaluation Mode:</span>
-            <button type="button" class="mode-pill" [class.active]="studentTypeMode === 'hifz'" (click)="studentTypeMode = 'hifz'">
+            <button type="button" class="mode-pill" *ngIf="isHifzCourse" [class.active]="studentTypeMode === 'hifz'" (click)="studentTypeMode = 'hifz'">
               📖 Hifz (Sabq / Sabqi)
             </button>
-            <button type="button" class="mode-pill dawr" [class.active]="studentTypeMode === 'dawr'" (click)="studentTypeMode = 'dawr'">
+            <button type="button" class="mode-pill dawr" *ngIf="isHifzCourse" [class.active]="studentTypeMode === 'dawr'" (click)="studentTypeMode = 'dawr'">
               🔄 Dawr (Revision Cycles)
             </button>
             <button type="button" class="mode-pill" *ngIf="!isHifzCourse" [class.active]="studentTypeMode === 'maktab'" (click)="studentTypeMode = 'maktab'">
@@ -565,16 +566,7 @@
           <option *ngFor="let s of allQuranSurahs" [value]="s"></option>
         </datalist>
 
-        <!-- Evaluation Unit Selector Bar -->
-        <div class="eval-unit-bar" *ngIf="studentTypeMode === 'hifz'">
-          <span class="eval-unit-label">Evaluation Unit:</span>
-          <button type="button" class="unit-pill" [class.active]="hifzEvalMode === 'surah'" (click)="hifzEvalMode = 'surah'">
-            📖 Surah &amp; Ayah-wise
-          </button>
-          <button type="button" class="unit-pill" [class.active]="hifzEvalMode === 'juz'" (click)="hifzEvalMode = 'juz'">
-            📑 Juz &amp; Quarter-wise
-          </button>
-        </div>
+        <!-- Evaluation Unit bar removed: toggle is now per-student inside the name cell -->
 
         <!-- Mobile Card List for Evaluation (Visible on Mobile <= 768px) -->
         <div class="mobile-eval-cards-list" *ngIf="studentTypeMode === 'hifz'">
@@ -585,13 +577,16 @@
                 <span class="history-badge" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)">
                   <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
                 </span>
+                <span class="history-badge progress-badge" *ngIf="getStudentProgressText(item.student)">
+                  <mat-icon class="meta-icon">menu_book</mat-icon> {{ getStudentProgressText(item.student) }}
+                </span>
               </div>
               <div class="header-action-btns">
+                <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)">
+                  📈 Update Progress
+                </button>
                 <button type="button" class="target-btn" (click)="openSetTargetModal(item)">
                   🎯 Target
-                </button>
-                <button type="button" class="eval-dialog-trigger-btn" (click)="openSingleStudentEvaluationModal(item)">
-                  📝 Evaluator
                 </button>
               </div>
             </div>
@@ -600,11 +595,20 @@
             <div class="mobile-eval-body">
               <!-- Sabaq Section -->
               <div class="eval-section sabaq-section">
-                <div class="sec-label">📘 New Lesson (Sabaq):</div>
-                <div class="fields-grid" *ngIf="hifzEvalMode !== 'juz'">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <div class="sec-label" style="margin-bottom:0;">📘 New Lesson:</div>
+                  <div class="eval-unit-toggle-row">
+                    <button type="button" class="unit-mini-pill" [class.active]="sabaqEvalMode !== 'juz'" (click)="sabaqEvalMode = 'surah'">📖 Surah</button>
+                    <button type="button" class="unit-mini-pill" [class.active]="sabaqEvalMode === 'juz'" (click)="sabaqEvalMode = 'juz'">📑 Juz</button>
+                  </div>
+                </div>
+                <div class="fields-grid" *ngIf="sabaqEvalMode !== 'juz'">
                   <div class="input-wrap full-width">
                     <label>Surah:</label>
-                    <input type="text" class="inline-input" list="quranSurahListOptions" [(ngModel)]="item.sabaqSurah" (change)="onSabaqSurahChange(item)" (input)="onSabaqSurahChange(item)" placeholder="Type Surah" />
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text" class="inline-input" style="padding-right: 20px;" list="quranSurahListOptions" [(ngModel)]="item.sabaqSurah" (change)="onSabaqSurahChange(item)" (input)="onSabaqSurahChange(item)" placeholder="Type Surah" />
+                      <button *ngIf="item.sabaqSurah" type="button" (click)="item.sabaqSurah = ''; onSabaqSurahChange(item); item.sabaqFromAyah = null; item.sabaqToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
+                    </div>
                   </div>
                   <div class="input-wrap">
                     <label>From:</label>
@@ -620,7 +624,7 @@
                   </div>
                 </div>
 
-                <div class="fields-grid" *ngIf="hifzEvalMode === 'juz'">
+                <div class="fields-grid" *ngIf="sabaqEvalMode === 'juz'">
                   <div class="input-wrap">
                     <label>Juz #:</label>
                     <input type="number" class="inline-input num" [(ngModel)]="item.sabaqJuz" min="1" max="30" placeholder="1-30" />
@@ -640,11 +644,20 @@
 
               <!-- Sabqi Section -->
               <div class="eval-section sabqi-section">
-                <div class="sec-label">📗 Recent Lesson (Sabqi):</div>
-                <div class="fields-grid" *ngIf="hifzEvalMode !== 'juz'">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <div class="sec-label" style="margin-bottom:0;">📗 Old Lesson (Sabaq):</div>
+                  <div class="eval-unit-toggle-row">
+                    <button type="button" class="unit-mini-pill" [class.active]="sabqiEvalMode !== 'juz'" (click)="sabqiEvalMode = 'surah'">📖 Surah</button>
+                    <button type="button" class="unit-mini-pill" [class.active]="sabqiEvalMode === 'juz'" (click)="sabqiEvalMode = 'juz'">📑 Juz</button>
+                  </div>
+                </div>
+                <div class="fields-grid" *ngIf="sabqiEvalMode !== 'juz'">
                   <div class="input-wrap full-width">
                     <label>Surah:</label>
-                    <input type="text" class="inline-input" list="quranSurahListOptions" [(ngModel)]="item.sabqiSurah" placeholder="Type Surah" />
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text" class="inline-input" style="padding-right: 20px;" list="quranSurahListOptions" [(ngModel)]="item.sabqiSurah" placeholder="Type Surah" />
+                      <button *ngIf="item.sabqiSurah" type="button" (click)="item.sabqiSurah = ''; item.sabqiFromAyah = null; item.sabqiToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
+                    </div>
                   </div>
                   <div class="input-wrap">
                     <label>From:</label>
@@ -660,7 +673,7 @@
                   </div>
                 </div>
 
-                <div class="fields-grid" *ngIf="hifzEvalMode === 'juz'">
+                <div class="fields-grid" *ngIf="sabqiEvalMode === 'juz'">
                   <div class="input-wrap">
                     <label>Juz #:</label>
                     <input type="number" class="inline-input num" [(ngModel)]="item.sabqiJuz" min="1" max="30" placeholder="1-30" />
@@ -680,11 +693,20 @@
 
               <!-- Manzil Section -->
               <div class="eval-section manzil-section">
-                <div class="sec-label">📙 Revision (Manzil):</div>
-                <div class="fields-grid" *ngIf="hifzEvalMode !== 'juz'">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                  <div class="sec-label" style="margin-bottom:0;">📙 Revision (Manzil):</div>
+                  <div class="eval-unit-toggle-row">
+                    <button type="button" class="unit-mini-pill" [class.active]="manzilEvalMode !== 'juz'" (click)="manzilEvalMode = 'surah'">📖 Surah</button>
+                    <button type="button" class="unit-mini-pill" [class.active]="manzilEvalMode === 'juz'" (click)="manzilEvalMode = 'juz'">📑 Juz</button>
+                  </div>
+                </div>
+                <div class="fields-grid" *ngIf="manzilEvalMode !== 'juz'">
                   <div class="input-wrap full-width">
                     <label>Surah:</label>
-                    <input type="text" class="inline-input" list="quranSurahListOptions" [(ngModel)]="item.manzilSurah" placeholder="Type Surah" />
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text" class="inline-input" style="padding-right: 20px;" list="quranSurahListOptions" [(ngModel)]="item.manzilSurah" placeholder="Type Surah" />
+                      <button *ngIf="item.manzilSurah" type="button" (click)="item.manzilSurah = ''; item.manzilFromAyah = null; item.manzilToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
+                    </div>
                   </div>
                   <div class="input-wrap">
                     <label>From:</label>
@@ -700,7 +722,7 @@
                   </div>
                 </div>
 
-                <div class="fields-grid" *ngIf="hifzEvalMode === 'juz'">
+                <div class="fields-grid" *ngIf="manzilEvalMode === 'juz'">
                   <div class="input-wrap">
                     <label>Juz #:</label>
                     <input type="number" class="inline-input num" [(ngModel)]="item.manzilJuz" min="1" max="30" placeholder="1-30" />
@@ -745,51 +767,82 @@
             <thead>
               <tr>
                 <th rowspan="2" class="st-name-th" style="min-width: 170px;">Student Name</th>
-                <th [attr.colspan]="hifzEvalMode === 'juz' ? 5 : 4" class="col-group hifz-sabaq">New Lesson (Sabaq)</th>
-                <th [attr.colspan]="hifzEvalMode === 'juz' ? 3 : 4" class="col-group hifz-sabqi">Recent Lesson (Sabqi)</th>
-                <th [attr.colspan]="hifzEvalMode === 'juz' ? 3 : 4" class="col-group hifz-manzil">Revision / Old Lesson (Manzil)</th>
+                <!-- New Lesson (Sabaq) Group Header -->
+                <th [attr.colspan]="sabaqEvalMode === 'juz' ? 5 : 4" class="col-group hifz-sabaq">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>New Lesson (Sabaq)</span>
+                    <div class="eval-unit-toggle-row" style="display:inline-flex; gap:2px;">
+                      <button type="button" class="unit-mini-pill" [class.active]="sabaqEvalMode !== 'juz'" (click)="sabaqEvalMode = 'surah'" matTooltip="Surah & Ayah-wise">📖 Surah</button>
+                      <button type="button" class="unit-mini-pill" [class.active]="sabaqEvalMode === 'juz'" (click)="sabaqEvalMode = 'juz'" matTooltip="Juz & Quarter-wise">📑 Juz</button>
+                    </div>
+                  </div>
+                </th>
+
+                <!-- Old Lesson (Sabqi) Group Header -->
+                <th [attr.colspan]="sabqiEvalMode === 'juz' ? 4 : 4" class="col-group hifz-sabqi">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>Old Lesson (Sabqi)</span>
+                    <div class="eval-unit-toggle-row" style="display:inline-flex; gap:2px;">
+                      <button type="button" class="unit-mini-pill" [class.active]="sabqiEvalMode !== 'juz'" (click)="sabqiEvalMode = 'surah'" matTooltip="Surah & Ayah-wise">📖 Surah</button>
+                      <button type="button" class="unit-mini-pill" [class.active]="sabqiEvalMode === 'juz'" (click)="sabqiEvalMode = 'juz'" matTooltip="Juz & Quarter-wise">📑 Juz</button>
+                    </div>
+                  </div>
+                </th>
+
+                <!-- Revision (Manzil) Group Header -->
+                <th [attr.colspan]="manzilEvalMode === 'juz' ? 4 : 4" class="col-group hifz-manzil">
+                  <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span>Revision (Manzil)</span>
+                    <div class="eval-unit-toggle-row" style="display:inline-flex; gap:2px;">
+                      <button type="button" class="unit-mini-pill" [class.active]="manzilEvalMode !== 'juz'" (click)="manzilEvalMode = 'surah'" matTooltip="Surah & Ayah-wise">📖 Surah</button>
+                      <button type="button" class="unit-mini-pill" [class.active]="manzilEvalMode === 'juz'" (click)="manzilEvalMode = 'juz'" matTooltip="Juz & Quarter-wise">📑 Juz</button>
+                    </div>
+                  </div>
+                </th>
                 <th rowspan="2" style="min-width: 130px;">Rating</th>
               </tr>
               <tr>
-                <!-- New Lesson (Sabaq) Sub-headers -->
-                <ng-container *ngIf="hifzEvalMode !== 'juz'">
-                  <th style="min-width: 120px;">Surah Name</th>
-                  <th style="min-width: 65px;">From Ayah</th>
-                  <th style="min-width: 75px;">To Ayah</th>
+                <!-- New Lesson Sub-headers -->
+                <ng-container *ngIf="sabaqEvalMode !== 'juz'">
+                  <th style="min-width: 120px;">Surah</th>
+                  <th style="min-width: 65px;">From</th>
+                  <th style="min-width: 65px;">To</th>
                   <th style="min-width: 65px;">Mistakes</th>
                 </ng-container>
-                <ng-container *ngIf="hifzEvalMode === 'juz'">
-                  <th style="min-width: 65px;">Juz #</th>
-                  <th style="min-width: 130px;">Portion / Quarter</th>
+                <ng-container *ngIf="sabaqEvalMode === 'juz'">
+                  <th style="min-width: 80px;">Juz #</th>
+                  <th style="min-width: 110px;">Portion</th>
                   <th style="min-width: 65px;">From</th>
                   <th style="min-width: 65px;">To</th>
                   <th style="min-width: 65px;">Mistakes</th>
                 </ng-container>
 
-                <!-- Recent Lesson (Sabqi) Sub-headers -->
-                <ng-container *ngIf="hifzEvalMode !== 'juz'">
-                  <th style="min-width: 120px;">Surah Name</th>
-                  <th style="min-width: 65px;">From Ayah</th>
-                  <th style="min-width: 75px;">To Ayah</th>
+                <!-- Old Lesson Sub-headers -->
+                <ng-container *ngIf="sabqiEvalMode !== 'juz'">
+                  <th style="min-width: 120px;">Surah</th>
+                  <th style="min-width: 65px;">From</th>
+                  <th style="min-width: 65px;">To</th>
                   <th style="min-width: 65px;">Mistakes</th>
                 </ng-container>
-                <ng-container *ngIf="hifzEvalMode === 'juz'">
-                  <th style="min-width: 65px;">Juz #</th>
-                  <th style="min-width: 130px;">Portion</th>
+                <ng-container *ngIf="sabqiEvalMode === 'juz'">
+                  <th style="min-width: 80px;">Juz #</th>
+                  <th style="min-width: 110px;">Portion</th>
                   <th style="min-width: 65px;">Mistakes</th>
+                  <th style="min-width: 40px;"></th>
                 </ng-container>
 
-                <!-- Revision / Old Lesson (Manzil) Sub-headers -->
-                <ng-container *ngIf="hifzEvalMode !== 'juz'">
-                  <th style="min-width: 120px;">Surah Name</th>
-                  <th style="min-width: 65px;">From Ayah</th>
-                  <th style="min-width: 75px;">To Ayah</th>
+                <!-- Revision Sub-headers -->
+                <ng-container *ngIf="manzilEvalMode !== 'juz'">
+                  <th style="min-width: 120px;">Surah</th>
+                  <th style="min-width: 65px;">From</th>
+                  <th style="min-width: 65px;">To</th>
                   <th style="min-width: 65px;">Mistakes</th>
                 </ng-container>
-                <ng-container *ngIf="hifzEvalMode === 'juz'">
-                  <th style="min-width: 65px;">Juz #</th>
-                  <th style="min-width: 130px;">Portion</th>
+                <ng-container *ngIf="manzilEvalMode === 'juz'">
+                  <th style="min-width: 80px;">Juz #</th>
+                  <th style="min-width: 110px;">Portion</th>
                   <th style="min-width: 65px;">Mistakes</th>
+                  <th style="min-width: 40px;"></th>
                 </ng-container>
               </tr>
             </thead>
@@ -807,147 +860,87 @@
                         <button type="button" class="history-badge history-btn" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)" matTooltip="Click to view detailed history of present, absent, late & leave days">
                           <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
                         </button>
+                        <span class="meta-dot" *ngIf="getStudentProgressText(item.student)">&bull;</span>
+                        <span class="history-badge progress-badge" *ngIf="getStudentProgressText(item.student)">
+                          <mat-icon class="meta-icon">menu_book</mat-icon> {{ getStudentProgressText(item.student) }}
+                        </span>
                       </div>
                     </div>
-                    <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
-                      🎯 Target
-                    </button>
+                    <div class="target-actions">
+                      <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)" matTooltip="Update Progress">
+                        📈 Update Progress
+                      </button>
+                      <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
+                        🎯 Target
+                      </button>
+                    </div>
                   </div>
                 </td>
 
-                <!-- New Lesson (Sabaq) Fields -->
-                <ng-container *ngIf="hifzEvalMode !== 'juz'">
+                <!-- New Lesson Fields -->
+                <ng-container *ngIf="sabaqEvalMode !== 'juz'">
                   <td>
-                    <input type="text"
-                           class="inline-input"
-                           list="quranSurahListOptions"
-                           [(ngModel)]="item.sabaqSurah"
-                           (change)="onSabaqSurahChange(item)"
-                           (input)="onSabaqSurahChange(item)"
-                           placeholder="Type Surah"
-                           title="Type Surah Name or Number" />
-                  </td>
-                  <td>
-                    <input type="number"
-                           class="inline-input num"
-                           [(ngModel)]="item.sabaqFromAyah"
-                           min="1"
-                           [max]="getSurahMaxAyah(item.sabaqSurah)"
-                           placeholder="From"
-                           title="From Ayah" />
-                  </td>
-                  <td>
-                    <div class="ayah-input-wrapper">
-                      <input type="number"
-                             class="inline-input num"
-                             [(ngModel)]="item.sabaqToAyah"
-                             min="1"
-                             [max]="getSurahMaxAyah(item.sabaqSurah)"
-                             (change)="validateAyahBounds(item)"
-                             placeholder="To"
-                             title="To Ayah (Max Ayah limit enforced)" />
-                      <span class="max-badge" *ngIf="item.sabaqSurah" [matTooltip]="'Max Ayah for ' + item.sabaqSurah + ' is ' + getSurahMaxAyah(item.sabaqSurah)">
-                        /{{ getSurahMaxAyah(item.sabaqSurah) }}
-                      </span>
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text"
+                             class="inline-input"
+                             style="padding-right: 20px;"
+                             list="quranSurahListOptions"
+                             [(ngModel)]="item.sabaqSurah"
+                             (change)="onSabaqSurahChange(item)"
+                             (input)="onSabaqSurahChange(item)"
+                             placeholder="Type Surah"
+                             title="Type Surah Name or Number" />
+                      <button *ngIf="item.sabaqSurah" type="button" (click)="item.sabaqSurah = ''; onSabaqSurahChange(item); item.sabaqFromAyah = null; item.sabaqToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
                     </div>
                   </td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" min="1" [max]="getSurahMaxAyah(item.sabaqSurah)" placeholder="From" title="From Ayah" /></td>
+                  <td><div class="ayah-input-wrapper"><input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" min="1" [max]="getSurahMaxAyah(item.sabaqSurah)" (change)="validateAyahBounds(item)" placeholder="To" title="To Ayah" /></div></td>
                   <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" title="Sabaq Mistakes" /></td>
                 </ng-container>
-
-                <ng-container *ngIf="hifzEvalMode === 'juz'">
+                <ng-container *ngIf="sabaqEvalMode === 'juz'">
                   <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqJuz" min="1" max="30" placeholder="Juz #" title="New Lesson Juz #" /></td>
-                  <td>
-                    <select class="inline-select" [(ngModel)]="item.sabaqJuzPortion">
-                      <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                    </select>
-                  </td>
+                  <td><select class="inline-select" [(ngModel)]="item.sabaqJuzPortion"><option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option></select></td>
                   <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" placeholder="From" /></td>
                   <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" placeholder="To" /></td>
                   <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" /></td>
                 </ng-container>
 
-                <!-- Recent Lesson (Sabqi) Fields -->
-                <ng-container *ngIf="hifzEvalMode !== 'juz'">
+                <!-- Old Lesson (Sabqi) Fields -->
+                <ng-container *ngIf="sabqiEvalMode !== 'juz'">
                   <td>
-                    <input type="text"
-                           class="inline-input"
-                           list="quranSurahListOptions"
-                           [(ngModel)]="item.sabqiSurah"
-                           placeholder="Type Surah"
-                           title="Recent Lesson Surah" />
-                  </td>
-                  <td>
-                    <input type="number"
-                           class="inline-input num"
-                           [(ngModel)]="item.sabqiFromAyah"
-                           min="1"
-                           placeholder="From" />
-                  </td>
-                  <td>
-                    <div class="ayah-input-wrapper">
-                      <input type="number"
-                             class="inline-input num"
-                             [(ngModel)]="item.sabqiToAyah"
-                             min="1"
-                             placeholder="To" />
-                      <span class="max-badge" *ngIf="item.sabqiSurah">
-                        /{{ getSurahMaxAyah(item.sabqiSurah) }}
-                      </span>
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text" class="inline-input" style="padding-right: 20px;" list="quranSurahListOptions" [(ngModel)]="item.sabqiSurah" placeholder="Type Surah" title="Recent Lesson Surah" />
+                      <button *ngIf="item.sabqiSurah" type="button" (click)="item.sabqiSurah = ''; item.sabqiFromAyah = null; item.sabqiToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
                     </div>
                   </td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.sabqiFromAyah" min="1" placeholder="From" /></td>
+                  <td><div class="ayah-input-wrapper"><input type="number" class="inline-input num" [(ngModel)]="item.sabqiToAyah" min="1" placeholder="To" /></div></td>
                   <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabqiMistakes" placeholder="0" title="Recent Lesson Mistakes" /></td>
                 </ng-container>
-
-                <ng-container *ngIf="hifzEvalMode === 'juz'">
+                <ng-container *ngIf="sabqiEvalMode === 'juz'">
                   <td><input type="number" class="inline-input num" [(ngModel)]="item.sabqiJuz" min="1" max="30" placeholder="Juz #" title="Recent Lesson Juz #" /></td>
-                  <td>
-                    <select class="inline-select" [(ngModel)]="item.sabqiJuzPortion">
-                      <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                    </select>
-                  </td>
+                  <td><select class="inline-select" [(ngModel)]="item.sabqiJuzPortion"><option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option></select></td>
                   <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabqiMistakes" placeholder="0" title="Recent Lesson Mistakes" /></td>
+                  <td></td>
                 </ng-container>
 
                 <!-- Revision / Old Lesson (Manzil) Fields -->
-                <ng-container *ngIf="hifzEvalMode !== 'juz'">
+                <ng-container *ngIf="manzilEvalMode !== 'juz'">
                   <td>
-                    <input type="text"
-                           class="inline-input"
-                           list="quranSurahListOptions"
-                           [(ngModel)]="item.manzilSurah"
-                           placeholder="Type Surah"
-                           title="Revision Surah" />
-                  </td>
-                  <td>
-                    <input type="number"
-                           class="inline-input num"
-                           [(ngModel)]="item.manzilFromAyah"
-                           min="1"
-                           placeholder="From" />
-                  </td>
-                  <td>
-                    <div class="ayah-input-wrapper">
-                      <input type="number"
-                             class="inline-input num"
-                             [(ngModel)]="item.manzilToAyah"
-                             min="1"
-                             placeholder="To" />
-                      <span class="max-badge" *ngIf="item.manzilSurah">
-                        /{{ getSurahMaxAyah(item.manzilSurah) }}
-                      </span>
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text" class="inline-input" style="padding-right: 20px;" list="quranSurahListOptions" [(ngModel)]="item.manzilSurah" placeholder="Type Surah" title="Revision Surah" />
+                      <button *ngIf="item.manzilSurah" type="button" (click)="item.manzilSurah = ''; item.manzilFromAyah = null; item.manzilToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
                     </div>
                   </td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.manzilFromAyah" min="1" placeholder="From" /></td>
+                  <td><div class="ayah-input-wrapper"><input type="number" class="inline-input num" [(ngModel)]="item.manzilToAyah" min="1" placeholder="To" /></div></td>
                   <td><input type="number" class="inline-input num mist" [(ngModel)]="item.manzilMistakes" placeholder="0" title="Revision Mistakes" /></td>
                 </ng-container>
-
-                <ng-container *ngIf="hifzEvalMode === 'juz'">
+                <ng-container *ngIf="manzilEvalMode === 'juz'">
                   <td><input type="number" class="inline-input num" [(ngModel)]="item.manzilJuz" min="1" max="30" placeholder="Juz #" title="Revision Juz #" /></td>
-                  <td>
-                    <select class="inline-select" [(ngModel)]="item.manzilJuzPortion">
-                      <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                    </select>
-                  </td>
+                  <td><select class="inline-select" [(ngModel)]="item.manzilJuzPortion"><option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option></select></td>
                   <td><input type="number" class="inline-input num mist" [(ngModel)]="item.manzilMistakes" placeholder="0" title="Revision Mistakes" /></td>
+                  <td></td>
                 </ng-container>
 
                 <!-- Rating -->
@@ -1007,11 +1000,20 @@
                         <button type="button" class="history-badge history-btn" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)" matTooltip="Click to view detailed history of present, absent, late & leave days">
                           <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
                         </button>
+                        <span class="meta-dot" *ngIf="getStudentProgressText(item.student)">&bull;</span>
+                        <span class="history-badge progress-badge" *ngIf="getStudentProgressText(item.student)">
+                          <mat-icon class="meta-icon">menu_book</mat-icon> {{ getStudentProgressText(item.student) }}
+                        </span>
                       </div>
                     </div>
-                    <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Round Goal">
-                      🎯 Target
-                    </button>
+                    <div class="target-actions">
+                      <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)" matTooltip="Update Progress">
+                        📈 Update Progress
+                      </button>
+                      <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Round Goal">
+                        🎯 Target
+                      </button>
+                    </div>
                   </div>
                 </td>
 
@@ -1066,15 +1068,61 @@
 
         <!-- Inline Table for MAKTAB Mode -->
         <div class="table-responsive" *ngIf="studentTypeMode === 'maktab'">
+          <!-- Maktab Sub-Mode Selector Bar -->
+          <div class="maktab-mode-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px 8px 0 0; margin-bottom: -1px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 0.82rem; font-weight: 700; color: #475569;">Maktab Evaluation Type:</span>
+              <div class="eval-unit-toggle-row">
+                <button type="button" class="unit-mini-pill" [class.active]="maktabEvalMode === 'subject'" (click)="maktabEvalMode = 'subject'">
+                  📚 Subject-wise (Books / Lessons)
+                </button>
+                <button type="button" class="unit-mini-pill" [class.active]="maktabEvalMode === 'quran'" (click)="maktabEvalMode = 'quran'">
+                  📖 Quran / Qaida Evaluation
+                </button>
+              </div>
+            </div>
+
+            <!-- Sub-toggle for Quran mode (Surah vs Juz) -->
+            <div style="display: flex; align-items: center; gap: 6px;" *ngIf="maktabEvalMode === 'quran'">
+              <span style="font-size: 0.78rem; font-weight: 600; color: #64748b;">Unit:</span>
+              <div class="eval-unit-toggle-row">
+                <button type="button" class="unit-mini-pill" [class.active]="maktabQuranEvalMode === 'surah'" (click)="maktabQuranEvalMode = 'surah'">📖 Surah & Ayah</button>
+                <button type="button" class="unit-mini-pill" [class.active]="maktabQuranEvalMode === 'juz'" (click)="maktabQuranEvalMode = 'juz'">📑 Juz & Quarter</button>
+              </div>
+            </div>
+          </div>
+
           <table class="suite-table ilmflow-table">
             <thead>
-              <tr>
+              <!-- SUBJECT-WISE HEADERS -->
+              <tr *ngIf="maktabEvalMode === 'subject'">
                 <th class="st-name-th" style="min-width: 170px;">Student Name</th>
                 <th style="min-width: 140px;">Subject / Course</th>
                 <th style="min-width: 80px;">Page No</th>
                 <th style="min-width: 80px;">Line No</th>
                 <th style="min-width: 90px;">Mistakes Count</th>
                 <th style="min-width: 200px;">Remarks</th>
+              </tr>
+
+              <!-- QURAN-WISE SURAH HEADERS -->
+              <tr *ngIf="maktabEvalMode === 'quran' && maktabQuranEvalMode === 'surah'">
+                <th class="st-name-th" style="min-width: 170px;">Student Name</th>
+                <th style="min-width: 150px;">Surah Name</th>
+                <th style="min-width: 75px;">From Ayah</th>
+                <th style="min-width: 75px;">To Ayah</th>
+                <th style="min-width: 90px;">Mistakes Count</th>
+                <th style="min-width: 180px;">Remarks</th>
+              </tr>
+
+              <!-- QURAN-WISE JUZ HEADERS -->
+              <tr *ngIf="maktabEvalMode === 'quran' && maktabQuranEvalMode === 'juz'">
+                <th class="st-name-th" style="min-width: 170px;">Student Name</th>
+                <th style="min-width: 90px;">Juz #</th>
+                <th style="min-width: 130px;">Portion / Quarter</th>
+                <th style="min-width: 75px;">From</th>
+                <th style="min-width: 75px;">To</th>
+                <th style="min-width: 90px;">Mistakes Count</th>
+                <th style="min-width: 180px;">Remarks</th>
               </tr>
             </thead>
             <tbody>
@@ -1091,22 +1139,59 @@
                         <button type="button" class="history-badge history-btn" *ngIf="item.attendanceHistoryText" (click)="openStudentAttendanceHistoryModal(item)" matTooltip="Click to view detailed history of present, absent, late & leave days">
                           <mat-icon class="meta-icon">trending_up</mat-icon> {{ item.attendanceHistoryText }}
                         </button>
+                        <span class="meta-dot" *ngIf="getStudentProgressText(item.student)">&bull;</span>
+                        <span class="history-badge progress-badge" *ngIf="getStudentProgressText(item.student)">
+                          <mat-icon class="meta-icon">menu_book</mat-icon> {{ getStudentProgressText(item.student) }}
+                        </span>
                       </div>
                     </div>
-                    <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
-                      🎯 Target
-                    </button>
+                    <div class="target-actions">
+                      <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)" matTooltip="Update Progress">
+                        📈 Update Progress
+                      </button>
+                      <button type="button" class="target-btn" (click)="openSetTargetModal(item)" matTooltip="Set Target Goal">
+                        🎯 Target
+                      </button>
+                    </div>
                   </div>
                 </td>
-                <td><input type="text" class="inline-input" [(ngModel)]="item.maktabSubject" placeholder="Subject" /></td>
-                <td><input type="number" class="inline-input num" [(ngModel)]="item.maktabPage" placeholder="Page #" /></td>
-                <td><input type="number" class="inline-input num" [(ngModel)]="item.maktabLineNo" placeholder="Line #" /></td>
-                <td><input type="number" class="inline-input num mist" [(ngModel)]="item.maktabMistakes" placeholder="0" /></td>
-                <td><input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." /></td>
+
+                <!-- SUBJECT-WISE INPUTS -->
+                <ng-container *ngIf="maktabEvalMode === 'subject'">
+                  <td><input type="text" class="inline-input" [(ngModel)]="item.maktabSubject" placeholder="Subject" /></td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.maktabPage" placeholder="Page #" /></td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.maktabLineNo" placeholder="Line #" /></td>
+                  <td><input type="number" class="inline-input num mist" [(ngModel)]="item.maktabMistakes" placeholder="0" /></td>
+                  <td><input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." /></td>
+                </ng-container>
+
+                <!-- QURAN-WISE SURAH INPUTS -->
+                <ng-container *ngIf="maktabEvalMode === 'quran' && maktabQuranEvalMode === 'surah'">
+                  <td>
+                    <div style="position: relative; display: flex; align-items: center; width: 100%;">
+                      <input type="text" class="inline-input" style="padding-right: 20px;" list="quranSurahListOptions" [(ngModel)]="item.sabaqSurah" (change)="onSabaqSurahChange(item)" (input)="onSabaqSurahChange(item)" placeholder="Type Surah" />
+                      <button *ngIf="item.sabaqSurah" type="button" (click)="item.sabaqSurah = ''; onSabaqSurahChange(item); item.sabaqFromAyah = null; item.sabaqToAyah = null;" style="position: absolute; right: 2px; background: transparent; border: none; font-size: 14px; cursor: pointer; color: #94a3b8; padding: 2px; display: flex; align-items: center; justify-content: center;">✖</button>
+                    </div>
+                  </td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" min="1" [max]="getSurahMaxAyah(item.sabaqSurah)" placeholder="From" /></td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" min="1" [max]="getSurahMaxAyah(item.sabaqSurah)" (change)="validateAyahBounds(item)" placeholder="To" /></td>
+                  <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" /></td>
+                  <td><input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." /></td>
+                </ng-container>
+
+                <!-- QURAN-WISE JUZ INPUTS -->
+                <ng-container *ngIf="maktabEvalMode === 'quran' && maktabQuranEvalMode === 'juz'">
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqJuz" min="1" max="30" placeholder="Juz #" /></td>
+                  <td><select class="inline-select" [(ngModel)]="item.sabaqJuzPortion"><option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option></select></td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqFromAyah" placeholder="From" /></td>
+                  <td><input type="number" class="inline-input num" [(ngModel)]="item.sabaqToAyah" placeholder="To" /></td>
+                  <td><input type="number" class="inline-input num mist" [(ngModel)]="item.sabaqMistakes" placeholder="0" /></td>
+                  <td><input type="text" class="inline-input" [(ngModel)]="item.maktabRemarks" placeholder="Optional remarks..." /></td>
+                </ng-container>
               </tr>
 
               <tr *ngIf="roster.length === 0">
-                <td colspan="6" class="empty-td">No students enrolled in this group.</td>
+                <td [attr.colspan]="maktabEvalMode === 'quran' && maktabQuranEvalMode === 'juz' ? 7 : 6" class="empty-td">No students enrolled in this group.</td>
               </tr>
             </tbody>
           </table>
@@ -1232,43 +1317,7 @@
         </div>
       </div>
 
-      <!-- ========================================== -->
-      <!-- TAB 4: REPORTS & ANALYTICS (GATED PERMISSION) -->
-      <!-- ========================================== -->
-      <div class="tab-pane" *ngIf="activeTab === 'reports' && canManageReports">
-        <div class="reports-pane-header">
-          <h3>Classroom Suite Attendance & Progress Analytics</h3>
-          <p>Summary analytics for active students in the selected class group:</p>
-        </div>
 
-        <div class="table-responsive">
-          <table class="suite-table">
-            <thead>
-              <tr>
-                <th class="st-name-th" style="min-width: 170px;">Student Name</th>
-                <th style="min-width: 120px;">Attendance %</th>
-                <th style="min-width: 180px;">Present Status</th>
-                <th style="min-width: 200px;">Latest Sabaq Target</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let rep of reportStudentSummaries">
-                <td class="st-name-cell"><strong>{{ rep.studentName }}</strong></td>
-                <td>
-                  <span class="pct-badge" [class.good]="rep.presentPct === 100" [class.poor]="rep.presentPct < 100">
-                    {{ rep.presentPct }}%
-                  </span>
-                </td>
-                <td>{{ rep.presentDays }} / {{ rep.totalDays }} Sessions Present</td>
-                <td>{{ rep.hifzAvgSabaq }}</td>
-              </tr>
-              <tr *ngIf="reportStudentSummaries.length === 0">
-                <td colspan="4" class="empty-td">No report metrics available.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
 
     </div>
   </div>

@@ -1621,7 +1621,7 @@ export class DashboardPage {
         if (!this.isEntityActive(grp)) return false;
         const cls = allClasses.find(c => c.id === grp['classId']);
         const crs = allCourses.find(c => c.id === (grp['courseId'] || cls?.['courseId']));
-        const grpMadrasaId = String(cls?.['madrasaId'] || crs?.['madrasaId'] || grp['madrasaId'] || '');
+        const grpMadrasaId = String(cls?.['madrasaId'] || crs?.['madrasaId'] || grp['madrasaId'] || profile.madrasaId || '');
         return allowedMadrasaIds.size > 0 && allowedMadrasaIds.has(grpMadrasaId);
       });
 

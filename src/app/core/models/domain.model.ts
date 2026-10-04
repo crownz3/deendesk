@@ -260,6 +260,9 @@ export interface Organization extends ScopedEntity {
   organizerPassword?: string;
   branding?: OrganizationBranding;
   customMenu?: CustomMenuItemConfig[];
+  academicSettings?: {
+    defaultDawrRounds: number;
+  };
 }
 
 export interface Madrasa extends ScopedEntity {
@@ -338,6 +341,17 @@ export interface Student extends ScopedEntity {
   stage?: string;
   level?: string;
   mobileNumber?: string;
+  progress?: {
+    hifz: {
+      completedJuzs: number[];
+      completedSurahs: string[];
+    };
+    dawr: {
+      completedRounds: number;
+      currentRoundJuz: number;
+    };
+    lastUpdated: string;
+  };
 }
 
 export interface Parent extends ScopedEntity {
@@ -551,7 +565,7 @@ export interface SelectOption {
 export interface QuickAddField {
   key: string;
   label: string;
-  type: 'text' | 'email' | 'password' | 'date' | 'time' | 'datetime-local' | 'textarea' | 'select' | 'multiselect' | 'button-toggle' | 'info' | 'mobileNumber' | 'hidden' | 'boolean';
+  type: 'text' | 'number' | 'email' | 'password' | 'date' | 'time' | 'datetime-local' | 'textarea' | 'select' | 'multiselect' | 'button-toggle' | 'info' | 'mobileNumber' | 'hidden' | 'boolean';
   required?: boolean;
   options?: SelectOption[];
   quickAddResource?: string;

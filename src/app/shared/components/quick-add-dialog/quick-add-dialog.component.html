@@ -61,7 +61,7 @@
           <!-- Standard inputs -->
           <ng-container *ngIf="!(isStageField(field.key) && shouldShowStageSelect())">
             <input
-              *ngIf="field.type === 'text' || field.type === 'email' || field.type === 'password' || field.type === 'info' || field.type === 'mobileNumber' || field.type === 'datetime-local' || field.type === 'time'"
+              *ngIf="field.type === 'text' || field.type === 'number' || field.type === 'email' || field.type === 'password' || field.type === 'info' || field.type === 'mobileNumber' || field.type === 'datetime-local' || field.type === 'time'"
               matInput
               [type]="field.type === 'password' ? (hidePasswords[field.key] ? 'password' : 'text') : (field.type === 'info' ? 'text' : (field.type === 'mobileNumber' ? 'tel' : field.type))"
               [placeholder]="field.placeholder || ''" [formControlName]="field.key" [readonly]="field.type === 'info'" />

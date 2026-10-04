@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { BehaviorSubject, combineLatest, of, Subject } from 'rxjs';
+import { BehaviorSubject, combineLatest, of, Subject, firstValueFrom } from 'rxjs';
 import { catchError, map, switchMap, takeUntil } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
@@ -12,7 +12,9 @@ import { LoaderService } from '../../core/services/loader.service';
 import { getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { ALL_QURAN_SURAHS, getSurahAyahCount } from '../../core/constants/defaults';
 import { SetTargetDialogComponent } from './set-target-dialog.component';
+import { StudentProgressEntryDialogComponent } from '../../shared/components/student-progress-entry-dialog/student-progress-entry-dialog.component';
 import { SimpleTimetableSlotDialogComponent } from './simple-timetable-slot-dialog.component';
+import { QuickAddDialogComponent } from '../../shared/components/quick-add-dialog/quick-add-dialog.component';
 import { StudentAttendanceHistoryDialogComponent, StudentAttendanceHistoryRecord } from './student-attendance-history-dialog.component';
 import { ClassGroupAttendanceDetailsDialogComponent, ClassGroupAttendanceDetailsDialogData, StudentAttendanceDetailRecord } from '../dashboard/class-group-attendance-details-dialog.component';
 import { StudentEvaluationDialogComponent } from '../attendance/student-evaluation-dialog.component';
@@ -50,6 +52,8 @@ export interface StudentSuiteRosterItem {
   targetSabaqSurah?: string;
   targetSabaqFromAyah?: number | null;
   targetSabaqToAyah?: number | null;
+  targetSabaqTargetMode?: string;
+  targetSabaqJuz?: number | null;
   targetSabqiJuzRange?: string;
   targetManzilJuzRange?: string;
   targetMaktabSubject?: string;
@@ -127,6 +131,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   isStaff = false;
   canManageReports = false;
   canManageAttendance = true;
+  canSelectMadrasa = false;
 
   // Header Selectors Data
   madrasas: EntityRecord[] = [];
@@ -178,12 +183,17 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   recordedAtText = '';
 
   // Tab State & Auto-Detected Progress Mode
-  activeTab: 'attendance' | 'overview' | 'progress' | 'timetable' | 'reports' = 'attendance';
+  activeTab: 'attendance' | 'overview' | 'progress' | 'timetable' = 'attendance';
   studentTypeMode: 'hifz' | 'maktab' | 'dawr' = 'hifz';
   isHifzCourse = false;
 
-  // Hifz & Dawr Evaluation Mode & Unit Options
+  // Hifz, Dawr & Maktab Evaluation Mode & Unit Options
   hifzEvalMode: 'surah' | 'juz' | 'page' = 'surah';
+  sabaqEvalMode: 'surah' | 'juz' = 'surah';
+  sabqiEvalMode: 'surah' | 'juz' = 'surah';
+  manzilEvalMode: 'surah' | 'juz' = 'surah';
+  maktabEvalMode: 'subject' | 'quran' = 'subject';
+  maktabQuranEvalMode: 'surah' | 'juz' = 'surah';
   allQuranSurahs = ALL_QURAN_SURAHS;
   juzPortionOptions: string[] = [
     'Full Juz',
@@ -433,12 +443,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   }
 
   private evaluateUserRoles(profile: AppUser): void {
-    const role = profile.role;
-    this.isSuperAdmin = role === 'superAdmin';
-    this.isOrgAdmin = role === 'organizationAdmin';
-    this.isStageHead = role === 'stageHead';
-    this.isMadrasaIncharge = role === 'madrasaIncharge';
-    this.isStaff = role === 'teacher';
+    const role = (profile.role || '').toLowerCase().replace(/[\s_-]/g, '');
+    this.isSuperAdmin = role === 'superadmin';
+    this.isOrgAdmin = role === 'organizationadmin' || role === 'orgadmin';
+    this.isStageHead = role === 'stagehead';
+    this.isMadrasaIncharge = role === 'madrasaincharge';
+    this.isStaff = role === 'teacher' || role === 'staff';
 
     // Reports Permission Guard
     this.canManageReports = this.isSuperAdmin || 
@@ -454,6 +464,11 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
                                this.isMadrasaIncharge || 
                                this.isStaff ||
                                (profile.permissions || []).includes('takeAttendance');
+
+    this.canSelectMadrasa = this.isSuperAdmin || 
+                            this.isOrgAdmin || 
+                            (this.isMadrasaIncharge && Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 1) ||
+                            (Array.isArray((profile as any).madrasaIds) && (profile as any).madrasaIds.length > 1);
   }
 
   private resolveUserAssignments(): void {
@@ -542,8 +557,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
     if (u.madrasaId) assignedMIds.add(String(u.madrasaId));
     if (Array.isArray(u.madrasaIds)) u.madrasaIds.forEach((id: any) => assignedMIds.add(String(id)));
+    if (Array.isArray(u.inchargeMadrasaIds)) u.inchargeMadrasaIds.forEach((id: any) => assignedMIds.add(String(id)));
     if (matchingStaffDoc?.['madrasaId']) assignedMIds.add(String(matchingStaffDoc['madrasaId']));
     if (Array.isArray(matchingStaffDoc?.['madrasaIds'])) matchingStaffDoc['madrasaIds'].forEach((id: any) => assignedMIds.add(String(id)));
+    if (Array.isArray(matchingStaffDoc?.['inchargeMadrasaIds'])) matchingStaffDoc['inchargeMadrasaIds'].forEach((id: any) => assignedMIds.add(String(id)));
 
     this.classGroups.forEach(g => {
       if (g.id && assignedGIds.has(g.id)) {
@@ -614,7 +631,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const u = this.currentUser as any;
     const inchargeMadrasaIds = new Set<string>([
       u.madrasaId,
-      ...(Array.isArray(u.madrasaIds) ? u.madrasaIds : [])
+      ...(Array.isArray(u.madrasaIds) ? u.madrasaIds : []),
+      ...(Array.isArray(u.inchargeMadrasaIds) ? u.inchargeMadrasaIds : [])
     ].filter(Boolean).map(v => String(v).trim()));
 
     const isSelectedMadrasaInchargeScope = this.isMadrasaIncharge && this.selectedMadrasaId && inchargeMadrasaIds.has(String(this.selectedMadrasaId).trim());
@@ -1064,8 +1082,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           classId: this.selectedClassId || activeGroup?.['classId'] || '',
           madrasaId: this.selectedMadrasaId || activeGroup?.['madrasaId'] || '',
           organizationId: this.currentUser.organizationId || '',
-          activityName: 'Quran Class',
-          hifzSessionType: 'sabak',
+          activityName: dayOfWeek === 'Saturday' ? 'Tarbiyah & Etiquette' : 'Quran Class',
+          hifzSessionType: dayOfWeek === 'Saturday' ? null : 'sabak',
           dayOfWeek: dayOfWeek,
           startTime: 'Anytime',
           endTime: '',
@@ -1106,7 +1124,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         madrasaId: this.selectedMadrasaId || activeGroup?.['madrasaId'] || '',
         organizationId: this.currentUser?.organizationId || '',
         dayOfWeek: this.selectedTimetableDay,
-        slot: slot,
+        entry: slot,
         assignedStaffOptions: this.staffOptions
       }
     });
@@ -1194,6 +1212,18 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     try {
       this.loader.show();
       const firestore = getDeenDeskFirestore();
+
+      // 0. Fetch org default Dawr rounds (bypass cache — always fresh)
+      let orgDefaultDawrRounds = 3;
+      if (this.currentUser?.organizationId) {
+        try {
+          const orgSnap = await getDoc(doc(firestore, 'organizations', this.currentUser.organizationId));
+          if (orgSnap.exists()) {
+            const parsed = parseInt(String(orgSnap.data()?.['academicSettings']?.['defaultDawrRounds'] ?? ''), 10);
+            if (!isNaN(parsed) && parsed > 0) orgDefaultDawrRounds = parsed;
+          }
+        } catch { /* fallback to 3 */ }
+      }
 
       // 1. Fetch Students in Class Group (filtering out inactive/archived/deleted students and matching group tokens)
       const studentsList = await this.repo.getAllOnce<EntityRecord>('students', this.currentUser);
@@ -1347,8 +1377,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
         historyRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
-        const attendancePct = totalMarked > 0 ? Math.round((presentCount / totalMarked) * 100) : 100;
-        const attendanceHistoryText = totalMarked > 0 ? `${attendancePct}% Present (${presentCount}/${totalMarked} Days)` : '100% Present';
+        const attendancePct = totalMarked > 0 ? Math.round((presentCount / totalMarked) * 100) : 0;
+        const attendanceHistoryText = totalMarked > 0 ? `${attendancePct}% Present (${presentCount}/${totalMarked} Days)` : 'No Data';
 
         return {
           student,
@@ -1368,7 +1398,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           targetMaktabSubject: targets.maktabSubject || '',
           targetMaktabPage: targets.maktabPage || null,
           targetMaktabLineNo: targets.maktabLineNo || null,
-          targetDawrRounds: targets.dawrRounds || student['targetDawrRounds'] || 3,
+          targetDawrRounds: targets.dawrRounds || student['targetDawrRounds'] || orgDefaultDawrRounds,
           targetDawrDailyJuz: targets.dawrDailyJuz || '',
           targetIncompleteReason: targets.incompleteReason || '',
           targetIncompleteNotes: targets.incompleteNotes || '',
@@ -1751,7 +1781,21 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   }
 
   // Target MatDialog Launcher
-  openSetTargetModal(item: StudentSuiteRosterItem): void {
+  async openSetTargetModal(item: StudentSuiteRosterItem): Promise<void> {
+    let defaultDawrRounds = 3;
+    if (this.currentUser?.organizationId) {
+      try {
+        const orgSnap = await getDoc(doc(getDeenDeskFirestore(), 'organizations', this.currentUser.organizationId));
+        if (orgSnap.exists()) {
+          const orgData = orgSnap.data();
+          const parsed = parseInt(String(orgData?.['academicSettings']?.['defaultDawrRounds'] ?? ''), 10);
+          if (!isNaN(parsed) && parsed > 0) defaultDawrRounds = parsed;
+        }
+      } catch (err) {
+        console.error('Failed to load org settings', err);
+      }
+    }
+
     const dialogRef = this.dialog.open(SetTargetDialogComponent, {
       width: '580px',
       maxWidth: '95vw',
@@ -1759,16 +1803,19 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       data: {
         student: item.student,
         studentTypeMode: this.studentTypeMode,
+        defaultDawrRounds,
         currentTarget: {
           targetPeriod: item.targetPeriod || 'weekly',
           startDate: item.targetStartDate || this.selectedDateStr,
           endDate: item.targetEndDate || '',
+          sabaqTargetMode: item.targetSabaqTargetMode || 'surah',
+          sabaqJuz: item.targetSabaqJuz || item.sabaqJuz || null,
           sabaqSurah: item.targetSabaqSurah || item.sabaqSurah || '',
           sabaqFromAyah: item.targetSabaqFromAyah || item.sabaqFromAyah || 1,
           sabaqToAyah: item.targetSabaqToAyah || item.sabaqToAyah || 25,
           sabqiJuzRange: item.targetSabqiJuzRange || 'Juz 1 to 5',
           manzilJuzRange: item.targetManzilJuzRange || 'Juz 1 to 15',
-          targetDawrRounds: item.targetDawrRounds || 3,
+          targetDawrRounds: item.targetDawrRounds || defaultDawrRounds,
           dawrDailyJuz: item.targetDawrDailyJuz || item.dawrPortionJuz || '2 Juz / day',
           maktabSubject: item.targetMaktabSubject || item.maktabSubject || '',
           maktabPage: item.targetMaktabPage || item.maktabPage || null,
@@ -1783,6 +1830,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         item.targetPeriod = res.targetPeriod;
         item.targetStartDate = res.startDate;
         item.targetEndDate = res.endDate;
+        item.targetSabaqTargetMode = res.sabaqTargetMode;
+        item.targetSabaqJuz = res.sabaqJuz;
         item.targetSabaqSurah = res.sabaqSurah;
         item.targetSabaqFromAyah = res.sabaqFromAyah;
         item.targetSabaqToAyah = res.sabaqToAyah;
@@ -1809,6 +1858,92 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         }
 
         this.snackBar.open(`Target Goal set for ${item.student['fullName'] || item.student['name']}`, 'OK', { duration: 3000 });
+      }
+    });
+  }
+
+  // Update Progress Modal Launcher
+  openUpdateProgressModal(item: StudentSuiteRosterItem): void {
+    const dialogRef = this.dialog.open(StudentProgressEntryDialogComponent, {
+      width: '650px',
+      maxWidth: '95vw',
+      panelClass: 'custom-target-dialog-panel',
+      data: {
+        student: item.student,
+        currentUser: this.currentUser
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res) {
+        item.student['progress'] = res;
+      }
+    });
+  }
+
+  getStudentProgressText(student: EntityRecord): string | null {
+    const prog = student['progress'];
+    if (!prog) return null;
+    
+    if (this.studentTypeMode === 'hifz' && prog.hifz) {
+      const juzs = prog.hifz.completedJuzs?.length || 0;
+      return `${juzs}/30 Juz Completed`;
+    }
+    
+    if (this.studentTypeMode === 'dawr' && prog.dawr) {
+      const rounds = prog.dawr.completedRounds || 0;
+      return `Round ${rounds + 1} In-Progress`;
+    }
+    
+    return null;
+  }
+
+  async openConfigureDawrRounds(): Promise<void> {
+    if (!(this.isOrgAdmin || this.isSuperAdmin) || !this.currentUser?.organizationId) return;
+    
+    // Fetch current org directly from Firestore (bypass cache) to get existing value
+    let org: any = null;
+    try {
+      this.loader.show();
+      const snap = await getDoc(doc(getDeenDeskFirestore(), 'organizations', this.currentUser.organizationId));
+      if (snap.exists()) org = { id: snap.id, ...snap.data() };
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.loader.hide();
+    }
+    
+    if (!org) return;
+
+    const dialogRef = this.dialog.open(QuickAddDialogComponent, {
+      width: '400px',
+      data: {
+        title: 'Configure Dawr Revision Cycles',
+        subtitle: 'Set the required number of full Quran revisions for students in your organization.',
+        submitLabel: 'Save',
+        initialValue: {
+          defaultDawrRounds: org.academicSettings?.defaultDawrRounds || 3
+        },
+        fields: [
+          { key: 'defaultDawrRounds', label: 'Required Dawr Revision Cycles (for Sanad)', type: 'number' }
+        ],
+        saveFn: async (payload: any) => {
+          const currentSettings = org.academicSettings || {};
+          const rounds = parseInt(String(payload.defaultDawrRounds), 10);
+          if (isNaN(rounds) || rounds < 1) throw new Error('Please enter a valid number of cycles (minimum 1).');
+          await this.repo.update('organizations', this.currentUser!.organizationId as string, {
+            academicSettings: {
+              ...currentSettings,
+              defaultDawrRounds: rounds
+            }
+          }, this.currentUser);
+        }
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res) {
+        this.snackBar.open('Dawr revision requirement updated successfully!', 'OK', { duration: 3000 });
       }
     });
   }

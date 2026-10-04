@@ -160,6 +160,7 @@ const MANAGEMENT_CONFIGS: Record<string, ManagementConfig> = {
       { key: 'primaryOrganizerName', label: 'Primary Organizer Name', type: 'text', required: true },
       { key: 'primaryOrganizerEmail', label: 'Primary Organizer Email', type: 'email', required: true },
       { key: 'organizerPassword', label: 'Organizer Password (optional)', type: 'password' },
+      { key: 'academicSettings_defaultDawrRounds', label: 'Required Dawr Revision Cycles (for Sanad)', type: 'number' },
       baseStatusField,
     ],
     specialCreate: 'organization',
@@ -4160,9 +4161,10 @@ export class ManagementPage {
     }).afterClosed());
 
     if (result?.success) {
-      this.snackBar.open('Academic history updated.', 'Close', { duration: 4000 });
-      // The dialog handles Firestore updates. 
-      // The local table will refresh via the data stream.
+      this.repo.clearCache('students');
+      this.repo.clearCache('users');
+      this.pageIndex$.next(this.pageIndex$.value);
+      this.snackBar.open('Student stage updated successfully.', 'Close', { duration: 4000 });
     }
   }
 
@@ -4265,11 +4267,12 @@ export class ManagementPage {
 
   private async openEditor(config: ManagementConfig, initial?: EntityRecord): Promise<void> {
     const fields = await this.buildFields(config, initial);
+    const initialVal = await this.initialDialogValue(config, initial);
     const result = await firstValueFrom(this.dialog.open<QuickAddDialogComponent, unknown, QuickAddResult>(QuickAddDialogComponent, {
       data: {
         title: `${initial ? 'Edit' : 'Add'} ${config.title}`,
         fields,
-        initialValue: this.initialDialogValue(config, initial),
+        initialValue: initialVal,
         isEdit: !!initial,
         submitLabel: initial ? 'Update' : 'Create',
         saveFn: async (rawValue: Record<string, unknown>) => {
@@ -4431,12 +4434,15 @@ export class ManagementPage {
               }
             }
 
-            // Sync coordinator/incharge into madrasa documents when madrasaIds changes
-            const userRole = String(initial['role'] || processedPayload['role'] || '');
-            const updatedMadrasaIds = this.asStringArray(processedPayload['madrasaIds'] || initial['madrasaIds'] || []);
-            const userUid = String(initial['uid'] || initial['userId'] || initial.id || '');
-            if (['coordinator', 'madrasaIncharge'].includes(userRole) && updatedMadrasaIds.length > 0 && userUid) {
-              await this.syncUserToMadrasas(userUid, userRole, updatedMadrasaIds, profile);
+            // Sync coordinator/incharge into/out of madrasa documents when user role or madrasaIds changes
+            const isUserOrStaff = config.collection === 'users' || config.resource === 'staff';
+            if (isUserOrStaff) {
+              const updatedRole = String(processedPayload['role'] || initial['role'] || '');
+              const updatedMadrasaIds = this.asStringArray(processedPayload['madrasaIds'] ?? initial['madrasaIds'] ?? (initial['madrasaId'] ? [initial['madrasaId']] : []));
+              const userUid = String(initial['uid'] || initial['userId'] || initial.id || '');
+              if (userUid) {
+                await this.syncUserToMadrasas(userUid, updatedRole, updatedMadrasaIds, profile);
+              }
             }
           } else {
             if (config.specialCreate === 'student') {
@@ -4464,6 +4470,7 @@ export class ManagementPage {
 
     // Invalidate caches and trigger table UI refresh for updated collection
     this.repo.clearCache(config.collection);
+    this.repo.clearCache('madrasas');
     if (config.resource === 'staff') this.repo.clearCache('staff');
     if (config.collection === 'users') this.repo.clearCache('users');
     if (this.pageIndex$) {
@@ -4483,24 +4490,53 @@ export class ManagementPage {
   }
 
   /**
-   * When a coordinator or incharge is created/updated, sync their UID into the
-   * madrasa documents' coordinatorIds / inchargeIds arrays.
+   * When a user's role or assigned madrasas are created/updated, sync their UID into or out of
+   * the madrasa documents' coordinatorIds / inchargeIds arrays.
    */
-  private async syncUserToMadrasas(uid: string, role: string, madrasaIds: string[], profile: AppUser | null): Promise<void> {
-    if (!['coordinator', 'madrasaIncharge'].includes(role) || madrasaIds.length === 0) return;
-    const field = role === 'coordinator' ? 'coordinatorIds' : 'inchargeIds';
+  private async syncUserToMadrasas(uid: string, newRole: string, madrasaIds: string[], profile: AppUser | null): Promise<void> {
+    if (!uid) return;
+    const cleanMadrasaIds = (madrasaIds || []).map(id => extractId(id)).filter(Boolean);
     const allMadrasas = await this.repo.getAllOnce<EntityRecord>('madrasas', profile);
+
     await Promise.all(
-      madrasaIds.map(async (madrasaId) => {
+      allMadrasas.map(async (madrasa) => {
         try {
-          const madrasa = allMadrasas.find(m => m.id === madrasaId);
-          if (!madrasa) return;
-          const existing: string[] = Array.isArray(madrasa[field]) ? (madrasa[field] as string[]) : [];
-          if (!existing.includes(uid)) {
-            await this.repo.update('madrasas', madrasaId, { [field]: [...existing, uid] } as any, profile, true);
+          const mId = extractId(madrasa.id);
+          if (!mId) return;
+
+          let existingIncharges: string[] = Array.isArray(madrasa['inchargeIds']) ? (madrasa['inchargeIds'] as string[]).map(String) : [];
+          let existingCoordinators: string[] = Array.isArray(madrasa['coordinatorIds']) ? (madrasa['coordinatorIds'] as string[]).map(String) : [];
+
+          let changed = false;
+
+          // Should user be in inchargeIds for this madrasa?
+          const shouldBeIncharge = newRole === 'madrasaIncharge' && cleanMadrasaIds.includes(mId);
+          if (shouldBeIncharge && !existingIncharges.includes(uid)) {
+            existingIncharges = [...existingIncharges, uid];
+            changed = true;
+          } else if (!shouldBeIncharge && existingIncharges.includes(uid)) {
+            existingIncharges = existingIncharges.filter(id => id !== uid);
+            changed = true;
+          }
+
+          // Should user be in coordinatorIds for this madrasa?
+          const shouldBeCoordinator = newRole === 'coordinator' && cleanMadrasaIds.includes(mId);
+          if (shouldBeCoordinator && !existingCoordinators.includes(uid)) {
+            existingCoordinators = [...existingCoordinators, uid];
+            changed = true;
+          } else if (!shouldBeCoordinator && existingCoordinators.includes(uid)) {
+            existingCoordinators = existingCoordinators.filter(id => id !== uid);
+            changed = true;
+          }
+
+          if (changed) {
+            await this.repo.update('madrasas', mId, {
+              inchargeIds: existingIncharges,
+              coordinatorIds: existingCoordinators,
+            } as any, profile, true);
           }
         } catch (e) {
-          console.warn(`[syncUserToMadrasas] Failed to update madrasa ${madrasaId}:`, e);
+          console.warn(`[syncUserToMadrasas] Failed to sync user ${uid} with madrasa ${madrasa.id}:`, e);
         }
       })
     );
@@ -5018,10 +5054,10 @@ export class ManagementPage {
 
     if (hasField('coordinatorIds') || hasField('inchargeIds')) {
       if (hasField('coordinatorIds')) {
-        options['coordinatorIds'] = this.toOptions(users.filter((user) => user['role'] === 'coordinator'), 'displayName');
+        options['coordinatorIds'] = this.toOptions(users.filter((user) => this.getEffectiveRoles(user).includes('coordinator')), 'displayName');
       }
       if (hasField('inchargeIds')) {
-        options['inchargeIds'] = this.toOptions(users.filter((user) => user['role'] === 'madrasaIncharge'), 'displayName');
+        options['inchargeIds'] = this.toOptions(users.filter((user) => this.getEffectiveRoles(user).includes('madrasaIncharge')), 'displayName');
       }
     }
 
@@ -5076,12 +5112,62 @@ export class ManagementPage {
       });
   }
 
-  private initialDialogValue(config: ManagementConfig, initial?: EntityRecord): Record<string, unknown> {
+  private async initialDialogValue(config: ManagementConfig, initial?: EntityRecord): Promise<Record<string, unknown>> {
     if (!initial) {
       return {
         status: 'active',
         role: config.fixedRole ?? '',
         permissions: config.fixedRole ? this.rolePermissionsService.getPermissionsForRole(config.fixedRole) : [],
+      };
+    }
+
+    if (config.resource === 'organizations') {
+      const academicSettings = initial['academicSettings'] as any;
+      return {
+        ...initial,
+        academicSettings_defaultDawrRounds: academicSettings?.defaultDawrRounds || 3,
+      };
+    }
+
+    if (config.resource === 'madrasas') {
+      const profile = await firstValueFrom(this.auth.profile$);
+      const users = await this.repo.getAllOnce<EntityRecord>('users', profile).catch(() => []);
+      const mId = extractId(initial.id);
+
+      const inchargeSet = new Set<string>([
+        ...this.asStringArray(initial['inchargeIds']),
+        ...this.asStringArray(initial['inchargeId']),
+        ...this.asStringArray(initial['incharge'])
+      ]);
+
+      const coordinatorSet = new Set<string>([
+        ...this.asStringArray(initial['coordinatorIds']),
+        ...this.asStringArray(initial['coordinatorId']),
+        ...this.asStringArray(initial['coordinator'])
+      ]);
+
+      users.forEach(u => {
+        const uId = extractId(u.id || u['uid']);
+        if (!uId) return;
+        const uMadrasaId = extractId(u['madrasaId']);
+        const uMadrasaIds = Array.isArray(u['madrasaIds']) ? u['madrasaIds'].map(extractId) : [];
+        const isBelongs = uMadrasaId === mId || uMadrasaIds.includes(mId);
+
+        if (isBelongs) {
+          const effectiveRoles = this.getEffectiveRoles(u);
+          if (effectiveRoles.includes('madrasaIncharge')) {
+            inchargeSet.add(uId);
+          }
+          if (effectiveRoles.includes('coordinator')) {
+            coordinatorSet.add(uId);
+          }
+        }
+      });
+
+      return {
+        ...initial,
+        inchargeIds: Array.from(inchargeSet),
+        coordinatorIds: Array.from(coordinatorSet)
       };
     }
 
@@ -5140,6 +5226,15 @@ export class ManagementPage {
 
     if (!payload.madrasaId && Array.isArray(payload['madrasaIds']) && payload['madrasaIds'].length > 0) {
       payload.madrasaId = String(payload['madrasaIds'][0]);
+    }
+
+    if (config.resource === 'organizations') {
+      if ('academicSettings_defaultDawrRounds' in payload) {
+        payload['academicSettings'] = {
+          defaultDawrRounds: Number(payload['academicSettings_defaultDawrRounds']) || 3,
+        };
+        delete payload['academicSettings_defaultDawrRounds'];
+      }
     }
 
     if (config.resource === 'courses') {

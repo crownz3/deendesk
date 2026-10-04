@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { BehaviorSubject, combineLatest, firstValueFrom, of, Subject } from 'rxjs';
-import { catchError, map, startWith, switchMap, takeUntil, filter, take } from 'rxjs/operators';
+import { catchError, map, startWith, switchMap, takeUntil, filter, take, distinctUntilChanged } from 'rxjs/operators';
 import { where } from 'firebase/firestore';
 import { AppUser, AttendanceStatus, ClassPlan, ClassPlanException, TimetableEntry, StudentDailyProgress } from '../../core/models/domain.model';
 import { ActivatedRoute } from '@angular/router';
@@ -137,7 +137,9 @@ export class AttendancePage implements OnInit, OnDestroy {
   readonly refresh$ = new BehaviorSubject<void>(undefined);
 
   readonly vm$ = this.refresh$.pipe(
-    switchMap(() => this.auth.profile$),
+    switchMap(() => this.auth.profile$.pipe(
+      distinctUntilChanged((prev: AppUser | null, curr: AppUser | null) => prev?.id === curr?.id)
+    )),
     switchMap((profile) => {
       if (!profile) return of({ loading: false } as PageState<AttendanceVm>);
 
@@ -268,6 +270,8 @@ export class AttendancePage implements OnInit, OnDestroy {
   showMadrasaDropdown(role: string, profile?: AppUser): boolean {
     if (['coordinator', 'admin', 'organizationAdmin', 'superAdmin'].includes(role)) return true;
     if (profile && Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 1) return true;
+    if (profile && Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 1) return true;
+    if (profile && Array.isArray((profile as any).coordinatorMadrasaIds) && (profile as any).coordinatorMadrasaIds.length > 1) return true;
     if (role === 'madrasaIncharge') return true;
     return false;
   }

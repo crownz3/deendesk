@@ -32,6 +32,9 @@ export class StudentEvaluationDialogComponent implements OnInit {
   courseType: string = 'hifz';
 
   evalUnitMode: 'surah' | 'juz' = 'surah';
+  sabaqEvalUnitMode: 'surah' | 'juz' = 'surah';
+  sabqiEvalUnitMode: 'surah' | 'juz' = 'surah';
+  manzilEvalUnitMode: 'surah' | 'juz' = 'surah';
 
   surahList: string[] = ALL_QURAN_SURAHS;
   juzPortionOptions: string[] = [

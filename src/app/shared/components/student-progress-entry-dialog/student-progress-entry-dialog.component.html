@@ -1,0 +1,65 @@
+<div class="dialog-header">
+  <div class="title-box">
+    <mat-icon color="primary">fact_check</mat-icon>
+    <div>
+      <h2>Update Progress: {{ student['fullName'] || student['name'] }}</h2>
+      <p>Log historical progress for Dawr and Hifz.</p>
+    </div>
+  </div>
+  <button mat-icon-button (click)="dialogRef.close()"><mat-icon>close</mat-icon></button>
+</div>
+
+<div class="dialog-content">
+  <mat-tab-group [(selectedIndex)]="activeTabIndex">
+    <!-- Hifz Tab -->
+    <mat-tab label="Hifz (Memorization)">
+      <div class="tab-body">
+        <h3 class="section-title">Completed Juzs</h3>
+        <div class="juz-grid">
+          <div *ngFor="let juz of juzArray" class="juz-box" [class.selected]="completedJuzs.has(juz)" (click)="toggleJuz(juz)">
+            {{ juz }}
+          </div>
+        </div>
+
+        <h3 class="section-title mt-4">Completed Surahs (Overrides Juz)</h3>
+        <mat-form-field appearance="outline" class="w-100">
+          <mat-label>Search Surah</mat-label>
+          <input matInput [(ngModel)]="surahSearch" (ngModelChange)="filterSurahs()" placeholder="Type surah name...">
+        </mat-form-field>
+        <div class="surah-grid">
+          <div *ngFor="let surah of filteredSurahs" class="surah-pill" [class.selected]="completedSurahs.has(surah)" (click)="toggleSurah(surah)">
+            {{ surah }}
+          </div>
+        </div>
+      </div>
+    </mat-tab>
+
+    <!-- Dawr Tab -->
+    <mat-tab label="Dawr (Revision)">
+      <div class="tab-body">
+        <div class="dawr-settings">
+          <mat-form-field appearance="outline" class="w-100">
+            <mat-label>Completed Dawr Rounds</mat-label>
+            <input matInput type="number" [(ngModel)]="completedDawrRounds" placeholder="e.g. 1">
+            <mat-hint>Total full Quran revisions completed.</mat-hint>
+          </mat-form-field>
+          
+          <mat-form-field appearance="outline" class="w-100 mt-3">
+            <mat-label>Current Round Progress (Juz #)</mat-label>
+            <input matInput type="number" [(ngModel)]="currentRoundJuz" placeholder="e.g. 15">
+            <mat-hint>Which Juz are they currently revising in their current round?</mat-hint>
+          </mat-form-field>
+        </div>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>
+
+<div class="dialog-actions">
+  <button mat-button (click)="dialogRef.close()" [disabled]="isSaving">Cancel</button>
+  <button mat-raised-button color="primary" (click)="saveProgress()" [disabled]="isSaving">
+    <mat-icon *ngIf="!isSaving">save</mat-icon>
+    <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
+    {{ isSaving ? 'Saving...' : 'Save Progress' }}
+  </button>
+</div>

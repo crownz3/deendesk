@@ -1086,7 +1086,7 @@ export class RepositoryService {
       return [];
     }
 
-    if (['coordinator', 'madrasaincharge', 'stagehead', 'teacher', 'staff', 'ustadh', 'teacher_assistant'].includes(role)) {
+    if (['coordinator', 'madrasaincharge', 'stagehead'].includes(role)) {
       const orgId = user.organizationId;
       const allMadrasaScope = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
         ? user.madrasaIds 
@@ -1096,7 +1096,7 @@ export class RepositoryService {
         : allMadrasaScope;
 
       const isStaffQuery = collectionName === 'staff' || (collectionName === 'users' && (options?.roles?.some(r => ['teacher', 'staff', 'madrasaIncharge', 'coordinator'].includes(r)) || ['madrasaincharge', 'coordinator'].includes(role)));
-      const madrasaScope = isStaffQuery ? inchargeMadrasaScope : allMadrasaScope;
+      const madrasaScope = (isStaffQuery || ['madrasaincharge', 'coordinator'].includes(role)) ? inchargeMadrasaScope : allMadrasaScope;
 
       if (!orgId || madrasaScope.length === 0) {
         return [];
@@ -1164,14 +1164,11 @@ export class RepositoryService {
 
       madrasaChunks.forEach(chunk => {
         groups.push([where('madrasaId', 'in', chunk)]);
-        if (orgId) {
-          groups.push([where('organizationId', '==', orgId)]);
-        }
       });
       return groups;
     }
 
-    if (role === 'teacher' || role === 'staff') {
+    if (['teacher', 'staff', 'ustadh', 'teacher_assistant'].includes(role)) {
       const orgId = user.organizationId;
       if (!orgId) return [];
 

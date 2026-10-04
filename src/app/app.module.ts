@@ -87,6 +87,7 @@ import { GlobalLoaderComponent } from './shared/components/global-loader/global-
 import { AppSettingsDialogComponent } from './shared/components/app-settings-dialog/app-settings-dialog.component';
 import { UserDetailsDialogComponent } from './shared/components/user-details-dialog/user-details-dialog.component';
 import { StudentProgressTrackerDialogComponent } from './shared/components/student-progress-tracker-dialog/student-progress-tracker-dialog.component';
+import { StudentProgressEntryDialogComponent } from './shared/components/student-progress-entry-dialog/student-progress-entry-dialog.component';
 import { MadrasaDetailsDialogComponent } from './shared/components/madrasa-details-dialog/madrasa-details-dialog.component';
 import { HelpGuideDialogComponent } from './shared/components/help-guide-dialog/help-guide-dialog.component';
 import { SetupMapComponent } from './shared/components/setup-map/setup-map.component';
@@ -265,6 +266,7 @@ import { ConfigureCardsDialogComponent } from './pages/dashboard/configure-cards
     AppSettingsDialogComponent,
     UserDetailsDialogComponent,
     StudentProgressTrackerDialogComponent,
+    StudentProgressEntryDialogComponent,
     MadrasaDetailsDialogComponent,
     HelpGuideDialogComponent,
     SetupMapComponent,

@@ -537,7 +537,7 @@ export class StudentAttendanceHistoryDialogComponent implements OnInit {
 
     const ep = this.presentCount + this.lateCount;
     this.effectivePresent = ep;
-    this.overallPct = this.totalCount > 0 ? Math.round((ep / this.totalCount) * 100) : 100;
+    this.overallPct = this.totalCount > 0 ? Math.round((ep / this.totalCount) * 100) : 0;
   }
 
   getPct(count: number): number {
