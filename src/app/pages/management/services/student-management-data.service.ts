@@ -203,9 +203,10 @@ export class StudentManagementDataService {
         });
         let targetStudents: EntityRecord[] = Array.from(new Set(allStudentsMap.values()));
 
+        const isMadrasaInchargeRole = profile && ['madrasaincharge', 'coordinator'].includes(String(profile.role).toLowerCase());
         const isTeacherOrStaffRole = profile && ['teacher', 'staff', 'ustadh', 'teacher_assistant', 'stagehead', 'headteacher'].includes(String(profile.role).toLowerCase()) && !['superadmin', 'organizationadmin', 'super_admin', 'orgadmin', 'madrasaincharge', 'coordinator'].includes(String(profile.role).toLowerCase());
 
-        if (isTeacherOrStaffRole) {
+        if (isMadrasaInchargeRole || isTeacherOrStaffRole) {
           const profAny = profile as Record<string, any>;
           const staffTokens = new Set<string>([
             ...this.extractAllStrings(profAny?.['id']),
@@ -274,66 +275,111 @@ export class StudentManagementDataService {
             ]).map(v => v.trim())
           ].map(v => v.toLowerCase()).filter(Boolean));
 
-          const staffGroupStudentTokens = new Set<string>();
-          classGroups.filter(g => {
-            const gTokens = [
-              extractId(g.id), extractId(g['docId']), extractId(g['groupId']),
-              String(g.id || ''), String(g['docId'] || ''), String(g['groupId'] || ''),
-              String(g['name'] || ''), String(g['groupName'] || ''), String(g['title'] || ''), String(g['code'] || '')
-            ].map(v => v.toLowerCase().trim()).filter(Boolean);
-            return gTokens.some(tok => assignedGroupIds.has(tok));
-          }).forEach(g => {
-            [
-              ...this.extractAllStrings(g['assignedStudentIds']),
-              ...this.extractAllStrings(g['assignedStudents']),
-              ...this.extractAllStrings(g['studentIds']),
-              ...this.extractAllStrings(g['students']),
-              ...this.extractAllStrings(g['assignedStudentId']),
-              ...this.extractAllStrings(g['studentId'])
-            ].forEach(id => staffGroupStudentTokens.add(id.toLowerCase().trim()));
-          });
+          if (isMadrasaInchargeRole) {
+            // Determine which madrasas this user is truly incharge of
+            const inchargeMadrasaIdsProfile = Array.isArray(profAny['inchargeMadrasaIds']) ? profAny['inchargeMadrasaIds'].map(String) : [];
+            const madrasaRoleMap = profAny['madrasaRoleMap'] || {};
 
-          targetStudents = targetStudents.filter(s => {
-            const sTeacherIds = this.extractAllStrings([
-              s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'],
-              s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
-            ]).map(v => v.toLowerCase().trim());
-            if (sTeacherIds.some(id => staffTokens.has(id))) return true;
+            const inchargeMadrasaIds = new Set<string>();
+            madrasas.forEach((m: any) => {
+              const mId = String(m.id);
+              const mCode = String(m['code'] || '');
+              const mIncharges = this.extractAllStrings([m['inchargeIds'], m['inchargeId'], m['incharge'], m['incharges']]).map(v => v.toLowerCase().trim());
+              if (mIncharges.some(id => staffTokens.has(id))) { inchargeMadrasaIds.add(mId); return; }
+              if (inchargeMadrasaIdsProfile.includes(mId) || (mCode && inchargeMadrasaIdsProfile.includes(mCode))) { inchargeMadrasaIds.add(mId); return; }
+              if (madrasaRoleMap[mId] === 'madrasaIncharge' || madrasaRoleMap[mCode] === 'madrasaIncharge') { inchargeMadrasaIds.add(mId); return; }
+            });
 
-            const sIdentities = [
-              s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
-            ].filter(Boolean).map(v => String(v).toLowerCase().trim());
-            if (sIdentities.some(id => staffGroupStudentTokens.has(id))) return true;
+            // Fallback: if no incharge madrasas found, use profile madrasaId
+            if (inchargeMadrasaIds.size === 0) {
+              const primaryMId = profAny['madrasaId'] || (Array.isArray(profAny['madrasaIds']) && profAny['madrasaIds'].length === 1 ? profAny['madrasaIds'][0] : null);
+              if (primaryMId) inchargeMadrasaIds.add(String(primaryMId));
+            }
 
-            const sGroupTokens = new Set<string>([
-              ...this.extractAllStrings([
-                s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'], s['section'],
-                s['groupIds'], s['classGroupIds'], s['assignedGroupIds'], s['groupName'], s['sectionName']
-              ]).map(v => v.toLowerCase().trim())
-            ].filter(Boolean));
+            targetStudents = targetStudents.filter(s => {
+              const sMadrasaId = String(s['madrasaId'] || s['assignedMadrasaId'] || '');
+              // For incharge madrasas: allow ALL students
+              if (sMadrasaId && inchargeMadrasaIds.has(sMadrasaId)) return true;
 
-            if (Array.from(sGroupTokens).some(gId => assignedGroupIds.has(gId))) return true;
+              // For non-incharge madrasas (staff role): ONLY students in assigned groups
+              const sGroupTokens = this.extractAllStrings([
+                s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']
+              ]).map(v => v.toLowerCase().trim());
+              if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
 
-            if (assignedGroupIds.size > 0) return false;
+              // Only fall back to class matching if no group IDs are assigned
+              if (assignedGroupIds.size === 0) {
+                const sClassTokens = this.extractAllStrings([
+                  s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']
+                ]).map(v => v.toLowerCase().trim());
+                if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+              }
 
-            const sClassTokens = new Set<string>([
-              ...this.extractAllStrings([
-                s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds'], s['className']
-              ]).map(v => v.toLowerCase().trim())
-            ].filter(Boolean));
+              return false;
+            });
+          } else {
+            // Pure staff/teacher role filtering
+            const staffGroupStudentTokens = new Set<string>();
+            classGroups.filter(g => {
+              const gTokens = [
+                extractId(g.id), extractId(g['docId']), extractId(g['groupId']),
+                String(g.id || ''), String(g['docId'] || ''), String(g['groupId'] || ''),
+                String(g['name'] || ''), String(g['groupName'] || ''), String(g['title'] || ''), String(g['code'] || '')
+              ].map(v => v.toLowerCase().trim()).filter(Boolean);
+              return gTokens.some(tok => assignedGroupIds.has(tok));
+            }).forEach(g => {
+              [
+                ...this.extractAllStrings(g['assignedStudentIds']),
+                ...this.extractAllStrings(g['assignedStudents']),
+                ...this.extractAllStrings(g['studentIds']),
+                ...this.extractAllStrings(g['students']),
+                ...this.extractAllStrings(g['assignedStudentId']),
+                ...this.extractAllStrings(g['studentId'])
+              ].forEach(id => staffGroupStudentTokens.add(id.toLowerCase().trim()));
+            });
 
-            if (Array.from(sClassTokens).some(cId => assignedClassIds.has(cId))) return true;
+            targetStudents = targetStudents.filter(s => {
+              const sTeacherIds = this.extractAllStrings([
+                s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'],
+                s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
+              ]).map(v => v.toLowerCase().trim());
+              if (sTeacherIds.some(id => staffTokens.has(id))) return true;
 
-            const sCourseTokens = new Set<string>([
-              ...this.extractAllStrings([
-                s['courseId'], s['assignedCourseId'], s['course'], s['courseIds'], s['assignedCourseIds'], s['courseName']
-              ]).map(v => v.toLowerCase().trim())
-            ].filter(Boolean));
+              const sIdentities = [
+                s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+              ].filter(Boolean).map(v => String(v).toLowerCase().trim());
+              if (sIdentities.some(id => staffGroupStudentTokens.has(id))) return true;
 
-            if (Array.from(sCourseTokens).some(crsId => assignedCourseIds.has(crsId))) return true;
+              const sGroupTokens = new Set<string>([
+                ...this.extractAllStrings([
+                  s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'], s['section'],
+                  s['groupIds'], s['classGroupIds'], s['assignedGroupIds'], s['groupName'], s['sectionName']
+                ]).map(v => v.toLowerCase().trim())
+              ].filter(Boolean));
 
-            return false;
-          });
+              if (Array.from(sGroupTokens).some(gId => assignedGroupIds.has(gId))) return true;
+
+              if (assignedGroupIds.size > 0) return false;
+
+              const sClassTokens = new Set<string>([
+                ...this.extractAllStrings([
+                  s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds'], s['className']
+                ]).map(v => v.toLowerCase().trim())
+              ].filter(Boolean));
+
+              if (Array.from(sClassTokens).some(cId => assignedClassIds.has(cId))) return true;
+
+              const sCourseTokens = new Set<string>([
+                ...this.extractAllStrings([
+                  s['courseId'], s['assignedCourseId'], s['course'], s['courseIds'], s['assignedCourseIds'], s['courseName']
+                ]).map(v => v.toLowerCase().trim())
+              ].filter(Boolean));
+
+              if (Array.from(sCourseTokens).some(crsId => assignedCourseIds.has(crsId))) return true;
+
+              return false;
+            });
+          }
         }
         return targetStudents.map((row) => {
         const studentUserId = this.recordId(row);

@@ -43,7 +43,7 @@
           </div>
           
           <form class="context-form" [formGroup]="form" *ngIf="!isSidebarCollapsed">
-            <mat-form-field appearance="outline" *ngIf="showMadrasaDropdown(vm.profile.role, vm.profile)" class="full-width">
+            <mat-form-field appearance="outline" *ngIf="showMadrasaDropdown(vm.profile.role, vm.profile, vm)" class="full-width">
               <mat-label>Madrasa</mat-label>
               <mat-select formControlName="madrasaId">
                 <div style="padding: 8px 16px; position: sticky; top: 0; background: white; z-index: 1;">

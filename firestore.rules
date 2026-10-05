@@ -59,7 +59,7 @@ service cloud.firestore {
     }
 
     function isTeacherOrStaff() {
-      return isActive() && currentRole() in ['teacher', 'TEACHER', 'staff', 'STAFF'];
+      return isActive() && currentRole() in ['teacher', 'TEACHER', 'staff', 'STAFF', 'ustadh', 'USTADH', 'teacher_assistant', 'TEACHER_ASSISTANT'];
     }
 
     function isStudent() {
@@ -75,22 +75,22 @@ service cloud.firestore {
     // ==========================================
     function isLowerThanOrgAdmin(role) {
       return role in [
-        'coordinator', 'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'student', 'parent',
-        'COORDINATOR', 'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
+        'coordinator', 'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'ustadh', 'teacher_assistant', 'student', 'parent',
+        'COORDINATOR', 'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
       ];
     }
 
     function isCoordinatorManagedRole(role) {
       return role in [
-        'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'student', 'parent',
-        'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
+        'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'ustadh', 'teacher_assistant', 'student', 'parent',
+        'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
       ];
     }
 
     function isMadrasaInchargeManagedRole(role) {
       return role in [
-        'stageHead', 'teacher', 'staff', 'student', 'parent',
-        'STAGE_HEAD', 'TEACHER', 'STAFF', 'STUDENT', 'PARENT'
+        'stageHead', 'teacher', 'staff', 'ustadh', 'teacher_assistant', 'student', 'parent',
+        'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
       ];
     }
 
@@ -99,7 +99,7 @@ service cloud.firestore {
     }
 
     function isStaffOrTeacherRole(role) {
-      return role in ['teacher', 'staff', 'stageHead', 'TEACHER', 'STAFF', 'STAGE_HEAD'];
+      return role in ['teacher', 'staff', 'ustadh', 'teacher_assistant', 'stageHead', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STAGE_HEAD'];
     }
 
     function isParentRole(role) {
@@ -731,8 +731,9 @@ service cloud.firestore {
         || resource == null
         || (sameOrg(resource.data) && (
           isOrgAdmin()
-          || ((isCoordinator() || isMadrasaIncharge()) && (inAssignedMadrasaScope(resource.data) || assignedClassGroup(resource.data)))
-          || (isTeacherOrStaff() && assignedClassGroup(resource.data))
+          || isCoordinator()
+          || isMadrasaIncharge()
+          || isTeacherOrStaff()
           || isStudent()
           || isParent()
           || hasPermission('viewAttendance')

@@ -1095,8 +1095,7 @@ export class RepositoryService {
         ? user.inchargeMadrasaIds
         : allMadrasaScope;
 
-      const isStaffQuery = collectionName === 'staff' || (collectionName === 'users' && (options?.roles?.some(r => ['teacher', 'staff', 'madrasaIncharge', 'coordinator'].includes(r)) || ['madrasaincharge', 'coordinator'].includes(role)));
-      const madrasaScope = (isStaffQuery || ['madrasaincharge', 'coordinator'].includes(role)) ? inchargeMadrasaScope : allMadrasaScope;
+      const madrasaScope = allMadrasaScope;
 
       if (!orgId || madrasaScope.length === 0) {
         return [];
@@ -1106,64 +1105,80 @@ export class RepositoryService {
       const groups: QueryConstraint[][] = [];
 
       if (collectionName === 'madrasas') {
+        return [[where('organizationId', '==', orgId)]];
+      }
+
+      if (['events', 'courses', 'academicPlans', 'issues', 'issueCategories', 'timetableEntries'].includes(collectionName)) {
+        return orgId ? [[where('organizationId', '==', orgId)]] : [[]];
+      }
+
+      if (['classPlans', 'classPlanExceptions'].includes(collectionName)) {
         madrasaChunks.forEach(chunk => {
-          groups.push([where('organizationId', '==', orgId), where(documentId(), 'in', chunk)]);
+          const values = [...chunk, ''];
+          groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', values)]);
         });
         return groups;
       }
 
       if (collectionName === 'users') {
         const allowedRoles = ['teacher', 'staff', 'student', 'parent', 'madrasaIncharge', 'coordinator', 'organizationAdmin'];
-
-        const finalRoles = options?.roles?.length 
-          ? options.roles.filter(r => allowedRoles.includes(r))
-          : allowedRoles;
-
-        if (finalRoles.length === 0) {
-          return [];
-        }
+        const finalRoles = options?.roles?.length ? options.roles.filter(r => allowedRoles.includes(r)) : allowedRoles;
+        if (finalRoles.length === 0) return [];
 
         finalRoles.forEach(targetRole => {
           madrasaScope.forEach(madrasaId => {
-            groups.push([where('role', '==', targetRole), where('madrasaId', '==', madrasaId)]);
-            groups.push([where('role', '==', targetRole), where('madrasaIds', 'array-contains', madrasaId)]);
-            if (orgId) {
-              groups.push([where('organizationId', '==', orgId), where('role', '==', targetRole)]);
-            }
+            groups.push([where('organizationId', '==', orgId), where('role', '==', targetRole), where('madrasaId', '==', madrasaId)]);
+            groups.push([where('organizationId', '==', orgId), where('role', '==', targetRole), where('madrasaIds', 'array-contains', madrasaId)]);
           });
         });
         return groups;
       }
 
-      if (['events', 'courses', 'classes', 'classGroups', 'subjects', 'academicPlans', 'issues', 'issueCategories'].includes(collectionName)) {
-        return orgId ? [[where('organizationId', '==', orgId)]] : [[]];
+      if (collectionName === 'staff') {
+        madrasaChunks.forEach(chunk => {
+          groups.push([where('organizationId', '==', orgId), where('madrasaIds', 'array-contains-any', chunk)]);
+          groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]);
+        });
+        return groups;
+      }
+
+      if (collectionName === 'attendance') {
+        if (inchargeMadrasaScope.length > 0) {
+          const inchargeChunks = this.chunkArray(inchargeMadrasaScope, 9);
+          inchargeChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]));
+        }
+        
+        const classIds = Array.isArray(user.classIds) ? user.classIds : [];
+        const teachingClassIds = Array.isArray(user.teachingClassIds) ? user.teachingClassIds : [];
+        const allClassIds = [...new Set([...classIds, ...teachingClassIds])];
+        if (allClassIds.length > 0) {
+          const cChunks = this.chunkArray(allClassIds, 9);
+          cChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('classId', 'in', chunk)]));
+        }
+
+        const groupIds = Array.isArray(user.groupIds) ? user.groupIds : [];
+        const assignedGroupIds = Array.isArray(user.assignedGroupIds) ? user.assignedGroupIds : [];
+        const allGroupIds = [...new Set([...groupIds, ...assignedGroupIds])];
+        if (allGroupIds.length > 0) {
+          const gChunks = this.chunkArray(allGroupIds, 9);
+          gChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('groupId', 'in', chunk)]));
+        }
+
+        if (groups.length === 0) return [[where('organizationId', '==', orgId), where('groupId', 'in', ['___none___'])]];
+        return groups;
       }
 
       if (['feePlans', 'feeAssignments', 'feePayments'].includes(collectionName)) {
-        madrasaChunks.forEach(chunk => {
-          groups.push([where('madrasaId', 'in', chunk)]);
-        });
-        return groups;
-      }
-
-      if (['classPlans', 'classPlanExceptions'].includes(collectionName)) {
-        madrasaChunks.forEach(chunk => {
-          const values = [...chunk, ''];
-          groups.push([where('madrasaId', 'in', values)]);
-        });
-        return groups;
-      }
-
-      if (['staff', 'reports', 'userLifecycleHistory', 'userServicePeriods', 'lifecycleRecords', 'lifecycleApprovals', 'lifecycleClearances', 'lifecycleAttachments', 'rejoinRequests'].includes(collectionName)) {
-        madrasaChunks.forEach(chunk => {
-          groups.push([where('madrasaIds', 'array-contains-any', chunk)]);
-          groups.push([where('madrasaId', 'in', chunk)]);
-        });
+        if (inchargeMadrasaScope.length > 0) {
+          const inchargeChunks = this.chunkArray(inchargeMadrasaScope, 9);
+          inchargeChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]));
+        }
+        if (groups.length === 0) return [[where('organizationId', '==', orgId), where('madrasaId', 'in', ['___none___'])]];
         return groups;
       }
 
       madrasaChunks.forEach(chunk => {
-        groups.push([where('madrasaId', 'in', chunk)]);
+        groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]);
       });
       return groups;
     }
@@ -1198,16 +1213,32 @@ export class RepositoryService {
         return [[where('organizationId', '==', orgId)]];
       }
 
-      if (collectionName === 'students' || collectionName === 'attendance') {
-        // Dashboard will pass where('classId', 'in', classIds) or where('groupId', 'in', groupIds) in extraConstraints.
-        // So we return an empty array of groups? Wait, if we return [], list() returns nothing.
-        // If we return [[]] (array with one empty group), it will query ALL students, which is bad!
-        // But dashboard will provide `extraConstraints`. list() merges extra constraints into every group.
-        // If we return [[where('organizationId', '==', orgId)]], it restricts to org, and extraConstraints restrict further.
+      if (collectionName === 'attendance') {
+        const classIds = Array.isArray(user.classIds) ? user.classIds : [];
+        const teachingClassIds = Array.isArray(user.teachingClassIds) ? user.teachingClassIds : [];
+        const allClassIds = [...new Set([...classIds, ...teachingClassIds])];
+        if (allClassIds.length > 0) {
+          const cChunks = this.chunkArray(allClassIds, 9);
+          cChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('classId', 'in', chunk)]));
+        }
+
+        const groupIds = Array.isArray(user.groupIds) ? user.groupIds : [];
+        const assignedGroupIds = Array.isArray(user.assignedGroupIds) ? user.assignedGroupIds : [];
+        const allGroupIds = [...new Set([...groupIds, ...assignedGroupIds])];
+        if (allGroupIds.length > 0) {
+          const gChunks = this.chunkArray(allGroupIds, 9);
+          gChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('groupId', 'in', chunk)]));
+        }
+
+        if (groups.length === 0) return [[where('organizationId', '==', orgId), where('groupId', 'in', ['___none___'])]];
+        return groups;
+      }
+
+      if (collectionName === 'students' || collectionName === 'timetableEntries') {
         return [[where('organizationId', '==', orgId)]];
       }
 
-      if (collectionName === 'classes' || collectionName === 'subjects' || collectionName === 'classGroups' || collectionName === 'classPlans' || collectionName === 'timetableEntries') {
+      if (collectionName === 'classes' || collectionName === 'subjects' || collectionName === 'classGroups' || collectionName === 'classPlans') {
         const allowedMadrasas = Array.isArray(user.madrasaIds) ? user.madrasaIds : [user.madrasaId].filter(Boolean);
         if (allowedMadrasas.length > 0) {
           return [[where('organizationId', '==', orgId), where('madrasaId', 'in', allowedMadrasas)]];

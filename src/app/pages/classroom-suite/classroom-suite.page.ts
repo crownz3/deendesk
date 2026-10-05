@@ -627,20 +627,36 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       available = available.filter(g => g['stageId'] === targetStageId || g['stage'] === targetStageId);
     }
 
-    // Determine if the selected madrasa is an Incharge Madrasa for this user
     const u = this.currentUser as any;
-    const inchargeMadrasaIds = new Set<string>([
-      u.madrasaId,
-      ...(Array.isArray(u.madrasaIds) ? u.madrasaIds : []),
-      ...(Array.isArray(u.inchargeMadrasaIds) ? u.inchargeMadrasaIds : [])
-    ].filter(Boolean).map(v => String(v).trim()));
+    
+    const allMadrasaScope = Array.isArray(u.madrasaIds) && u.madrasaIds.length > 0 
+      ? u.madrasaIds 
+      : (u.madrasaId ? [u.madrasaId] : []);
+      
+    const inchargeMadrasaScope = Array.isArray(u.inchargeMadrasaIds) && u.inchargeMadrasaIds.length > 0
+      ? u.inchargeMadrasaIds
+      : allMadrasaScope;
 
-    const isSelectedMadrasaInchargeScope = this.isMadrasaIncharge && this.selectedMadrasaId && inchargeMadrasaIds.has(String(this.selectedMadrasaId).trim());
+    const inchargeMadrasaIds = new Set<string>(inchargeMadrasaScope.filter(Boolean).map((v: any) => String(v).trim()));
+
+    const isCoordinatorRole = (this.currentUser as any).role?.toLowerCase().replace(/[\s_-]/g, '') === 'coordinator';
+    const isSelectedMadrasaInchargeScope = (this.isMadrasaIncharge || isCoordinatorRole) && this.selectedMadrasaId && inchargeMadrasaIds.has(String(this.selectedMadrasaId).trim());
 
     // Strict Filter by Assigned Groups if Teacher/Staff OR if MadrasaIncharge operating outside their incharge madrasa
-    if (!this.isSuperAdmin && !this.isOrgAdmin && !isSelectedMadrasaInchargeScope) {
-      if (this.userAssignedGroupIds.size > 0) {
-        available = available.filter(g => g.id && this.userAssignedGroupIds.has(g.id));
+    if (!this.isSuperAdmin && !this.isOrgAdmin) {
+      if (this.selectedMadrasaId) {
+        if (!isSelectedMadrasaInchargeScope && this.userAssignedGroupIds.size > 0) {
+          available = available.filter(g => g.id && this.userAssignedGroupIds.has(g.id));
+        }
+      } else {
+        // "All Madrasas" view
+        // Show groups that are EITHER in the incharge scope OR explicitly assigned to the user
+        available = available.filter(g => {
+          const mId = String(g['madrasaId'] || '');
+          const isGroupInchargeScope = (this.isMadrasaIncharge || isCoordinatorRole) && inchargeMadrasaIds.has(mId);
+          const isExplicitlyAssigned = g.id && this.userAssignedGroupIds.has(g.id);
+          return isGroupInchargeScope || isExplicitlyAssigned;
+        });
       }
     }
 

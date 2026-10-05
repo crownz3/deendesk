@@ -667,7 +667,13 @@ export class DashboardPage {
           map(results => results.flat()),
           switchMap((classPlans: any[]) => {
             const courseIds = [...new Set([...classPlans.map((p: any) => p.courseId), ...initialData.classes.map((c: any) => c['courseId'])])].filter(Boolean);
-            const madrasaIds = [...new Set([...(profile.madrasaIds || []), ...classPlans.map((p: any) => p.madrasaId), ...initialData.classes.map((c: any) => c['madrasaId'])])].filter(Boolean);
+            const madrasaIds = [...new Set([
+              profile.madrasaId,
+              ...(profile.madrasaIds || []),
+              ...classPlans.map((p: any) => p.madrasaId),
+              ...initialData.classes.map((c: any) => c['madrasaId']),
+              ...initialData.classGroups.map((g: any) => g['madrasaId'])
+            ])].filter(Boolean);
             const classIds = [...new Set([...classPlans.map((p: any) => p.classId), ...initialData.classes.map((c: any) => c.id)])].filter(Boolean);
             const groupIds = [...new Set(classPlans.map((p: any) => p.groupId))].filter(Boolean);
             
@@ -731,18 +737,76 @@ export class DashboardPage {
                 ]);
 
                 let finalStudents: any[] = [];
+                let finalClasses: any[] = [];
+                let finalClassGroups: any[] = [];
+                let finalStaff: any[] = [];
 
                 if (normalizedRole === 'superadmin' || normalizedRole === 'super_admin' || normalizedRole === 'organizationadmin' || normalizedRole === 'organization_admin') {
                   finalStudents = uniqueStudents;
+                  finalClasses = initialData.classes;
+                  finalClassGroups = initialData.classGroups;
+                  finalStaff = fetched.staff || [];
                 } else if (normalizedRole === 'madrasaincharge' || normalizedRole === 'coordinator') {
-                  if (userMadrasaIds.size > 0) {
-                    finalStudents = uniqueStudents.filter((s: any) => {
-                      const sMadrasaId = String(s['madrasaId'] || s['assignedMadrasaId'] || '');
-                      return sMadrasaId && userMadrasaIds.has(sMadrasaId);
-                    });
-                  } else {
-                    finalStudents = uniqueStudents;
+                  const inchargeMadrasaIdsProfile = Array.isArray(profAny['inchargeMadrasaIds']) ? profAny['inchargeMadrasaIds'].map(String) : [];
+                  const madrasaRoleMap = profAny['madrasaRoleMap'] || {};
+
+                  const inchargeMadrasaEntities = (fetched.madrasas || []).filter((m: any) => {
+                    const mId = String(m.id);
+                    const mCode = String(m['code'] || '');
+                    const mIncharges = this.extractAllStrings([m['inchargeIds'], m['inchargeId'], m['incharge'], m['incharges']]);
+                    if (mIncharges.some(id => staffTokens.has(id))) return true;
+                    if (inchargeMadrasaIdsProfile.includes(mId) || (mCode && inchargeMadrasaIdsProfile.includes(mCode))) return true;
+                    if (madrasaRoleMap[mId] === 'madrasaIncharge' || madrasaRoleMap[mCode] === 'madrasaIncharge') return true;
+                    return false;
+                  });
+
+                  if (inchargeMadrasaEntities.length === 0 && normalizedRole === 'madrasaincharge') {
+                    const primaryMId = profAny['madrasaId'] || (Array.isArray(profAny['madrasaIds']) && profAny['madrasaIds'].length === 1 ? profAny['madrasaIds'][0] : null);
+                    if (primaryMId) {
+                      const mObj = (fetched.madrasas || []).find((m: any) => String(m.id) === String(primaryMId) || String(m['code']) === String(primaryMId));
+                      if (mObj) inchargeMadrasaEntities.push(mObj);
+                    }
                   }
+
+                  const effectiveInchargeIds = new Set<string>(inchargeMadrasaEntities.map((m: any) => String(m.id)));
+
+                  finalStudents = uniqueStudents.filter((s: any) => {
+                    const sMadrasaId = String(s['madrasaId'] || s['assignedMadrasaId'] || '');
+                    // For incharge madrasas: allow ALL students
+                    if (sMadrasaId && effectiveInchargeIds.has(sMadrasaId)) return true;
+
+                    // For non-incharge madrasas (staff assignments): ONLY allow if student
+                    // belongs to an explicitly assigned group or class. Do NOT use teacherId
+                    // matching here — that would pull in all students from the other madrasa.
+                    const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
+                    if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+                    // Only fall back to class matching if no group IDs are assigned
+                    if (assignedGroupIds.size === 0) {
+                      const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
+                      if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+                    }
+
+                    return false;
+                  });
+
+                  finalClasses = initialData.classes.filter((c: any) => {
+                    const mId = String(c['madrasaId'] || c['assignedMadrasaId'] || '');
+                    if (mId && effectiveInchargeIds.has(mId)) return true;
+                    return assignedClassIds.has(String(c.id));
+                  });
+
+                  finalClassGroups = initialData.classGroups.filter((g: any) => {
+                    const mId = String(g['madrasaId'] || g['assignedMadrasaId'] || '');
+                    if (mId && effectiveInchargeIds.has(mId)) return true;
+                    return assignedGroupIds.has(String(g.id));
+                  });
+
+                  finalStaff = (fetched.staff || []).filter((st: any) => {
+                    const mId = String(st['madrasaId'] || st['assignedMadrasaId'] || '');
+                    return mId && effectiveInchargeIds.has(mId);
+                  });
+
                 } else if (normalizedRole === 'teacher' || normalizedRole === 'staff') {
                   finalStudents = uniqueStudents.filter((s: any) => {
                     const sTeacherTokens = this.extractAllStrings([s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId']]);
@@ -758,19 +822,26 @@ export class DashboardPage {
 
                     return false;
                   });
+
+                  finalClasses = initialData.classes.filter((c: any) => assignedClassIds.has(String(c.id)));
+                  finalClassGroups = initialData.classGroups.filter((g: any) => assignedGroupIds.has(String(g.id)));
+                  finalStaff = [];
                 } else {
                   finalStudents = uniqueStudents;
+                  finalClasses = initialData.classes;
+                  finalClassGroups = initialData.classGroups;
+                  finalStaff = fetched.staff || [];
                 }
-
-                const scopedClasses = initialData.classes.filter((c: any) => assignedClassIds.has(String(c.id)));
 
                 return {
                   ...initialData,
                   classPlans: fetched.classPlans,
                   courses: fetched.courses,
                   madrasas: fetched.madrasas,
-                  classes: scopedClasses,
+                  classes: finalClasses,
+                  classGroups: finalClassGroups,
                   students: finalStudents,
+                  staff: finalStaff,
                   organizations: [] // Teachers don't need full org data for stats
                 };
               })
@@ -1972,49 +2043,6 @@ export class DashboardPage {
     let staffCount = data['staff']?.length ?? 0;
     let classCount = data['classes']?.length ?? 0;
     let madrasaCount = data['madrasas']?.length ?? 0;
-
-    if (isMadrasaIncharge && profile) {
-      // Use STRICTLY inchargeMadrasaIds if populated so Madrasas where the user is ONLY a staff/teacher are EXCLUDED!
-      const rawInchargeIds: string[] = (Array.isArray((profile as any)?.inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 0)
-        ? (profile as any).inchargeMadrasaIds
-        : (Array.isArray((profile as any)?.madrasaIds) ? (profile as any).madrasaIds : [(profile as any)?.madrasaId].filter(Boolean));
-
-      const inchargeMadrasaIds = new Set<string>(rawInchargeIds.map(String));
-
-      if (inchargeMadrasaIds.size > 0) {
-        if (Array.isArray(data['classGroups'])) {
-          classGroupCount = data['classGroups'].filter(cg => {
-            const cgMadrasaId = String(cg['madrasaId'] || cg['assignedMadrasaId'] || '');
-            return cgMadrasaId && inchargeMadrasaIds.has(cgMadrasaId);
-          }).length;
-        }
-
-        if (Array.isArray(data['students'])) {
-          studentCount = data['students'].filter(st => {
-            const stMadrasaId = String(st['madrasaId'] || st['assignedMadrasaId'] || '');
-            return stMadrasaId && inchargeMadrasaIds.has(stMadrasaId);
-          }).length;
-        }
-
-        if (Array.isArray(data['staff'])) {
-          staffCount = data['staff'].filter(st => {
-            const stMadrasaId = String(st['madrasaId'] || st['assignedMadrasaId'] || '');
-            return stMadrasaId && inchargeMadrasaIds.has(stMadrasaId);
-          }).length;
-        }
-
-        if (Array.isArray(data['classes'])) {
-          classCount = data['classes'].filter(cls => {
-            const clsMadrasaId = String(cls['madrasaId'] || cls['assignedMadrasaId'] || '');
-            return clsMadrasaId && inchargeMadrasaIds.has(clsMadrasaId);
-          }).length;
-        }
-
-        if (Array.isArray(data['madrasas'])) {
-          madrasaCount = data['madrasas'].filter(m => inchargeMadrasaIds.has(String(m.id))).length;
-        }
-      }
-    }
 
     const allStats: DashboardStat[] = [
       { label: 'Organizations', value: data['organizations']?.length ?? 0, icon: 'business-outline', tone: 'success' },

@@ -216,6 +216,9 @@ export interface AppUser extends ScopedEntity {
   assignedCourseStages?: CourseStageAssignment[];
   genderScope?: 'male' | 'female' | 'all';
   classIds?: string[];
+  teachingClassIds?: string[];
+  groupIds?: string[];
+  assignedGroupIds?: string[];
   subjectIds?: string[];
   studentIds?: string[];
   linkedStudentIds?: string[];

@@ -191,9 +191,21 @@ export class AttendancePage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   ngOnInit() {
-    this.auth.profile$.pipe(takeUntil(this.destroy$)).subscribe(profile => {
-      if (profile && !this.showMadrasaDropdown(profile.role) && profile.madrasaId) {
-        this.form.patchValue({ madrasaId: profile.madrasaId }, { emitEvent: false });
+    this.vm$.pipe(
+      takeUntil(this.destroy$),
+      filter(state => !state.loading && !!state.data),
+      take(1)
+    ).subscribe(state => {
+      const vm = state.data!;
+      if (!this.showMadrasaDropdown(vm.profile.role, vm.profile, vm)) {
+        // Find single madrasa they are assigned to, fallback to profile.madrasaId
+        const plans = this.getTeacherAssignedClassPlans(vm, vm.classPlans || []);
+        const uniqueMadrasaIds = Array.from(new Set(plans.map(p => p.madrasaId).filter(Boolean)));
+        if (uniqueMadrasaIds.length === 1 && !this.form.get('madrasaId')?.value) {
+          this.form.patchValue({ madrasaId: uniqueMadrasaIds[0] }, { emitEvent: false });
+        } else if (vm.profile.madrasaId && !this.form.get('madrasaId')?.value) {
+          this.form.patchValue({ madrasaId: vm.profile.madrasaId }, { emitEvent: false });
+        }
       }
     });
 
@@ -267,19 +279,56 @@ export class AttendancePage implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  showMadrasaDropdown(role: string, profile?: AppUser): boolean {
+  showMadrasaDropdown(role: string, profile?: AppUser, vm?: AttendanceVm): boolean {
     if (['coordinator', 'admin', 'organizationAdmin', 'superAdmin'].includes(role)) return true;
     if (profile && Array.isArray(profile.madrasaIds) && profile.madrasaIds.length > 1) return true;
     if (profile && Array.isArray((profile as any).inchargeMadrasaIds) && (profile as any).inchargeMadrasaIds.length > 1) return true;
     if (profile && Array.isArray((profile as any).coordinatorMadrasaIds) && (profile as any).coordinatorMadrasaIds.length > 1) return true;
     if (role === 'madrasaIncharge') return true;
+    if (vm && vm.classPlans && vm.profile) {
+      const plans = this.getTeacherAssignedClassPlans(vm, vm.classPlans);
+      const uniqueMadrasaIds = new Set(plans.map(p => p.madrasaId).filter(Boolean));
+      if (uniqueMadrasaIds.size > 1) return true;
+    }
     return false;
+  }
+
+  getTeacherAssignedClassPlans(vm: AttendanceVm, plans: any[]) {
+    const profAny = vm.profile as Record<string, any>;
+    const staffTokens = new Set<string>([
+      ...this.extractAllStrings(profAny['id']),
+      ...this.extractAllStrings(profAny['uid']),
+      ...this.extractAllStrings(profAny['entityId']),
+      ...this.extractAllStrings(profAny['email'])
+    ]);
+
+    const assignedGroups = (vm.classGroups || []).filter((g: any) => {
+      const gStaffTokens = this.extractAllStrings([
+        g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff'], g['teacherId'], g['staffId']
+      ]);
+      return gStaffTokens.some(tok => staffTokens.has(tok));
+    });
+
+    const assignedGroupIds = new Set<string>([
+      ...assignedGroups.map((g: any) => String(g.id)),
+      ...this.extractAllStrings([profAny['groupId'], profAny['groupIds'], profAny['classGroupId'], profAny['classGroupIds'], profAny['assignedGroupId'], profAny['assignedGroupIds']])
+    ]);
+
+    return plans.filter((p: any) => {
+      const pTeacherTokens = this.extractAllStrings([p['teacherId'], p['assignedStaffId'], p['teacherUid']]);
+      if (pTeacherTokens.some(tok => staffTokens.has(tok))) return true;
+
+      const pGroupTokens = this.extractAllStrings([p['groupId'], p['classGroupId'], p['groupIds'], p['classGroupIds']]);
+      if (pGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+
+      return false;
+    });
   }
 
   getFilteredClassPlans(vm: AttendanceVm) {
     let plans = vm.classPlans || [];
     const madrasaId = this.form.get('madrasaId')?.value;
-    if (this.showMadrasaDropdown(vm.profile.role, vm.profile)) {
+    if (this.showMadrasaDropdown(vm.profile.role, vm.profile, vm)) {
       if (!madrasaId) return [];
       plans = plans.filter(p => String(p.madrasaId) === String(madrasaId));
     } else if (madrasaId) {
@@ -299,34 +348,7 @@ export class AttendancePage implements OnInit, OnDestroy {
 
     // If user is Staff / Teacher for the selected madrasa (or overall), ONLY show their assigned class groups
     if (!isOrgAdminOrSuper && !isInchargeOfSelectedMadrasa) {
-      const staffTokens = new Set<string>([
-        ...this.extractAllStrings(profAny['id']),
-        ...this.extractAllStrings(profAny['uid']),
-        ...this.extractAllStrings(profAny['entityId']),
-        ...this.extractAllStrings(profAny['email'])
-      ]);
-
-      const assignedGroups = (vm.classGroups || []).filter((g: any) => {
-        const gStaffTokens = this.extractAllStrings([
-          g['assignedStaffIds'], g['assignedStaff'], g['staffIds'], g['teacherIds'], g['groupStaff'], g['teacherId'], g['staffId']
-        ]);
-        return gStaffTokens.some(tok => staffTokens.has(tok));
-      });
-
-      const assignedGroupIds = new Set<string>([
-        ...assignedGroups.map((g: any) => String(g.id)),
-        ...this.extractAllStrings([profAny['groupId'], profAny['groupIds'], profAny['classGroupId'], profAny['classGroupIds'], profAny['assignedGroupId'], profAny['assignedGroupIds']])
-      ]);
-
-      plans = plans.filter((p: any) => {
-        const pTeacherTokens = this.extractAllStrings([p['teacherId'], p['assignedStaffId'], p['teacherUid']]);
-        if (pTeacherTokens.some(tok => staffTokens.has(tok))) return true;
-
-        const pGroupTokens = this.extractAllStrings([p['groupId'], p['classGroupId'], p['groupIds'], p['classGroupIds']]);
-        if (pGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
-
-        return false;
-      });
+      plans = this.getTeacherAssignedClassPlans(vm, plans);
     }
 
     return plans;
