@@ -3,6 +3,8 @@ import { BehaviorSubject, Observable, combineLatest, of, firstValueFrom } from '
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { RepositoryService, EntityRecord } from '../../../core/services/repository.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { AttendanceFirestoreService } from '../../../core/services/attendance-firestore.service';
+import { IssueService } from '../../../core/services/issue.service';
 import { ReportDefinition, ReportFieldMetadata, SavedReportTemplate } from '../../../core/models/report.model';
 import { REPORT_DEFINITIONS } from '../report-definitions';
 
@@ -28,6 +30,10 @@ export interface ReportState {
     studentsDocs?: any[];
     classGroups?: any[];
     staffDocs?: any[];
+    // Attendance aggregation: studentId → { lateCount, leaveCount, absentCount, presentCount, totalDays }
+    attendanceSummary?: Map<string, { lateCount: number; leaveCount: number; absentCount: number; presentCount: number; totalDays: number }>;
+    // Issue categories: categoryId → category object
+    issueCategories?: Map<string, any>;
   };
 }
 
@@ -56,7 +62,9 @@ export class ReportBuilderService {
       users: new Map(),
       studentsDocs: [],
       classGroups: [],
-      staffDocs: []
+      staffDocs: [],
+      attendanceSummary: new Map(),
+      issueCategories: new Map()
     }
   });
   private cachedRawData: any[] | null = null;
@@ -65,7 +73,9 @@ export class ReportBuilderService {
 
   constructor(
     private repo: RepositoryService,
-    private auth: AuthService
+    private auth: AuthService,
+    private attendanceFs: AttendanceFirestoreService,
+    private issueService: IssueService
   ) {}
 
   public loadReportDefinition(reportId: string): void {
@@ -184,6 +194,23 @@ export class ReportBuilderService {
         this.repo.getAllOnce<any>('staff', profile).catch(() => [])
       ]);
 
+      // --- Attendance Aggregation for Reports 9 & 10 ---
+      let attendanceSummary = new Map<string, { lateCount: number; leaveCount: number; absentCount: number; presentCount: number; totalDays: number }>();
+      const isAttendanceReport = (
+        definition.id === 'habitual-latecomers-monthly-report' ||
+        definition.id === 'attendance-risk-alert-report'
+      );
+      if (isAttendanceReport) {
+        attendanceSummary = await this.fetchAttendanceMonthData(filters);
+      }
+
+      // --- Issue Categories for Report 12 ---
+      let issueCategories = new Map<string, any>();
+      if (definition.id === 'student-issues-grievance-register-report') {
+        const cats = await firstValueFrom(this.issueService.listCategories(profile)).catch(() => []);
+        issueCategories = new Map(cats.map((c: any) => [c.id, c]));
+      }
+
       const refs = {
         organizations: new Map(organizations.map(o => [o.id, o])),
         madrasas: new Map(madrasas.map(m => [m.id, m])),
@@ -192,7 +219,9 @@ export class ReportBuilderService {
         users: new Map(users.map(u => [u.id, u])),
         studentsDocs: studentsDocs || [],
         classGroups: classGroups,
-        staffDocs: staffDocs
+        staffDocs: staffDocs,
+        attendanceSummary,
+        issueCategories
       };
       
       this.updateState({ references: refs });
@@ -218,6 +247,98 @@ export class ReportBuilderService {
       console.error(e);
       this.updateState({ error: 'Failed to fetch report data', loading: false });
     }
+  }
+
+  /**
+   * Fetches all attendance day records for the selected month and aggregates
+   * per-student: lateCount, leaveCount, absentCount, presentCount, totalDays.
+   * Firestore path: attendance/{classPlanId}/days/{YYYY-MM-DD}
+   */
+  private async fetchAttendanceMonthData(
+    filters: any
+  ): Promise<Map<string, { lateCount: number; leaveCount: number; absentCount: number; presentCount: number; totalDays: number }>> {
+    const summary = new Map<string, { lateCount: number; leaveCount: number; absentCount: number; presentCount: number; totalDays: number }>();
+
+    try {
+      // 1. Determine target year/month from filters
+      let targetYear = new Date().getFullYear();
+      let targetMonth = new Date().getMonth(); // 0-indexed
+
+      const monthFilter = Array.isArray(filters)
+        ? filters.find((f: any) => f && (f.fieldKey === 'month' || f.fieldKey === 'dateRange'))
+        : null;
+      const monthValue = monthFilter?.value1 || monthFilter?.value ||
+        (typeof filters === 'object' ? (filters?.month || filters?.dateRange) : null);
+
+      if (monthValue) {
+        const valStr = String(monthValue).trim();
+        const parsed = new Date(valStr);
+        if (!isNaN(parsed.getTime())) {
+          targetYear = parsed.getFullYear();
+          targetMonth = parsed.getMonth();
+        } else if (valStr.match(/^\d{4}-\d{2}$/)) {
+          const [y, m] = valStr.split('-').map(Number);
+          targetYear = y;
+          targetMonth = m - 1;
+        }
+      }
+
+      // 2. Build date range for the month
+      const monthStr = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+      const firstDay = `${monthStr}-01`;
+      const lastDayNum = new Date(targetYear, targetMonth + 1, 0).getDate();
+      const lastDay = `${monthStr}-${String(lastDayNum).padStart(2, '0')}`;
+
+      // 3. Fetch the parent attendance collection (one doc per classPlan)
+      const profile = await firstValueFrom(this.auth.profile$);
+      if (!profile) return summary;
+      const parentDocs = await this.repo.getAllOnce<any>('attendance', profile).catch(() => []);
+
+      // 4. For each class plan, fetch all days in the month in parallel (batched)
+      const batchSize = 20; // Process class plans in batches of 20 to avoid overloading
+      for (let i = 0; i < parentDocs.length; i += batchSize) {
+        const batch = parentDocs.slice(i, i + batchSize);
+        await Promise.all(batch.map(async (parent: any) => {
+          const classPlanId = parent.classPlanId || parent.id;
+          if (!classPlanId) return;
+
+          try {
+            const allDays = await this.attendanceFs.getAllDays(classPlanId);
+            // Filter to only days in the target month
+            const monthDays = allDays.filter(d => d.date >= firstDay && d.date <= lastDay && d.status === 'confirmed');
+
+            for (const day of monthDays) {
+              if (!Array.isArray(day.students)) continue;
+              for (const entry of day.students) {
+                const sid = entry.studentId;
+                if (!sid) continue;
+
+                let rec = summary.get(sid);
+                if (!rec) {
+                  rec = { lateCount: 0, leaveCount: 0, absentCount: 0, presentCount: 0, totalDays: 0 };
+                  summary.set(sid, rec);
+                }
+
+                rec.totalDays++;
+                switch (entry.status) {
+                  case 'late':    rec.lateCount++;    break;
+                  case 'leave':   rec.leaveCount++;   break;
+                  case 'absent':  rec.absentCount++;  break;
+                  case 'present': rec.presentCount++; break;
+                }
+              }
+            }
+          } catch (err) {
+            // Silently skip class plans that fail
+            console.warn('[ReportBuilder] Failed to fetch attendance days for plan:', classPlanId, err);
+          }
+        }));
+      }
+    } catch (err) {
+      console.error('[ReportBuilder] fetchAttendanceMonthData error:', err);
+    }
+
+    return summary;
   }
 
   private processData(rawData: any[]): void {
@@ -265,6 +386,32 @@ export class ReportBuilderService {
     const definition = this.state.value.baseDefinition;
     if (definition?.id === 'monthly-student-movement-strength-report') {
       processed = this.applyMonthlyStudentMovement(processed, this.state.value.filters);
+    } else if (definition?.id === 'madrasa-usthadh-list-report') {
+      processed = this.applyUsthadhStudentAllocation(processed);
+    } else if (definition?.id === 'staff-movement-audit-report') {
+      processed = this.applyStaffMovementAudit(processed);
+    } else if (definition?.id === 'maktab-to-hifz-promotions-report') {
+      processed = this.applyMaktabToHifzPromotions(processed);
+    } else if (definition?.id === 'hifz-completion-dawr-graduations-report') {
+      processed = this.applyHifzCompletionReport(processed);
+    } else if (definition?.id === 'hifz-substage-progress-report') {
+      processed = this.applyHifzSubstageProgress(processed);
+    } else if (definition?.id === 'dawr-cycles-certification-readiness-report') {
+      processed = this.applyDawrCertificationReadiness(processed);
+    } else if (definition?.id === 'habitual-latecomers-monthly-report') {
+      processed = this.applyHabitualLatecomers(processed);
+    } else if (definition?.id === 'attendance-risk-alert-report') {
+      processed = this.applyAttendanceRiskAlert(processed);
+    } else if (definition?.id === 'student-issues-grievance-register-report') {
+      processed = this.applyStudentIssuesGrievanceRegister(processed);
+    } else if (definition?.id === 'madrasa-course-type-strength-report') {
+      processed = this.applyMadrasaCourseTypeStrength(processed);
+    } else if (definition?.id === 'student-movement-audit-report') {
+      processed = this.applyStudentMovementAudit(processed);
+    } else if (definition?.id === 'events-competitions-roster-report') {
+      processed = this.applyEventsCompetitionsRoster(processed);
+    } else if (definition?.id === 'student-master-progress-snapshot-report') {
+      processed = this.applyStudentMasterProgressSnapshot(processed);
     }
 
     if (definition?.aggregationLogic === 'count-by-field' && definition.groupByField) {
@@ -1264,6 +1411,456 @@ export class ReportBuilderService {
         inactiveCount: metrics.inactives,
         promoteDemoteCount: metrics.promoteDemotes,
         transferCount: metrics.transfers
+      };
+    });
+  }
+
+  private applyUsthadhStudentAllocation(data: any[]): any[] {
+    const refs = this.state.value.references;
+    const studentsDocs = refs.studentsDocs || [];
+
+    return data.map((staff, idx) => {
+      const staffId = staff.id || staff.uid;
+      const groupNames = Array.isArray(staff.assignedClassGroupDisplay) 
+        ? staff.assignedClassGroupDisplay.join(', ') 
+        : (staff.assignedClassGroupDisplay || staff.groupsDisplay || 'None');
+
+      // Count students assigned to this staff member
+      const assignedCount = studentsDocs.filter((s: any) => {
+        const sStaffIds = Array.isArray(s.assignedStaffIds) ? s.assignedStaffIds : [s.staffId, s.teacherId].filter(Boolean);
+        return sStaffIds.map((id: any) => String(id).trim()).includes(String(staffId).trim());
+      }).length;
+
+      return {
+        ...staff,
+        sNo: idx + 1,
+        usthadhName: staff.displayName || staff.name || staff.staffNameDisplay || 'Usthadh',
+        madrasaName: staff.madrasaNameDisplay || staff.madrasaName || 'Madrasa',
+        phone: staff.phoneDisplay || staff.mobileNumber || staff.phone || 'N/A',
+        groupsDisplay: groupNames,
+        assignedStudentsCount: assignedCount
+      };
+    });
+  }
+
+  private applyStaffMovementAudit(data: any[]): any[] {
+    return data.map(item => ({
+      ...item,
+      effectiveDate: item.effectiveDate || item.actionDate || item.createdAt || '-',
+      userName: item.userName || item.staffName || item.name || 'Staff Member',
+      madrasaName: item.madrasaName || item.madrasaNameDisplay || 'Madrasa',
+      lifecycleAction: item.lifecycleAction || item.action || item.actionType || 'Transfer / Action',
+      reason: item.reason || item.remarks || '-',
+      performedBy: item.performedBy || item.createdBy || 'System'
+    }));
+  }
+
+  private applyMaktabToHifzPromotions(data: any[]): any[] {
+    return data.filter(item => item.isCrossCourseSwitch || String(item.newCourseId || '').toLowerCase().includes('hifz'))
+      .map(item => ({
+        ...item,
+        actionDate: item.actionDate || item.createdAt || '-',
+        studentName: item.studentName || item.name || 'Student',
+        madrasaName: item.madrasaName || item.madrasaNameDisplay || 'Madrasa',
+        previousStage: item.previousStage || 'Maktab Final Stage',
+        newStage: item.newStage || 'Upto 10 Juz',
+        reason: item.reason || 'Completed Maktab Course',
+        performedBy: item.performedBy || item.createdBy || 'System'
+      }));
+  }
+
+  private applyHifzCompletionReport(data: any[]): any[] {
+    return data.filter(s => String(s.stage || s.stageDisplay || '').toLowerCase().includes('dawr') || s.hifzCompletionDate)
+      .map(s => ({
+        ...s,
+        stageDisplay: s.stage || 'Dawr',
+        dawrRoundNo: s.dawrRoundNo || 1,
+        hifzCompletionDate: s.hifzCompletionDate || s.updatedAt || s.lastCourseSwitchDate || 'Completed'
+      }));
+  }
+
+  private applyHifzSubstageProgress(data: any[]): any[] {
+    return data.filter(s => {
+      const st = String(s.stage || s.stageDisplay || '').toLowerCase();
+      return st.includes('20') || st.includes('30') || st.includes('hifz');
+    }).map(s => ({
+      ...s,
+      currentSurah: s.sabaqSurah ? `${s.sabaqSurah} (Ayah ${s.sabaqFromAyah || 1}-${s.sabaqToAyah || 1})` : (s.currentSurah || 'In Progress'),
+      juzCompletedThisMonth: s.juzCompletedThisMonth || (s.sabaqJuz ? `Juz ${s.sabaqJuz}` : '1 Juz'),
+      progressPace: s.progressPace || '1 Juz / Month'
+    }));
+  }
+
+  private applyDawrCertificationReadiness(data: any[]): any[] {
+    return data.filter(s => String(s.stage || s.stageDisplay || '').toLowerCase().includes('dawr') || s.dawrRoundNo)
+      .map(s => {
+        const currentRound = s.dawrRoundNo || 1;
+        const targetRounds = s.targetDawrRounds || 3;
+        const isReady = currentRound >= targetRounds;
+
+        return {
+          ...s,
+          dawrRoundNo: currentRound,
+          targetDawrRounds: `${currentRound} / ${targetRounds} Rounds`,
+          dawrDailyJuz: s.dawrDailyJuz || '-',
+          certificationStatus: isReady ? 'Certified / Ready for Sanad' : 'In Progress'
+        };
+      });
+  }
+
+  private applyHabitualLatecomers(data: any[]): any[] {
+    const summary = this.state.value.references.attendanceSummary;
+    const LATE_THRESHOLD = 3;
+
+    // Join student rows with real attendance aggregation
+    const enriched = data.map(student => {
+      const sid = student.id || student.uid || student.studentId || student.userId;
+      const attRec = summary?.get(String(sid || '').trim()) || { lateCount: 0, leaveCount: 0, absentCount: 0, presentCount: 0, totalDays: 0 };
+
+      const attendancePct = attRec.totalDays > 0
+        ? `${Math.round((attRec.presentCount / attRec.totalDays) * 100)}%`
+        : '-';
+
+      return {
+        ...student,
+        lateCount: attRec.lateCount,
+        leaveCount: attRec.leaveCount,
+        absentCount: attRec.absentCount,
+        presentCount: attRec.presentCount,
+        totalDays: attRec.totalDays,
+        attendancePercent: attendancePct,
+        phoneDisplay: student.parentPhone || student.guardianPhone ||
+          student.phoneDisplay || student.mobileNumber || 'N/A',
+        _latentLate: attRec.lateCount
+      };
+    });
+
+    // Filter to only students with 3+ lates, sort descending by late count
+    return enriched
+      .filter(s => s.lateCount >= LATE_THRESHOLD)
+      .sort((a, b) => b.lateCount - a.lateCount);
+  }
+
+  private applyAttendanceRiskAlert(data: any[]): any[] {
+    const summary = this.state.value.references.attendanceSummary;
+    const LATE_THRESHOLD = 3;
+    const LEAVE_THRESHOLD = 3;
+
+    const enriched = data.map(student => {
+      const sid = student.id || student.uid || student.studentId || student.userId;
+      const attRec = summary?.get(String(sid || '').trim()) || { lateCount: 0, leaveCount: 0, absentCount: 0, presentCount: 0, totalDays: 0 };
+
+      const totalAbsences = attRec.absentCount + attRec.leaveCount;
+      const attendancePct = attRec.totalDays > 0
+        ? `${Math.round((attRec.presentCount / attRec.totalDays) * 100)}%`
+        : '-';
+
+      // Determine risk level
+      let riskLevel = 'Low Risk';
+      let riskClass = 'low';
+      if (attRec.lateCount >= LATE_THRESHOLD && attRec.leaveCount >= LEAVE_THRESHOLD) {
+        riskLevel = 'Critical Risk';
+        riskClass = 'critical';
+      } else if (attRec.lateCount >= LATE_THRESHOLD || totalAbsences >= 5) {
+        riskLevel = 'High Risk';
+        riskClass = 'high';
+      } else if (attRec.lateCount >= 2 || attRec.leaveCount >= 2) {
+        riskLevel = 'Medium Risk';
+        riskClass = 'medium';
+      }
+
+      return {
+        ...student,
+        lateCount: attRec.lateCount,
+        leaveCount: attRec.leaveCount,
+        absentCount: attRec.absentCount,
+        presentCount: attRec.presentCount,
+        totalDays: attRec.totalDays,
+        totalAbsences,
+        attendancePercent: attendancePct,
+        riskLevel,
+        riskClass,
+        phoneDisplay: student.parentPhone || student.guardianPhone ||
+          student.phoneDisplay || student.mobileNumber || 'N/A'
+      };
+    });
+
+    // Only return students who meet the dual threshold (3+ lates AND 3+ leave)
+    return enriched
+      .filter(s => s.lateCount >= LATE_THRESHOLD && s.leaveCount >= LEAVE_THRESHOLD)
+      .sort((a, b) => {
+        // Sort by risk: critical → high → medium → low, then by lateCount desc
+        const order: any = { 'Critical Risk': 0, 'High Risk': 1, 'Medium Risk': 2, 'Low Risk': 3 };
+        const diff = (order[a.riskLevel] ?? 3) - (order[b.riskLevel] ?? 3);
+        return diff !== 0 ? diff : b.lateCount - a.lateCount;
+      });
+  }
+
+  private applyStudentIssuesGrievanceRegister(data: any[]): any[] {
+    const refs = this.state.value.references;
+    const issueCategories = refs.issueCategories || new Map();
+    const users = refs.users;
+    const madrasas = refs.madrasas;
+
+    return data
+      .filter(issue => !issue.isDeleted)
+      .map(issue => {
+        // Resolve category name
+        const cat = issueCategories.get(issue.categoryId);
+        const categoryName = cat?.name || issue.categoryName || issue.categoryId || 'General';
+        const subcategoryName = issue.subcategoryName || '';
+        const categoryDisplay = subcategoryName ? `${categoryName} › ${subcategoryName}` : categoryName;
+
+        // Resolve madrasa name
+        const madrasaObj = madrasas?.get(issue.madrasaId);
+        const madrasaName = madrasaObj?.name || issue.madrasaName || issue.madrasaNameDisplay || '-';
+
+        // Resolve reporter name
+        const reporterUser = users?.get(issue.reportedBy);
+        const reporterName = issue.reporterNameSnapshot ||
+          reporterUser?.displayName || reporterUser?.name || reporterUser?.email || issue.reporterName || '-';
+
+        // Resolve assigned staff/coordinator name
+        const assignedId = issue.assignedStaffId || issue.assignedCoordinatorId || issue.assignedMadrasaInchargeId;
+        const assignedUser = assignedId ? users?.get(assignedId) : null;
+        const assignedToName = assignedUser?.displayName || assignedUser?.name || assignedUser?.email ||
+          issue.assignedStaffName || issue.assignedTo || '-';
+
+        // Format dates
+        const reportedDate = this.formatDateTime(issue.reportedAt) || this.formatDateTime(issue.createdAt) || '-';
+        const closedDate = issue.closedAt ? (this.formatDateTime(issue.closedAt) || '-') : '-';
+        const dueDate = issue.dueAt ? (this.formatDateTime(issue.dueAt) || '-') : '-';
+
+        // Map status to readable label
+        const statusLabelMap: Record<string, string> = {
+          reported: 'Reported',
+          acknowledged: 'Acknowledged',
+          assigned: 'Assigned',
+          underInvestigation: 'Under Investigation',
+          actionRequired: 'Action Required',
+          inProgress: 'In Progress',
+          resolved: 'Resolved',
+          closed: 'Closed',
+          reopened: 'Reopened',
+          rejected: 'Rejected',
+          duplicate: 'Duplicate'
+        };
+        const statusLabel = statusLabelMap[issue.status] || issue.status || '-';
+
+        // Priority readable label
+        const priorityLabelMap: Record<string, string> = {
+          low: 'Low',
+          medium: 'Medium',
+          high: 'High',
+          critical: 'Critical'
+        };
+        const priorityLabel = priorityLabelMap[issue.priority] || issue.priority || '-';
+
+        // Open issues flag
+        const isOpen = ['reported', 'acknowledged', 'assigned', 'underInvestigation', 'actionRequired', 'inProgress', 'reopened'].includes(issue.status);
+
+        return {
+          ...issue,
+          createdAt: reportedDate,
+          title: issue.title || '-',
+          category: categoryDisplay,
+          userName: reporterName,
+          madrasaName,
+          madrasaNameDisplay: madrasaName,
+          priority: priorityLabel,
+          status: statusLabel,
+          assignedTo: assignedToName,
+          closedDate,
+          dueDate,
+          isOpen,
+          confidentialDisplay: issue.confidential ? 'Confidential' : 'Not Confidential',
+          emergencyDisplay: issue.emergency ? '🚨 Emergency' : '-'
+        };
+      })
+      .sort((a, b) => {
+        // Sort: open issues first, then by priority (critical > high > medium > low), then by date
+        if (a.isOpen !== b.isOpen) return a.isOpen ? -1 : 1;
+        const pOrder: any = { 'Critical': 0, 'High': 1, 'Medium': 2, 'Low': 3 };
+        const pd = (pOrder[a.priority] ?? 4) - (pOrder[b.priority] ?? 4);
+        return pd !== 0 ? pd : String(b.createdAt).localeCompare(String(a.createdAt));
+      });
+  }
+
+  private applyMadrasaCourseTypeStrength(data: any[]): any[] {
+    const refs = this.state.value.references;
+    const allStaffDocs = refs.staffDocs || [];
+
+    return data.map(madrasa => {
+      const madrasaId = madrasa.id || madrasa.docId;
+      const madrasaName = madrasa.name || madrasa.displayName || madrasa.madrasaName || '-';
+
+      // Count staff belonging to this madrasa
+      const madrasaStaff = allStaffDocs.filter((s: any) => {
+        const staffMadrasaIds = [
+          s.madrasaId, s.madrasa,
+          ...(Array.isArray(s.madrasaIds) ? s.madrasaIds : [])
+        ].filter(Boolean).map((id: any) => String(id).trim());
+        return staffMadrasaIds.includes(String(madrasaId).trim());
+      });
+
+      const totalStaff = madrasaStaff.length;
+      const maleStaff = madrasaStaff.filter((s: any) => String(s.gender || '').toLowerCase() === 'male').length;
+      const femaleStaff = madrasaStaff.filter((s: any) => String(s.gender || '').toLowerCase() === 'female').length;
+
+      // Find incharges for this madrasa
+      const inchargeNames: string[] = [];
+      if (refs.users) {
+        refs.users.forEach((u: any) => {
+          const uRole = String(u.role || '').toLowerCase();
+          if (uRole.includes('incharge') || uRole.includes('madrasaincharge')) {
+            const uMadrasas = [
+              u.madrasaId,
+              ...(Array.isArray(u.madrasaIds) ? u.madrasaIds : [])
+            ].filter(Boolean).map((id: any) => String(id).trim());
+            if (uMadrasas.includes(String(madrasaId).trim())) {
+              const uName = u.displayName || u.name || u.email;
+              if (uName) inchargeNames.push(uName);
+            }
+          }
+        });
+      }
+      if (madrasa.inchargeName) inchargeNames.push(madrasa.inchargeName);
+
+      // Determine course type
+      const hasMaktab = !!(madrasa.hasMaktab || madrasa.maktab || String(madrasa.courseType || '').toLowerCase().includes('maktab'));
+      const hasHifz = !!(madrasa.hasHifz || madrasa.hifz || String(madrasa.courseType || '').toLowerCase().includes('hifz'));
+      let courseTypeDisplay = madrasa.courseType || madrasa.type || '-';
+      if (hasMaktab && hasHifz) courseTypeDisplay = 'Maktab & Hifz (Both)';
+      else if (hasHifz) courseTypeDisplay = 'Hifz';
+      else if (hasMaktab) courseTypeDisplay = 'Maktab';
+
+      return {
+        ...madrasa,
+        madrasaNameDisplay: madrasaName,
+        courseTypeDisplay,
+        totalStaffCount: totalStaff,
+        maleStaffCount: maleStaff,
+        femaleStaffCount: femaleStaff,
+        activeInchargeDisplay: Array.from(new Set(inchargeNames)).join(', ') || '-'
+      };
+    });
+  }
+
+  private applyStudentMovementAudit(data: any[]): any[] {
+    return data.map(item => {
+      const action = item.action || item.actionType || item.lifecycleAction || item.movementType || '';
+      let movementEventType = action;
+
+      // Normalize event type labels
+      const actionLower = String(action).toLowerCase();
+      if (actionLower.includes('join') || actionLower.includes('admit') || actionLower.includes('enrol')) {
+        movementEventType = 'Newly Joined';
+      } else if (actionLower.includes('transfer')) {
+        movementEventType = 'Transferred';
+      } else if (actionLower.includes('promot')) {
+        movementEventType = item.isCrossCourseSwitch ? 'Cross-Course Promotion (Maktab → Hifz)' : 'Promoted';
+      } else if (actionLower.includes('demot')) {
+        movementEventType = 'Demoted';
+      } else if (actionLower.includes('reliev') || actionLower.includes('withdraw') || actionLower.includes('left') || actionLower.includes('drop')) {
+        movementEventType = 'Relieved / Withdrew';
+      } else if (!movementEventType) {
+        movementEventType = action || '-';
+      }
+
+      const courseName = item.courseType || item.courseName || item.courseNameDisplay || item.newCourseId || '-';
+
+      return {
+        ...item,
+        actionDate: item.actionDate || item.effectiveDate || item.createdAt || '-',
+        studentNameDisplay: item.studentName || item.name || item.displayName || item.userName || '-',
+        admissionNo: item.admissionNo || item.studentId || item.userId || '-',
+        madrasaNameDisplay: item.madrasaName || item.madrasaNameDisplay || '-',
+        courseTypeDisplay: courseName,
+        movementEventType,
+        previousStage: item.previousStage || item.previousClassGroup || item.fromStage || item.oldStage || '-',
+        newStage: item.newStage || item.newClassGroup || item.toStage || item.targetStage || '-',
+        reason: item.reason || item.remarks || '-',
+        performedBy: item.performedBy || item.createdBy || '-'
+      };
+    });
+  }
+
+  private applyEventsCompetitionsRoster(data: any[]): any[] {
+    return data.map(event => {
+      const eventDate = event.eventDate || event.date || event.startDate || event.createdAt;
+      const formattedDate = eventDate ? (this.formatDateTime(eventDate) || String(eventDate)) : '-';
+
+      // Determine course type display
+      const courseType = event.courseType || event.course || '';
+      const courseTypeLower = String(courseType).toLowerCase();
+      let courseTypeDisplay = courseType || '-';
+      if (courseTypeLower.includes('hifz')) courseTypeDisplay = 'Hifz';
+      else if (courseTypeLower.includes('maktab')) courseTypeDisplay = 'Maktab';
+      else if (!courseType) courseTypeDisplay = '-';
+
+      // Determine category
+      const category = event.category || event.eventType || event.type || '-';
+      const categoryLower = String(category).toLowerCase();
+      let categoryDisplay = category;
+      if (categoryLower.includes('compet')) categoryDisplay = 'Competition';
+      else if (categoryLower.includes('seminar')) categoryDisplay = 'Seminar';
+      else if (categoryLower.includes('graduat')) categoryDisplay = 'Graduation Ceremony';
+      else if (categoryLower.includes('workshop')) categoryDisplay = 'Workshop';
+
+      // Count participants
+      const participants = event.participants || event.attendees || event.studentIds || [];
+      const totalParticipants = Array.isArray(participants) ? participants.length : (event.totalParticipants || event.participantCount || 0);
+
+      // Resolve winner
+      const winnerName = event.winnerName || event.winner || event.rank1Student || event.firstPlaceStudent || '-';
+      const winnerUsthadh = event.winnerUsthadh || event.winnerTeacher || event.rank1Usthadh || '-';
+
+      return {
+        ...event,
+        eventDateDisplay: formattedDate,
+        title: event.title || event.name || event.eventName || '-',
+        categoryDisplay,
+        courseTypeDisplay,
+        totalParticipants,
+        winnerStudentDisplay: winnerName,
+        winnerUsthadhDisplay: winnerUsthadh,
+        status: event.status || '-'
+      };
+    });
+  }
+
+  private applyStudentMasterProgressSnapshot(data: any[]): any[] {
+    return data.map(student => {
+      // Compute total Juz memorized from progress data
+      const juzFromSabaq = student.sabaqJuz ? Number(student.sabaqJuz) : 0;
+      const juzFromProgress = student.totalJuzMemorized ? Number(student.totalJuzMemorized) : 0;
+      const juzFromStage = (() => {
+        const stage = String(student.stage || student.stageDisplay || '').toLowerCase();
+        if (stage.includes('dawr') || stage.includes('30')) return 30;
+        if (stage.includes('upto 30') || stage.includes('up to 30')) return 28;
+        if (stage.includes('upto 20') || stage.includes('up to 20')) return 18;
+        if (stage.includes('upto 10') || stage.includes('up to 10')) return 8;
+        return 0;
+      })();
+
+      const totalJuz = juzFromProgress || juzFromSabaq || juzFromStage || 0;
+
+      // Current position
+      const currentSurah = student.sabaqSurah
+        ? `${student.sabaqSurah} (Ayah ${student.sabaqFromAyah || 1}-${student.sabaqToAyah || 1})`
+        : (student.currentSurah || student.currentPosition || '-');
+
+      // Attendance percentage
+      const presentDays = Number(student.presentDays || student.daysPresent || 0);
+      const totalDays = Number(student.totalDays || student.workingDays || 0);
+      const attendancePct = totalDays > 0 ? `${Math.round((presentDays / totalDays) * 100)}%` : (student.attendancePercent || student.attendancePct || '-');
+
+      return {
+        ...student,
+        admissionNo: student.admissionNo || student.registrationNo || student.studentId || student.id || '-',
+        currentSurah,
+        totalJuzMemorized: totalJuz > 0 ? totalJuz : '-',
+        attendancePercent: attendancePct
       };
     });
   }

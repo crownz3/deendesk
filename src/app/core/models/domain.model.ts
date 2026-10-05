@@ -1942,7 +1942,7 @@ export interface AlumniRecord extends ScopedEntity {
 // ==========================================
 export type ExamStatus = 'draft' | 'scheduled' | 'in_progress' | 'evaluating' | 'published' | 'completed' | 'cancelled';
 export type ScheduleStatus = 'scheduled' | 'preponed' | 'postponed' | 'rescheduled' | 'cancelled';
-export type ExamType = 'annual' | 'mid_term' | 'monthly' | 'weekly_test' | 'admission' | 're_exam';
+export type ExamType = 'annual' | 'mid_term' | 'quarterly' | 'half_yearly' | 'monthly' | 'weekly_test' | 'admission' | 're_exam';
 
 export interface ExamScheduleItem {
   id: string;

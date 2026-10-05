@@ -292,11 +292,11 @@
                           <span class="badge-tag" [ngClass]="'grade-' + (prog.grade || '').toLowerCase()">
                             <mat-icon class="mini-icon">stars</mat-icon> {{ prog.grade }}
                           </span>
-                          <span class="badge-detail" *ngIf="prog.sabaqSurah">
+                          <span class="badge-detail" *ngIf="(prog.courseType === 'hifz' || !prog.courseType) && prog.sabaqSurah">
                             Sabaq: {{ prog.sabaqSurah }} (Ayah {{ prog.sabaqAyahFrom }}-{{ prog.sabaqAyahTo }})
                           </span>
-                          <span class="badge-detail" *ngIf="prog.maktabPageNo">
-                            {{ prog.maktabSubject }}: Pg {{ prog.maktabPageNo }}
+                          <span class="badge-detail" *ngIf="prog.courseType === 'maktab' && (prog.maktabSubject || prog.maktabPageNo)">
+                            {{ prog.maktabSubject || 'Maktab' }}<ng-container *ngIf="prog.maktabPageNo">: Pg {{ prog.maktabPageNo }}</ng-container>
                           </span>
                           <span class="badge-detail" *ngIf="prog.score !== undefined">
                             Score: {{ prog.score }}/{{ prog.totalScore }}

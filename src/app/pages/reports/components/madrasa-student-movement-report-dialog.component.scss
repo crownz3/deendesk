@@ -15,6 +15,7 @@
   color: #1e293b;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   box-sizing: border-box;
+  overflow: hidden;
 
   .dialog-header {
     display: flex;
@@ -87,7 +88,7 @@
   .dialog-body {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
     padding: 16px 20px;
     box-sizing: border-box;
 
@@ -204,6 +205,8 @@
             margin-bottom: 14px;
             width: 100%;
             box-sizing: border-box;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
 
             &:last-child {
               margin-bottom: 0;

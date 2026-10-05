@@ -34,6 +34,8 @@ import { EntityRecord, RepositoryService } from '../../core/services/repository.
             <mat-label>Exam Type</mat-label>
             <mat-select formControlName="examType">
               <mat-option value="annual">Annual Exam</mat-option>
+              <mat-option value="half_yearly">Half Yearly Exam</mat-option>
+              <mat-option value="quarterly">Quarterly Exam</mat-option>
               <mat-option value="mid_term">Mid-Term Exam</mat-option>
               <mat-option value="monthly">Monthly Test</mat-option>
               <mat-option value="weekly_test">Weekly Test</mat-option>
@@ -87,7 +89,7 @@ import { EntityRecord, RepositoryService } from '../../core/services/repository.
                   </button>
                 </div>
 
-                <mat-option value="all">🌐 All Madrasas</mat-option>
+                <mat-option value="all" *ngIf="currentUser?.role !== 'madrasaIncharge' && currentUser?.role !== 'coordinator' && currentUser?.role !== 'stageHead'">🌐 All Madrasas</mat-option>
                 <mat-option *ngFor="let m of getSearchedMadrasas()" [value]="m.id">
                   {{ m['name'] || 'Madrasa #' + m.id }}
                 </mat-option>
@@ -461,6 +463,7 @@ export class ExamDialogComponent implements OnInit {
   form: FormGroup;
   isEdit = false;
   submitting = false;
+  currentUser: any = null;
 
   madrasas: EntityRecord[] = [];
   courses: EntityRecord[] = [];
@@ -505,6 +508,7 @@ export class ExamDialogComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     const user = await firstValueFrom(this.auth.profile$);
+    this.currentUser = user;
     if (user) {
       this.repo.list<EntityRecord>('madrasas', user).subscribe(res => this.madrasas = res || []);
       this.repo.list<EntityRecord>('courses', user).subscribe(res => this.courses = res || []);

@@ -426,6 +426,9 @@ service cloud.firestore {
         'assignedCourseIds',
         'assignedClassId',
         'assignedClassIds',
+        'stage',
+        'lastCourseSwitchDate',
+        'prevCourseId',
         'updatedAt',
         'updatedBy'
       ]);
@@ -773,6 +776,11 @@ service cloud.firestore {
     match /promotionHistory/{id} {
       allow read: if signedIn() && sameOrg(resource.data);
       allow create, update, delete: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('managePromotions'));
+    }
+
+    match /userLifecycleHistory/{id} {
+      allow read: if signedIn() && sameOrg(resource.data);
+      allow create, update, delete: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('managePromotions') || hasPermission('manageUsers') || hasPermission('manageStaff'));
     }
 
     match /studentTransfers/{id} {

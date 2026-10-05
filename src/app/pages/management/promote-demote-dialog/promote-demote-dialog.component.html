@@ -51,6 +51,26 @@
         </mat-select>
       </mat-form-field>
 
+      <!-- Cross-Course Switch Option (e.g. Maktab -> Hifz -> Dawr) -->
+      <div class="cross-course-box" *ngIf="allowCrossCourseSwitch" style="background: #eff6ff; padding: 10px 12px; border-radius: 8px; border: 1px solid #bfdbfe; margin-bottom: 14px;">
+        <mat-slide-toggle [checked]="isCrossCourseSwitch" (change)="onCrossCourseToggle($event.checked)" color="primary">
+          <span style="font-size: 0.85rem; font-weight: 700; color: #1e40af;">
+            🎓 Cross-Course Promotion (e.g., Maktab → Hifz / Dawr)
+          </span>
+        </mat-slide-toggle>
+
+        <div *ngIf="isCrossCourseSwitch" style="margin-top: 10px;">
+          <mat-form-field appearance="outline" style="width: 100%;">
+            <mat-label>Target New Course</mat-label>
+            <mat-select [value]="targetCourseId" (selectionChange)="onTargetCourseChange($event.value)" required>
+              <mat-option *ngFor="let c of allCoursesList" [value]="c.id">
+                {{ c['name'] }} ({{ (c['type'] || c['courseType'] || 'General') | uppercase }})
+              </mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+
       <!-- Stage & Sub-Stage Selection -->
       <ng-container *ngIf="hasSubStagesForCourse; else flatStageSelect">
         <mat-form-field appearance="outline">

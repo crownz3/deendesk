@@ -45,6 +45,12 @@ export class PromoteDemoteDialogComponent implements OnInit {
   groupName = 'None';
   staffNames = 'None';
 
+  // Cross-Course Switch Features (Maktab -> Hifz -> Dawr)
+  allCoursesList: EntityRecord[] = [];
+  allowCrossCourseSwitch = false;
+  targetCourseId = '';
+  isCrossCourseSwitch = false;
+
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: PromoteDemoteData,
     private dialogRef: MatDialogRef<PromoteDemoteDialogComponent>,
@@ -73,6 +79,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
         this.repo.getAllOnce<EntityRecord>('classGroups', profile),
       ]);
 
+      this.allCoursesList = courses;
       const courseId = this.firstStudent['courseId'];
       if (courseId) {
         const course = courses.find(c => c.id === courseId);
@@ -83,6 +90,7 @@ export class PromoteDemoteDialogComponent implements OnInit {
         }
       }
       this.autoSelectStage();
+      this.checkCrossCourseSwitchEligibility();
 
       const classId = this.firstStudent['classId'];
       if (classId) {
@@ -256,6 +264,45 @@ export class PromoteDemoteDialogComponent implements OnInit {
     this.newStage = targetItem.full;
     this.selectedStageOption = targetItem.full;
     this.isCustomStage = false;
+  }
+
+  checkCrossCourseSwitchEligibility() {
+    const currentIdx = this.getCurrentStageIndex();
+    const ordered = this.getOrderedFullStages();
+    const isAtLastStage = currentIdx >= 0 && currentIdx === ordered.length - 1;
+
+    // Enable cross-course switch if student is at the final stage of current course or manual selection
+    this.allowCrossCourseSwitch = isAtLastStage || this.allCoursesList.length > 1;
+
+    if (isAtLastStage && this.currentCourseRecord) {
+      const type = String(this.currentCourseRecord['type'] || this.currentCourseRecord['courseType'] || '').toLowerCase();
+      // If student is in Maktab, find Hifz course to suggest
+      if (type === 'maktab') {
+        const hifzCourse = this.allCoursesList.find(c => String(c['type'] || c['courseType'] || '').toLowerCase() === 'hifz');
+        if (hifzCourse) {
+          this.targetCourseId = hifzCourse.id!;
+        }
+      }
+    }
+  }
+
+  onCrossCourseToggle(enabled: boolean) {
+    this.isCrossCourseSwitch = enabled;
+    if (enabled && this.targetCourseId) {
+      this.onTargetCourseChange(this.targetCourseId);
+    } else if (!enabled && this.currentCourseRecord) {
+      this.extractStages(this.currentCourseRecord);
+      this.autoSelectStage();
+    }
+  }
+
+  onTargetCourseChange(targetCourseId: string) {
+    this.targetCourseId = targetCourseId;
+    const targetCourse = this.allCoursesList.find(c => c.id === targetCourseId);
+    if (targetCourse) {
+      this.extractStages(targetCourse);
+      this.autoSelectStage();
+    }
   }
 
   getCurrentStageIndex(): number {
@@ -487,15 +534,21 @@ export class PromoteDemoteDialogComponent implements OnInit {
         const madrasaRecord = madrasas.find(m => String(m.id) === String(mdrId));
         const madrasaName = madrasaRecord ? String(madrasaRecord['name'] || madrasaRecord.id) : '';
 
-        await this.repo.update('students', studentId, {
+        const updatePayload: any = {
           stage: this.newStage,
-        }, profile);
+        };
+
+        if (this.isCrossCourseSwitch && this.targetCourseId) {
+          updatePayload.courseId = this.targetCourseId;
+          updatePayload.lastCourseSwitchDate = actionDate;
+          updatePayload.prevCourseId = String(std['courseId'] ?? '');
+        }
+
+        await this.repo.update('students', studentId, updatePayload, profile);
 
         const userUid = String(std['userId'] || std['uid'] || '');
         if (userUid) {
-          await this.repo.update('users', userUid, {
-            stage: this.newStage,
-          }, profile).catch(e => console.warn('Failed to update users collection:', e));
+          await this.repo.update('users', userUid, updatePayload, profile).catch(e => console.warn('Failed to update users collection:', e));
         }
 
         // Secondary Audit Logs (Catch gracefully)
@@ -507,8 +560,9 @@ export class PromoteDemoteDialogComponent implements OnInit {
           madrasaName: madrasaName,
           previousCourseId: String(std['courseId'] ?? ''),
           previousStage: String(std['stage'] ?? ''),
-          newCourseId: String(std['courseId'] ?? ''),
+          newCourseId: this.isCrossCourseSwitch && this.targetCourseId ? this.targetCourseId : String(std['courseId'] ?? ''),
           newStage: this.newStage,
+          isCrossCourseSwitch: this.isCrossCourseSwitch,
           reason: this.reason,
           action: this.action,
           actionDate: actionDate,
@@ -553,6 +607,9 @@ export class PromoteDemoteDialogComponent implements OnInit {
           }, profile).catch(e => console.warn('Failed to update course stages', e));
         }
       }
+
+      // Clear repository cache to reflect updated student stage/course across all pages
+      this.repo.clearCache();
 
       this.snackBar.open(`${this.targetStudents.length} student(s) updated successfully.`, 'Close', { duration: 3000 });
       this.dialogRef.close({ success: true });

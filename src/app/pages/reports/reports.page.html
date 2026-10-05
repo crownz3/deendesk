@@ -124,12 +124,18 @@
       
       <!-- Mobile View Mode Toggle (Cards vs Table) -->
       <div class="mobile-view-mode-toggle" *ngIf="isMobileView" style="display: flex; gap: 0;">
-        <button mat-flat-button [color]="mobileDisplayMode === 'cards' ? 'primary' : ''" (click)="toggleMobileDisplayMode('cards')" style="height: 36px; padding: 0 12px; border-radius: 18px 0 0 18px; font-size: 12px; font-weight: 600;">
-          <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">grid_view</mat-icon> Cards
-        </button>
-        <button mat-flat-button [color]="mobileDisplayMode === 'table' ? 'primary' : ''" (click)="toggleMobileDisplayMode('table')" style="height: 36px; padding: 0 12px; border-radius: 0 18px 18px 0; font-size: 12px; font-weight: 600;">
-          <mat-icon style="font-size: 16px; width: 16px; height: 16px; margin-right: 4px;">table_chart</mat-icon> Table
-        </button>
+        <mat-button-toggle-group [value]="mobileDisplayMode" (change)="toggleMobileDisplayMode($event.value)" style="height: 36px; border-radius: 18px; align-items: center; border: 1px solid #cbd5e1;">
+          <mat-button-toggle value="cards" style="padding: 0 4px; font-size: 12px; font-weight: 600; line-height: 34px;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <mat-icon style="font-size: 16px; width: 16px; height: 16px;">grid_view</mat-icon> Cards
+            </div>
+          </mat-button-toggle>
+          <mat-button-toggle value="table" style="padding: 0 4px; font-size: 12px; font-weight: 600; line-height: 34px;">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <mat-icon style="font-size: 16px; width: 16px; height: 16px;">table_chart</mat-icon> Table
+            </div>
+          </mat-button-toggle>
+        </mat-button-toggle-group>
       </div>
 
       <span class="table-results-badge" style="font-size: 13px; color: #64748b; font-weight: 500;">
@@ -147,21 +153,21 @@
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
           <div>
             <div style="font-weight: 700; font-size: 15px; color: #0f172a;">
-              {{ row.name || row.groupName || row.displayName || row.studentNameDisplay || row.title || ('Record #' + (idx + 1)) }}
+              {{ row.name || row.groupName || row.displayName || row.studentNameDisplay || row.staffName || row.usthadhName || row.assignedStaffNamesDisplay || row.activeInchargeDisplay || row.title || ('Record #' + (idx + 1)) }}
             </div>
-            <div style="font-size: 12px; color: #64748b;" *ngIf="row.assignedClassGroupDisplay || row.madrasaNameDisplay">
+            <div style="font-size: 12px; color: #ef4444; font-weight: 600; margin-top: 4px;" *ngIf="row.actionDate || row.effectiveDate || row.inactiveDate">
+              Date: {{ row.actionDate || row.effectiveDate || row.inactiveDate }}
+            </div>
+            <div style="font-size: 12px; color: #64748b; margin-top: 2px;" *ngIf="row.assignedClassGroupDisplay || row.madrasaNameDisplay">
               {{ row.assignedClassGroupDisplay || row.madrasaNameDisplay }}
             </div>
           </div>
-          <span style="font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: #e0f2fe; color: #0369a1;" *ngIf="row.studentCount !== undefined">
-            {{ row.studentCount }} students
-          </span>
         </div>
         <div style="display: flex; flex-direction: column; gap: 6px;">
           <ng-container *ngFor="let col of selectedColumns">
-            <div *ngIf="col.key !== 'name' && col.key !== 'groupName' && col.key !== 'studentNameDisplay' && row[col.key] !== undefined && row[col.key] !== null && row[col.key] !== ''" style="display: flex; justify-content: space-between; font-size: 13px;">
-              <span style="color: #64748b; font-weight: 500;">{{ col.label }}:</span>
-              <span style="font-weight: 600; color: #1e293b; text-align: right;">{{ row[col.key] || '-' }}</span>
+            <div *ngIf="col.key !== 'name' && col.key !== 'groupName' && col.key !== 'studentNameDisplay' && row[col.key] !== undefined && row[col.key] !== null && row[col.key] !== ''" style="display: flex; justify-content: space-between; font-size: 13px; gap: 12px;">
+              <span style="color: #64748b; font-weight: 500; min-width: 35%;">{{ col.label }}:</span>
+              <span style="font-weight: 600; color: #1e293b; text-align: right; flex: 1; word-break: break-word;">{{ row[col.key] || '-' }}</span>
             </div>
           </ng-container>
         </div>

@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { ReportFieldMetadata } from '../../../core/models/report.model';
 import * as xlsx from 'xlsx';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export interface PdfExportOptions {
   orientation: 'portrait' | 'landscape';
@@ -44,9 +46,6 @@ export class ReportExportService {
     }
 
     try {
-      const { jsPDF } = await import('jspdf');
-      const autoTable = (await import('jspdf-autotable')).default;
-
       const doc = new jsPDF(options.orientation, 'mm', options.pageSize);
       
       let startY = 25;

@@ -125,6 +125,7 @@ export class AppComponent {
         { label: 'Academic Structure', route: '/academic-tree', icon: 'git-network-outline', roleRequired: 'superAdmin' },
         { label: 'Stage Heads', route: '/stage-heads', icon: 'person-add-outline', permission: 'manageStageHeads' },
         { label: 'Subjects & Syllabus', route: '/subjects', icon: 'book-outline', permissionsAny: ['manageSubjects'] },
+        { label: 'Exams & Results', route: '/exams', icon: 'document-text-outline', permissionsAny: ['viewExams', 'manageExams'] },
         { label: 'Study Time & Homework', route: '/study-time', icon: 'hourglass-outline', permissionsAny: ['manageStudyTime'] },
       ]
     },

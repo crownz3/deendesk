@@ -105,6 +105,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public rightSidebarTab: 'columns' | 'filters' | 'grouping' | 'totals' | 'export' = 'columns';
   public visualizationMode: 'table' | 'bar' = 'table';
 
+
   get selectedGroupFields(): string[] {
     return this.state?.grouping || [];
   }
