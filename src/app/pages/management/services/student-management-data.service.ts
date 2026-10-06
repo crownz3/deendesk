@@ -296,23 +296,37 @@ export class StudentManagementDataService {
               if (primaryMId) inchargeMadrasaIds.add(String(primaryMId));
             }
 
+            let inchargeCount = 0;
+            let groupCount = 0;
+            let classCount = 0;
+            let rejectedCount = 0;
+
             targetStudents = targetStudents.filter(s => {
               const sMadrasaId = String(s['madrasaId'] || s['assignedMadrasaId'] || '');
               // For incharge madrasas: allow ALL students
-              if (sMadrasaId && inchargeMadrasaIds.has(sMadrasaId)) return true;
+              if (sMadrasaId && inchargeMadrasaIds.has(sMadrasaId)) {
+                inchargeCount++;
+                return true;
+              }
 
               // For non-incharge madrasas (staff role): ONLY students in assigned groups
               const sGroupTokens = this.extractAllStrings([
                 s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']
               ]).map(v => v.toLowerCase().trim());
-              if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+              if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) {
+                groupCount++;
+                return true;
+              }
 
               // Only fall back to class matching if no group IDs are assigned
               if (assignedGroupIds.size === 0) {
                 const sClassTokens = this.extractAllStrings([
                   s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']
                 ]).map(v => v.toLowerCase().trim());
-                if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+                if (sClassTokens.some(cId => assignedClassIds.has(cId))) {
+                  classCount++;
+                  return true;
+                }
               }
 
               return false;

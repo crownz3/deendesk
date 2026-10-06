@@ -602,7 +602,10 @@ export class DashboardPage {
         return of(null);
       }
 
-      if (['teacher', 'staff', 'ustadh', 'teacher_assistant'].includes(String(profile.role || '').toLowerCase())) {
+      const roleLower = String(profile.role || '').toLowerCase();
+      const isSuperOrOrgAdmin = ['superadmin', 'super_admin', 'organizationadmin', 'organization_admin'].includes(roleLower);
+
+      if (!isSuperOrOrgAdmin) {
         return this.loadTeacherData(profile).pipe(
           map(data => this.buildDashboardVm(profile, data))
         );
@@ -770,21 +773,35 @@ export class DashboardPage {
 
                   const effectiveInchargeIds = new Set<string>(inchargeMadrasaEntities.map((m: any) => String(m.id)));
 
+                  let inchargeStudentCount = 0;
+                  let groupStudentCount = 0;
+                  let classStudentCount = 0;
+                  let rejectedStudentCount = 0;
+
                   finalStudents = uniqueStudents.filter((s: any) => {
                     const sMadrasaId = String(s['madrasaId'] || s['assignedMadrasaId'] || '');
                     // For incharge madrasas: allow ALL students
-                    if (sMadrasaId && effectiveInchargeIds.has(sMadrasaId)) return true;
+                    if (sMadrasaId && effectiveInchargeIds.has(sMadrasaId)) {
+                      inchargeStudentCount++;
+                      return true;
+                    }
 
                     // For non-incharge madrasas (staff assignments): ONLY allow if student
                     // belongs to an explicitly assigned group or class. Do NOT use teacherId
                     // matching here — that would pull in all students from the other madrasa.
                     const sGroupTokens = this.extractAllStrings([s['groupId'], s['classGroupId'], s['assignedGroupId'], s['groupIds'], s['classGroupIds']]);
-                    if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) return true;
+                    if (sGroupTokens.some(gId => assignedGroupIds.has(gId))) {
+                      groupStudentCount++;
+                      return true;
+                    }
 
                     // Only fall back to class matching if no group IDs are assigned
                     if (assignedGroupIds.size === 0) {
                       const sClassTokens = this.extractAllStrings([s['classId'], s['assignedClassId'], s['classIds'], s['assignedClassIds']]);
-                      if (sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+                      if (sClassTokens.some(cId => assignedClassIds.has(cId))) {
+                        classStudentCount++;
+                        return true;
+                      }
                     }
 
                     return false;
