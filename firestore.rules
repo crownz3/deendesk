@@ -255,6 +255,18 @@ service cloud.firestore {
         );
     }
 
+    function isDynamicMadrasaIncharge(data) {
+      let mId = data.get('madrasaId', null);
+      let m = mId != null && mId != '' ? get(/databases/$(database)/documents/madrasas/$(mId)) : null;
+      let inchargeIds = m != null ? m.data.get('inchargeIds', []) : [];
+      let cUser = currentUser();
+      return m != null && (
+        request.auth.uid in inchargeIds
+        || (cUser != null && cUser.get('userId', 'NONE') in inchargeIds)
+        || (cUser != null && cUser.get('email', 'NONE') in inchargeIds)
+      );
+    }
+
     function canTakeAttendance(data) {
       return isSuper()
         || (
@@ -263,6 +275,7 @@ service cloud.firestore {
             || ((isCoordinator() || isMadrasaIncharge()) && (inAssignedMadrasaScope(data) || assignedClassGroup(data)))
             || (isTeacherOrStaff() && assignedClassGroup(data))
             || hasPermission('takeAttendance')
+            || isDynamicMadrasaIncharge(data)
           )
         );
     }
@@ -746,7 +759,7 @@ service cloud.firestore {
       );
       allow delete: if signedIn() && (
         isSuper()
-        || (sameOrg(resource.data) && (isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge()) && inAssignedMadrasaScope(resource.data))))
+        || (sameOrg(resource.data) && (isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge() || isDynamicMadrasaIncharge(resource.data)) && inAssignedMadrasaScope(resource.data))))
       );
 
       match /days/{dayId} {
@@ -755,7 +768,7 @@ service cloud.firestore {
           || resource == null
           || (sameOrg(resource.data) && (
             isOrgAdmin()
-            || ((isCoordinator() || isMadrasaIncharge()) && (inAssignedMadrasaScope(resource.data) || assignedClassGroup(resource.data)))
+            || ((isCoordinator() || isMadrasaIncharge() || isDynamicMadrasaIncharge(resource.data)) && (inAssignedMadrasaScope(resource.data) || assignedClassGroup(resource.data)))
             || (isTeacherOrStaff() && assignedClassGroup(resource.data))
             || isStudent()
             || isParent()
@@ -769,7 +782,7 @@ service cloud.firestore {
         );
         allow delete: if signedIn() && (
           isSuper()
-          || (sameOrg(resource.data) && (isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge()) && inAssignedMadrasaScope(resource.data))))
+          || (sameOrg(resource.data) && (isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge() || isDynamicMadrasaIncharge(resource.data)) && inAssignedMadrasaScope(resource.data))))
         );
       }
     }
@@ -795,7 +808,7 @@ service cloud.firestore {
       );
       allow delete: if signedIn() && (
         isSuper()
-        || (sameOrg(resource.data) && (isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge()) && inAssignedMadrasaScope(resource.data))))
+        || (sameOrg(resource.data) && (isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge() || isDynamicMadrasaIncharge(resource.data)) && inAssignedMadrasaScope(resource.data))))
       );
     }
 
