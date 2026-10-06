@@ -2189,7 +2189,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
               incompleteReason: item.targetIncompleteReason || '',
               incompleteNotes: item.targetIncompleteNotes || '',
             },
-            hifzProgress: {
+            hifzProgress: this.studentTypeMode === 'hifz' ? {
               sabaqSurahName: item.sabaqSurah || '',
               sabaqFromAyah: item.sabaqFromAyah || null,
               sabaqToAyah: item.sabaqToAyah || null,
@@ -2209,23 +2209,23 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
               manzilMistakes: item.manzilMistakes || 0,
               rating: item.hifzRating || 5,
               evalUnitMode: this.hifzEvalMode
-            },
-            dawrProgress: {
-              roundNo: item.dawrRoundNo,
-              portionJuz: item.dawrPortionJuz,
-              fromAyah: item.dawrFromAyah,
-              toAyah: item.dawrToAyah,
-              dawrMistakes: item.dawrMistakes,
-              manzilMistakes: item.dawrManzilMistakes,
-              rating: item.dawrRating,
-            },
-            maktabProgress: {
-              subjectName: item.maktabSubject,
-              pageNo: item.maktabPage,
-              lineNo: item.maktabLineNo,
-              mistakesCount: item.maktabMistakes,
-              remarks: item.maktabRemarks,
-            }
+            } : null,
+            dawrProgress: this.studentTypeMode === 'dawr' ? {
+              roundNo: item.dawrRoundNo || 1,
+              portionJuz: item.dawrPortionJuz || 'Juz 1',
+              fromAyah: item.dawrFromAyah || null,
+              toAyah: item.dawrToAyah || null,
+              dawrMistakes: item.dawrMistakes || 0,
+              manzilMistakes: item.dawrManzilMistakes || 0,
+              rating: item.dawrRating || 5,
+            } : null,
+            maktabProgress: this.studentTypeMode === 'maktab' ? {
+              subjectName: item.maktabSubject || '',
+              pageNo: item.maktabPage || null,
+              lineNo: item.maktabLineNo || null,
+              mistakesCount: item.maktabMistakes || 0,
+              remarks: item.maktabRemarks || '',
+            } : null
           };
 
           return setDoc(pDocRef, progressPayload, { merge: true });
