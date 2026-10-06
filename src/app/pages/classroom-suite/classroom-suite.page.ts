@@ -1310,19 +1310,25 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
       // 3. Fetch Daily Progress Records & Student Target Records
       const progressMap = new Map<string, any>();
-      for (const st of groupStudents) {
+      const progressPromises = groupStudents.map(async st => {
         if (st.id) {
           try {
             const pDocRef = doc(firestore, 'studentDailyProgress', `${st.id}_${this.selectedDateStr}`);
             const pSnap = await getDoc(pDocRef);
             if (pSnap && pSnap.exists()) {
-              progressMap.set(st.id, pSnap.data());
+              return { id: st.id, data: pSnap.data() };
             }
           } catch (pErr) {
             console.warn(`Could not fetch daily progress for student ${st.id}:`, pErr);
           }
         }
-      }
+        return null;
+      });
+
+      const progressResults = await Promise.all(progressPromises);
+      progressResults.forEach(res => {
+        if (res) progressMap.set(res.id, res.data);
+      });
 
       // Fetch overall attendance list to compute attendance history stats for each student
       let allAttendanceList: EntityRecord[] = [];
@@ -2056,31 +2062,43 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       const yStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
 
       let updatedCount = 0;
-      for (const item of this.roster) {
+      const prevDocPromises = this.roster.map(async item => {
         if (item.student.id) {
           const prevDocRef = doc(firestore, 'studentDailyProgress', `${item.student.id}_${yStr}`);
-          const pSnap = await getDoc(prevDocRef);
-          if (pSnap.exists()) {
-            const prevData = pSnap.data();
-            const prevHifz = prevData['hifzProgress'];
-            const prevDawr = prevData['dawrProgress'];
-            const prevMaktab = prevData['maktabProgress'];
+          try {
+            const pSnap = await getDoc(prevDocRef);
+            return { item, snap: pSnap };
+          } catch (e) {
+            return null;
+          }
+        }
+        return null;
+      });
 
-            if (this.studentTypeMode === 'hifz' && prevHifz) {
-              item.sabaqSurah = prevHifz.sabaqSurahName || item.sabaqSurah;
-              item.sabaqFromAyah = (prevHifz.sabaqToAyah || 0) + 1;
-              item.sabqiJuz = prevHifz.sabqiJuzNo || item.sabqiJuz;
-              item.manzilJuz = prevHifz.manzilJuzNo || item.manzilJuz;
-              updatedCount++;
-            } else if (this.studentTypeMode === 'dawr' && prevDawr) {
-              item.dawrRoundNo = prevDawr.roundNo || item.dawrRoundNo;
-              item.dawrPortionJuz = prevDawr.portionJuz || item.dawrPortionJuz;
-              updatedCount++;
-            } else if (this.studentTypeMode === 'maktab' && prevMaktab) {
-              item.maktabSubject = prevMaktab.subjectName || item.maktabSubject;
-              item.maktabPage = (prevMaktab.pageNo || 0) + 1;
-              updatedCount++;
-            }
+      const prevDocResults = await Promise.all(prevDocPromises);
+
+      for (const res of prevDocResults) {
+        if (res && res.snap && res.snap.exists()) {
+          const item = res.item;
+          const prevData = res.snap.data();
+          const prevHifz = prevData['hifzProgress'];
+          const prevDawr = prevData['dawrProgress'];
+          const prevMaktab = prevData['maktabProgress'];
+
+          if (this.studentTypeMode === 'hifz' && prevHifz) {
+            item.sabaqSurah = prevHifz.sabaqSurahName || item.sabaqSurah;
+            item.sabaqFromAyah = (prevHifz.sabaqToAyah || 0) + 1;
+            item.sabqiJuz = prevHifz.sabqiJuzNo || item.sabqiJuz;
+            item.manzilJuz = prevHifz.manzilJuzNo || item.manzilJuz;
+            updatedCount++;
+          } else if (this.studentTypeMode === 'dawr' && prevDawr) {
+            item.dawrRoundNo = prevDawr.roundNo || item.dawrRoundNo;
+            item.dawrPortionJuz = prevDawr.portionJuz || item.dawrPortionJuz;
+            updatedCount++;
+          } else if (this.studentTypeMode === 'maktab' && prevMaktab) {
+            item.maktabSubject = prevMaktab.subjectName || item.maktabSubject;
+            item.maktabPage = (prevMaktab.pageNo || 0) + 1;
+            updatedCount++;
           }
         }
       }
@@ -2139,7 +2157,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       await setDoc(attendanceDocRef, attendancePayload, { merge: true });
 
       // Save Student Daily Progress Documents & Targets
-      for (const item of this.roster) {
+      const setDocPromises = this.roster.map(async item => {
         if (item.student.id) {
           const pDocRef = doc(firestore, 'studentDailyProgress', `${item.student.id}_${this.selectedDateStr}`);
           const progressPayload = {
@@ -2210,9 +2228,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             }
           };
 
-          await setDoc(pDocRef, progressPayload, { merge: true });
+          return setDoc(pDocRef, progressPayload, { merge: true });
         }
-      }
+        return Promise.resolve();
+      });
+
+      await Promise.all(setDocPromises);
 
       // Invalidate Repository Cache (Rule 5 compliance)
       this.repo.clearCache();

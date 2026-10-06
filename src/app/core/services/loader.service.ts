@@ -5,6 +5,7 @@ import { BehaviorSubject } from 'rxjs';
 export class LoaderService {
   private loadingCount = 0;
   private autoDismissTimer: any = null;
+  private showDelayTimer: any = null;
 
   private loadingSubject = new BehaviorSubject<boolean>(false);
   private messageSubject = new BehaviorSubject<string>('Loading, please wait...');
@@ -15,13 +16,19 @@ export class LoaderService {
   show(message = 'Loading, please wait...'): void {
     this.loadingCount++;
     this.messageSubject.next(message);
-    this.loadingSubject.next(true);
 
-    // Safety timeout: auto-reset loader after 12 seconds to prevent screen touch freeze
-    if (this.autoDismissTimer) clearTimeout(this.autoDismissTimer);
-    this.autoDismissTimer = setTimeout(() => {
-      this.reset();
-    }, 12000);
+    if (this.loadingCount === 1) {
+      if (this.showDelayTimer) clearTimeout(this.showDelayTimer);
+      this.showDelayTimer = setTimeout(() => {
+        this.loadingSubject.next(true);
+
+        // Safety timeout: auto-reset loader after 12 seconds to prevent screen touch freeze
+        if (this.autoDismissTimer) clearTimeout(this.autoDismissTimer);
+        this.autoDismissTimer = setTimeout(() => {
+          this.reset();
+        }, 12000);
+      }, 300);
+    }
   }
 
   hide(): void {
@@ -44,6 +51,10 @@ export class LoaderService {
     if (this.autoDismissTimer) {
       clearTimeout(this.autoDismissTimer);
       this.autoDismissTimer = null;
+    }
+    if (this.showDelayTimer) {
+      clearTimeout(this.showDelayTimer);
+      this.showDelayTimer = null;
     }
     this.loadingCount = 0;
     this.loadingSubject.next(false);
