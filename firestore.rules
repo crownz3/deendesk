@@ -264,6 +264,28 @@ service cloud.firestore {
         request.auth.uid in inchargeIds
         || (cUser != null && cUser.get('userId', 'NONE') in inchargeIds)
         || (cUser != null && cUser.get('email', 'NONE') in inchargeIds)
+        || (cUser != null && cUser.get('phone', 'NONE') in inchargeIds)
+        || (cUser != null && cUser.get('phoneNumber', 'NONE') in inchargeIds)
+        || (cUser != null && cUser.get('mobileNumber', 'NONE') in inchargeIds)
+      );
+    }
+
+    function isDynamicAssignedTeacher(data) {
+      let gId = data.get('groupId', null);
+      let g = gId != null && gId != '' ? get(/databases/$(database)/documents/classGroups/$(gId)) : null;
+      let staffIds = g != null ? g.data.get('assignedStaffIds', []) : [];
+      let teacherIds = g != null ? g.data.get('teacherIds', []) : [];
+      let cUser = currentUser();
+      return g != null && (
+        request.auth.uid in staffIds || request.auth.uid in teacherIds
+        || (cUser != null && cUser.get('userId', 'NONE') in staffIds)
+        || (cUser != null && cUser.get('userId', 'NONE') in teacherIds)
+        || (cUser != null && cUser.get('email', 'NONE') in staffIds)
+        || (cUser != null && cUser.get('email', 'NONE') in teacherIds)
+        || (cUser != null && cUser.get('phone', 'NONE') in staffIds)
+        || (cUser != null && cUser.get('phone', 'NONE') in teacherIds)
+        || (cUser != null && cUser.get('phoneNumber', 'NONE') in staffIds)
+        || (cUser != null && cUser.get('phoneNumber', 'NONE') in teacherIds)
       );
     }
 
@@ -272,8 +294,8 @@ service cloud.firestore {
         || (
           sameOrg(data) && (
             isOrgAdmin()
-            || ((isCoordinator() || isMadrasaIncharge()) && (inAssignedMadrasaScope(data) || assignedClassGroup(data)))
-            || (isTeacherOrStaff() && assignedClassGroup(data))
+            || ((isCoordinator() || isMadrasaIncharge()) && (inAssignedMadrasaScope(data) || assignedClassGroup(data) || isDynamicAssignedTeacher(data)))
+            || (isTeacherOrStaff() && (assignedClassGroup(data) || isDynamicAssignedTeacher(data)))
             || hasPermission('takeAttendance')
             || isDynamicMadrasaIncharge(data)
           )
@@ -768,8 +790,8 @@ service cloud.firestore {
           || resource == null
           || (sameOrg(resource.data) && (
             isOrgAdmin()
-            || ((isCoordinator() || isMadrasaIncharge() || isDynamicMadrasaIncharge(resource.data)) && (inAssignedMadrasaScope(resource.data) || assignedClassGroup(resource.data)))
-            || (isTeacherOrStaff() && assignedClassGroup(resource.data))
+            || ((isCoordinator() || isMadrasaIncharge() || isDynamicMadrasaIncharge(resource.data)) && (inAssignedMadrasaScope(resource.data) || assignedClassGroup(resource.data) || isDynamicAssignedTeacher(resource.data)))
+            || (isTeacherOrStaff() && (assignedClassGroup(resource.data) || isDynamicAssignedTeacher(resource.data)))
             || isStudent()
             || isParent()
             || hasPermission('viewAttendance')
