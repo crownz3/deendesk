@@ -2169,8 +2169,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             groupId: this.selectedGroupId,
             date: this.selectedDateStr,
             studentType: this.studentTypeMode,
-            recordedByUid: this.currentUser.uid,
-            recordedByName: this.currentUser.displayName || this.currentUser.email,
+            recordedByUid: this.currentUser?.uid || '',
+            recordedByName: this.currentUser?.displayName || this.currentUser?.email || '',
             recordedAt: Timestamp.now(),
             targetGoals: {
               period: item.targetPeriod || 'weekly',
