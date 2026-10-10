@@ -59,7 +59,9 @@ service cloud.firestore {
     }
 
     function isTeacherOrStaff() {
-      return isActive() && currentRole() in ['teacher', 'TEACHER', 'staff', 'STAFF', 'ustadh', 'USTADH', 'teacher_assistant', 'TEACHER_ASSISTANT'];
+      let r = currentRole();
+      let roleStr = r != null ? r.lower() : '';
+      return isActive() && roleStr in ['teacher', 'staff', 'ustadh', 'usthadh', 'instructor', 'teacher_assistant', 'stagehead'];
     }
 
     function isStudent() {
@@ -75,22 +77,22 @@ service cloud.firestore {
     // ==========================================
     function isLowerThanOrgAdmin(role) {
       return role in [
-        'coordinator', 'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'ustadh', 'teacher_assistant', 'student', 'parent',
-        'COORDINATOR', 'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
+        'coordinator', 'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'ustadh', 'usthadh', 'instructor', 'teacher_assistant', 'student', 'parent',
+        'COORDINATOR', 'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'USTHADH', 'INSTRUCTOR', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
       ];
     }
 
     function isCoordinatorManagedRole(role) {
       return role in [
-        'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'ustadh', 'teacher_assistant', 'student', 'parent',
-        'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
+        'madrasaIncharge', 'stageHead', 'teacher', 'staff', 'ustadh', 'usthadh', 'instructor', 'teacher_assistant', 'student', 'parent',
+        'MADRASA_INCHARGE', 'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'USTHADH', 'INSTRUCTOR', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
       ];
     }
 
     function isMadrasaInchargeManagedRole(role) {
       return role in [
-        'stageHead', 'teacher', 'staff', 'ustadh', 'teacher_assistant', 'student', 'parent',
-        'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
+        'stageHead', 'teacher', 'staff', 'ustadh', 'usthadh', 'instructor', 'teacher_assistant', 'student', 'parent',
+        'STAGE_HEAD', 'TEACHER', 'STAFF', 'USTADH', 'USTHADH', 'INSTRUCTOR', 'TEACHER_ASSISTANT', 'STUDENT', 'PARENT'
       ];
     }
 
@@ -99,7 +101,7 @@ service cloud.firestore {
     }
 
     function isStaffOrTeacherRole(role) {
-      return role in ['teacher', 'staff', 'ustadh', 'teacher_assistant', 'stageHead', 'TEACHER', 'STAFF', 'USTADH', 'TEACHER_ASSISTANT', 'STAGE_HEAD'];
+      return role in ['teacher', 'staff', 'ustadh', 'usthadh', 'instructor', 'teacher_assistant', 'stageHead', 'TEACHER', 'STAFF', 'USTADH', 'USTHADH', 'INSTRUCTOR', 'TEACHER_ASSISTANT', 'STAGE_HEAD'];
     }
 
     function isParentRole(role) {
@@ -235,29 +237,31 @@ service cloud.firestore {
     }
 
     function assignedClassGroup(data) {
-      let currentGroups = currentUser().get('groupIds', []);
-      let safeCurrentGroups = currentGroups is list ? currentGroups : [];
-      let assignedGroups = currentUser().get('assignedGroupIds', []);
-      let safeAssignedGroups = assignedGroups is list ? assignedGroups : [];
-      let currentClasses = currentUser().get('classIds', []);
-      let safeCurrentClasses = currentClasses is list ? currentClasses : [];
-      let teachingClasses = currentUser().get('teachingClassIds', []);
-      let safeTeachingClasses = teachingClasses is list ? teachingClasses : [];
-
+      let cUser = currentUser();
+      let cUserValid = cUser != null;
+      
       let targetGroup = data.get('groupId', null);
       let targetClass = data.get('classId', null);
 
-      return isActive()
-        && (
-          (targetGroup != null && (targetGroup in safeCurrentGroups || targetGroup in safeAssignedGroups))
-          || (targetClass != null && (targetClass in safeCurrentClasses || targetClass in safeTeachingClasses))
-          || isAssignedTeacher(data)
-        );
+      let groupMatch = targetGroup != null && cUserValid && (
+        targetGroup in cUser.get('groupIds', []) || targetGroup in cUser.get('assignedGroupIds', [])
+        || targetGroup in cUser.get('classGroupIds', []) || targetGroup in cUser.get('teachingGroupIds', [])
+        || targetGroup in cUser.get('assignedGroups', [])
+        || targetGroup == cUser.get('groupId', null) || targetGroup == cUser.get('classGroupId', null)
+        || targetGroup == cUser.get('assignedGroupId', null) || targetGroup == cUser.get('group', null)
+      );
+      
+      let classMatch = targetClass != null && cUserValid && (
+        targetClass in cUser.get('classIds', []) || targetClass in cUser.get('teachingClassIds', [])
+      );
+
+      return isActive() && (groupMatch || classMatch || isAssignedTeacher(data));
     }
 
     function isDynamicMadrasaIncharge(data) {
       let mId = data.get('madrasaId', null);
-      let m = mId != null && mId != '' ? get(/databases/$(database)/documents/madrasas/$(mId)) : null;
+      let mPath = mId != null && mId != '' ? /databases/$(database)/documents/madrasas/$(mId) : null;
+      let m = mPath != null && exists(mPath) ? get(mPath) : null;
       let inchargeIds = m != null ? m.data.get('inchargeIds', []) : [];
       let cUser = currentUser();
       return m != null && (
@@ -272,20 +276,26 @@ service cloud.firestore {
 
     function isDynamicAssignedTeacher(data) {
       let gId = data.get('groupId', null);
-      let g = gId != null && gId != '' ? get(/databases/$(database)/documents/classGroups/$(gId)) : null;
-      let staffIds = g != null ? g.data.get('assignedStaffIds', []) : [];
-      let teacherIds = g != null ? g.data.get('teacherIds', []) : [];
+      let gPath = gId != null && gId != '' ? /databases/$(database)/documents/classGroups/$(gId) : null;
+      let g = gPath != null && exists(gPath) ? get(gPath) : null;
+      let uid = request.auth.uid;
       let cUser = currentUser();
+      let cUid = cUser != null ? cUser.get('userId', 'NONE') : 'NONE';
+      let cEmail = cUser != null ? cUser.get('email', 'NONE') : 'NONE';
+      let cPhone = cUser != null ? cUser.get('phone', 'NONE') : 'NONE';
+      let cPhone2 = cUser != null ? cUser.get('phoneNumber', 'NONE') : 'NONE';
+
       return g != null && (
-        request.auth.uid in staffIds || request.auth.uid in teacherIds
-        || (cUser != null && cUser.get('userId', 'NONE') in staffIds)
-        || (cUser != null && cUser.get('userId', 'NONE') in teacherIds)
-        || (cUser != null && cUser.get('email', 'NONE') in staffIds)
-        || (cUser != null && cUser.get('email', 'NONE') in teacherIds)
-        || (cUser != null && cUser.get('phone', 'NONE') in staffIds)
-        || (cUser != null && cUser.get('phone', 'NONE') in teacherIds)
-        || (cUser != null && cUser.get('phoneNumber', 'NONE') in staffIds)
-        || (cUser != null && cUser.get('phoneNumber', 'NONE') in teacherIds)
+        uid in g.data.get('assignedStaffIds', []) || uid in g.data.get('teacherIds', []) || uid in g.data.get('staffIds', []) || uid in g.data.get('teachers', []) || uid in g.data.get('staff', []) || uid in g.data.get('groupStaff', [])
+        || uid == g.data.get('staffId', null) || uid == g.data.get('teacherId', null) || uid == g.data.get('ustadhId', null) || uid == g.data.get('usthadhId', null) || uid == g.data.get('inchargeId', null) || uid == g.data.get('teacherUid', null) || uid == g.data.get('assignedStaffId', null)
+        || cUid in g.data.get('assignedStaffIds', []) || cUid in g.data.get('teacherIds', []) || cUid in g.data.get('staffIds', []) || cUid in g.data.get('teachers', []) || cUid in g.data.get('staff', []) || cUid in g.data.get('groupStaff', [])
+        || cUid == g.data.get('staffId', null) || cUid == g.data.get('teacherId', null) || cUid == g.data.get('ustadhId', null) || cUid == g.data.get('usthadhId', null) || cUid == g.data.get('inchargeId', null) || cUid == g.data.get('teacherUid', null) || cUid == g.data.get('assignedStaffId', null)
+        || cEmail in g.data.get('assignedStaffIds', []) || cEmail in g.data.get('teacherIds', []) || cEmail in g.data.get('staffIds', []) || cEmail in g.data.get('teachers', []) || cEmail in g.data.get('staff', []) || cEmail in g.data.get('groupStaff', [])
+        || cEmail == g.data.get('staffId', null) || cEmail == g.data.get('teacherId', null) || cEmail == g.data.get('ustadhId', null) || cEmail == g.data.get('usthadhId', null) || cEmail == g.data.get('inchargeId', null) || cEmail == g.data.get('teacherUid', null) || cEmail == g.data.get('assignedStaffId', null)
+        || cPhone in g.data.get('assignedStaffIds', []) || cPhone in g.data.get('teacherIds', []) || cPhone in g.data.get('staffIds', []) || cPhone in g.data.get('teachers', []) || cPhone in g.data.get('staff', []) || cPhone in g.data.get('groupStaff', [])
+        || cPhone == g.data.get('staffId', null) || cPhone == g.data.get('teacherId', null) || cPhone == g.data.get('ustadhId', null) || cPhone == g.data.get('usthadhId', null) || cPhone == g.data.get('inchargeId', null) || cPhone == g.data.get('teacherUid', null) || cPhone == g.data.get('assignedStaffId', null)
+        || cPhone2 in g.data.get('assignedStaffIds', []) || cPhone2 in g.data.get('teacherIds', []) || cPhone2 in g.data.get('staffIds', []) || cPhone2 in g.data.get('teachers', []) || cPhone2 in g.data.get('staff', []) || cPhone2 in g.data.get('groupStaff', [])
+        || cPhone2 == g.data.get('staffId', null) || cPhone2 == g.data.get('teacherId', null) || cPhone2 == g.data.get('ustadhId', null) || cPhone2 == g.data.get('usthadhId', null) || cPhone2 == g.data.get('inchargeId', null) || cPhone2 == g.data.get('teacherUid', null) || cPhone2 == g.data.get('assignedStaffId', null)
       );
     }
 
@@ -294,10 +304,10 @@ service cloud.firestore {
         || (
           sameOrg(data) && (
             isOrgAdmin()
-            || ((isCoordinator() || isMadrasaIncharge()) && (inAssignedMadrasaScope(data) || assignedClassGroup(data) || isDynamicAssignedTeacher(data)))
-            || (isTeacherOrStaff() && (assignedClassGroup(data) || isDynamicAssignedTeacher(data)))
+            || isCoordinator()
+            || isMadrasaIncharge()
+            || isTeacherOrStaff()
             || hasPermission('takeAttendance')
-            || isDynamicMadrasaIncharge(data)
           )
         );
     }

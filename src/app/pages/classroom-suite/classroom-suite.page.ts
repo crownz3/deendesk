@@ -2235,17 +2235,17 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
       await Promise.all(setDocPromises);
 
-      // Invalidate Repository Cache (Rule 5 compliance)
-      this.repo.clearCache();
+      // Invalidate specific Repository Cache (Rule 5 compliance)
+      this.repo.clearCache('attendance');
 
       this.isAttendanceRecorded = true;
       this.recordedByName = this.currentUser.displayName || this.currentUser.email;
       this.recordedAtText = 'Just Now';
 
       this.snackBar.open('Attendance & Daily Progress saved successfully!', 'Dismiss', { duration: 3500 });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving attendance and progress:', err);
-      this.snackBar.open('Failed to save classroom suite data', 'Close', { duration: 4000 });
+      this.snackBar.open(`Failed to save classroom suite data: ${err?.message || 'Permissions issue'}`, 'Close', { duration: 5000 });
     } finally {
       this.loader.hide();
     }
