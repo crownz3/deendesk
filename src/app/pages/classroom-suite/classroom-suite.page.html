@@ -141,10 +141,59 @@
         </button>
       </div>
 
-      <!-- Save Button -->
-      <button mat-raised-button color="primary" class="save-all-btn" (click)="saveSuiteData()" [disabled]="!canManageAttendance">
-        <mat-icon>save</mat-icon> Save Attendance
-      </button>
+      <!-- Save Actions Group: Context-Aware Dynamic Button + Universal Save All -->
+      <div class="save-actions-group">
+        <!-- Context Action: Save Attendance (Attendance Register Tab) -->
+        <button 
+          mat-stroked-button 
+          color="primary" 
+          class="context-save-btn attendance-btn" 
+          *ngIf="activeTab === 'attendance'"
+          (click)="saveAttendanceOnly()" 
+          [disabled]="!canManageAttendance || isSavingAttendance || isSavingAll"
+        >
+          <mat-icon>check_circle</mat-icon>
+          <span>{{ isSavingAttendance ? 'Saving Attendance...' : 'Save Attendance' }}</span>
+        </button>
+
+        <!-- Context Action: Save Progress (Daily Progress Tab) -->
+        <button 
+          mat-stroked-button 
+          color="accent" 
+          class="context-save-btn progress-btn" 
+          *ngIf="activeTab === 'progress'"
+          (click)="saveProgressOnly()" 
+          [disabled]="!canManageAttendance || isSavingProgress || isSavingAll"
+        >
+          <mat-icon>auto_stories</mat-icon>
+          <span>{{ isSavingProgress ? 'Saving Progress...' : 'Save Progress' }}</span>
+        </button>
+
+        <!-- Context Action: Add Timetable Slot (Timetable Tab) -->
+        <button 
+          mat-stroked-button 
+          class="context-save-btn timetable-btn" 
+          *ngIf="activeTab === 'timetable'"
+          (click)="openAddTimetableDialog()" 
+          [disabled]="!selectedGroupId"
+        >
+          <mat-icon>add_alarm</mat-icon>
+          <span>+ Add Timetable Slot</span>
+        </button>
+
+        <!-- Universal Save All Button (Attendance & Progress) -->
+        <button 
+          mat-raised-button 
+          color="primary" 
+          class="save-all-btn" 
+          (click)="saveSuiteData()" 
+          [disabled]="!canManageAttendance || isSavingAll || isSavingAttendance || isSavingProgress"
+          [matTooltip]="'Saves both Attendance and Daily Progress evaluations simultaneously'"
+        >
+          <mat-icon>done_all</mat-icon>
+          <span>{{ isSavingAll ? 'Saving All...' : 'Save All' }}</span>
+        </button>
+      </div>
 
     </div>
 
@@ -534,6 +583,24 @@
             </tbody>
           </table>
         </div>
+
+        <!-- Bottom Action Bar for Attendance Tab -->
+        <div class="tab-bottom-actions" *ngIf="filteredRoster.length > 0 && canManageAttendance">
+          <div class="bottom-stats-summary">
+            <span>Enrolled: <strong>{{ totalEnrolled }}</strong></span>
+            <span class="text-success">Present: <strong>{{ presentCount }} ({{ presentRate }}%)</strong></span>
+            <span class="text-danger">Absent: <strong>{{ absentCount }}</strong></span>
+            <span class="text-warning">Late: <strong>{{ lateCount }}</strong></span>
+          </div>
+          <div class="bottom-btns">
+            <button mat-raised-button color="primary" class="save-tab-btn" (click)="saveAttendanceOnly()" [disabled]="isSavingAttendance || isSavingAll">
+              <mat-icon>save</mat-icon> Save Attendance
+            </button>
+            <button mat-flat-button class="save-all-bottom-btn" (click)="saveSuiteData()" [disabled]="isSavingAll || isSavingAttendance || isSavingProgress">
+              <mat-icon>done_all</mat-icon> Save All
+            </button>
+          </div>
+        </div>
       </div>
 
       <!-- ========================================== -->
@@ -557,6 +624,9 @@
           <div class="actions-right">
             <button mat-stroked-button color="accent" (click)="copyPreviousTarget()" [disabled]="!canManageAttendance">
               <mat-icon>content_copy</mat-icon> Copy Yesterday's Target
+            </button>
+            <button mat-raised-button color="primary" class="save-progress-header-btn" (click)="saveProgressOnly()" [disabled]="!canManageAttendance || isSavingProgress || isSavingAll">
+              <mat-icon>save</mat-icon> {{ isSavingProgress ? 'Saving...' : 'Save Progress' }}
             </button>
           </div>
         </div>
@@ -1407,6 +1477,22 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Bottom Action Bar for Daily Progress Tab -->
+        <div class="tab-bottom-actions" *ngIf="roster.length > 0 && canManageAttendance">
+          <div class="bottom-stats-summary">
+            <span>Enrolled Students: <strong>{{ roster.length }}</strong></span>
+            <span>Evaluation Mode: <strong>{{ studentTypeMode | uppercase }}</strong></span>
+          </div>
+          <div class="bottom-btns">
+            <button mat-raised-button color="accent" class="save-tab-btn" (click)="saveProgressOnly()" [disabled]="isSavingProgress || isSavingAll">
+              <mat-icon>save</mat-icon> Save Progress
+            </button>
+            <button mat-flat-button class="save-all-bottom-btn" (click)="saveSuiteData()" [disabled]="isSavingAll || isSavingAttendance || isSavingProgress">
+              <mat-icon>done_all</mat-icon> Save All
+            </button>
+          </div>
         </div>
       </div>
 

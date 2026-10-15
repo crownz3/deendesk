@@ -248,6 +248,11 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   leaveCount = 0;
   presentRate = 0;
 
+  // Save in-progress states
+  isSavingAll = false;
+  isSavingAttendance = false;
+  isSavingProgress = false;
+
   // Report Metrics Data
   reportStudentSummaries: { studentName: string; presentPct: number; presentDays: number; totalDays: number; hifzAvgSabaq: string }[] = [];
 
@@ -2111,144 +2116,194 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     }
   }
 
-  async saveSuiteData(): Promise<void> {
+  async saveAttendanceOnly(): Promise<void> {
     if (!this.canManageAttendance || !this.currentUser || !this.selectedGroupId) return;
+    if (this.isSavingAttendance || this.isSavingAll) return;
 
     try {
+      this.isSavingAttendance = true;
       this.loader.show();
-      const firestore = getDeenDeskFirestore();
-      const docId = `${this.selectedMadrasaId || 'default'}_${this.selectedGroupId}_${this.selectedDateStr}_${this.selectedPeriodId}`;
-      const attendanceDocRef = doc(firestore, 'attendance', docId);
+      await this.executeSaveAttendance();
+      this.snackBar.open('Attendance register saved successfully!', 'Dismiss', { duration: 3500 });
+    } catch (err: any) {
+      console.error('Error saving attendance:', err);
+      this.snackBar.open(`Failed to save attendance: ${err?.message || 'Permissions issue'}`, 'Close', { duration: 5000 });
+    } finally {
+      this.isSavingAttendance = false;
+      this.loader.hide();
+    }
+  }
 
-      // Build attendance record map
-      const recordsMap: Record<string, { status: AttendanceStatus; note?: string }> = {};
-      this.roster.forEach(r => {
-        if (r.student.id) {
-          recordsMap[r.student.id] = {
-            status: r.status,
-            note: r.note || ''
-          };
-        }
-      });
+  async saveProgressOnly(): Promise<void> {
+    if (!this.canManageAttendance || !this.currentUser || !this.selectedGroupId) return;
+    if (this.isSavingProgress || this.isSavingAll) return;
 
-      const attendancePayload = {
-        id: docId,
-        organizationId: this.currentUser?.organizationId || '',
-        madrasaId: this.selectedMadrasaId,
-        classId: this.selectedClassId,
-        groupId: this.selectedGroupId,
-        date: this.selectedDateStr,
-        attendanceMode: this.attendanceMode,
-        timetableEntryId: this.selectedPeriodId,
-        periodTitle: this.selectedPeriodTitle,
-        takenByUid: this.currentUser.uid,
-        takenByName: this.currentUser.displayName || this.currentUser.email,
-        takenAt: Timestamp.now(),
-        records: recordsMap,
-        summary: {
-          total: this.totalEnrolled,
-          present: this.presentCount,
-          absent: this.absentCount,
-          late: this.lateCount,
-          leave: this.leaveCount,
-        }
-      };
+    try {
+      this.isSavingProgress = true;
+      this.loader.show();
+      await this.executeSaveProgress();
+      this.snackBar.open('Daily Progress evaluations saved successfully!', 'Dismiss', { duration: 3500 });
+    } catch (err: any) {
+      console.error('Error saving daily progress:', err);
+      this.snackBar.open(`Failed to save daily progress: ${err?.message || 'Permissions issue'}`, 'Close', { duration: 5000 });
+    } finally {
+      this.isSavingProgress = false;
+      this.loader.hide();
+    }
+  }
 
-      await setDoc(attendanceDocRef, attendancePayload, { merge: true });
+  async saveSuiteData(): Promise<void> {
+    if (!this.canManageAttendance || !this.currentUser || !this.selectedGroupId) return;
+    if (this.isSavingAll || this.isSavingAttendance || this.isSavingProgress) return;
 
-      // Save Student Daily Progress Documents & Targets
-      const setDocPromises = this.roster.map(async item => {
-        if (item.student.id) {
-          const pDocRef = doc(firestore, 'studentDailyProgress', `${item.student.id}_${this.selectedDateStr}`);
-          const progressPayload = {
-            id: `${item.student.id}_${this.selectedDateStr}`,
-            studentId: item.student.id,
-            organizationId: this.currentUser?.organizationId || '',
-            madrasaId: this.selectedMadrasaId,
-            classId: this.selectedClassId,
-            groupId: this.selectedGroupId,
-            date: this.selectedDateStr,
-            studentType: this.studentTypeMode,
-            recordedByUid: this.currentUser?.uid || '',
-            recordedByName: this.currentUser?.displayName || this.currentUser?.email || '',
-            recordedAt: Timestamp.now(),
-            targetGoals: {
-              period: item.targetPeriod || 'weekly',
-              startDate: item.targetStartDate || '',
-              endDate: item.targetEndDate || '',
-              sabaqSurah: item.targetSabaqSurah || '',
-              sabaqFromAyah: item.targetSabaqFromAyah || null,
-              sabaqToAyah: item.targetSabaqToAyah || null,
-              sabqiJuzRange: item.targetSabqiJuzRange || '',
-              manzilJuzRange: item.targetManzilJuzRange || '',
-              maktabSubject: item.targetMaktabSubject || '',
-              maktabPage: item.targetMaktabPage || null,
-              maktabLineNo: item.targetMaktabLineNo || null,
-              dawrRounds: item.targetDawrRounds || 3,
-              dawrDailyJuz: item.targetDawrDailyJuz || '',
-              incompleteReason: item.targetIncompleteReason || '',
-              incompleteNotes: item.targetIncompleteNotes || '',
-            },
-            hifzProgress: this.studentTypeMode === 'hifz' ? {
-              sabaqSurahName: item.sabaqSurah || '',
-              sabaqFromAyah: item.sabaqFromAyah || null,
-              sabaqToAyah: item.sabaqToAyah || null,
-              sabaqMistakes: item.sabaqMistakes || 0,
-              sabaqJuzPortion: item.sabaqJuzPortion || 'Full Juz',
-              sabqiSurahName: item.sabqiSurah || '',
-              sabqiFromAyah: item.sabqiFromAyah || null,
-              sabqiToAyah: item.sabqiToAyah || null,
-              sabqiJuzNo: item.sabqiJuz || null,
-              sabqiJuzPortion: item.sabqiJuzPortion || 'Full Juz',
-              sabqiMistakes: item.sabqiMistakes || 0,
-              manzilSurahName: item.manzilSurah || '',
-              manzilFromAyah: item.manzilFromAyah || null,
-              manzilToAyah: item.manzilToAyah || null,
-              manzilJuzNo: item.manzilJuz || null,
-              manzilJuzPortion: item.manzilJuzPortion || 'Full Juz',
-              manzilMistakes: item.manzilMistakes || 0,
-              rating: item.hifzRating || 5,
-              evalUnitMode: this.hifzEvalMode
-            } : null,
-            dawrProgress: this.studentTypeMode === 'dawr' ? {
-              roundNo: item.dawrRoundNo || 1,
-              portionJuz: item.dawrPortionJuz || 'Juz 1',
-              fromAyah: item.dawrFromAyah || null,
-              toAyah: item.dawrToAyah || null,
-              dawrMistakes: item.dawrMistakes || 0,
-              manzilMistakes: item.dawrManzilMistakes || 0,
-              rating: item.dawrRating || 5,
-            } : null,
-            maktabProgress: this.studentTypeMode === 'maktab' ? {
-              subjectName: item.maktabSubject || '',
-              pageNo: item.maktabPage || null,
-              lineNo: item.maktabLineNo || null,
-              mistakesCount: item.maktabMistakes || 0,
-              remarks: item.maktabRemarks || '',
-            } : null
-          };
-
-          return setDoc(pDocRef, progressPayload, { merge: true });
-        }
-        return Promise.resolve();
-      });
-
-      await Promise.all(setDocPromises);
-
-      // Invalidate specific Repository Cache (Rule 5 compliance)
-      this.repo.clearCache('attendance');
-
-      this.isAttendanceRecorded = true;
-      this.recordedByName = this.currentUser.displayName || this.currentUser.email;
-      this.recordedAtText = 'Just Now';
-
-      this.snackBar.open('Attendance & Daily Progress saved successfully!', 'Dismiss', { duration: 3500 });
+    try {
+      this.isSavingAll = true;
+      this.loader.show();
+      await Promise.all([
+        this.executeSaveAttendance(),
+        this.executeSaveProgress()
+      ]);
+      this.snackBar.open('All data (Attendance & Daily Progress) saved successfully!', 'Dismiss', { duration: 3500 });
     } catch (err: any) {
       console.error('Error saving attendance and progress:', err);
       this.snackBar.open(`Failed to save classroom suite data: ${err?.message || 'Permissions issue'}`, 'Close', { duration: 5000 });
     } finally {
+      this.isSavingAll = false;
       this.loader.hide();
     }
+  }
+
+  private async executeSaveAttendance(): Promise<void> {
+    const firestore = getDeenDeskFirestore();
+    const docId = `${this.selectedMadrasaId || 'default'}_${this.selectedGroupId}_${this.selectedDateStr}_${this.selectedPeriodId}`;
+    const attendanceDocRef = doc(firestore, 'attendance', docId);
+
+    // Build attendance record map
+    const recordsMap: Record<string, { status: AttendanceStatus; note?: string }> = {};
+    this.roster.forEach(r => {
+      if (r.student.id) {
+        recordsMap[r.student.id] = {
+          status: r.status,
+          note: r.note || ''
+        };
+      }
+    });
+
+    const attendancePayload = {
+      id: docId,
+      organizationId: this.currentUser?.organizationId || '',
+      madrasaId: this.selectedMadrasaId,
+      classId: this.selectedClassId,
+      groupId: this.selectedGroupId,
+      date: this.selectedDateStr,
+      attendanceMode: this.attendanceMode,
+      timetableEntryId: this.selectedPeriodId,
+      periodTitle: this.selectedPeriodTitle,
+      takenByUid: this.currentUser?.uid || '',
+      takenByName: this.currentUser?.displayName || this.currentUser?.email || '',
+      takenAt: Timestamp.now(),
+      records: recordsMap,
+      summary: {
+        total: this.totalEnrolled,
+        present: this.presentCount,
+        absent: this.absentCount,
+        late: this.lateCount,
+        leave: this.leaveCount,
+      }
+    };
+
+    await setDoc(attendanceDocRef, attendancePayload, { merge: true });
+
+    // Invalidate specific Repository Cache (Rule 5 compliance)
+    this.repo.clearCache('attendance');
+
+    this.isAttendanceRecorded = true;
+    this.recordedByName = this.currentUser?.displayName || this.currentUser?.email || '';
+    this.recordedAtText = 'Just Now';
+  }
+
+  private async executeSaveProgress(): Promise<void> {
+    const firestore = getDeenDeskFirestore();
+    const setDocPromises = this.roster.map(async item => {
+      if (item.student.id) {
+        const pDocRef = doc(firestore, 'studentDailyProgress', `${item.student.id}_${this.selectedDateStr}`);
+        const progressPayload = {
+          id: `${item.student.id}_${this.selectedDateStr}`,
+          studentId: item.student.id,
+          organizationId: this.currentUser?.organizationId || '',
+          madrasaId: this.selectedMadrasaId,
+          classId: this.selectedClassId,
+          groupId: this.selectedGroupId,
+          date: this.selectedDateStr,
+          studentType: this.studentTypeMode,
+          recordedByUid: this.currentUser?.uid || '',
+          recordedByName: this.currentUser?.displayName || this.currentUser?.email || '',
+          recordedAt: Timestamp.now(),
+          targetGoals: {
+            period: item.targetPeriod || 'weekly',
+            startDate: item.targetStartDate || '',
+            endDate: item.targetEndDate || '',
+            sabaqSurah: item.targetSabaqSurah || '',
+            sabaqFromAyah: item.targetSabaqFromAyah || null,
+            sabaqToAyah: item.targetSabaqToAyah || null,
+            sabqiJuzRange: item.targetSabqiJuzRange || '',
+            manzilJuzRange: item.targetManzilJuzRange || '',
+            maktabSubject: item.targetMaktabSubject || '',
+            maktabPage: item.targetMaktabPage || null,
+            maktabLineNo: item.targetMaktabLineNo || null,
+            dawrRounds: item.targetDawrRounds || 3,
+            dawrDailyJuz: item.targetDawrDailyJuz || '',
+            incompleteReason: item.targetIncompleteReason || '',
+            incompleteNotes: item.targetIncompleteNotes || '',
+          },
+          hifzProgress: this.studentTypeMode === 'hifz' ? {
+            sabaqSurahName: item.sabaqSurah || '',
+            sabaqFromAyah: item.sabaqFromAyah || null,
+            sabaqToAyah: item.sabaqToAyah || null,
+            sabaqMistakes: item.sabaqMistakes || 0,
+            sabaqJuzPortion: item.sabaqJuzPortion || 'Full Juz',
+            sabqiSurahName: item.sabqiSurah || '',
+            sabqiFromAyah: item.sabqiFromAyah || null,
+            sabqiToAyah: item.sabqiToAyah || null,
+            sabqiJuzNo: item.sabqiJuz || null,
+            sabqiJuzPortion: item.sabqiJuzPortion || 'Full Juz',
+            sabqiMistakes: item.sabqiMistakes || 0,
+            manzilSurahName: item.manzilSurah || '',
+            manzilFromAyah: item.manzilFromAyah || null,
+            manzilToAyah: item.manzilToAyah || null,
+            manzilJuzNo: item.manzilJuz || null,
+            manzilJuzPortion: item.manzilJuzPortion || 'Full Juz',
+            manzilMistakes: item.manzilMistakes || 0,
+            rating: item.hifzRating || 5,
+            evalUnitMode: this.hifzEvalMode
+          } : null,
+          dawrProgress: this.studentTypeMode === 'dawr' ? {
+            roundNo: item.dawrRoundNo || 1,
+            portionJuz: item.dawrPortionJuz || 'Juz 1',
+            fromAyah: item.dawrFromAyah || null,
+            toAyah: item.dawrToAyah || null,
+            dawrMistakes: item.dawrMistakes || 0,
+            manzilMistakes: item.dawrManzilMistakes || 0,
+            rating: item.dawrRating || 5,
+          } : null,
+          maktabProgress: this.studentTypeMode === 'maktab' ? {
+            subjectName: item.maktabSubject || '',
+            pageNo: item.maktabPage || null,
+            lineNo: item.maktabLineNo || null,
+            mistakesCount: item.maktabMistakes || 0,
+            remarks: item.maktabRemarks || '',
+          } : null
+        };
+
+        return setDoc(pDocRef, progressPayload, { merge: true });
+      }
+      return Promise.resolve();
+    });
+
+    await Promise.all(setDocPromises);
+
+    // Invalidate specific Repository Cache (Rule 5 compliance)
+    this.repo.clearCache('studentDailyProgress');
   }
 
   private calculateReportMetrics(): void {
