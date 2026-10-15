@@ -93,6 +93,8 @@ interface ManagementVm {
   classes?: EntityRecord[];
   classGroups?: EntityRecord[];
   organizations?: EntityRecord[];
+  shifts?: EntityRecord[];
+  availableShifts?: string[];
 }
 
 const baseStatusField: QuickAddField = {
@@ -718,6 +720,7 @@ export class ManagementPage {
     tap(() => {
       this.repo.clearCache();
       this.assignmentFilter$.next('all');
+      this.shiftFilter$.next('all');
     })
   );
 
@@ -803,6 +806,7 @@ export class ManagementPage {
   readonly statusFilter$ = new BehaviorSubject<string>('active');
   readonly genderFilter$ = new BehaviorSubject<string>('all');
   readonly assignmentFilter$ = new BehaviorSubject<string>('all');
+  readonly shiftFilter$ = new BehaviorSubject<string>('all');
 
   readonly searchQuery$ = new BehaviorSubject<string>('');
   readonly debouncedSearchQuery$ = this.searchQuery$.pipe(
@@ -832,13 +836,13 @@ export class ManagementPage {
     this.genderFilter$,
     this.pageIndex$,
     this.pageSize$,
-    combineLatest([this.courseFilter$, this.classFilter$, this.classGroupFilter$, this.stageFilter$, this.statusFilter$, this.assignmentFilter$])
+    combineLatest([this.courseFilter$, this.classFilter$, this.classGroupFilter$, this.stageFilter$, this.statusFilter$, this.assignmentFilter$, this.shiftFilter$])
   ]).pipe(
     // Micro-debounce: batch rapid filter changes (e.g. dropdown selects) into a single vm$ evaluation.
     // Without this, selecting a madrasa could fire multiple switchMap cycles in quick succession
     // because combineLatest emits once per source change.
     debounceTime(50),
-    switchMap(([_, config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, classGroupFilter, stageFilter, statusFilter, assignmentFilter]]) => {
+    switchMap(([_, config, profile, madrasaFilter, roleFilter, organizationFilter, searchQuery, genderFilter, pageIndex, pageSize, [courseFilter, classFilter, classGroupFilter, stageFilter, statusFilter, assignmentFilter, shiftFilter]]) => {
       if (!profile) {
         return of({
           loading: true,
@@ -1024,6 +1028,8 @@ export class ManagementPage {
            });
            displayCourses = Array.from(courseMap.values());
             
+            let availableShifts: string[] = [];
+
             if (config.resource === 'classGroups') {
               filteredRows = this.getScopedClassGroups(filteredRows, classes, profile, madrasas);
               const shiftMap = new Map<string, string>();
@@ -1076,12 +1082,20 @@ export class ManagementPage {
                 });
               });
 
+              const availableShiftSet = new Set<string>();
+              shifts.forEach(s => {
+                const sName = String(s['name'] || '').trim();
+                if (sName) availableShiftSet.add(sName);
+              });
+
               filteredRows = filteredRows.map(group => {
                 const gIdStr = extractId(group.id);
                 const sId = String(group['shiftId'] || group['shift'] || '');
                 const sName = shiftMap.get(sId) || group['shiftName'] || group['shift'] || group['shiftId'] || '-';
+                if (sName && sName !== '-') availableShiftSet.add(sName);
                 return { ...group, studentCount: groupStudentCountMap.get(gIdStr) ?? 0, shiftName: sName };
               });
+              availableShifts = Array.from(availableShiftSet).sort((a, b) => a.localeCompare(b));
             }
 
             if (config.resource === 'classes') {
@@ -1450,6 +1464,26 @@ export class ManagementPage {
                    filteredRows = filteredRows.filter(r => matchingClassIds.includes(r['classId']) || r['classId'] === classFilter);
                    displayClassGroups = displayClassGroups.filter(g => matchingClassIds.includes(g['classId']) || g['classId'] === classFilter);
                  }
+                 if (config.resource === 'classGroups' && shiftFilter !== 'all') {
+                   if (shiftFilter === 'assigned') {
+                     filteredRows = filteredRows.filter(r => {
+                       const s = String(r['shiftName'] || r['shiftId'] || r['shift'] || '').trim();
+                       return Boolean(s && s !== '-' && s.toLowerCase() !== 'unassigned');
+                     });
+                   } else if (shiftFilter === 'unassigned') {
+                     filteredRows = filteredRows.filter(r => {
+                       const s = String(r['shiftName'] || r['shiftId'] || r['shift'] || '').trim();
+                       return !s || s === '-' || s.toLowerCase() === 'unassigned';
+                     });
+                   } else {
+                     const targetLower = shiftFilter.toLowerCase().trim();
+                     filteredRows = filteredRows.filter(r => {
+                       const sName = String(r['shiftName'] || '').toLowerCase().trim();
+                       const sId = String(r['shiftId'] || r['shift'] || '').toLowerCase().trim();
+                       return sName === targetLower || sId === targetLower;
+                     });
+                   }
+                 }
                  if (classGroupFilter !== 'all' && config.resource === 'students') {
                    const selectedGroupDoc = classGroups.find(g => extractId(g.id) === classGroupFilter);
                    const groupExplicitStudentSet = new Set<string>([
@@ -1643,12 +1677,12 @@ export class ManagementPage {
             filteredRows = filteredRows.slice(startIndex, startIndex + pageSize);
 
             if (['users', 'students', 'incharges', 'coordinators', 'staff', 'parents'].includes(config.resource)) {
-               return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, classGroups: displayClassGroups, organizations };
+               return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, classGroups: displayClassGroups, organizations, shifts, availableShifts };
             }
  
-            return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, classGroups: displayClassGroups, organizations };
+            return { rows: filteredRows, profile, totalItems, madrasas: displayMadrasas, courses: displayCourses, classes: displayClasses, classGroups: displayClassGroups, organizations, shifts, availableShifts };
         }),
-        map(({ rows, profile, totalItems, madrasas, courses, classes, classGroups, organizations }): PageState<ManagementVm> => {
+        map(({ rows, profile, totalItems, madrasas, courses, classes, classGroups, organizations, shifts, availableShifts }): PageState<ManagementVm> => {
           let dynamicConfig = config;
           if (config.resource === 'courses') {
             const isOrgAdminOrCoordinator = profile?.role === 'organizationAdmin' || profile?.role === 'superAdmin' || profile?.role === 'coordinator';
@@ -1680,7 +1714,9 @@ export class ManagementPage {
               courses,
               classes,
               classGroups,
-              organizations
+              organizations,
+              shifts,
+              availableShifts
             },
             loading: false,
           };

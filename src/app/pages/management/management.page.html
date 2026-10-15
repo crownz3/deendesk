@@ -238,6 +238,20 @@
           </mat-select>
         </mat-form-field>
 
+        <!-- Shift Filter (Class Groups only) -->
+        <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'classGroups'">
+          <mat-label>Shift</mat-label>
+          <mat-select [ngModel]="shiftFilter$ | async" (ngModelChange)="shiftFilter$.next($event); pageIndex$.next(0)">
+            <mat-option value="all">All Shifts</mat-option>
+            <mat-option value="assigned">Shift Assigned</mat-option>
+            <mat-option value="unassigned">Not Assigned Shift</mat-option>
+            <mat-divider *ngIf="vm.availableShifts && vm.availableShifts.length > 0"></mat-divider>
+            <mat-option *ngFor="let s of vm.availableShifts" [value]="s">
+              {{ s }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
         <!-- Class Group Filter (Students only) -->
         <mat-form-field appearance="outline" class="filter-field" *ngIf="vm.config.resource === 'students'">
           <mat-label>Class Group</mat-label>

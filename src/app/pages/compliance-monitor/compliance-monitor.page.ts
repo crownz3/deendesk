@@ -25,6 +25,8 @@ export interface ClassGroupComplianceRow {
   className: string;
   madrasaId: string;
   madrasaName: string;
+  shiftName: string;
+  shiftId?: string;
   assignedStaffName: string;
   hasTimetable: boolean;
   timetableCount: number;
@@ -81,8 +83,17 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
 
   searchInput = '';
   debouncedSearchQuery = '';
-  statusFilter: 'all' | 'attendance-missing' | 'evaluation-missing' | 'timetable-missing' | 'both-missing' | 'all-ok' = 'all';
+  statusFilter:
+    | 'all'
+    | 'attendance-entered'
+    | 'attendance-missing'
+    | 'evaluation-entered'
+    | 'evaluation-missing'
+    | 'timetable-missing'
+    | 'both-missing'
+    | 'all-ok' = 'all';
   madrasaFilter = '';
+  shiftFilter = '';
   viewMode: 'flat' | 'grouped' = 'grouped';
   expandedRowId: string | null = null;
 
@@ -94,6 +105,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
   filteredRows: ClassGroupComplianceRow[] = [];
   filteredMadrasaGroups: MadrasaComplianceGroup[] = [];
   allMadrasas: { id: string; name: string }[] = [];
+  allShifts: string[] = [];
 
   // Summary counts (stored as properties rather than getters for max performance)
   totalGroups = 0;
@@ -104,6 +116,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
   timetableConfiguredCount = 0;
   timetableMissingCount = 0;
   bothMissingCount = 0;
+  bothEnteredCount = 0;
   allCompliantCount = 0;
 
   constructor(
@@ -160,6 +173,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
     this.searchInput = '';
     this.debouncedSearchQuery = '';
     this.madrasaFilter = '';
+    this.shiftFilter = '';
     this.applyFilters();
     this.cdr.markForCheck();
   }
@@ -283,6 +297,22 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  setShiftFilter(val: string): void {
+    const newVal = val || '';
+    if (this.shiftFilter === newVal) return;
+    this.shiftFilter = newVal;
+    this.applyFilters();
+    this.cdr.markForCheck();
+  }
+
+  onShiftChange(val: string): void {
+    const newVal = val || '';
+    if (this.shiftFilter === newVal) return;
+    this.shiftFilter = newVal;
+    this.applyFilters();
+    this.cdr.markForCheck();
+  }
+
   toggleExpandRow(groupId: string): void {
     this.expandedRowId = this.expandedRowId === groupId ? null : groupId;
     this.cdr.markForCheck();
@@ -326,6 +356,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
       students: from(this.repo.getAllOnce<EntityRecord>('students', profile)).pipe(catchError(() => of([]))),
       classPlans: from(this.repo.getAllOnce<EntityRecord & ClassPlan>('classPlans', profile)).pipe(catchError(() => of([]))),
       timetableEntries: from(this.repo.getAllOnce<EntityRecord & TimetableEntry>('timetableEntries', profile)).pipe(catchError(() => of([]))),
+      shifts: from(this.repo.getAllOnce<EntityRecord>('shifts', profile)).pipe(catchError(() => of([]))),
       attendance: from(
         (async () => {
           try {
@@ -395,6 +426,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
     this.timetableConfiguredCount = rows.filter(r => r.hasTimetable).length;
     this.timetableMissingCount = rows.filter(r => !r.hasTimetable).length;
     this.bothMissingCount = rows.filter(r => r.attendanceStatus === 'not-entered' && r.evaluationStatus === 'not-entered').length;
+    this.bothEnteredCount = rows.filter(r => r.attendanceStatus === 'entered' && r.evaluationStatus === 'entered').length;
     this.allCompliantCount = rows.filter(r => r.attendanceStatus === 'entered' && r.evaluationStatus === 'entered' && r.hasTimetable).length;
 
     const seen = new Set<string>();
@@ -402,6 +434,17 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
       .filter(r => { if (seen.has(r.madrasaId)) return false; seen.add(r.madrasaId); return true; })
       .map(r => ({ id: r.madrasaId, name: r.madrasaName }))
       .sort((a, b) => a.name.localeCompare(b.name));
+
+    const seenShifts = new Set<string>();
+    this.allShifts = [];
+    rows.forEach(r => {
+      const s = r.shiftName || 'Unassigned Shift';
+      if (!seenShifts.has(s)) {
+        seenShifts.add(s);
+        this.allShifts.push(s);
+      }
+    });
+    this.allShifts.sort((a, b) => a.localeCompare(b));
   }
 
   applyFilters(): void {
@@ -411,8 +454,22 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
       list = list.filter(r => r.madrasaId === this.madrasaFilter);
     }
 
-    if (this.statusFilter === 'attendance-missing') {
+    if (this.shiftFilter) {
+      if (this.shiftFilter === '__assigned__') {
+        list = list.filter(r => r.shiftName && r.shiftName !== 'Unassigned Shift' && r.shiftName !== '-');
+      } else if (this.shiftFilter === '__unassigned__') {
+        list = list.filter(r => !r.shiftName || r.shiftName === 'Unassigned Shift' || r.shiftName === '-');
+      } else {
+        list = list.filter(r => r.shiftName === this.shiftFilter);
+      }
+    }
+
+    if (this.statusFilter === 'attendance-entered') {
+      list = list.filter(r => r.attendanceStatus === 'entered');
+    } else if (this.statusFilter === 'attendance-missing') {
       list = list.filter(r => r.attendanceStatus === 'not-entered');
+    } else if (this.statusFilter === 'evaluation-entered') {
+      list = list.filter(r => r.evaluationStatus === 'entered');
     } else if (this.statusFilter === 'evaluation-missing') {
       list = list.filter(r => r.evaluationStatus === 'not-entered');
     } else if (this.statusFilter === 'timetable-missing') {
@@ -429,6 +486,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
         r.groupName.toLowerCase().includes(q) ||
         r.className.toLowerCase().includes(q) ||
         r.madrasaName.toLowerCase().includes(q) ||
+        r.shiftName.toLowerCase().includes(q) ||
         r.assignedStaffName.toLowerCase().includes(q)
       );
     }
@@ -479,6 +537,40 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
       const madrasaName = madrasaObj
         ? String(madrasaObj['name'] || madrasaObj['title'] || grpMadrasaId)
         : (grp['madrasaName'] ? String(grp['madrasaName']) : 'Unknown Madrasa');
+
+      // Shift resolution
+      const rawShiftId = String(grp['shiftId'] || cls?.['shiftId'] || '').trim();
+      const rawShiftName = String(
+        grp['shiftName'] || grp['shift'] || grp['timing'] || grp['schedule'] ||
+        cls?.['shiftName'] || cls?.['shift'] || cls?.['timing'] || cls?.['schedule'] || ''
+      ).trim();
+
+      let shiftName = '';
+      if (rawShiftId) {
+        const foundShift = (data['shifts'] || []).find(s =>
+          String(s.id) === rawShiftId ||
+          String(s['code'] || '').toLowerCase() === rawShiftId.toLowerCase()
+        );
+        if (foundShift) {
+          shiftName = String(foundShift['name'] || foundShift['title'] || foundShift['code'] || '');
+        }
+      }
+      if (!shiftName && rawShiftName) {
+        const foundShift = (data['shifts'] || []).find(s =>
+          String(s.id).toLowerCase() === rawShiftName.toLowerCase() ||
+          String(s['name'] || '').toLowerCase() === rawShiftName.toLowerCase()
+        );
+        shiftName = foundShift ? String(foundShift['name'] || foundShift['title'] || '') : rawShiftName;
+      }
+      if (!shiftName) {
+        const combined = (String(grp['name'] || '') + ' ' + String(cls?.['name'] || '')).toLowerCase();
+        if (combined.includes('morning')) shiftName = 'Morning Shift';
+        else if (combined.includes('evening')) shiftName = 'Evening Shift';
+        else if (combined.includes('maghrib')) shiftName = 'After Maghrib Shift';
+        else if (combined.includes('night')) shiftName = 'Night Shift';
+        else if (combined.includes('afternoon')) shiftName = 'Afternoon Shift';
+        else shiftName = 'Unassigned Shift';
+      }
 
       // Timetable check for selected day of week
       const groupPlans = classPlans.filter(p =>
@@ -702,6 +794,8 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
         className: String(cls?.['name'] || grp['className'] || 'Class'),
         madrasaId: grpMadrasaId,
         madrasaName,
+        shiftName,
+        shiftId: rawShiftId || undefined,
         assignedStaffName,
         hasTimetable,
         timetableCount,
@@ -838,6 +932,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
     const header = [
       'Class Group',
       'Class',
+      'Shift',
       'Madrasa',
       'Assigned Staff',
       `Timetable (${dayLabel})`,
@@ -851,6 +946,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
     const csvRows = rows.map(r => [
       r.groupName,
       r.className,
+      r.shiftName || 'Unassigned Shift',
       r.madrasaName,
       r.assignedStaffName || 'Unassigned',
       r.hasTimetable ? `${r.timetableCount} period(s) configured` : `NOT CONFIGURED FOR ${dayLabel.toUpperCase()}`,
@@ -879,5 +975,6 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
   trackByGroup(_: number, row: ClassGroupComplianceRow): string { return row.groupId; }
   trackByMadrasa(_: number, mg: MadrasaComplianceGroup): string { return mg.madrasaId; }
   trackByMadrasaOption(_: number, item: { id: string; name: string }): string { return item.id; }
+  trackByShiftOption(_: number, item: string): string { return item; }
   trackBySlot(index: number, s: TimetableSlotInfo): string { return s.title + '_' + index; }
 }

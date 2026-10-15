@@ -1,4 +1,4 @@
-<ion-header class="compliance-header" [translucent]="false">
+<!-- <ion-header class="compliance-header" [translucent]="false">
   <ion-toolbar class="header-toolbar">
     <ion-buttons slot="start">
       <ion-menu-button class="menu-btn"></ion-menu-button>
@@ -13,7 +13,7 @@
       </button>
     </ion-buttons>
   </ion-toolbar>
-</ion-header>
+</ion-header> -->
 
 <ion-content class="compliance-content">
   <div class="page-wrapper">
@@ -105,13 +105,25 @@
       </div>
 
       <!-- Attendance Entered -->
-      <div class="summary-card success" (click)="setStatusFilter('all-ok')" [class.active-filter]="statusFilter === 'all-ok'">
+      <div class="summary-card success" (click)="setStatusFilter('attendance-entered')" [class.active-filter]="statusFilter === 'attendance-entered'">
         <div class="summary-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
         <div class="summary-body">
           <div class="summary-value">{{ attendanceEnteredCount }}<span class="sub-val">/{{ totalGroups }}</span></div>
           <div class="summary-label">Attendance Entered</div>
           <div class="summary-progress">
             <div class="progress-bar green" [style.width.%]="totalGroups > 0 ? (attendanceEnteredCount / totalGroups * 100) : 0"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Evaluation Entered -->
+      <div class="summary-card eval-entered" (click)="setStatusFilter('evaluation-entered')" [class.active-filter]="statusFilter === 'evaluation-entered'">
+        <div class="summary-icon"><ion-icon name="checkbox-outline"></ion-icon></div>
+        <div class="summary-body">
+          <div class="summary-value">{{ evaluationEnteredCount }}<span class="sub-val">/{{ totalGroups }}</span></div>
+          <div class="summary-label">Evaluation Entered</div>
+          <div class="summary-progress">
+            <div class="progress-bar purple" [style.width.%]="totalGroups > 0 ? (evaluationEnteredCount / totalGroups * 100) : 0"></div>
           </div>
         </div>
       </div>
@@ -150,7 +162,7 @@
       <div class="search-wrap">
         <ion-icon name="search-outline" class="search-icon"></ion-icon>
         <input class="search-input" [ngModel]="searchInput" (ngModelChange)="onSearchChange($event)"
-          placeholder="Search class group, class, madrasa..." id="compliance-search-input">
+          placeholder="Search class group, class, shift, madrasa..." id="compliance-search-input">
         <button class="search-clear" *ngIf="searchInput" (click)="clearSearch()">
           <ion-icon name="close-outline"></ion-icon>
         </button>
@@ -164,10 +176,26 @@
         </select>
       </div>
 
+      <!-- Shift selector filter -->
+      <div class="shift-filter-wrap" *ngIf="allShifts.length > 0">
+        <select class="shift-select" [ngModel]="shiftFilter" (ngModelChange)="onShiftChange($event)" id="shift-filter-select">
+          <option value="">All Shifts ({{ allShifts.length }})</option>
+          <option value="__assigned__">Shift Assigned</option>
+          <option value="__unassigned__">Not Assigned Shift</option>
+          <option *ngFor="let s of allShifts; trackBy: trackByShiftOption" [value]="s">{{ s }}</option>
+        </select>
+      </div>
+
       <!-- Status filter tabs -->
       <div class="status-tabs">
         <button [class.active]="statusFilter === 'all'" (click)="setStatusFilter('all')" id="filter-all-btn">
           All ({{ totalGroups }})
+        </button>
+        <button [class.active]="statusFilter === 'attendance-entered'" (click)="setStatusFilter('attendance-entered')" id="filter-att-entered-btn">
+          <span class="dot success"></span> Att Entered ({{ attendanceEnteredCount }})
+        </button>
+        <button [class.active]="statusFilter === 'evaluation-entered'" (click)="setStatusFilter('evaluation-entered')" id="filter-eval-entered-btn">
+          <span class="dot purple"></span> Eval Entered ({{ evaluationEnteredCount }})
         </button>
         <button [class.active]="statusFilter === 'attendance-missing'" (click)="setStatusFilter('attendance-missing')" id="filter-att-missing-btn">
           <span class="dot danger"></span> Att Missing ({{ attendanceMissingCount }})
@@ -181,8 +209,8 @@
         <button [class.active]="statusFilter === 'both-missing'" (click)="setStatusFilter('both-missing')" id="filter-both-missing-btn">
           <span class="dot red"></span> Both Missing ({{ bothMissingCount }})
         </button>
-        <button [class.active]="statusFilter === 'all-ok'" (click)="setStatusFilter('all-ok')" id="filter-all-ok-btn">
-          <span class="dot success"></span> All OK ({{ allCompliantCount }})
+        <button [class.active]="statusFilter === 'all-ok'" (click)="setStatusFilter('all-ok')" id="filter-all-ok-btn" title="Both Attendance & Evaluation Entered">
+          <span class="dot success"></span> Both Entered ({{ bothEnteredCount }})
         </button>
       </div>
 
@@ -291,7 +319,13 @@
                     <ion-icon [name]="expandedRowId === row.groupId ? 'chevron-down-outline' : 'chevron-forward-outline'" class="expand-icon"></ion-icon>
                   </td>
 
-                  <td class="td-group"><div class="group-name">{{ row.groupName }}</div></td>
+                  <td class="td-group">
+                    <div class="group-name">{{ row.groupName }}</div>
+                    <div class="shift-tag-pill" *ngIf="row.shiftName && row.shiftName !== 'Unassigned Shift'">
+                      <ion-icon name="time-outline"></ion-icon>
+                      <span>{{ row.shiftName }}</span>
+                    </div>
+                  </td>
                   <td class="td-class">{{ row.className }}</td>
 
                   <td class="td-staff">
@@ -433,6 +467,9 @@
                 <div class="mobile-class-name">
                   <ion-icon name="easel-outline"></ion-icon>
                   <span>{{ row.className }}</span>
+                  <span class="mobile-shift-badge" *ngIf="row.shiftName && row.shiftName !== 'Unassigned Shift'">
+                    <ion-icon name="time-outline"></ion-icon> {{ row.shiftName }}
+                  </span>
                 </div>
               </div>
               <button class="mobile-open-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
@@ -578,7 +615,13 @@
                   <ion-icon [name]="expandedRowId === row.groupId ? 'chevron-down-outline' : 'chevron-forward-outline'" class="expand-icon"></ion-icon>
                 </td>
 
-                <td class="td-group"><div class="group-name">{{ row.groupName }}</div></td>
+                <td class="td-group">
+                  <div class="group-name">{{ row.groupName }}</div>
+                  <div class="shift-tag-pill" *ngIf="row.shiftName && row.shiftName !== 'Unassigned Shift'">
+                    <ion-icon name="time-outline"></ion-icon>
+                    <span>{{ row.shiftName }}</span>
+                  </div>
+                </td>
                 <td class="td-class">{{ row.className }}</td>
                 <td class="td-madrasa">{{ row.madrasaName }}</td>
 
@@ -717,6 +760,9 @@
               <div class="mobile-class-name">
                 <ion-icon name="easel-outline"></ion-icon>
                 <span>{{ row.className }}</span>
+                <span class="mobile-shift-badge" *ngIf="row.shiftName && row.shiftName !== 'Unassigned Shift'">
+                  <ion-icon name="time-outline"></ion-icon> {{ row.shiftName }}
+                </span>
                 <span class="mobile-madrasa-tag">· {{ row.madrasaName }}</span>
               </div>
             </div>

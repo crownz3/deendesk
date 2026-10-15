@@ -505,12 +505,14 @@
       transition: width 0.5s ease;
 
       &.green { background: var(--cm-success); }
+      &.purple { background: var(--cm-purple); }
     }
   }
 
   &.total .summary-icon { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
   &.timetable .summary-icon { background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }
   &.success .summary-icon { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
+  &.eval-entered .summary-icon { background: #faf5ff; color: #7c3aed; border: 1px solid #f3e8ff; }
   &.warning .summary-icon { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
   &.purple .summary-icon { background: #faf5ff; color: #7c3aed; border: 1px solid #f3e8ff; }
   &.danger .summary-icon { background: #fff1f2; color: #e11d48; border: 1px solid #ffe4e6; }
@@ -585,6 +587,24 @@
 
 .madrasa-filter-wrap {
   .madrasa-select {
+    padding: 8px 12px;
+    background: var(--cm-surface-subtle);
+    border: 1px solid var(--cm-border);
+    border-radius: 8px;
+    color: var(--cm-text);
+    font-size: 0.83rem;
+    font-weight: 600;
+    outline: none;
+    cursor: pointer;
+
+    &:focus {
+      border-color: var(--cm-primary);
+    }
+  }
+}
+
+.shift-filter-wrap {
+  .shift-select {
     padding: 8px 12px;
     background: var(--cm-surface-subtle);
     border: 1px solid var(--cm-border);
@@ -905,6 +925,24 @@
   min-width: 130px;
   max-width: 170px;
   .group-name { font-weight: 600; color: var(--cm-text); word-break: break-word; line-height: 1.3; }
+
+  .shift-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--cm-primary-soft);
+    color: var(--cm-primary);
+    border: 1px solid var(--cm-primary-border);
+    margin-top: 4px;
+    width: fit-content;
+    white-space: nowrap;
+
+    ion-icon { font-size: 0.72rem; }
+  }
 }
 
 .td-class {
@@ -1248,6 +1286,22 @@
     font-size: 0.88rem;
     color: var(--cm-primary);
     flex-shrink: 0;
+  }
+
+  .mobile-shift-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--cm-primary-soft);
+    color: var(--cm-primary);
+    border: 1px solid var(--cm-primary-border);
+    white-space: nowrap;
+
+    ion-icon { font-size: 0.72rem; }
   }
 
   .mobile-madrasa-tag {
