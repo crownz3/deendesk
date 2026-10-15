@@ -589,6 +589,46 @@ select:-webkit-autofill {
   }
 }
 
+/* Configure Shortcuts Dialog Panel */
+.configure-shortcuts-dialog-panel {
+  height: 90vh !important;
+  max-height: 90vh !important;
+
+  .mat-mdc-dialog-surface,
+  .mdc-dialog__surface,
+  .mat-mdc-dialog-container {
+    height: 90vh !important;
+    max-height: 90vh !important;
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: #ffffff !important;
+  }
+
+  app-configure-shortcuts-dialog {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  @media (max-width: 600px) {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    height: 90vh !important;
+    max-height: 90vh !important;
+
+    .mat-mdc-dialog-surface,
+    .mdc-dialog__surface,
+    .mat-mdc-dialog-container {
+      border-radius: 16px !important;
+    }
+  }
+}
+
 /* =====================================================
    Global Modern Table UI
    ===================================================== */
@@ -914,5 +954,40 @@ app-global-loader,
     width: 95vw !important;
     max-height: 90vh !important;
     margin: 8px !important;
+  }
+}
+
+.configure-shortcuts-dialog-panel {
+  height: 90vh !important;
+  max-height: 90vh !important;
+
+  .mat-mdc-dialog-container, .mat-dialog-container {
+    padding: 0 !important;
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    height: 90vh !important;
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+
+    .mat-mdc-dialog-surface, .mdc-dialog__surface {
+      height: 90vh !important;
+      max-height: 90vh !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+    }
+  }
+
+  @media (max-width: 600px) {
+    width: 96vw !important;
+    max-width: 96vw !important;
+    height: 90vh !important;
+    max-height: 90vh !important;
+    margin: 8px auto !important;
+
+    .mat-mdc-dialog-container, .mat-dialog-container {
+      border-radius: 16px !important;
+    }
   }
 }

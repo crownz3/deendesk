@@ -134,6 +134,7 @@ export class AppComponent {
       items: [
         { label: 'Attendance', route: '/attendance', icon: 'checkbox-outline', permission: ['takeAttendance', 'viewAttendance'] },
         { label: 'Reports', route: '/reports', icon: 'bar-chart-outline', permission: 'generateReports' },
+        { label: 'Compliance Monitor', route: '/compliance-monitor', icon: 'shield-checkmark-outline', rolesAny: ['superAdmin', 'organizationAdmin', 'coordinator', 'madrasaIncharge'] },
         { label: 'External Activities', route: '/external-activities', icon: 'briefcase-outline', permissionsAny: ['manageExternalActivities'] },
         { label: 'Hostel Management', route: '/hostels', icon: 'bed-outline', permissionsAny: ['manageHostels'] },
         { label: 'Fees', route: '/fees', icon: 'cash-outline', permissionsAny: ['manageFees'] },
@@ -374,7 +375,7 @@ export class AppComponent {
       return false;
     }
 
-    if (item.rolesAny && !item.rolesAny.includes(user.role)) {
+    if (item.rolesAny && !this.auth.hasRole(user, item.rolesAny)) {
       return false;
     }
 

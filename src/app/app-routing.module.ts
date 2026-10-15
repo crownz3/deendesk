@@ -43,6 +43,7 @@ import { SubscriptionsPage } from './pages/subscriptions/subscriptions.page';
 import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page';
 import { QaTestingPage } from './pages/qa-testing/qa-testing.page';
 import { ArchitectureExplorerPage } from './pages/architecture-explorer/architecture-explorer.page';
+import { ComplianceMonitorPage } from './pages/compliance-monitor/compliance-monitor.page';
 
 const routes: Routes = [
   { path: 'login', component: LoginPage },
@@ -86,6 +87,7 @@ const routes: Routes = [
   { path: 'properties', component: PropertiesPage, canActivate: [authGuard, permissionGuard], data: { permissionsAny: ['viewProperties', 'manageProperties'] } },
   { path: 'property-categories', component: ManagementPage, canActivate: [authGuard, permissionGuard], data: { resource: 'propertyCategories', permission: 'manageProperties' } },
   { path: 'reports', component: ReportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'generateReports' } },
+  { path: 'compliance-monitor', component: ComplianceMonitorPage, canActivate: [authGuard, permissionGuard], data: { rolesAny: ['superAdmin', 'organizationAdmin', 'coordinator', 'madrasaIncharge'] } },
   { path: 'activity-logs', component: ActivityLogsPage, canActivate: [authGuard] },
   { path: 'csv-imports', component: CsvImportsPage, canActivate: [authGuard, permissionGuard], data: { permission: 'importCsv' } },
   { path: 'academic-tree', component: TreeViewPage, canActivate: [authGuard, permissionGuard], data: { tree: 'academic', roleRequired: 'superAdmin' } },

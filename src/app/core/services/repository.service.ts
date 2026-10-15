@@ -154,12 +154,41 @@ export class RepositoryService {
     if (!extra || extra.length === 0) return '';
     return extra.map(c => {
       const anyC = c as any;
-      if (anyC._type) {
-        const field = anyC._field?.path || anyC._field || '';
+      const type = anyC.type || anyC._type || '';
+      if (type === 'where' || anyC._op) {
+        let field = '';
+        if (typeof anyC._field === 'string') {
+          field = anyC._field;
+        } else if (anyC._field) {
+          field = anyC._field.canonicalString ? anyC._field.canonicalString() :
+            (anyC._field.path || (Array.isArray(anyC._field.segments) ? anyC._field.segments.join('.') : String(anyC._field)));
+        }
         const op = anyC._op || '';
-        const val = JSON.stringify(anyC._value ?? '');
-        return `${anyC._type}:${field}:${op}:${val}`;
+        let val = '';
+        try {
+          val = JSON.stringify(anyC._value ?? '');
+        } catch {
+          val = String(anyC._value ?? '');
+        }
+        return `where:${field}:${op}:${val}`;
       }
+      if (type === 'limit' || type === 'limitToLast') {
+        return `${type}:${anyC._limit}`;
+      }
+      if (type === 'orderBy') {
+        let field = '';
+        if (typeof anyC._field === 'string') {
+          field = anyC._field;
+        } else if (anyC._field) {
+          field = anyC._field.canonicalString ? anyC._field.canonicalString() :
+            (anyC._field.path || (Array.isArray(anyC._field.segments) ? anyC._field.segments.join('.') : String(anyC._field)));
+        }
+        return `orderBy:${field}:${anyC._direction}`;
+      }
+      try {
+        const s = JSON.stringify(anyC);
+        if (s && s !== '{}') return s;
+      } catch {}
       return String(c);
     }).join(';');
   }
@@ -764,7 +793,8 @@ export class RepositoryService {
   }
 
   async getAllOnce<T extends EntityRecord>(collectionName: string, user: AppUser | null, options?: { roles?: string[]; forceRefresh?: boolean }, extra: QueryConstraint[] = []): Promise<T[]> {
-    const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${this.stringifyConstraints(extra)}`;
+    const rolesKey = options?.roles ? options.roles.slice().sort().join(',') : '';
+    const cacheKey = `${collectionName}_${user?.uid || 'anon'}_${user?.organizationId || ''}_${rolesKey}_${this.stringifyConstraints(extra)}`;
     
     if (!options?.forceRefresh && this.memoryCache.has(cacheKey)) {
       const cached = this.memoryCache.get(cacheKey)!;
@@ -774,7 +804,7 @@ export class RepositoryService {
       }
     }
 
-    if (this.inFlightPromises.has(cacheKey)) {
+    if (!options?.forceRefresh && this.inFlightPromises.has(cacheKey)) {
       return this.inFlightPromises.get(cacheKey)! as Promise<T[]>;
     }
 

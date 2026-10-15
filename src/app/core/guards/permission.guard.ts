@@ -10,6 +10,7 @@ export const permissionGuard: CanActivateFn = (route, state) => {
   const requiredPermission = route.data['permission'] as PermissionKey | PermissionKey[] | undefined;
   const permissionsAny = route.data['permissionsAny'] as PermissionKey[] | undefined;
   const roleRequired = route.data['roleRequired'] as string | undefined;
+  const rolesAny = route.data['rolesAny'] as string[] | undefined;
 
   return auth.profile$.pipe(
     take(1),
@@ -19,6 +20,10 @@ export const permissionGuard: CanActivateFn = (route, state) => {
       }
 
       if (roleRequired && profile?.role !== roleRequired) {
+        return router.createUrlTree(['/dashboard']);
+      }
+
+      if (rolesAny && rolesAny.length > 0 && !auth.hasRole(profile, rolesAny as any)) {
         return router.createUrlTree(['/dashboard']);
       }
 

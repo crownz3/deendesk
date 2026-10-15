@@ -14,6 +14,14 @@ import { BulkDeleteConfirmDialogComponent } from '../../shared/components/bulk-d
 import { BulkDeleteProgressDialogComponent } from '../../shared/components/bulk-delete-progress-dialog/bulk-delete-progress-dialog.component';
 import { HelpGuideDialogComponent } from '../../shared/components/help-guide-dialog/help-guide-dialog.component';
 import { ConfigureCardsDialogComponent, ConfigureCardsDialogData } from './configure-cards-dialog.component';
+import {
+  ConfigureShortcutsDialogComponent,
+  ConfigureShortcutsDialogData,
+  ALL_MENU_SHORTCUTS,
+  MenuShortcutItem,
+  isShortcutAllowed,
+  getDefaultShortcutsForRole
+} from './configure-shortcuts-dialog.component';
 import { ClassGroupAttendanceDetailsDialogComponent, ClassGroupAttendanceDetailsDialogData, StudentAttendanceDetailRecord } from './class-group-attendance-details-dialog.component';
 
 interface DashboardStat {
@@ -213,6 +221,7 @@ interface DashboardVm {
   todaySchedule: (EntityRecord & TimetableEntry & { classId?: string | null })[];
   profile: AppUser;
   _rawData?: Record<string, any[]>;
+  shortcuts: MenuShortcutItem[];
 }
 
 @Component({
@@ -559,6 +568,59 @@ export class DashboardPage {
         }
       }
     });
+  }
+
+  openConfigureShortcutsDialog(vm: DashboardVm | null): void {
+    if (!vm) return;
+    const profile = vm.profile;
+    const allAllowedShortcuts = ALL_MENU_SHORTCUTS.filter(s => isShortcutAllowed(s, profile, this.auth));
+    const currentSelectedIds = vm.shortcuts ? vm.shortcuts.map(s => s.id) : [];
+
+    const dialogRef = this.dialog.open(ConfigureShortcutsDialogComponent, {
+      width: '740px',
+      maxWidth: '96vw',
+      height: '90vh',
+      maxHeight: '90vh',
+      panelClass: 'configure-shortcuts-dialog-panel',
+      data: {
+        allAllowedShortcuts,
+        selectedShortcutIds: currentSelectedIds,
+        userRole: profile.role,
+      } as ConfigureShortcutsDialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((selectedIds: string[] | undefined) => {
+      if (selectedIds && selectedIds.length > 0) {
+        this.saveUserShortcuts(profile.id || profile.uid, selectedIds);
+        this.snackBar.open('Dashboard shortcuts updated successfully!', 'OK', { duration: 3000 });
+        this.refresh$.next();
+      }
+    });
+  }
+
+  private loadUserShortcuts(userId: string): string[] | null {
+    try {
+      const saved = localStorage.getItem(`deendesk_dashboard_shortcuts_${userId}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse shortcuts preference', e);
+    }
+    return null;
+  }
+
+  private saveUserShortcuts(userId: string, ids: string[]): void {
+    try {
+      localStorage.setItem(`deendesk_dashboard_shortcuts_${userId}`, JSON.stringify(ids));
+    } catch (e) {
+      console.warn('Failed to save shortcuts preference', e);
+    }
+  }
+
+  trackByShortcutId(_: number, item: MenuShortcutItem): string {
+    return item.id;
   }
 
   getCounts(filter: 'all' | 'active' | 'inactive', vm: DashboardVm | null): number {
@@ -1147,6 +1209,30 @@ export class DashboardPage {
     const teacherWorkloadMatrix = this.buildTeacherWorkloadMatrix(data['staff'] || [], data['classGroups'] || [], data['students'] || data['allStudents'] || [], data['classes'] || [], data['users'] || []);
 
     const roleLowerNorm = String(profile.role || '').toLowerCase().replace(/_/g, '');
+
+    // Resolve customized menu shortcuts for user
+    const allowedShortcuts = ALL_MENU_SHORTCUTS.filter(s => isShortcutAllowed(s, profile, this.auth));
+    const savedShortcutIds = this.loadUserShortcuts(profile.id || profile.uid);
+    let activeIds: string[];
+    const allowedIdSet = new Set(allowedShortcuts.map(s => s.id));
+
+    if (savedShortcutIds && savedShortcutIds.length > 0) {
+      activeIds = savedShortcutIds.filter(id => allowedIdSet.has(id));
+      if (activeIds.length === 0) {
+        activeIds = getDefaultShortcutsForRole(profile.role).filter(id => allowedIdSet.has(id));
+      }
+    } else {
+      activeIds = getDefaultShortcutsForRole(profile.role).filter(id => allowedIdSet.has(id));
+      if (activeIds.length === 0) {
+        activeIds = allowedShortcuts.slice(0, 8).map(s => s.id);
+      }
+    }
+
+    const shortcutMap = new Map(allowedShortcuts.map(s => [s.id, s]));
+    const shortcuts: MenuShortcutItem[] = activeIds
+      .map(id => shortcutMap.get(id))
+      .filter((s): s is MenuShortcutItem => !!s);
+
     return {
       displayName: this.getDisplayName(profile),
       formattedRole: this.formatRole(profile.role, profile),
@@ -1163,6 +1249,7 @@ export class DashboardPage {
       madrasaRolesBreakdown,
       assignedAssignments,
       stats,
+      shortcuts,
       attendance,
       todayAttendance,
       courseDistribution,

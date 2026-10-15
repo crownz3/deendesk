@@ -135,6 +135,68 @@
       </div>
     </div>
 
+    <!-- ─────────────────────────────────────────────────────────────────────
+         QUICK MENU SHORTCUTS — User-Configurable Quick Launch
+         ───────────────────────────────────────────────────────────────────── -->
+    <section class="shortcuts-section" *ngIf="vm.shortcuts && vm.shortcuts.length > 0">
+      <div class="shortcuts-header-row">
+        <div class="shortcuts-title-group">
+          <div class="shortcuts-icon-pill">
+            <ion-icon name="flash"></ion-icon>
+          </div>
+          <div>
+            <h3 class="shortcuts-title">Quick Shortcuts</h3>
+            <p class="shortcuts-subtitle">1-click access to your essential daily tools &amp; workspaces</p>
+          </div>
+        </div>
+
+        <button mat-stroked-button class="customize-shortcuts-btn" (click)="openConfigureShortcutsDialog(vm)" type="button">
+          <ion-icon name="options-outline"></ion-icon><span>Customize Shortcuts</span>
+        </button>
+      </div>
+
+      <div class="shortcuts-grid">
+        <a
+          *ngFor="let sc of vm.shortcuts; trackBy: trackByShortcutId"
+          class="shortcut-tile"
+          [routerLink]="sc.route"
+          [title]="sc.description || sc.label"
+          role="button"
+          tabindex="0"
+        >
+          <div class="shortcut-icon-box" [ngClass]="sc.tone">
+            <ion-icon [name]="sc.icon"></ion-icon>
+          </div>
+          <div class="shortcut-info">
+            <div class="shortcut-title-row">
+              <span class="shortcut-label">{{ sc.label }}</span>
+              <span class="shortcut-badge" *ngIf="sc.badge">{{ sc.badge }}</span>
+            </div>
+            <span class="shortcut-desc" *ngIf="sc.description">{{ sc.description }}</span>
+          </div>
+          <div class="shortcut-action-arrow">
+            <ion-icon name="arrow-forward-outline"></ion-icon>
+          </div>
+        </a>
+
+        <!-- Quick Add / Edit shortcut tile -->
+        <button
+          class="shortcut-tile add-shortcut-tile"
+          (click)="openConfigureShortcutsDialog(vm)"
+          type="button"
+          title="Add or change your dashboard shortcuts"
+        >
+          <div class="shortcut-icon-box add-icon">
+            <ion-icon name="add-outline"></ion-icon>
+          </div>
+          <div class="shortcut-info">
+            <span class="shortcut-label">Add Shortcut</span>
+            <span class="shortcut-desc">Configure more tools</span>
+          </div>
+        </button>
+      </div>
+    </section>
+
     <!-- Active / Inactive / All Segment Button Group -->
     <div class="overview-filter-bar">
       <div class="filter-label">

@@ -214,10 +214,14 @@ import { DuplicateUsersPage } from './pages/duplicate-users/duplicate-users.page
 import { ShiftClassGroupsDialogComponent } from './pages/course-catalog/shift-class-groups-dialog.component';
 import { ArchitectureExplorerPage } from './pages/architecture-explorer/architecture-explorer.page';
 import { ConfigureCardsDialogComponent } from './pages/dashboard/configure-cards-dialog.component';
+import { ConfigureShortcutsDialogComponent } from './pages/dashboard/configure-shortcuts-dialog.component';
+import { ComplianceMonitorPage } from './pages/compliance-monitor/compliance-monitor.page';
 
 @NgModule({
   declarations: [
     ConfigureCardsDialogComponent,
+    ConfigureShortcutsDialogComponent,
+    ComplianceMonitorPage,
     ClassroomSuitePage,
     SetTargetDialogComponent,
     StudentAttendanceHistoryDialogComponent,

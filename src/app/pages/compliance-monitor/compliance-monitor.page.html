@@ -1,0 +1,811 @@
+<ion-header class="compliance-header" [translucent]="false">
+  <ion-toolbar class="header-toolbar">
+    <ion-buttons slot="start">
+      <ion-menu-button class="menu-btn"></ion-menu-button>
+    </ion-buttons>
+    <ion-title class="page-title">
+      <span class="title-icon">📋</span>
+      <span>Compliance Monitor</span>
+    </ion-title>
+    <ion-buttons slot="end">
+      <button class="header-action-btn" (click)="refresh()" title="Refresh compliance data" id="refresh-btn">
+        <ion-icon name="refresh-outline"></ion-icon>
+      </button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="compliance-content">
+  <div class="page-wrapper">
+
+    <!-- ── Date & Controls Bar ─────────────────────────────────────── -->
+    <div class="controls-bar">
+      <div class="date-section">
+        <div class="date-label">Audit Date &amp; Scope</div>
+        <div class="date-picker-wrap">
+          <!-- Previous day -->
+          <button class="nav-arrow-btn" (click)="previousDay()" title="Previous day" id="prev-day-btn">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </button>
+
+          <!-- Angular Material Datepicker -->
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>Select Date</mat-label>
+            <input matInput [matDatepicker]="picker" [value]="selectedDate"
+              (dateChange)="onDateChange($event.value)" [max]="today" readonly>
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </mat-form-field>
+
+          <!-- Next day -->
+          <button class="nav-arrow-btn" (click)="nextDay()" [disabled]="isToday" title="Next day" id="next-day-btn">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
+
+          <!-- Quick shortcuts -->
+          <div class="quick-date-pills">
+            <button class="date-pill-btn" (click)="goToToday()" [class.active]="isToday" id="go-today-btn">
+              <ion-icon name="today-outline"></ion-icon>
+              Today
+            </button>
+            <button class="date-pill-btn" (click)="goToYesterday()" [class.active]="selectedDateStr === yesterdayStr" id="go-yesterday-btn">
+              Yesterday
+            </button>
+          </div>
+        </div>
+        <div class="selected-date-display">
+          <ion-icon name="calendar-outline"></ion-icon>
+          <span>{{ formattedDate }}</span>
+          <span class="today-badge" *ngIf="isToday">Today</span>
+        </div>
+      </div>
+
+      <div class="controls-right">
+        <!-- View mode toggle -->
+        <div class="view-toggle">
+          <button [class.active]="viewMode === 'grouped'" (click)="setViewMode('grouped')" id="view-grouped-btn" title="Grouped by Madrasa">
+            <ion-icon name="albums-outline"></ion-icon> Grouped
+          </button>
+          <button [class.active]="viewMode === 'flat'" (click)="setViewMode('flat')" id="view-flat-btn" title="Flat list of all groups">
+            <ion-icon name="list-outline"></ion-icon> Flat
+          </button>
+        </div>
+
+        <!-- Export Menu -->
+        <div class="export-dropdown-wrap" *ngIf="hasLoaded && allRows.length > 0">
+          <button class="export-btn primary" id="export-all-btn" (click)="exportReport('all')">
+            <ion-icon name="download-outline"></ion-icon> Export All CSV
+          </button>
+          <button class="export-btn warning" id="export-noncompliant-btn" (click)="exportReport('non-compliant')" title="Export all groups with any missing item">
+            <ion-icon name="warning-outline"></ion-icon> Non-Compliant CSV
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Summary Cards Strip ────────────────────────────────────── -->
+    <div class="summary-strip" *ngIf="hasLoaded && !isLoading">
+      <!-- Total Groups -->
+      <div class="summary-card total" (click)="setStatusFilter('all')" [class.active-filter]="statusFilter === 'all'">
+        <div class="summary-icon"><ion-icon name="people-circle-outline"></ion-icon></div>
+        <div class="summary-body">
+          <div class="summary-value">{{ totalGroups }}</div>
+          <div class="summary-label">Total Class Groups</div>
+        </div>
+      </div>
+
+      <!-- Timetable Configured -->
+      <div class="summary-card timetable" (click)="setStatusFilter('timetable-missing')" [class.active-filter]="statusFilter === 'timetable-missing'">
+        <div class="summary-icon"><ion-icon name="time-outline"></ion-icon></div>
+        <div class="summary-body">
+          <div class="summary-value">{{ timetableConfiguredCount }}<span class="sub-val">/{{ totalGroups }}</span></div>
+          <div class="summary-label">Timetable Set</div>
+          <div class="summary-subtext" *ngIf="timetableMissingCount > 0">{{ timetableMissingCount }} missing</div>
+        </div>
+      </div>
+
+      <!-- Attendance Entered -->
+      <div class="summary-card success" (click)="setStatusFilter('all-ok')" [class.active-filter]="statusFilter === 'all-ok'">
+        <div class="summary-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+        <div class="summary-body">
+          <div class="summary-value">{{ attendanceEnteredCount }}<span class="sub-val">/{{ totalGroups }}</span></div>
+          <div class="summary-label">Attendance Entered</div>
+          <div class="summary-progress">
+            <div class="progress-bar green" [style.width.%]="totalGroups > 0 ? (attendanceEnteredCount / totalGroups * 100) : 0"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attendance Missing -->
+      <div class="summary-card warning" (click)="setStatusFilter('attendance-missing')" [class.active-filter]="statusFilter === 'attendance-missing'">
+        <div class="summary-icon"><ion-icon name="close-circle-outline"></ion-icon></div>
+        <div class="summary-body">
+          <div class="summary-value">{{ attendanceMissingCount }}</div>
+          <div class="summary-label">Attendance Missing</div>
+        </div>
+      </div>
+
+      <!-- Evaluation Missing -->
+      <div class="summary-card purple" (click)="setStatusFilter('evaluation-missing')" [class.active-filter]="statusFilter === 'evaluation-missing'">
+        <div class="summary-icon"><ion-icon name="clipboard-outline"></ion-icon></div>
+        <div class="summary-body">
+          <div class="summary-value">{{ evaluationMissingCount }}</div>
+          <div class="summary-label">Evaluation Missing</div>
+        </div>
+      </div>
+
+      <!-- Both Missing -->
+      <div class="summary-card danger" (click)="setStatusFilter('both-missing')" [class.active-filter]="statusFilter === 'both-missing'">
+        <div class="summary-icon"><ion-icon name="alert-circle-outline"></ion-icon></div>
+        <div class="summary-body">
+          <div class="summary-value">{{ bothMissingCount }}</div>
+          <div class="summary-label">Both Missing</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Filters & Search Row ────────────────────────────────────── -->
+    <div class="filters-row" *ngIf="hasLoaded && allRows.length > 0">
+      <!-- Debounced Search -->
+      <div class="search-wrap">
+        <ion-icon name="search-outline" class="search-icon"></ion-icon>
+        <input class="search-input" [ngModel]="searchInput" (ngModelChange)="onSearchChange($event)"
+          placeholder="Search class group, class, madrasa..." id="compliance-search-input">
+        <button class="search-clear" *ngIf="searchInput" (click)="clearSearch()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Madrasa selector filter -->
+      <div class="madrasa-filter-wrap" *ngIf="allMadrasas.length > 1">
+        <select class="madrasa-select" [ngModel]="madrasaFilter" (ngModelChange)="onMadrasaChange($event)" id="madrasa-filter-select">
+          <option value="">All Madrasas ({{ allMadrasas.length }})</option>
+          <option *ngFor="let m of allMadrasas; trackBy: trackByMadrasaOption" [value]="m.id">{{ m.name }}</option>
+        </select>
+      </div>
+
+      <!-- Status filter tabs -->
+      <div class="status-tabs">
+        <button [class.active]="statusFilter === 'all'" (click)="setStatusFilter('all')" id="filter-all-btn">
+          All ({{ totalGroups }})
+        </button>
+        <button [class.active]="statusFilter === 'attendance-missing'" (click)="setStatusFilter('attendance-missing')" id="filter-att-missing-btn">
+          <span class="dot danger"></span> Att Missing ({{ attendanceMissingCount }})
+        </button>
+        <button [class.active]="statusFilter === 'evaluation-missing'" (click)="setStatusFilter('evaluation-missing')" id="filter-eval-missing-btn">
+          <span class="dot purple"></span> Eval Missing ({{ evaluationMissingCount }})
+        </button>
+        <button [class.active]="statusFilter === 'timetable-missing'" (click)="setStatusFilter('timetable-missing')" id="filter-timetable-missing-btn">
+          <span class="dot yellow"></span> No Timetable ({{ timetableMissingCount }})
+        </button>
+        <button [class.active]="statusFilter === 'both-missing'" (click)="setStatusFilter('both-missing')" id="filter-both-missing-btn">
+          <span class="dot red"></span> Both Missing ({{ bothMissingCount }})
+        </button>
+        <button [class.active]="statusFilter === 'all-ok'" (click)="setStatusFilter('all-ok')" id="filter-all-ok-btn">
+          <span class="dot success"></span> All OK ({{ allCompliantCount }})
+        </button>
+      </div>
+
+      <!-- Quick Export Buttons -->
+      <div class="quick-exports" *ngIf="hasLoaded">
+        <button class="qexp-btn" (click)="exportReport('attendance')" title="Export groups with missing attendance" id="export-att-missing-btn">
+          <ion-icon name="document-text-outline"></ion-icon> Missing Att
+        </button>
+        <button class="qexp-btn" (click)="exportReport('evaluation')" title="Export groups with missing evaluation" id="export-eval-missing-btn">
+          <ion-icon name="document-text-outline"></ion-icon> Missing Eval
+        </button>
+        <button class="qexp-btn" (click)="exportReport('timetable')" title="Export groups with missing timetable" id="export-timetable-missing-btn">
+          <ion-icon name="document-text-outline"></ion-icon> Missing Timetable
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Loading State ──────────────────────────────────────────── -->
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="spinner-ring"></div>
+      <p>Loading compliance verification data...</p>
+    </div>
+
+    <!-- ── Error State ────────────────────────────────────────────── -->
+    <div class="error-state" *ngIf="!isLoading && error">
+      <ion-icon name="warning-outline"></ion-icon>
+      <p>{{ error }}</p>
+      <button class="retry-btn" (click)="loadData()">Try Again</button>
+    </div>
+
+    <!-- ── Empty State: No groups ─────────────────────────────────── -->
+    <div class="empty-state" *ngIf="!isLoading && hasLoaded && !error && allRows.length === 0">
+      <div class="empty-icon">📋</div>
+      <h3>No class groups found</h3>
+      <p>There are no active class groups in the system. Set up classes and class groups first.</p>
+    </div>
+
+    <!-- ── Empty State: Filter mismatch ───────────────────────────── -->
+    <div class="empty-state" *ngIf="!isLoading && hasLoaded && !error && allRows.length > 0 && filteredRows.length === 0">
+      <div class="empty-icon">🔍</div>
+      <h3>No matching records</h3>
+      <p>No class groups match your active filter criteria. Try resetting the filters.</p>
+      <button class="retry-btn" (click)="clearAllFilters()">Clear All Filters</button>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         GROUPED VIEW (BY MADRASA)
+    ═══════════════════════════════════════════════════════════════ -->
+    <ng-container *ngIf="!isLoading && hasLoaded && filteredRows.length > 0 && viewMode === 'grouped'">
+      <div class="madrasa-group" *ngFor="let mg of filteredMadrasaGroups; trackBy: trackByMadrasa">
+
+        <!-- Madrasa Header -->
+        <div class="madrasa-header">
+          <div class="madrasa-info">
+            <div class="madrasa-icon-wrap">
+              <ion-icon name="school-outline"></ion-icon>
+            </div>
+            <div>
+              <div class="madrasa-name">{{ mg.madrasaName }}</div>
+              <div class="madrasa-meta">{{ mg.rows.length }} class group(s)</div>
+            </div>
+          </div>
+          <div class="madrasa-badges">
+            <span class="badge-pill green" title="Attendance entered">
+              <ion-icon name="checkmark-outline"></ion-icon>
+              {{ mg.attendanceEnteredCount }}/{{ mg.rows.length }} Att
+            </span>
+            <span class="badge-pill purple" title="Progress evaluations entered">
+              <ion-icon name="clipboard-outline"></ion-icon>
+              {{ mg.evaluationEnteredCount }}/{{ mg.rows.length }} Eval
+            </span>
+            <span class="badge-pill blue" [title]="'Timetable configured for ' + (isToday ? 'today' : selectedDayFullName)">
+              <ion-icon name="time-outline"></ion-icon>
+              {{ mg.timetableConfiguredCount }}/{{ mg.rows.length }} Timetable
+            </span>
+          </div>
+        </div>
+
+        <!-- Desktop Table View (>= 769px) -->
+        <div class="table-scroll-wrap desktop-only">
+          <table class="compliance-table">
+            <thead>
+              <tr>
+                <th style="width: 28px;"></th>
+                <th>Class Group</th>
+                <th>Class</th>
+                <th>Assigned Staff</th>
+                <th>Timetable <span class="th-hint">({{ isToday ? 'Today' : selectedDayName }})</span></th>
+                <th>Attendance</th>
+                <th>Progress Evaluation</th>
+                <th>Students</th>
+                <th style="width: 60px; text-align: center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of mg.rows; trackBy: trackByGroup">
+                <!-- Desktop Row -->
+                <tr
+                  [class.row-all-ok]="row.attendanceStatus === 'entered' && row.evaluationStatus === 'entered'"
+                  [class.row-both-missing]="row.attendanceStatus === 'not-entered' && row.evaluationStatus === 'not-entered'"
+                  [class.row-expanded]="expandedRowId === row.groupId"
+                  (click)="toggleExpandRow(row.groupId)"
+                  style="cursor: pointer;">
+
+                  <td class="td-expand" (click)="$event.stopPropagation(); toggleExpandRow(row.groupId)">
+                    <ion-icon [name]="expandedRowId === row.groupId ? 'chevron-down-outline' : 'chevron-forward-outline'" class="expand-icon"></ion-icon>
+                  </td>
+
+                  <td class="td-group"><div class="group-name">{{ row.groupName }}</div></td>
+                  <td class="td-class">{{ row.className }}</td>
+
+                  <td class="td-staff">
+                    <div class="staff-name" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
+                      <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
+                      <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
+                      <span>{{ row.assignedStaffName }}</span>
+                    </div>
+                  </td>
+
+                  <td class="td-timetable">
+                    <div class="status-chip" [class.chip-success]="row.hasTimetable" [class.chip-neutral]="!row.hasTimetable">
+                      <ion-icon name="time-outline"></ion-icon>
+                      <span>{{ row.hasTimetable ? row.timetableCount + ' slot(s)' : 'Not configured' }}</span>
+                    </div>
+                  </td>
+
+                  <td class="td-attendance">
+                    <div class="status-chip"
+                      [class.chip-success]="row.attendanceStatus === 'entered'"
+                      [class.chip-danger]="row.attendanceStatus === 'not-entered'">
+                      <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
+                      <div class="chip-content">
+                        <span class="chip-main">{{ row.attendanceStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                        <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered' && row.attendanceTakenBy">
+                          by {{ row.attendanceTakenBy }}
+                          <span *ngIf="row.attendanceTakenAt"> · {{ row.attendanceTakenAt }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="td-evaluation">
+                    <div class="status-chip"
+                      [class.chip-success]="row.evaluationStatus === 'entered'"
+                      [class.chip-purple]="row.evaluationStatus === 'not-entered'">
+                      <ion-icon name="clipboard-outline"></ion-icon>
+                      <div class="chip-content">
+                        <span class="chip-main">{{ row.evaluationStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                        <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
+                          {{ row.evaluationCount }} student(s)
+                          <span *ngIf="row.evaluationEnteredBy"> · {{ row.evaluationEnteredBy }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="td-students">
+                    <div class="student-count">
+                      <span class="present-count" *ngIf="row.attendanceStatus === 'entered'">
+                        <ion-icon name="person-outline"></ion-icon>
+                        {{ row.presentCount }}P / {{ row.absentCount }}A
+                      </span>
+                      <span class="total-count" *ngIf="row.totalStudents > 0">
+                        / {{ row.totalStudents }} total
+                      </span>
+                    </div>
+                  </td>
+
+                  <td class="td-action" (click)="$event.stopPropagation()">
+                    <button class="action-suite-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
+                      <ion-icon name="open-outline"></ion-icon>
+                    </button>
+                  </td>
+                </tr>
+
+                <!-- Expanded Drawer Row (Desktop) -->
+                <tr *ngIf="expandedRowId === row.groupId" class="expanded-drawer-row">
+                  <td colspan="9" class="expanded-drawer-cell">
+                    <div class="drawer-content">
+                      <div class="drawer-col">
+                        <div class="drawer-header"><ion-icon name="time-outline"></ion-icon> Today's Timetable Schedule</div>
+                        <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">
+                          No timetable periods scheduled for this group on {{ formattedDate }}.
+                        </div>
+                        <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
+                          <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
+                            <span class="slot-title">{{ s.title }}</span>
+                            <span class="slot-time" *ngIf="s.time">{{ s.time }}</span>
+                            <span class="slot-teacher" *ngIf="s.teacherName">· {{ s.teacherName }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="drawer-col">
+                        <div class="drawer-header"><ion-icon name="checkbox-outline"></ion-icon> Attendance Details</div>
+                        <div class="drawer-detail-text" *ngIf="row.attendanceStatus === 'entered'">
+                          <strong>Status:</strong> Completed<br>
+                          <span *ngIf="row.attendanceTakenBy"><strong>Recorded by:</strong> {{ row.attendanceTakenBy }}<br></span>
+                          <span *ngIf="row.attendanceTakenAt"><strong>Recorded at:</strong> {{ row.attendanceTakenAt }}<br></span>
+                          <strong>Present:</strong> {{ row.presentCount }} | <strong>Absent:</strong> {{ row.absentCount }} (Total: {{ row.totalStudents }})
+                        </div>
+                        <div class="drawer-detail-text text-danger" *ngIf="row.attendanceStatus === 'not-entered'">
+                          Attendance has <strong>not been recorded</strong> for this group today.
+                        </div>
+                      </div>
+
+                      <div class="drawer-col">
+                        <div class="drawer-header"><ion-icon name="clipboard-outline"></ion-icon> Evaluation Progress</div>
+                        <div class="drawer-detail-text" *ngIf="row.evaluationStatus === 'entered'">
+                          <strong>Status:</strong> Recorded for {{ row.evaluationCount }} student(s)<br>
+                          <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}<br></span>
+                        </div>
+                        <div class="drawer-detail-text text-purple" *ngIf="row.evaluationStatus === 'not-entered'">
+                          Daily student progress evaluations have <strong>not been submitted</strong> today.
+                        </div>
+                      </div>
+
+                      <div class="drawer-col drawer-cta">
+                        <button class="open-suite-cta" (click)="openClassroomSuite(row)">
+                          <ion-icon name="open-outline"></ion-icon> Open in Classroom Suite
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Cards View (<= 768px) -->
+        <div class="mobile-cards-list mobile-only">
+          <div class="mobile-group-card" *ngFor="let row of mg.rows; trackBy: trackByGroup"
+            [class.card-all-ok]="row.attendanceStatus === 'entered' && row.evaluationStatus === 'entered'"
+            [class.card-both-missing]="row.attendanceStatus === 'not-entered' && row.evaluationStatus === 'not-entered'">
+
+            <!-- Top Header -->
+            <div class="mobile-card-header">
+              <div class="mobile-card-title-wrap">
+                <div class="mobile-group-name">{{ row.groupName }}</div>
+                <div class="mobile-class-name">
+                  <ion-icon name="easel-outline"></ion-icon>
+                  <span>{{ row.className }}</span>
+                </div>
+              </div>
+              <button class="mobile-open-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
+                <ion-icon name="open-outline"></ion-icon>
+              </button>
+            </div>
+
+            <!-- Assigned Staff -->
+            <div class="mobile-staff-row" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
+              <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
+              <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
+              <span>{{ row.assignedStaffName }}</span>
+            </div>
+
+            <!-- 3 Badges Row -->
+            <div class="mobile-status-grid">
+              <!-- Timetable -->
+              <div class="status-chip" [class.chip-success]="row.hasTimetable" [class.chip-neutral]="!row.hasTimetable">
+                <ion-icon name="time-outline"></ion-icon>
+                <div class="chip-content">
+                  <span class="chip-main">{{ row.hasTimetable ? row.timetableCount + ' Period(s)' : 'No Timetable' }}</span>
+                </div>
+              </div>
+
+              <!-- Attendance -->
+              <div class="status-chip"
+                [class.chip-success]="row.attendanceStatus === 'entered'"
+                [class.chip-danger]="row.attendanceStatus === 'not-entered'">
+                <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
+                <div class="chip-content">
+                  <span class="chip-main">Att: {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
+                  <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered'">
+                    {{ row.presentCount }}P / {{ row.absentCount }}A
+                  </span>
+                </div>
+              </div>
+
+              <!-- Evaluation -->
+              <div class="status-chip"
+                [class.chip-success]="row.evaluationStatus === 'entered'"
+                [class.chip-purple]="row.evaluationStatus === 'not-entered'">
+                <ion-icon name="clipboard-outline"></ion-icon>
+                <div class="chip-content">
+                  <span class="chip-main">Eval: {{ row.evaluationStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
+                  <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
+                    {{ row.evaluationCount }} student(s)
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer expand toggle -->
+            <div class="mobile-card-footer" (click)="toggleExpandRow(row.groupId)">
+              <span class="expand-text">
+                <ion-icon [name]="expandedRowId === row.groupId ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+                {{ expandedRowId === row.groupId ? 'Hide details' : 'Audit details' }}
+              </span>
+              <span class="student-count-badge" *ngIf="row.totalStudents > 0">
+                {{ row.totalStudents }} students
+              </span>
+            </div>
+
+            <!-- Mobile Expanded Details -->
+            <div class="mobile-drawer" *ngIf="expandedRowId === row.groupId">
+              <div class="drawer-sec">
+                <div class="drawer-sec-title"><ion-icon name="time-outline"></ion-icon> Timetable Schedule</div>
+                <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">No scheduled periods for {{ isToday ? 'today' : selectedDayFullName }}.</div>
+                <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
+                  <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
+                    <span class="slot-title">{{ s.title }}</span>
+                    <span class="slot-time" *ngIf="s.time">{{ s.time }}</span>
+                    <span class="slot-teacher" *ngIf="s.teacherName">· {{ s.teacherName }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="drawer-sec">
+                <div class="drawer-sec-title"><ion-icon name="checkbox-outline"></ion-icon> Attendance Audit</div>
+                <div *ngIf="row.attendanceStatus === 'entered'" class="drawer-sec-text">
+                  <strong>Recorded by:</strong> {{ row.attendanceTakenBy || 'Teacher' }}<br>
+                  <span *ngIf="row.attendanceTakenAt"><strong>Time:</strong> {{ row.attendanceTakenAt }}<br></span>
+                  <strong>Roster:</strong> {{ row.presentCount }} Present, {{ row.absentCount }} Absent
+                </div>
+                <div *ngIf="row.attendanceStatus === 'not-entered'" class="drawer-sec-text text-danger">
+                  ⚠️ Attendance not recorded for this date.
+                </div>
+              </div>
+
+              <div class="drawer-sec">
+                <div class="drawer-sec-title"><ion-icon name="clipboard-outline"></ion-icon> Evaluation Audit</div>
+                <div *ngIf="row.evaluationStatus === 'entered'" class="drawer-sec-text">
+                  <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)<br>
+                  <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}</span>
+                </div>
+                <div *ngIf="row.evaluationStatus === 'not-entered'" class="drawer-sec-text text-purple">
+                  ⚠️ Daily student progress evaluation not submitted for this date.
+                </div>
+              </div>
+
+              <button class="open-suite-mobile-btn" (click)="openClassroomSuite(row)">
+                <ion-icon name="open-outline"></ion-icon> Open in Classroom Suite
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </ng-container>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         FLAT VIEW
+    ═══════════════════════════════════════════════════════════════ -->
+    <ng-container *ngIf="!isLoading && hasLoaded && filteredRows.length > 0 && viewMode === 'flat'">
+      <!-- Desktop Flat Table (>= 769px) -->
+      <div class="table-scroll-wrap flat-table-wrap desktop-only">
+        <table class="compliance-table">
+          <thead>
+            <tr>
+              <th style="width: 28px;"></th>
+              <th>Class Group</th>
+              <th>Class</th>
+              <th>Madrasa</th>
+              <th>Assigned Staff</th>
+              <th>Timetable <span class="th-hint">({{ isToday ? 'Today' : selectedDayName }})</span></th>
+              <th>Attendance</th>
+              <th>Progress Evaluation</th>
+              <th>Students</th>
+              <th style="width: 60px; text-align: center;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <ng-container *ngFor="let row of filteredRows; trackBy: trackByGroup">
+              <tr
+                [class.row-all-ok]="row.attendanceStatus === 'entered' && row.evaluationStatus === 'entered'"
+                [class.row-both-missing]="row.attendanceStatus === 'not-entered' && row.evaluationStatus === 'not-entered'"
+                [class.row-expanded]="expandedRowId === row.groupId"
+                (click)="toggleExpandRow(row.groupId)"
+                style="cursor: pointer;">
+
+                <td class="td-expand" (click)="$event.stopPropagation(); toggleExpandRow(row.groupId)">
+                  <ion-icon [name]="expandedRowId === row.groupId ? 'chevron-down-outline' : 'chevron-forward-outline'" class="expand-icon"></ion-icon>
+                </td>
+
+                <td class="td-group"><div class="group-name">{{ row.groupName }}</div></td>
+                <td class="td-class">{{ row.className }}</td>
+                <td class="td-madrasa">{{ row.madrasaName }}</td>
+
+                <td class="td-staff">
+                  <div class="staff-name" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
+                    <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
+                    <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
+                    <span>{{ row.assignedStaffName }}</span>
+                  </div>
+                </td>
+
+                <td class="td-timetable">
+                  <div class="status-chip" [class.chip-success]="row.hasTimetable" [class.chip-neutral]="!row.hasTimetable">
+                    <ion-icon name="time-outline"></ion-icon>
+                    <span>{{ row.hasTimetable ? row.timetableCount + ' slot(s)' : 'Not configured' }}</span>
+                  </div>
+                </td>
+
+                <td class="td-attendance">
+                  <div class="status-chip"
+                    [class.chip-success]="row.attendanceStatus === 'entered'"
+                    [class.chip-danger]="row.attendanceStatus === 'not-entered'">
+                    <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
+                    <div class="chip-content">
+                      <span class="chip-main">{{ row.attendanceStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                      <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered' && row.attendanceTakenBy">
+                        by {{ row.attendanceTakenBy }}<span *ngIf="row.attendanceTakenAt"> · {{ row.attendanceTakenAt }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </td>
+
+                <td class="td-evaluation">
+                  <div class="status-chip"
+                    [class.chip-success]="row.evaluationStatus === 'entered'"
+                    [class.chip-purple]="row.evaluationStatus === 'not-entered'">
+                    <ion-icon name="clipboard-outline"></ion-icon>
+                    <div class="chip-content">
+                      <span class="chip-main">{{ row.evaluationStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                      <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
+                        {{ row.evaluationCount }} student(s)<span *ngIf="row.evaluationEnteredBy"> · {{ row.evaluationEnteredBy }}</span>
+                      </span>
+                    </div>
+                  </div>
+                </td>
+
+                <td class="td-students">
+                  <div class="student-count">
+                    <span class="present-count" *ngIf="row.attendanceStatus === 'entered'">
+                      {{ row.presentCount }}P / {{ row.absentCount }}A
+                    </span>
+                    <span class="total-count" *ngIf="row.totalStudents > 0">/ {{ row.totalStudents }}</span>
+                  </div>
+                </td>
+
+                <td class="td-action" (click)="$event.stopPropagation()">
+                  <button class="action-suite-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
+                    <ion-icon name="open-outline"></ion-icon>
+                  </button>
+                </td>
+              </tr>
+
+              <!-- Expanded Detail Drawer (Desktop Flat) -->
+              <tr *ngIf="expandedRowId === row.groupId" class="expanded-drawer-row">
+                <td colspan="10" class="expanded-drawer-cell">
+                  <div class="drawer-content">
+                    <div class="drawer-col">
+                      <div class="drawer-header"><ion-icon name="time-outline"></ion-icon> Today's Timetable Schedule</div>
+                      <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">
+                        No timetable periods scheduled for this class group on {{ formattedDate }}.
+                      </div>
+                      <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
+                        <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
+                          <span class="slot-title">{{ s.title }}</span>
+                          <span class="slot-time" *ngIf="s.time">{{ s.time }}</span>
+                          <span class="slot-teacher" *ngIf="s.teacherName">· {{ s.teacherName }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="drawer-col">
+                      <div class="drawer-header"><ion-icon name="checkbox-outline"></ion-icon> Attendance Details</div>
+                      <div class="drawer-detail-text" *ngIf="row.attendanceStatus === 'entered'">
+                        <strong>Status:</strong> Completed<br>
+                        <span *ngIf="row.attendanceTakenBy"><strong>Recorded by:</strong> {{ row.attendanceTakenBy }}<br></span>
+                        <span *ngIf="row.attendanceTakenAt"><strong>Recorded at:</strong> {{ row.attendanceTakenAt }}<br></span>
+                        <strong>Present:</strong> {{ row.presentCount }} | <strong>Absent:</strong> {{ row.absentCount }} (Total: {{ row.totalStudents }})
+                      </div>
+                      <div class="drawer-detail-text text-danger" *ngIf="row.attendanceStatus === 'not-entered'">
+                        Attendance has <strong>not been recorded</strong> for this group for this date.
+                      </div>
+                    </div>
+
+                    <div class="drawer-col">
+                      <div class="drawer-header"><ion-icon name="clipboard-outline"></ion-icon> Evaluation Progress</div>
+                      <div class="drawer-detail-text" *ngIf="row.evaluationStatus === 'entered'">
+                        <strong>Status:</strong> Recorded for {{ row.evaluationCount }} student(s)<br>
+                        <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}<br></span>
+                      </div>
+                      <div class="drawer-detail-text text-purple" *ngIf="row.evaluationStatus === 'not-entered'">
+                        Daily student progress evaluations have <strong>not been submitted</strong> for this date.
+                      </div>
+                    </div>
+
+                    <div class="drawer-col drawer-cta">
+                      <button class="open-suite-cta" (click)="openClassroomSuite(row)">
+                        <ion-icon name="open-outline"></ion-icon> Open in Classroom Suite
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </ng-container>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile Flat Cards View (<= 768px) -->
+      <div class="mobile-cards-list flat-mobile-cards mobile-only">
+        <div class="mobile-group-card" *ngFor="let row of filteredRows; trackBy: trackByGroup"
+          [class.card-all-ok]="row.attendanceStatus === 'entered' && row.evaluationStatus === 'entered'"
+          [class.card-both-missing]="row.attendanceStatus === 'not-entered' && row.evaluationStatus === 'not-entered'">
+
+          <!-- Top Header -->
+          <div class="mobile-card-header">
+            <div class="mobile-card-title-wrap">
+              <div class="mobile-group-name">{{ row.groupName }}</div>
+              <div class="mobile-class-name">
+                <ion-icon name="easel-outline"></ion-icon>
+                <span>{{ row.className }}</span>
+                <span class="mobile-madrasa-tag">· {{ row.madrasaName }}</span>
+              </div>
+            </div>
+            <button class="mobile-open-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
+              <ion-icon name="open-outline"></ion-icon>
+            </button>
+          </div>
+
+          <!-- Assigned Staff -->
+          <div class="mobile-staff-row" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
+            <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
+            <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
+            <span>{{ row.assignedStaffName }}</span>
+          </div>
+
+          <!-- 3 Badges Row -->
+          <div class="mobile-status-grid">
+            <div class="status-chip" [class.chip-success]="row.hasTimetable" [class.chip-neutral]="!row.hasTimetable">
+              <ion-icon name="time-outline"></ion-icon>
+              <div class="chip-content">
+                <span class="chip-main">{{ row.hasTimetable ? row.timetableCount + ' Period(s)' : 'No Timetable' }}</span>
+              </div>
+            </div>
+
+            <div class="status-chip"
+              [class.chip-success]="row.attendanceStatus === 'entered'"
+              [class.chip-danger]="row.attendanceStatus === 'not-entered'">
+              <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
+              <div class="chip-content">
+                <span class="chip-main">Att: {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
+                <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered'">
+                  {{ row.presentCount }}P / {{ row.absentCount }}A
+                </span>
+              </div>
+            </div>
+
+            <div class="status-chip"
+              [class.chip-success]="row.evaluationStatus === 'entered'"
+              [class.chip-purple]="row.evaluationStatus === 'not-entered'">
+              <ion-icon name="clipboard-outline"></ion-icon>
+              <div class="chip-content">
+                <span class="chip-main">Eval: {{ row.evaluationStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
+                <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
+                  {{ row.evaluationCount }} student(s)
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer expand toggle -->
+          <div class="mobile-card-footer" (click)="toggleExpandRow(row.groupId)">
+            <span class="expand-text">
+              <ion-icon [name]="expandedRowId === row.groupId ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+              {{ expandedRowId === row.groupId ? 'Hide details' : 'Audit details' }}
+            </span>
+            <span class="student-count-badge" *ngIf="row.totalStudents > 0">
+              {{ row.totalStudents }} students
+            </span>
+          </div>
+
+          <!-- Mobile Expanded Details -->
+          <div class="mobile-drawer" *ngIf="expandedRowId === row.groupId">
+            <div class="drawer-sec">
+              <div class="drawer-sec-title"><ion-icon name="time-outline"></ion-icon> Timetable Schedule</div>
+              <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">No scheduled periods for {{ isToday ? 'today' : selectedDayFullName }}.</div>
+              <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
+                <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
+                  <span class="slot-title">{{ s.title }}</span>
+                  <span class="slot-time" *ngIf="s.time">{{ s.time }}</span>
+                  <span class="slot-teacher" *ngIf="s.teacherName">· {{ s.teacherName }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="drawer-sec">
+              <div class="drawer-sec-title"><ion-icon name="checkbox-outline"></ion-icon> Attendance Audit</div>
+              <div *ngIf="row.attendanceStatus === 'entered'" class="drawer-sec-text">
+                <strong>Recorded by:</strong> {{ row.attendanceTakenBy || 'Teacher' }}<br>
+                <span *ngIf="row.attendanceTakenAt"><strong>Time:</strong> {{ row.attendanceTakenAt }}<br></span>
+                <strong>Roster:</strong> {{ row.presentCount }} Present, {{ row.absentCount }} Absent
+              </div>
+              <div *ngIf="row.attendanceStatus === 'not-entered'" class="drawer-sec-text text-danger">
+                ⚠️ Attendance not recorded for this date.
+              </div>
+            </div>
+
+            <div class="drawer-sec">
+              <div class="drawer-sec-title"><ion-icon name="clipboard-outline"></ion-icon> Evaluation Audit</div>
+              <div *ngIf="row.evaluationStatus === 'entered'" class="drawer-sec-text">
+                <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)<br>
+                <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}</span>
+              </div>
+              <div *ngIf="row.evaluationStatus === 'not-entered'" class="drawer-sec-text text-purple">
+                ⚠️ Daily student progress evaluation not submitted for this date.
+              </div>
+            </div>
+
+            <button class="open-suite-mobile-btn" (click)="openClassroomSuite(row)">
+              <ion-icon name="open-outline"></ion-icon> Open in Classroom Suite
+            </button>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Bottom Spacing -->
+    <div style="height: 48px;"></div>
+  </div>
+</ion-content>
