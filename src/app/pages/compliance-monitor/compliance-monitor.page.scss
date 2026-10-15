@@ -952,8 +952,8 @@
 }
 
 .td-timetable { min-width: 110px; }
-.td-attendance { min-width: 130px; }
-.td-evaluation { min-width: 130px; }
+.td-attendance { min-width: 145px; }
+.td-evaluation { min-width: 145px; }
 .td-students { min-width: 85px; }
 .td-action { width: 50px; text-align: center; }
 
@@ -962,11 +962,11 @@
   display: inline-flex;
   align-items: flex-start;
   gap: 6px;
-  padding: 5px 8px;
+  padding: 5px 9px;
   border-radius: 7px;
   font-size: 0.77rem;
   font-weight: 500;
-  max-width: 190px;
+  max-width: 220px;
   box-sizing: border-box;
 
   > ion-icon {
@@ -987,6 +987,13 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .eval-count-tag {
+    font-size: 0.72rem;
+    font-weight: 600;
+    opacity: 0.85;
+    margin-left: 2px;
   }
 
   .chip-sub {

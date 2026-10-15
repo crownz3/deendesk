@@ -327,13 +327,19 @@
                   <td class="td-evaluation">
                     <div class="status-chip"
                       [class.chip-success]="row.evaluationStatus === 'entered'"
-                      [class.chip-purple]="row.evaluationStatus === 'not-entered'">
+                      [class.chip-purple]="row.evaluationStatus === 'not-entered'"
+                      [title]="row.evaluationStatus === 'entered' && row.evaluationEnteredBy ? 'Evaluated by ' + row.evaluationEnteredBy + (row.evaluationEnteredAt ? ' at ' + row.evaluationEnteredAt : '') + ' (' + row.evaluationCount + ' students)' : ''">
                       <ion-icon name="clipboard-outline"></ion-icon>
                       <div class="chip-content">
-                        <span class="chip-main">{{ row.evaluationStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                        <span class="chip-main">
+                          {{ row.evaluationStatus === 'entered' ? 'Entered' : 'Not Entered' }}
+                          <span class="eval-count-tag" *ngIf="row.evaluationStatus === 'entered' && row.evaluationCount > 0">
+                            ({{ row.evaluationCount }})
+                          </span>
+                        </span>
                         <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
-                          {{ row.evaluationCount }} student(s)
-                          <span *ngIf="row.evaluationEnteredBy"> · {{ row.evaluationEnteredBy }}</span>
+                          <span *ngIf="row.evaluationEnteredBy">by {{ row.evaluationEnteredBy }}<span *ngIf="row.evaluationEnteredAt"> · {{ row.evaluationEnteredAt }}</span></span>
+                          <span *ngIf="!row.evaluationEnteredBy">{{ row.evaluationCount }} evaluated</span>
                         </span>
                       </div>
                     </div>
@@ -394,6 +400,7 @@
                         <div class="drawer-detail-text" *ngIf="row.evaluationStatus === 'entered'">
                           <strong>Status:</strong> Recorded for {{ row.evaluationCount }} student(s)<br>
                           <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}<br></span>
+                          <span *ngIf="row.evaluationEnteredAt"><strong>Recorded at:</strong> {{ row.evaluationEnteredAt }}<br></span>
                         </div>
                         <div class="drawer-detail-text text-purple" *ngIf="row.evaluationStatus === 'not-entered'">
                           Daily student progress evaluations have <strong>not been submitted</strong> today.
@@ -471,7 +478,8 @@
                 <div class="chip-content">
                   <span class="chip-main">Eval: {{ row.evaluationStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
                   <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
-                    {{ row.evaluationCount }} student(s)
+                    <span *ngIf="row.evaluationEnteredBy">by {{ row.evaluationEnteredBy }}</span>
+                    <span *ngIf="!row.evaluationEnteredBy">{{ row.evaluationCount }} student(s)</span>
                   </span>
                 </div>
               </div>
@@ -517,8 +525,9 @@
               <div class="drawer-sec">
                 <div class="drawer-sec-title"><ion-icon name="clipboard-outline"></ion-icon> Evaluation Audit</div>
                 <div *ngIf="row.evaluationStatus === 'entered'" class="drawer-sec-text">
-                  <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)<br>
-                  <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}</span>
+                  <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}<br></span>
+                  <span *ngIf="row.evaluationEnteredAt"><strong>Recorded at:</strong> {{ row.evaluationEnteredAt }}<br></span>
+                  <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)
                 </div>
                 <div *ngIf="row.evaluationStatus === 'not-entered'" class="drawer-sec-text text-purple">
                   ⚠️ Daily student progress evaluation not submitted for this date.
@@ -605,12 +614,19 @@
                 <td class="td-evaluation">
                   <div class="status-chip"
                     [class.chip-success]="row.evaluationStatus === 'entered'"
-                    [class.chip-purple]="row.evaluationStatus === 'not-entered'">
+                    [class.chip-purple]="row.evaluationStatus === 'not-entered'"
+                    [title]="row.evaluationStatus === 'entered' && row.evaluationEnteredBy ? 'Evaluated by ' + row.evaluationEnteredBy + (row.evaluationEnteredAt ? ' at ' + row.evaluationEnteredAt : '') + ' (' + row.evaluationCount + ' students)' : ''">
                     <ion-icon name="clipboard-outline"></ion-icon>
                     <div class="chip-content">
-                      <span class="chip-main">{{ row.evaluationStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                      <span class="chip-main">
+                        {{ row.evaluationStatus === 'entered' ? 'Entered' : 'Not Entered' }}
+                        <span class="eval-count-tag" *ngIf="row.evaluationStatus === 'entered' && row.evaluationCount > 0">
+                          ({{ row.evaluationCount }})
+                        </span>
+                      </span>
                       <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
-                        {{ row.evaluationCount }} student(s)<span *ngIf="row.evaluationEnteredBy"> · {{ row.evaluationEnteredBy }}</span>
+                        <span *ngIf="row.evaluationEnteredBy">by {{ row.evaluationEnteredBy }}<span *ngIf="row.evaluationEnteredAt"> · {{ row.evaluationEnteredAt }}</span></span>
+                        <span *ngIf="!row.evaluationEnteredBy">{{ row.evaluationCount }} evaluated</span>
                       </span>
                     </div>
                   </div>
@@ -668,6 +684,7 @@
                       <div class="drawer-detail-text" *ngIf="row.evaluationStatus === 'entered'">
                         <strong>Status:</strong> Recorded for {{ row.evaluationCount }} student(s)<br>
                         <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}<br></span>
+                        <span *ngIf="row.evaluationEnteredAt"><strong>Recorded at:</strong> {{ row.evaluationEnteredAt }}<br></span>
                       </div>
                       <div class="drawer-detail-text text-purple" *ngIf="row.evaluationStatus === 'not-entered'">
                         Daily student progress evaluations have <strong>not been submitted</strong> for this date.
@@ -743,7 +760,8 @@
               <div class="chip-content">
                 <span class="chip-main">Eval: {{ row.evaluationStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
                 <span class="chip-sub" *ngIf="row.evaluationStatus === 'entered'">
-                  {{ row.evaluationCount }} student(s)
+                  <span *ngIf="row.evaluationEnteredBy">by {{ row.evaluationEnteredBy }}</span>
+                  <span *ngIf="!row.evaluationEnteredBy">{{ row.evaluationCount }} student(s)</span>
                 </span>
               </div>
             </div>
@@ -789,8 +807,9 @@
             <div class="drawer-sec">
               <div class="drawer-sec-title"><ion-icon name="clipboard-outline"></ion-icon> Evaluation Audit</div>
               <div *ngIf="row.evaluationStatus === 'entered'" class="drawer-sec-text">
-                <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)<br>
-                <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}</span>
+                <span *ngIf="row.evaluationEnteredBy"><strong>Evaluated by:</strong> {{ row.evaluationEnteredBy }}<br></span>
+                <span *ngIf="row.evaluationEnteredAt"><strong>Recorded at:</strong> {{ row.evaluationEnteredAt }}<br></span>
+                <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)
               </div>
               <div *ngIf="row.evaluationStatus === 'not-entered'" class="drawer-sec-text text-purple">
                 ⚠️ Daily student progress evaluation not submitted for this date.

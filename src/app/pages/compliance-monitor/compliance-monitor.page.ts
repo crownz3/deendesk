@@ -38,6 +38,7 @@ export interface ClassGroupComplianceRow {
   evaluationStatus: ComplianceStatus;
   evaluationCount: number;
   evaluationEnteredBy?: string;
+  evaluationEnteredAt?: string;
 }
 
 export interface MadrasaComplianceGroup {
@@ -627,20 +628,70 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
 
       let evaluationStatus: ComplianceStatus = 'not-entered';
       let evaluationEnteredBy: string | undefined;
+      let evaluationEnteredAt: string | undefined;
       const evaluationCount = groupProgressRecords.length;
 
       if (evaluationCount > 0) {
         evaluationStatus = 'entered';
-        const first = groupProgressRecords[0];
-        evaluationEnteredBy = String(first['teacherName'] || first['enteredBy'] || first['staffName'] || first['recordedByName'] || '');
-        if (!evaluationEnteredBy) {
-          const tid = String(first['teacherId'] || first['staffId'] || first['recordedByUid'] || '');
-          if (tid) {
-            const found = users.find(u => String(u.id) === tid || String(u['uid']) === tid);
-            evaluationEnteredBy = found
-              ? String(found['displayName'] || found['name'] || found['email'] || '')
-              : undefined;
+
+        // 1. Scan all progress records in this group for evaluator name or uid
+        for (const p of groupProgressRecords) {
+          const directName =
+            p['evaluatedByName'] ||
+            p['recordedByName'] ||
+            p['teacherName'] ||
+            p['staffName'] ||
+            p['enteredByName'] ||
+            p['enteredBy'] ||
+            p['createdByName'] ||
+            p['takenByName'] ||
+            p['authorName'] ||
+            p['userName'] ||
+            p['updatedByName'];
+
+          if (directName && typeof directName === 'string' && directName.trim()) {
+            evaluationEnteredBy = directName.trim();
+            break;
           }
+
+          const uid =
+            p['evaluatedByUid'] ||
+            p['recordedByUid'] ||
+            p['teacherId'] ||
+            p['staffId'] ||
+            p['userId'] ||
+            p['createdBy'] ||
+            p['takenBy'];
+
+          if (uid) {
+            const uidStr = String(uid).trim();
+            const found = users.find(u => String(u.id) === uidStr || String(u['uid']) === uidStr);
+            const resolved = found ? String(found['displayName'] || found['name'] || found['email'] || '').trim() : '';
+            if (resolved) {
+              evaluationEnteredBy = resolved;
+              break;
+            }
+          }
+        }
+
+        // 2. Extract recorded timestamp if available
+        for (const p of groupProgressRecords) {
+          const t: any = p['recordedAt'] || p['evaluatedAt'] || p['createdAt'] || p['updatedAt'] || p['takenAt'];
+          if (t) {
+            const d = new Date(typeof t?.toDate === 'function' ? t.toDate() : (t.seconds ? t.seconds * 1000 : t));
+            if (!isNaN(d.getTime())) {
+              evaluationEnteredAt = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              break;
+            }
+          }
+        }
+
+        // 3. Fallback: If evaluation entered but no evaluator name is logged on progress records,
+        // use attendance recorder (same teacher) or assigned staff
+        if (!evaluationEnteredBy && attendanceTakenBy && attendanceTakenBy !== 'Teacher') {
+          evaluationEnteredBy = attendanceTakenBy;
+        } else if (!evaluationEnteredBy && assignedStaffName && assignedStaffName !== 'Unassigned') {
+          evaluationEnteredBy = assignedStaffName;
         }
       }
 
@@ -664,6 +715,7 @@ export class ComplianceMonitorPage implements OnInit, OnDestroy {
         evaluationStatus,
         evaluationCount,
         evaluationEnteredBy,
+        evaluationEnteredAt,
       };
     });
 
