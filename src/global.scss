@@ -64,8 +64,18 @@ optgroup {
 }
 
 /* Angular Material Select Panel & Dropdowns - High Contrast & Dark Text */
+.cdk-overlay-pane:has(.quran-surah-mat-panel),
+.cdk-overlay-pane:has(.quran-juz-mat-panel),
+.cdk-overlay-pane:has(.quran-portion-mat-panel),
+.cdk-overlay-pane:has(.quran-juz-num-mat-panel) {
+  min-width: 260px !important;
+  width: auto !important;
+  max-width: 95vw !important;
+}
+
 .quran-surah-mat-panel,
 .quran-juz-mat-panel,
+.quran-portion-mat-panel,
 .quran-juz-num-mat-panel,
 .mat-mdc-select-panel {
   background: #ffffff !important;
@@ -74,20 +84,26 @@ optgroup {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1) !important;
   border: 1px solid #cbd5e1 !important;
   max-height: 320px !important;
+  min-width: 250px !important;
+  width: auto !important;
 
   .mat-mdc-option {
     color: #0f172a !important;
     font-size: 13.5px !important;
     font-weight: 500 !important;
     background: transparent !important;
-    min-height: 38px !important;
-    padding: 0 12px !important;
+    min-height: 40px !important;
+    padding: 0 14px !important;
+    white-space: nowrap !important;
 
     .mdc-list-item__primary-text {
       color: #0f172a !important;
       font-weight: 500 !important;
       display: inline-flex !important;
       align-items: center !important;
+      white-space: nowrap !important;
+      overflow: visible !important;
+      word-break: normal !important;
     }
 
     .juz-num-pill {

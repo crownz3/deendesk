@@ -390,7 +390,7 @@
                     <span class="juz-name-text">{{ j.displayName }}</span>
                   </mat-option>
                 </mat-select>
-                <mat-select class="dawr-portion-select" [(ngModel)]="manzilStartPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                <mat-select class="dawr-portion-select" [(ngModel)]="manzilStartPortion" placeholder="Portion" panelClass="quran-portion-mat-panel">
                   <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
                 </mat-select>
               </div>
@@ -407,7 +407,7 @@
                     <span class="juz-name-text">{{ j.displayName }}</span>
                   </mat-option>
                 </mat-select>
-                <mat-select class="dawr-portion-select" [(ngModel)]="manzilEndPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                <mat-select class="dawr-portion-select" [(ngModel)]="manzilEndPortion" placeholder="Portion" panelClass="quran-portion-mat-panel">
                   <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
                 </mat-select>
               </div>
