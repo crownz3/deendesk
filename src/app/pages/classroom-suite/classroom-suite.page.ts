@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, combineLatest, of, Subject, firstValueFrom } from 'rxjs';
-import { catchError, map, switchMap, takeUntil } from 'rxjs/operators';
+import { catchError, distinctUntilChanged, filter, map, switchMap, takeUntil } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
 import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
 import { AppUser, AttendanceStatus, TimetableEntry } from '../../core/models/domain.model';
@@ -100,6 +100,47 @@ export interface StudentSuiteRosterItem {
   maktabLineNo: number | null;
   maktabMistakes: number | null;
   maktabRemarks: string;
+  // Weekly Cumulative Progress Fields (Option 1)
+  // 1. New Lesson (Sabaq)
+  weeklySabaqStartSurah?: string;
+  weeklySabaqStartAyah?: number | null;
+  weeklySabaqEndSurah?: string;
+  weeklySabaqEndAyah?: number | null;
+  weeklySabaqStartJuz?: number | null;
+  weeklySabaqStartPortion?: string;
+  weeklySabaqEndJuz?: number | null;
+  weeklySabaqEndPortion?: string;
+
+  // 2. Old Lesson (Sabqi)
+  weeklySabqiStartSurah?: string;
+  weeklySabqiStartAyah?: number | null;
+  weeklySabqiEndSurah?: string;
+  weeklySabqiEndAyah?: number | null;
+  weeklySabqiStartJuz?: number | null;
+  weeklySabqiStartPortion?: string;
+  weeklySabqiEndJuz?: number | null;
+  weeklySabqiEndPortion?: string;
+  weeklySabqiRange?: string;
+
+  // 3. Recent Lesson (Sabaq / Manzil)
+  weeklyManzilStartSurah?: string;
+  weeklyManzilStartAyah?: number | null;
+  weeklyManzilEndSurah?: string;
+  weeklyManzilEndAyah?: number | null;
+  weeklyManzilStartJuz?: number | null;
+  weeklyManzilStartPortion?: string;
+  weeklyManzilEndJuz?: number | null;
+  weeklyManzilEndPortion?: string;
+  weeklyManzilRange?: string;
+  weeklyMistakes?: number | null;
+  weeklyRating?: number; // 1-5
+  weeklyGrade?: string;
+  weeklyNotes?: string;
+  weeklyDawrRounds?: number | null;
+  weeklyDawrJuzCount?: number | null;
+  weeklyMaktabSubject?: string;
+  weeklyMaktabStartPage?: number | null;
+  weeklyMaktabEndPage?: number | null;
   // UI-only transient state (not persisted)
   _hoverRating?: number;
 }
@@ -205,6 +246,16 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     '2nd Half (Nisf 2)'
   ];
 
+  // Evaluation Cadence: 'daily' (Everyday register) vs 'weekly' (End-of-Week Batch)
+  evalCadence: 'daily' | 'weekly' = 'daily';
+  weeklyEvalUnitMode: 'surah' | 'juz' = 'surah';
+  selectedWeekYear: number = new Date().getFullYear();
+  selectedWeekNumber: number = 1;
+  selectedWeekStartStr: string = '';
+  selectedWeekEndStr: string = '';
+  selectedWeekDisplayText: string = '';
+  isSavingWeeklyProgress = false;
+
   // Status Overview State for Org Admin & Madrasa Incharge
   overviewStatusTab: 'all' | 'taken' | 'pending' = 'all';
   overviewSearchQuery = '';
@@ -257,6 +308,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   reportStudentSummaries: { studentName: string; presentPct: number; presentDays: number; totalDays: number; hifzAvgSabaq: string }[] = [];
 
   readonly refresh$ = new BehaviorSubject<void>(undefined);
+  private isInitialDataLoaded = false;
+  private rosterLoadedOnce = false;
+
+  trackByStudentId(index: number, item: StudentSuiteRosterItem): string {
+    return item?.student?.id || String(index);
+  }
 
   constructor(
     private readonly auth: AuthService,
@@ -268,6 +325,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.initWeekState();
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       let changed = false;
       if (params['madrasaId'] && this.selectedMadrasaId !== params['madrasaId']) {
@@ -299,7 +357,15 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
     this.refresh$.pipe(
       takeUntil(this.destroy$),
-      switchMap(() => this.auth.profile$),
+      switchMap(() => this.auth.profile$.pipe(
+        filter((p): p is AppUser => !!p),
+        distinctUntilChanged((prev, curr) => 
+          prev?.uid === curr?.uid &&
+          prev?.role === curr?.role &&
+          prev?.organizationId === curr?.organizationId &&
+          prev?.madrasaId === curr?.madrasaId
+        )
+      )),
       switchMap((profile) => {
         if (!profile) return of(null);
         this.currentUser = profile;
@@ -437,8 +503,16 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         return true;
       });
 
-      this.setupDefaultSelections();
-      this.resolveAssignedStaffForCurrentGroup();
+      if (!this.isInitialDataLoaded) {
+        this.isInitialDataLoaded = true;
+        this.setupDefaultSelections();
+        this.resolveAssignedStaffForCurrentGroup();
+      } else {
+        // Subsequent background snapshot update from Firestore
+        this.resolveUserAssignments();
+        this.syncAvailableGroupsAfterBackgroundUpdate();
+        this.resolveAssignedStaffForCurrentGroup();
+      }
     });
   }
 
@@ -589,6 +663,66 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     }
   }
 
+  private syncAvailableGroupsAfterBackgroundUpdate(): void {
+    if (!this.currentUser) return;
+    let available = [...this.classGroups];
+
+    if (this.selectedMadrasaId) {
+      available = available.filter(g => (
+        g['madrasaId'] === this.selectedMadrasaId || 
+        (g['madrasaIds'] && g['madrasaIds'].includes(this.selectedMadrasaId)) ||
+        !g['madrasaId']
+      ));
+    }
+
+    if (this.isStageHead && (this.currentUser as any).stageId) {
+      const targetStageId = (this.currentUser as any).stageId;
+      available = available.filter(g => g['stageId'] === targetStageId || g['stage'] === targetStageId);
+    }
+
+    const u = this.currentUser as any;
+    const allMadrasaScope = Array.isArray(u.madrasaIds) && u.madrasaIds.length > 0 
+      ? u.madrasaIds 
+      : (u.madrasaId ? [u.madrasaId] : []);
+    const inchargeMadrasaScope = Array.isArray(u.inchargeMadrasaIds) && u.inchargeMadrasaIds.length > 0
+      ? u.inchargeMadrasaIds
+      : allMadrasaScope;
+    const inchargeMadrasaIds = new Set<string>(inchargeMadrasaScope.filter(Boolean).map((v: any) => String(v).trim()));
+    const isCoordinatorRole = (this.currentUser as any).role?.toLowerCase().replace(/[\s_-]/g, '') === 'coordinator';
+    const isSelectedMadrasaInchargeScope = (this.isMadrasaIncharge || isCoordinatorRole) && this.selectedMadrasaId && inchargeMadrasaIds.has(String(this.selectedMadrasaId).trim());
+
+    if (!this.isSuperAdmin && !this.isOrgAdmin) {
+      if (this.selectedMadrasaId) {
+        if (!isSelectedMadrasaInchargeScope && this.userAssignedGroupIds.size > 0) {
+          available = available.filter(g => g.id && this.userAssignedGroupIds.has(g.id));
+        }
+      } else {
+        available = available.filter(g => {
+          const mId = String(g['madrasaId'] || '');
+          const isGroupInchargeScope = (this.isMadrasaIncharge || isCoordinatorRole) && inchargeMadrasaIds.has(mId);
+          const isExplicitlyAssigned = g.id && this.userAssignedGroupIds.has(g.id);
+          return isGroupInchargeScope || isExplicitlyAssigned;
+        });
+      }
+    }
+
+    this.availableClassGroupsForUser = available;
+
+    if (this.availableClassGroupsForUser.length > 0) {
+      const isCurrentStillAvailable = this.availableClassGroupsForUser.some(g => g.id === this.selectedGroupId);
+      if (!isCurrentStillAvailable) {
+        // Only if the group was removed do we switch
+        this.selectedGroupId = this.availableClassGroupsForUser[0]?.id || '';
+        this.rosterLoadedOnce = true;
+        this.onGroupChanged(true);
+      }
+      // If current group is still available, keep active selection and do NOT reload roster
+    } else {
+      this.selectedGroupId = '';
+      this.roster = [];
+    }
+  }
+
   private setupDefaultSelections(): void {
     if (!this.currentUser) return;
 
@@ -668,10 +802,14 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     this.availableClassGroupsForUser = available;
 
     if (this.availableClassGroupsForUser.length > 0) {
+      const prevGroupId = this.selectedGroupId;
       if (!this.availableClassGroupsForUser.some(g => g.id === this.selectedGroupId)) {
         this.selectedGroupId = this.availableClassGroupsForUser[0]?.id || '';
       }
-      this.onGroupChanged();
+      if (this.selectedGroupId !== prevGroupId || !this.rosterLoadedOnce) {
+        this.rosterLoadedOnce = true;
+        this.onGroupChanged(true);
+      }
     } else {
       this.selectedGroupId = '';
       this.roster = [];
@@ -682,7 +820,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     this.filterGroupsForActiveScope();
   }
 
-  onGroupChanged(): void {
+  onGroupChanged(forceShowLoader = true): void {
     const grp = this.classGroups.find(g => g.id === this.selectedGroupId);
     if (grp) {
       if (grp['classId']) {
@@ -716,7 +854,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
     this.resolveAssignedStaffForCurrentGroup();
     this.loadTimetablePeriods();
-    this.loadRosterAndAttendance();
+    this.loadRosterAndAttendance(forceShowLoader);
     this.syncSearchTexts();
   }
 
@@ -765,9 +903,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
   onGroupOptionSelected(g: EntityRecord): void {
     if (!g) return;
-    this.selectedGroupId = g.id || '';
-    this.groupSearchText = g['name'] || g['title'] || '';
-    this.onGroupChanged();
+    if (this.selectedGroupId !== g.id) {
+      this.selectedGroupId = g.id || '';
+      this.roster = [];
+      this.groupSearchText = g['name'] || g['title'] || '';
+      this.onGroupChanged(true);
+    }
   }
 
   syncSearchTexts(): void {
@@ -944,9 +1085,13 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const y = dateVal.getFullYear();
     const m = String(dateVal.getMonth() + 1).padStart(2, '0');
     const d = String(dateVal.getDate()).padStart(2, '0');
-    this.selectedDateStr = `${y}-${m}-${d}`;
+    const newDateStr = `${y}-${m}-${d}`;
+    if (this.selectedDateStr !== newDateStr) {
+      this.selectedDateStr = newDateStr;
+      this.roster = [];
+    }
     this.loadTimetablePeriods();
-    this.loadRosterAndAttendance();
+    this.loadRosterAndAttendance(true);
     if (this.activeTab === 'overview') {
       this.loadOverviewStatusData();
     }
@@ -982,13 +1127,13 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       this.selectedPeriodId = this.periodSlots[0].id;
       this.selectedPeriodTitle = this.periodSlots[0].periodTitle;
     }
-    this.loadRosterAndAttendance();
+    this.loadRosterAndAttendance(true);
   }
 
   selectPeriodSlot(slot: PeriodSlotChip): void {
     this.selectedPeriodId = slot.id;
     this.selectedPeriodTitle = slot.periodTitle;
-    this.loadRosterAndAttendance();
+    this.loadRosterAndAttendance(true);
   }
 
   private loadTimetablePeriods(): void {
@@ -1224,14 +1369,18 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     });
   }
 
-  private async loadRosterAndAttendance(): Promise<void> {
+  private async loadRosterAndAttendance(forceShowLoader = false): Promise<void> {
     if (!this.selectedGroupId || !this.currentUser) {
       this.roster = [];
       return;
     }
 
+    const shouldShowLoader = forceShowLoader || this.roster.length === 0;
+
     try {
-      this.loader.show();
+      if (shouldShowLoader) {
+        this.loader.show();
+      }
       const firestore = getDeenDeskFirestore();
 
       // 0. Fetch org default Dawr rounds (bypass cache — always fresh)
@@ -1346,6 +1495,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         a['groupId'] === this.selectedGroupId || a['classPlanId'] === this.selectedGroupId
       );
 
+      // Snapshot any existing in-progress input items to preserve user typing
+      const existingRosterMap = new Map<string, StudentSuiteRosterItem>();
+      this.roster.forEach(r => {
+        if (r.student?.id) existingRosterMap.set(r.student.id, r);
+      });
+
       // 4. Build Roster Items
       this.roster = groupStudents.map(student => {
         const stId = student.id || '';
@@ -1355,6 +1510,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         const dawr = prog?.dawrProgress || {};
         const maktab = prog?.maktabProgress || {};
         const targets = prog?.targetGoals || student['targetGoals'] || {};
+        const existing = stId ? existingRosterMap.get(stId) : undefined;
 
         // Resolve all class group names for student
         const studentGroupNames = new Set<string>();
@@ -1409,8 +1565,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
         return {
           student,
-          status: saved ? saved.status : 'present',
-          note: saved?.note || '',
+          status: (existing && existing.status !== undefined) ? existing.status : (saved ? saved.status : 'present'),
+          note: (existing && existing.note !== undefined) ? existing.note : (saved?.note || ''),
           attendancePct,
           attendanceHistoryText,
           attendanceHistoryRecords: historyRecords,
@@ -1429,38 +1585,43 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           targetDawrDailyJuz: targets.dawrDailyJuz || '',
           targetIncompleteReason: targets.incompleteReason || '',
           targetIncompleteNotes: targets.incompleteNotes || '',
-          sabaqSurah: hifz.sabaqSurahName || targets.sabaqSurah || '',
-          sabaqFromAyah: hifz.sabaqFromAyah || targets.sabaqFromAyah || null,
-          sabaqToAyah: hifz.sabaqToAyah || targets.sabaqToAyah || null,
-          sabaqMistakes: hifz.sabaqMistakes || 0,
-          sabaqJuzPortion: hifz.sabaqJuzPortion || 'Full Juz',
-          sabqiSurah: hifz.sabqiSurahName || '',
-          sabqiFromAyah: hifz.sabqiFromAyah || null,
-          sabqiToAyah: hifz.sabqiToAyah || null,
-          sabqiJuz: hifz.sabqiJuzNo || null,
-          sabqiJuzPortion: hifz.sabqiJuzPortion || 'Full Juz',
-          sabqiMistakes: hifz.sabqiMistakes || 0,
-          manzilSurah: hifz.manzilSurahName || '',
-          manzilFromAyah: hifz.manzilFromAyah || null,
-          manzilToAyah: hifz.manzilToAyah || null,
-          manzilJuz: hifz.manzilJuzNo || null,
-          manzilJuzPortion: hifz.manzilJuzPortion || 'Full Juz',
-          manzilMistakes: hifz.manzilMistakes || 0,
-          hifzRating: hifz.rating || 5,
-          dawrRoundNo: dawr.roundNo || 1,
-          dawrPortionJuz: dawr.portionJuz || 'Juz 1',
-          dawrFromAyah: dawr.fromAyah || null,
-          dawrToAyah: dawr.toAyah || null,
-          dawrMistakes: dawr.dawrMistakes || 0,
-          dawrManzilMistakes: dawr.manzilMistakes || 0,
-          dawrRating: dawr.rating || 5,
-          maktabSubject: maktab.subjectName || '',
-          maktabPage: maktab.pageNo || targets.maktabPage || null,
-          maktabLineNo: maktab.lineNo || targets.maktabLineNo || null,
-          maktabMistakes: maktab.mistakesCount || 0,
-          maktabRemarks: maktab.remarks || ''
+          sabaqSurah: (existing && existing.sabaqSurah !== undefined) ? existing.sabaqSurah : (hifz.sabaqSurahName || targets.sabaqSurah || ''),
+          sabaqFromAyah: (existing && existing.sabaqFromAyah !== undefined) ? existing.sabaqFromAyah : (hifz.sabaqFromAyah || targets.sabaqFromAyah || null),
+          sabaqToAyah: (existing && existing.sabaqToAyah !== undefined) ? existing.sabaqToAyah : (hifz.sabaqToAyah || targets.sabaqToAyah || null),
+          sabaqMistakes: (existing && existing.sabaqMistakes !== undefined) ? existing.sabaqMistakes : (hifz.sabaqMistakes || 0),
+          sabaqJuz: (existing && existing.sabaqJuz !== undefined) ? existing.sabaqJuz : (hifz.sabaqJuzNo || null),
+          sabaqJuzPortion: (existing && existing.sabaqJuzPortion !== undefined) ? existing.sabaqJuzPortion : (hifz.sabaqJuzPortion || 'Full Juz'),
+          sabqiSurah: (existing && existing.sabqiSurah !== undefined) ? existing.sabqiSurah : (hifz.sabqiSurahName || ''),
+          sabqiFromAyah: (existing && existing.sabqiFromAyah !== undefined) ? existing.sabqiFromAyah : (hifz.sabqiFromAyah || null),
+          sabqiToAyah: (existing && existing.sabqiToAyah !== undefined) ? existing.sabqiToAyah : (hifz.sabqiToAyah || null),
+          sabqiJuz: (existing && existing.sabqiJuz !== undefined) ? existing.sabqiJuz : (hifz.sabqiJuzNo || null),
+          sabqiJuzPortion: (existing && existing.sabqiJuzPortion !== undefined) ? existing.sabqiJuzPortion : (hifz.sabqiJuzPortion || 'Full Juz'),
+          sabqiMistakes: (existing && existing.sabqiMistakes !== undefined) ? existing.sabqiMistakes : (hifz.sabqiMistakes || 0),
+          manzilSurah: (existing && existing.manzilSurah !== undefined) ? existing.manzilSurah : (hifz.manzilSurahName || ''),
+          manzilFromAyah: (existing && existing.manzilFromAyah !== undefined) ? existing.manzilFromAyah : (hifz.manzilFromAyah || null),
+          manzilToAyah: (existing && existing.manzilToAyah !== undefined) ? existing.manzilToAyah : (hifz.manzilToAyah || null),
+          manzilJuz: (existing && existing.manzilJuz !== undefined) ? existing.manzilJuz : (hifz.manzilJuzNo || null),
+          manzilJuzPortion: (existing && existing.manzilJuzPortion !== undefined) ? existing.manzilJuzPortion : (hifz.manzilJuzPortion || 'Full Juz'),
+          manzilMistakes: (existing && existing.manzilMistakes !== undefined) ? existing.manzilMistakes : (hifz.manzilMistakes || 0),
+          hifzRating: (existing && existing.hifzRating !== undefined) ? existing.hifzRating : (hifz.rating || 5),
+          dawrRoundNo: (existing && existing.dawrRoundNo !== undefined) ? existing.dawrRoundNo : (dawr.roundNo || 1),
+          dawrPortionJuz: (existing && existing.dawrPortionJuz !== undefined) ? existing.dawrPortionJuz : (dawr.portionJuz || 'Juz 1'),
+          dawrFromAyah: (existing && existing.dawrFromAyah !== undefined) ? existing.dawrFromAyah : (dawr.fromAyah || null),
+          dawrToAyah: (existing && existing.dawrToAyah !== undefined) ? existing.dawrToAyah : (dawr.toAyah || null),
+          dawrMistakes: (existing && existing.dawrMistakes !== undefined) ? existing.dawrMistakes : (dawr.dawrMistakes || 0),
+          dawrManzilMistakes: (existing && existing.dawrManzilMistakes !== undefined) ? existing.dawrManzilMistakes : (dawr.manzilMistakes || 0),
+          dawrRating: (existing && existing.dawrRating !== undefined) ? existing.dawrRating : (dawr.rating || 5),
+          maktabSubject: (existing && existing.maktabSubject !== undefined) ? existing.maktabSubject : (maktab.subjectName || ''),
+          maktabPage: (existing && existing.maktabPage !== undefined) ? existing.maktabPage : (maktab.pageNo || targets.maktabPage || null),
+          maktabLineNo: (existing && existing.maktabLineNo !== undefined) ? existing.maktabLineNo : (maktab.lineNo || targets.maktabLineNo || null),
+          maktabMistakes: (existing && existing.maktabMistakes !== undefined) ? existing.maktabMistakes : (maktab.mistakesCount || 0),
+          maktabRemarks: (existing && existing.maktabRemarks !== undefined) ? existing.maktabRemarks : (maktab.remarks || '')
         };
       });
+
+      if (this.evalCadence === 'weekly') {
+        await this.loadWeeklyProgressData();
+      }
 
       this.recalculateSummary();
       if (this.canManageReports) {
@@ -1470,7 +1631,9 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       console.error('Error loading classroom suite data:', err);
       this.snackBar.open('Error loading roster and attendance data', 'Close', { duration: 3000 });
     } finally {
-      this.loader.hide();
+      if (shouldShowLoader) {
+        this.loader.hide();
+      }
     }
   }
 
@@ -2349,6 +2512,382 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     if (item.sabaqToAyah && item.sabaqToAyah > maxAyah) {
       item.sabaqToAyah = maxAyah;
       this.snackBar.open(`Maximum Ayah for ${item.sabaqSurah} is ${maxAyah}`, 'Dismiss', { duration: 3000 });
+    }
+  }
+
+  // ==========================================
+  // WEEKLY BATCH EVALUATION METHODS (OPTION 1)
+  // ==========================================
+  initWeekState(refDate: Date = new Date()): void {
+    const d = new Date(refDate);
+    const day = d.getDay();
+    // Monday is start of madrasa week
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(d.setDate(diff));
+    const saturday = new Date(monday);
+    saturday.setDate(monday.getDate() + 5);
+
+    this.selectedWeekYear = monday.getFullYear();
+    this.selectedWeekNumber = this.getISOWeekNumber(monday);
+    this.selectedWeekStartStr = this.formatDateStr(monday);
+    this.selectedWeekEndStr = this.formatDateStr(saturday);
+
+    const startText = monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endText = saturday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    this.selectedWeekDisplayText = `Week ${this.selectedWeekNumber}: ${startText} – ${endText}`;
+  }
+
+  formatDateStr(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  getISOWeekNumber(d: Date): number {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const dayNum = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  }
+
+  prevWeek(): void {
+    const d = new Date(this.selectedWeekStartStr);
+    d.setDate(d.getDate() - 7);
+    this.initWeekState(d);
+    this.loadWeeklyProgressData();
+  }
+
+  nextWeek(): void {
+    const d = new Date(this.selectedWeekStartStr);
+    d.setDate(d.getDate() + 7);
+    this.initWeekState(d);
+    this.loadWeeklyProgressData();
+  }
+
+  goToCurrentWeek(): void {
+    this.initWeekState(new Date());
+    this.loadWeeklyProgressData();
+  }
+
+  setEvalCadence(cadence: 'daily' | 'weekly'): void {
+    this.evalCadence = cadence;
+    if (cadence === 'weekly') {
+      if (!this.selectedWeekStartStr) {
+        this.initWeekState(new Date());
+      }
+      this.loadWeeklyProgressData();
+    }
+  }
+
+  async loadWeeklyProgressData(): Promise<void> {
+    if (!this.currentUser || !this.selectedGroupId || this.roster.length === 0) return;
+    try {
+      const firestore = getDeenDeskFirestore();
+      const promises = this.roster.map(async item => {
+        if (!item.student.id) return;
+        const weeklyDocId = `${item.student.id}_week_${this.selectedWeekYear}_${this.selectedWeekNumber}`;
+        const weeklyDocRef = doc(firestore, 'studentWeeklyProgress', weeklyDocId);
+        try {
+          const snap = await getDoc(weeklyDocRef);
+          if (snap.exists()) {
+            const data = snap.data();
+            const h = data['hifz'] || {};
+            const d = data['dawr'] || {};
+            const m = data['maktab'] || {};
+
+            if (h.evalUnitMode) {
+              this.weeklyEvalUnitMode = h.evalUnitMode;
+            }
+            item.weeklySabaqStartSurah = h.sabaqStartSurah || '';
+            item.weeklySabaqStartAyah = h.sabaqStartAyah !== undefined ? h.sabaqStartAyah : null;
+            item.weeklySabaqEndSurah = h.sabaqEndSurah || '';
+            item.weeklySabaqEndAyah = h.sabaqEndAyah !== undefined ? h.sabaqEndAyah : null;
+            item.weeklySabaqStartJuz = h.sabaqStartJuz !== undefined ? h.sabaqStartJuz : null;
+            item.weeklySabaqStartPortion = h.sabaqStartPortion || 'Full Juz';
+            item.weeklySabaqEndJuz = h.sabaqEndJuz !== undefined ? h.sabaqEndJuz : null;
+            item.weeklySabaqEndPortion = h.sabaqEndPortion || 'Full Juz';
+
+            item.weeklySabqiStartSurah = h.sabqiStartSurah || '';
+            item.weeklySabqiStartAyah = h.sabqiStartAyah !== undefined ? h.sabqiStartAyah : null;
+            item.weeklySabqiEndSurah = h.sabqiEndSurah || '';
+            item.weeklySabqiEndAyah = h.sabqiEndAyah !== undefined ? h.sabqiEndAyah : null;
+            item.weeklySabqiStartJuz = h.sabqiStartJuz !== undefined ? h.sabqiStartJuz : null;
+            item.weeklySabqiStartPortion = h.sabqiStartPortion || 'Full Juz';
+            item.weeklySabqiEndJuz = h.sabqiEndJuz !== undefined ? h.sabqiEndJuz : null;
+            item.weeklySabqiEndPortion = h.sabqiEndPortion || 'Full Juz';
+            item.weeklySabqiRange = h.sabqiRange || '';
+
+            item.weeklyManzilStartSurah = h.manzilStartSurah || '';
+            item.weeklyManzilStartAyah = h.manzilStartAyah !== undefined ? h.manzilStartAyah : null;
+            item.weeklyManzilEndSurah = h.manzilEndSurah || '';
+            item.weeklyManzilEndAyah = h.manzilEndAyah !== undefined ? h.manzilEndAyah : null;
+            item.weeklyManzilStartJuz = h.manzilStartJuz !== undefined ? h.manzilStartJuz : null;
+            item.weeklyManzilStartPortion = h.manzilStartPortion || 'Full Juz';
+            item.weeklyManzilEndJuz = h.manzilEndJuz !== undefined ? h.manzilEndJuz : null;
+            item.weeklyManzilEndPortion = h.manzilEndPortion || 'Full Juz';
+            item.weeklyManzilRange = h.manzilRange || '';
+
+            item.weeklyMistakes = h.weeklyMistakes !== undefined ? h.weeklyMistakes : null;
+            item.weeklyRating = h.rating || 5;
+            item.weeklyNotes = h.notes || '';
+
+            item.weeklyDawrRounds = d.roundNo || item.dawrRoundNo || 1;
+            item.weeklyDawrJuzCount = d.weeklyJuzCount !== undefined ? d.weeklyJuzCount : null;
+
+            item.weeklyMaktabSubject = m.subject || '';
+            item.weeklyMaktabStartPage = m.startPage !== undefined ? m.startPage : null;
+            item.weeklyMaktabEndPage = m.endPage !== undefined ? m.endPage : null;
+          } else {
+            // DO NOT auto-fill dummy values - keep empty by default!
+            item.weeklySabaqStartSurah = '';
+            item.weeklySabaqStartAyah = null;
+            item.weeklySabaqEndSurah = '';
+            item.weeklySabaqEndAyah = null;
+            item.weeklySabaqStartJuz = null;
+            item.weeklySabaqStartPortion = 'Full Juz';
+            item.weeklySabaqEndJuz = null;
+            item.weeklySabaqEndPortion = 'Full Juz';
+
+            item.weeklySabqiStartSurah = '';
+            item.weeklySabqiStartAyah = null;
+            item.weeklySabqiEndSurah = '';
+            item.weeklySabqiEndAyah = null;
+            item.weeklySabqiStartJuz = null;
+            item.weeklySabqiStartPortion = 'Full Juz';
+            item.weeklySabqiEndJuz = null;
+            item.weeklySabqiEndPortion = 'Full Juz';
+            item.weeklySabqiRange = '';
+
+            item.weeklyManzilStartSurah = '';
+            item.weeklyManzilStartAyah = null;
+            item.weeklyManzilEndSurah = '';
+            item.weeklyManzilEndAyah = null;
+            item.weeklyManzilStartJuz = null;
+            item.weeklyManzilStartPortion = 'Full Juz';
+            item.weeklyManzilEndJuz = null;
+            item.weeklyManzilEndPortion = 'Full Juz';
+            item.weeklyManzilRange = '';
+
+            item.weeklyMistakes = null;
+            item.weeklyRating = 5;
+            item.weeklyNotes = '';
+
+            item.weeklyDawrRounds = item.dawrRoundNo || 1;
+            item.weeklyDawrJuzCount = null;
+
+            item.weeklyMaktabSubject = '';
+            item.weeklyMaktabStartPage = null;
+            item.weeklyMaktabEndPage = null;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      });
+      await Promise.all(promises);
+    } catch (e) {
+      console.error('Error loading weekly progress data:', e);
+    }
+  }
+
+  formatWeeklyRange(item: StudentSuiteRosterItem, type: 'sabaq' | 'sabqi' | 'manzil'): string {
+    if (this.weeklyEvalUnitMode === 'surah') {
+      const startSurah = type === 'sabaq' ? item.weeklySabaqStartSurah : (type === 'sabqi' ? item.weeklySabqiStartSurah : item.weeklyManzilStartSurah);
+      const startAyah = type === 'sabaq' ? item.weeklySabaqStartAyah : (type === 'sabqi' ? item.weeklySabqiStartAyah : item.weeklyManzilStartAyah);
+      const endSurah = type === 'sabaq' ? item.weeklySabaqEndSurah : (type === 'sabqi' ? item.weeklySabqiEndSurah : item.weeklyManzilEndSurah);
+      const endAyah = type === 'sabaq' ? item.weeklySabaqEndAyah : (type === 'sabqi' ? item.weeklySabqiEndAyah : item.weeklyManzilEndAyah);
+
+      if (!startSurah && !endSurah) return '';
+      if (startSurah && !endSurah) return `${startSurah}${startAyah ? ' :' + startAyah : ''}`;
+      if (startSurah === endSurah) {
+        return `${startSurah}${startAyah && endAyah ? ` (${startAyah}-${endAyah})` : ''}`;
+      }
+      return `${startSurah}${startAyah ? ' :' + startAyah : ''} to ${endSurah}${endAyah ? ' :' + endAyah : ''}`;
+    } else {
+      const startJuz = type === 'sabaq' ? item.weeklySabaqStartJuz : (type === 'sabqi' ? item.weeklySabqiStartJuz : item.weeklyManzilStartJuz);
+      const endJuz = type === 'sabaq' ? item.weeklySabaqEndJuz : (type === 'sabqi' ? item.weeklySabqiEndJuz : item.weeklyManzilEndJuz);
+      if (!startJuz && !endJuz) return '';
+      if (startJuz && !endJuz) return `Juz ${startJuz}`;
+      if (startJuz === endJuz) return `Juz ${startJuz}`;
+      return `Juz ${startJuz} to ${endJuz}`;
+    }
+  }
+
+  autoFillWeeklyFromTargets(): void {
+    let count = 0;
+    this.roster.forEach(item => {
+      if (this.studentTypeMode === 'hifz') {
+        if (this.weeklyEvalUnitMode === 'surah') {
+          if (item.targetSabaqSurah) {
+            item.weeklySabaqStartSurah = item.targetSabaqSurah;
+            item.weeklySabaqStartAyah = item.targetSabaqFromAyah || 1;
+            item.weeklySabaqEndSurah = item.targetSabaqSurah;
+            item.weeklySabaqEndAyah = item.targetSabaqToAyah || null;
+            count++;
+          }
+        } else {
+          // Juz mode
+          if (item.targetSabaqJuz) {
+            item.weeklySabaqStartJuz = item.targetSabaqJuz;
+            item.weeklySabaqStartPortion = 'Full Juz';
+            item.weeklySabaqEndJuz = item.targetSabaqJuz;
+            item.weeklySabaqEndPortion = 'Full Juz';
+            count++;
+          }
+        }
+        if (item.targetSabqiJuzRange) item.weeklySabqiRange = item.targetSabqiJuzRange;
+        if (item.targetManzilJuzRange) item.weeklyManzilRange = item.targetManzilJuzRange;
+      } else if (this.studentTypeMode === 'dawr') {
+        if (item.targetDawrRounds) item.weeklyDawrRounds = item.targetDawrRounds;
+        item.weeklyDawrJuzCount = 5;
+        count++;
+      } else if (this.studentTypeMode === 'maktab') {
+        if (item.targetMaktabSubject) item.weeklyMaktabSubject = item.targetMaktabSubject;
+        if (item.targetMaktabPage) {
+          item.weeklyMaktabStartPage = 1;
+          item.weeklyMaktabEndPage = item.targetMaktabPage;
+          count++;
+        }
+      }
+      item.weeklyRating = 5;
+    });
+    this.snackBar.open(`Auto-filled weekly progress from targets for ${count} students!`, 'OK', { duration: 3000 });
+  }
+
+  bulkSetWeeklyRating(rating: number): void {
+    this.roster.forEach(item => item.weeklyRating = rating);
+    this.snackBar.open(`Applied ${rating}-Star weekly rating to all students`, 'OK', { duration: 2500 });
+  }
+
+  async saveWeeklyProgress(): Promise<void> {
+    if (!this.canManageAttendance || !this.currentUser || !this.selectedGroupId) return;
+    if (this.isSavingWeeklyProgress) return;
+
+    try {
+      this.isSavingWeeklyProgress = true;
+      this.loader.show();
+      const firestore = getDeenDeskFirestore();
+
+      const savePromises = this.roster.map(async item => {
+        if (!item.student.id) return;
+        const weeklyDocId = `${item.student.id}_week_${this.selectedWeekYear}_${this.selectedWeekNumber}`;
+        const weeklyDocRef = doc(firestore, 'studentWeeklyProgress', weeklyDocId);
+
+        const payload: any = {
+          id: weeklyDocId,
+          studentId: item.student.id,
+          organizationId: this.currentUser?.organizationId || '',
+          madrasaId: this.selectedMadrasaId,
+          classId: this.selectedClassId,
+          groupId: this.selectedGroupId,
+          year: this.selectedWeekYear,
+          weekNumber: this.selectedWeekNumber,
+          weekStartDate: this.selectedWeekStartStr,
+          weekEndDate: this.selectedWeekEndStr,
+          studentType: this.studentTypeMode,
+          recordedByUid: this.currentUser?.uid || '',
+          recordedByName: this.currentUser?.displayName || this.currentUser?.email || '',
+          recordedAt: Timestamp.now(),
+          hifz: this.studentTypeMode === 'hifz' ? {
+            evalUnitMode: this.weeklyEvalUnitMode,
+            sabaqStartSurah: item.weeklySabaqStartSurah || '',
+            sabaqStartAyah: item.weeklySabaqStartAyah || null,
+            sabaqEndSurah: item.weeklySabaqEndSurah || '',
+            sabaqEndAyah: item.weeklySabaqEndAyah || null,
+            sabaqStartJuz: item.weeklySabaqStartJuz || null,
+            sabaqStartPortion: item.weeklySabaqStartPortion || 'Full Juz',
+            sabaqEndJuz: item.weeklySabaqEndJuz || null,
+            sabaqEndPortion: item.weeklySabaqEndPortion || 'Full Juz',
+            sabqiStartSurah: item.weeklySabqiStartSurah || '',
+            sabqiStartAyah: item.weeklySabqiStartAyah || null,
+            sabqiEndSurah: item.weeklySabqiEndSurah || '',
+            sabqiEndAyah: item.weeklySabqiEndAyah || null,
+            sabqiStartJuz: item.weeklySabqiStartJuz || null,
+            sabqiStartPortion: item.weeklySabqiStartPortion || 'Full Juz',
+            sabqiEndJuz: item.weeklySabqiEndJuz || null,
+            sabqiEndPortion: item.weeklySabqiEndPortion || 'Full Juz',
+            sabqiRange: item.weeklySabqiRange || this.formatWeeklyRange(item, 'sabqi'),
+            manzilStartSurah: item.weeklyManzilStartSurah || '',
+            manzilStartAyah: item.weeklyManzilStartAyah || null,
+            manzilEndSurah: item.weeklyManzilEndSurah || '',
+            manzilEndAyah: item.weeklyManzilEndAyah || null,
+            manzilStartJuz: item.weeklyManzilStartJuz || null,
+            manzilStartPortion: item.weeklyManzilStartPortion || 'Full Juz',
+            manzilEndJuz: item.weeklyManzilEndJuz || null,
+            manzilEndPortion: item.weeklyManzilEndPortion || 'Full Juz',
+            manzilRange: item.weeklyManzilRange || this.formatWeeklyRange(item, 'manzil'),
+            weeklyMistakes: item.weeklyMistakes || 0,
+            rating: item.weeklyRating || 5,
+            notes: item.weeklyNotes || ''
+          } : null,
+          dawr: this.studentTypeMode === 'dawr' ? {
+            roundNo: item.weeklyDawrRounds || item.dawrRoundNo || 1,
+            weeklyJuzCount: item.weeklyDawrJuzCount || 5,
+            portionJuz: item.dawrPortionJuz || '',
+            rating: item.weeklyRating || 5,
+            notes: item.weeklyNotes || ''
+          } : null,
+          maktab: this.studentTypeMode === 'maktab' ? {
+            subject: item.weeklyMaktabSubject || item.maktabSubject || '',
+            startPage: item.weeklyMaktabStartPage || 1,
+            endPage: item.weeklyMaktabEndPage || item.maktabPage || null,
+            rating: item.weeklyRating || 5,
+            notes: item.weeklyNotes || ''
+          } : null
+        };
+
+        await setDoc(weeklyDocRef, payload, { merge: true });
+
+        // Also mirror into studentDailyProgress for week-end date so existing reports remain seamless
+        const dailyDocRef = doc(firestore, 'studentDailyProgress', `${item.student.id}_${this.selectedWeekEndStr}`);
+        const dailyMirror = {
+          id: `${item.student.id}_${this.selectedWeekEndStr}`,
+          studentId: item.student.id,
+          organizationId: this.currentUser?.organizationId || '',
+          madrasaId: this.selectedMadrasaId,
+          classId: this.selectedClassId,
+          groupId: this.selectedGroupId,
+          date: this.selectedWeekEndStr,
+          studentType: this.studentTypeMode,
+          recordedByUid: this.currentUser?.uid || '',
+          recordedByName: this.currentUser?.displayName || this.currentUser?.email || '',
+          recordedAt: Timestamp.now(),
+          isWeeklyMilestone: true,
+          hifzProgress: this.studentTypeMode === 'hifz' ? {
+            evalUnitMode: this.weeklyEvalUnitMode,
+            sabaqSurahName: this.weeklyEvalUnitMode === 'surah' ? (item.weeklySabaqEndSurah || '') : '',
+            sabaqFromAyah: item.weeklySabaqStartAyah || null,
+            sabaqToAyah: item.weeklySabaqEndAyah || null,
+            sabaqJuzNo: this.weeklyEvalUnitMode === 'juz' ? (item.weeklySabaqEndJuz || null) : null,
+            sabaqJuzPortion: this.weeklyEvalUnitMode === 'juz' ? (item.weeklySabaqEndPortion || 'Full Juz') : 'Full Juz',
+            sabaqMistakes: item.weeklyMistakes || 0,
+            sabqiSurahName: item.weeklySabqiRange || '',
+            manzilSurahName: item.weeklyManzilRange || '',
+            rating: item.weeklyRating || 5
+          } : null,
+          dawrProgress: this.studentTypeMode === 'dawr' ? {
+            roundNo: item.weeklyDawrRounds || 1,
+            portionJuz: `${item.weeklyDawrJuzCount || 5} Juzs this week`,
+            rating: item.weeklyRating || 5
+          } : null,
+          maktabProgress: this.studentTypeMode === 'maktab' ? {
+            subjectName: item.weeklyMaktabSubject || item.maktabSubject || '',
+            pageNo: item.weeklyMaktabEndPage || null,
+            mistakesCount: item.weeklyMistakes || 0
+          } : null
+        };
+        await setDoc(dailyDocRef, dailyMirror, { merge: true });
+      });
+
+      await Promise.all(savePromises);
+      this.snackBar.open(`Weekly Batch Progress for ${this.roster.length} students saved successfully!`, 'OK', { duration: 4000 });
+    } catch (err: any) {
+      console.error('Error saving weekly progress:', err);
+      this.snackBar.open(`Failed to save weekly progress: ${err?.message || 'Error'}`, 'Close', { duration: 5000 });
+    } finally {
+      this.isSavingWeeklyProgress = false;
+      this.loader.hide();
     }
   }
 }

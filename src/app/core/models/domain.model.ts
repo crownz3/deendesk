@@ -2251,7 +2251,46 @@ export interface QaTestRun extends ScopedEntity {
   signOffNotes?: string;
 }
 
-
-
-
-
+export interface StudentWeeklyProgressRecord {
+  id: string; // studentId_week_YYYY_WW
+  studentId: string;
+  organizationId: string;
+  madrasaId?: string;
+  classId?: string;
+  groupId?: string;
+  year: number;
+  weekNumber: number;
+  weekStartDate: string; // YYYY-MM-DD
+  weekEndDate: string;   // YYYY-MM-DD
+  recordedByUid?: string;
+  recordedByName?: string;
+  recordedAt?: any;
+  studentType: 'hifz' | 'dawr' | 'maktab';
+  hifz?: {
+    sabaqStartSurah?: string;
+    sabaqStartAyah?: number | null;
+    sabaqEndSurah?: string;
+    sabaqEndAyah?: number | null;
+    sabqiRange?: string;
+    manzilRange?: string;
+    weeklyMistakes?: number;
+    rating: number;
+    notes?: string;
+  };
+  dawr?: {
+    roundNo?: number;
+    weeklyJuzCount?: number;
+    portionJuz?: string;
+    mistakes?: number;
+    rating: number;
+    notes?: string;
+  };
+  maktab?: {
+    subject?: string;
+    startPage?: number | null;
+    endPage?: number | null;
+    mistakes?: number;
+    rating: number;
+    notes?: string;
+  };
+}

@@ -77,12 +77,12 @@ export interface SetTargetDialogData {
         <div class="rollover-controls">
           <label>Reason for Incomplete Target:</label>
           <select class="dialog-select" [(ngModel)]="incompleteReason">
-            <option value="Medical / Illness">Medical / Illness Leave</option>
-            <option value="Student Absence">Student Absence / Leave</option>
-            <option value="Tajweed Practice">Needs Extra Tajweed & Revision Practice</option>
-            <option value="Slow Memorization Pace">Slow Memorization Pace</option>
-            <option value="Holiday / Break">Holiday / Event Break</option>
-            <option value="Custom Reason">Other Reason (Specify below)</option>
+            <option value="Medical / Illness" label="Medical / Illness Leave">Medical / Illness Leave</option>
+            <option value="Student Absence" label="Student Absence / Leave">Student Absence / Leave</option>
+            <option value="Tajweed Practice" label="Needs Extra Tajweed & Revision Practice">Needs Extra Tajweed & Revision Practice</option>
+            <option value="Slow Memorization Pace" label="Slow Memorization Pace">Slow Memorization Pace</option>
+            <option value="Holiday / Break" label="Holiday / Event Break">Holiday / Event Break</option>
+            <option value="Custom Reason" label="Other Reason (Specify below)">Other Reason (Specify below)</option>
           </select>
 
           <input type="text" class="dialog-input" style="margin-top: 8px;" [(ngModel)]="incompleteNotes" placeholder="Additional teacher notes on why target was delayed..." />

@@ -844,6 +844,31 @@ service cloud.firestore {
       );
     }
 
+    match /studentWeeklyProgress/{id} {
+      allow read: if signedIn() && (
+        isSuper()
+        || resource == null
+        || (sameOrg(resource.data) && (
+          isOrgAdmin()
+          || isCoordinator()
+          || isMadrasaIncharge()
+          || isTeacherOrStaff()
+          || isStudent()
+          || isParent()
+          || hasPermission('viewAttendance')
+          || hasPermission('takeAttendance')
+        ))
+      );
+      allow create, update: if signedIn() && (
+        isSuper()
+        || canTakeAttendance(request.resource.data)
+      );
+      allow delete: if signedIn() && (
+        isSuper()
+        || (sameOrg(resource.data) && (isOrgAdmin() || ((isCoordinator() || isMadrasaIncharge() || isDynamicMadrasaIncharge(resource.data)) && inAssignedMadrasaScope(resource.data))))
+      );
+    }
+
     match /promotionHistory/{id} {
       allow read: if signedIn() && sameOrg(resource.data);
       allow create, update, delete: if signedIn() && sameOrg(request.resource.data) && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff() || hasPermission('managePromotions'));
@@ -1246,6 +1271,12 @@ service cloud.firestore {
     // Student Daily Progress & Evaluation Module
     // ==========================================
     match /studentDailyProgress/{id} {
+      allow read: if signedIn() && (isSuper() || resource == null || sameOrg(resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
+      allow create, update: if signedIn() && (isSuper() || sameOrg(request.resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
+      allow delete: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());
+    }
+
+    match /studentWeeklyProgress/{id} {
       allow read: if signedIn() && (isSuper() || resource == null || sameOrg(resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
       allow create, update: if signedIn() && (isSuper() || sameOrg(request.resource.data) || (isActive() && (isOrgAdmin() || isCoordinator() || isMadrasaIncharge() || isTeacherOrStaff())));
       allow delete: if signedIn() && (isSuper() || isOrgAdmin() || isCoordinator() || isMadrasaIncharge());

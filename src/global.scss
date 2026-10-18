@@ -49,6 +49,27 @@ ion-app {
   background: #ffffff !important;
   color: var(--app-text-main);
   font-family: var(--app-font-family) !important;
+  color-scheme: light !important;
+}
+
+:root {
+  color-scheme: light !important;
+}
+
+select,
+option,
+datalist,
+input,
+optgroup {
+  color-scheme: light !important;
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+option {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+  font-size: 14px !important;
 }
 
 .app-frame,
