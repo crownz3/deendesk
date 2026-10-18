@@ -98,11 +98,19 @@ export interface StudentSuiteRosterItem {
   dawrManzilMistakes: number | null;
   dawrRating: number;
   // Maktab / Academic Progress Fields
+  maktabStageMode?: 'miftah' | 'tilawatul_quran';
   maktabSubject: string;
   maktabPage: number | null;
   maktabLineNo: number | null;
   maktabMistakes: number | null;
   maktabRemarks: string;
+  tilawatSurah?: string;
+  tilawatFromAyah?: number | null;
+  tilawatToAyah?: number | null;
+  tilawatJuz?: number | null;
+  tilawatFromPage?: number | null;
+  tilawatToPage?: number | null;
+  quranReading?: any;
   // Weekly Cumulative Progress Fields (Option 1)
   // 1. New Lesson (Sabaq)
   weeklySabaqStartSurah?: string;
@@ -1719,11 +1727,22 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           dawrMistakes: (existing && existing.dawrMistakes !== undefined) ? existing.dawrMistakes : (dawr.dawrMistakes !== undefined ? dawr.dawrMistakes : null),
           dawrManzilMistakes: (existing && existing.dawrManzilMistakes !== undefined) ? existing.dawrManzilMistakes : (dawr.manzilMistakes !== undefined ? dawr.manzilMistakes : null),
           dawrRating: (existing && existing.dawrRating !== undefined) ? existing.dawrRating : (dawr.rating || 5),
+          maktabStageMode: (existing && existing.maktabStageMode !== undefined)
+            ? existing.maktabStageMode
+            : (prog?.maktabStageMode || (maktab.stage === 'Tilawatul Quran' || prog?.quranReading || (maktab.subjectName && maktab.subjectName.startsWith('Quran:')) ? 'tilawatul_quran' : 'miftah')),
           maktabSubject: (existing && existing.maktabSubject !== undefined) ? existing.maktabSubject : (maktab.subjectName || ''),
           maktabPage: (existing && existing.maktabPage !== undefined) ? existing.maktabPage : (maktab.pageNo || targets.maktabPage || null),
           maktabLineNo: (existing && existing.maktabLineNo !== undefined) ? existing.maktabLineNo : (maktab.lineNo || targets.maktabLineNo || null),
           maktabMistakes: (existing && existing.maktabMistakes !== undefined) ? existing.maktabMistakes : (maktab.mistakesCount || 0),
-          maktabRemarks: (existing && existing.maktabRemarks !== undefined) ? existing.maktabRemarks : (maktab.remarks || '')
+          maktabRemarks: (existing && existing.maktabRemarks !== undefined) ? existing.maktabRemarks : (maktab.remarks || ''),
+          tilawatSurah: (existing && existing.tilawatSurah !== undefined) ? existing.tilawatSurah : (prog?.quranReading?.surahName || maktab.surahName || ''),
+          tilawatFromAyah: (existing && existing.tilawatFromAyah !== undefined) ? existing.tilawatFromAyah : (prog?.quranReading?.fromAyah || maktab.fromAyah || null),
+          tilawatToAyah: (existing && existing.tilawatToAyah !== undefined) ? existing.tilawatToAyah : (prog?.quranReading?.toAyah || maktab.toAyah || null),
+          tilawatJuz: (existing && existing.tilawatJuz !== undefined) ? existing.tilawatJuz : (prog?.quranReading?.juzNo || maktab.juzNo || null),
+          tilawatFromPage: (existing && existing.tilawatFromPage !== undefined) ? existing.tilawatFromPage : (prog?.quranReading?.fromPage || maktab.fromPage || null),
+          tilawatToPage: (existing && existing.tilawatToPage !== undefined) ? existing.tilawatToPage : (prog?.quranReading?.toPage || maktab.toPage || null),
+          quranReading: (existing && existing.quranReading !== undefined) ? existing.quranReading : (prog?.quranReading || maktab.quranReading || null),
+          maktabSubjectsList: (existing && existing.maktabSubjectsList !== undefined) ? existing.maktabSubjectsList : (prog?.maktabSubjectsList || [])
         };
       });
 
@@ -2248,6 +2267,22 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
   getStudentProgressStatus(item: StudentSuiteRosterItem): { isEvaluated: boolean; label: string; details: string; rating: number; mistakes?: number | null } {
     if (this.studentTypeMode === 'maktab') {
+      const isTilawat = item.maktabStageMode === 'tilawatul_quran' || item.quranReading || (item.maktabSubject && item.maktabSubject.startsWith('Quran:')) || !!item.tilawatSurah;
+      if (isTilawat) {
+        const qr = item.quranReading || {};
+        const surah = item.tilawatSurah || qr.surahName || (item.maktabSubject ? item.maktabSubject.replace('Quran: ', '') : '');
+        const fromA = item.tilawatFromAyah || qr.fromAyah || 1;
+        const toA = item.tilawatToAyah || qr.toAyah || 1;
+        const juz = item.tilawatJuz || qr.juzNo;
+        const text = surah ? `Surah ${surah} (Ayah ${fromA}–${toA})` : (juz ? `Juz ${juz}` : 'Quran Reading');
+        return {
+          isEvaluated: true,
+          label: 'Tilawatul Quran',
+          details: text,
+          rating: item.weeklyRating || 5,
+          mistakes: item.maktabMistakes
+        };
+      }
       if (item.maktabSubjectsList && item.maktabSubjectsList.length > 0) {
         const subNames = item.maktabSubjectsList.map(s => `${s.customSubjectName || s.subject} (Pg ${s.startPage || 1}–${s.endPage || 1})`).join(' • ');
         return {
@@ -2388,15 +2423,31 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe(res => {
       if (res && res.saved) {
         if (this.studentTypeMode === 'maktab') {
-          item.maktabSubjectsList = res.maktabSubjects;
-          const firstSub = res.maktabSubjects && res.maktabSubjects[0];
-          if (firstSub) {
-            item.weeklyMaktabSubject = firstSub.customSubjectName || firstSub.subject;
-            item.maktabSubject = firstSub.customSubjectName || firstSub.subject;
-            item.weeklyMaktabStartPage = firstSub.startPage;
-            item.weeklyMaktabEndPage = firstSub.endPage;
-            item.maktabPage = firstSub.endPage;
-            item.maktabLineNo = firstSub.lineNo;
+          item.maktabStageMode = res.maktabStageMode;
+          if (res.maktabStageMode === 'tilawatul_quran') {
+            item.quranReading = res.quranReading;
+            item.tilawatSurah = res.tilawatSurah;
+            item.tilawatFromAyah = res.tilawatFromAyah;
+            item.tilawatToAyah = res.tilawatToAyah;
+            item.tilawatJuz = res.tilawatJuz;
+            item.tilawatFromPage = res.tilawatFromPage;
+            item.tilawatToPage = res.tilawatToPage;
+            item.maktabSubject = res.dailyPayload?.maktabSubject || `Quran: ${res.tilawatSurah || 'Juz ' + res.tilawatJuz}`;
+            item.weeklyMaktabSubject = item.maktabSubject;
+            item.maktabPage = res.tilawatToPage || null;
+            item.maktabLineNo = res.tilawatToAyah || null;
+            item.maktabSubjectsList = [];
+          } else {
+            item.maktabSubjectsList = res.maktabSubjects;
+            const firstSub = res.maktabSubjects && res.maktabSubjects[0];
+            if (firstSub) {
+              item.weeklyMaktabSubject = firstSub.customSubjectName || firstSub.subject;
+              item.maktabSubject = firstSub.customSubjectName || firstSub.subject;
+              item.weeklyMaktabStartPage = firstSub.startPage;
+              item.weeklyMaktabEndPage = firstSub.endPage;
+              item.maktabPage = firstSub.endPage;
+              item.maktabLineNo = firstSub.lineNo;
+            }
           }
         } else {
           item.weeklySabaqStartSurah = res.sabaqStartSurah;
@@ -2733,12 +2784,16 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             rating: item.dawrRating || 5,
           } : null,
           maktabProgress: this.studentTypeMode === 'maktab' ? {
+            stage: item.maktabStageMode === 'tilawatul_quran' ? 'Tilawatul Quran' : 'Miftah',
             subjectName: item.maktabSubject || '',
             pageNo: item.maktabPage || null,
             lineNo: item.maktabLineNo || null,
             mistakesCount: item.maktabMistakes || 0,
             remarks: item.maktabRemarks || '',
-          } : null
+            quranReading: item.quranReading || null
+          } : null,
+          maktabStageMode: this.studentTypeMode === 'maktab' ? (item.maktabStageMode || 'miftah') : null,
+          quranReading: this.studentTypeMode === 'maktab' && item.maktabStageMode === 'tilawatul_quran' ? (item.quranReading || null) : null
         };
 
         return setDoc(pDocRef, progressPayload, { merge: true });

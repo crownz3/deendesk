@@ -91,6 +91,20 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   // Maktab Multi-Subject Entries
   maktabSubjects: MaktabSubjectEntry[] = [];
 
+  // Maktab Two-Stage Evaluation (Miftah vs Tilawatul Quran)
+  maktabStageMode: 'miftah' | 'tilawatul_quran' = 'miftah';
+  tilawatEvalMode: 'surah' | 'juz' = 'surah';
+  tilawatSurah: string = 'Al-Fatihah';
+  tilawatFromAyah: number | null = 1;
+  tilawatToAyah: number | null = 7;
+  tilawatJuz: number | null = 1;
+  tilawatFromPage: number | null = 1;
+  tilawatToPage: number | null = 2;
+
+  setMaktabStageMode(mode: 'miftah' | 'tilawatul_quran'): void {
+    this.maktabStageMode = mode;
+  }
+
   // Hifz Evaluation Settings
   hifzEvalUnitMode: 'surah' | 'juz' = 'surah';
   hifzEntryMethod: 'ayah' | 'page' = 'ayah';
@@ -162,6 +176,13 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   }
 
   async ngOnInit(): Promise<void> {
+    const stageStr = this.getStudentStageDisplay(this.student).toLowerCase();
+    if (stageStr.includes('tilawat') || stageStr.includes('quran') || stageStr.includes('nazira')) {
+      this.maktabStageMode = 'tilawatul_quran';
+    } else {
+      this.maktabStageMode = 'miftah';
+    }
+
     await this.loadOrgConfiguredSubjects();
     this.initFromExistingRoster();
     await this.fetchStudentHistoricalProgress();
@@ -193,7 +214,15 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
 
   captureInitialSnapshot(): void {
     this.initialStateSnapshot = JSON.stringify({
+      maktabStageMode: this.maktabStageMode,
       maktabSubjects: this.maktabSubjects,
+      tilawatSurah: this.tilawatSurah,
+      tilawatFromAyah: this.tilawatFromAyah,
+      tilawatToAyah: this.tilawatToAyah,
+      tilawatJuz: this.tilawatJuz,
+      tilawatFromPage: this.tilawatFromPage,
+      tilawatToPage: this.tilawatToPage,
+      tilawatEvalMode: this.tilawatEvalMode,
       sabaqStartSurah: this.sabaqStartSurah,
       sabaqStartAyah: this.sabaqStartAyah,
       sabaqEndSurah: this.sabaqEndSurah,
@@ -250,21 +279,38 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     }
 
     if (this.studentTypeMode === 'maktab') {
+      if (item.maktabStageMode) {
+        this.maktabStageMode = item.maktabStageMode;
+      } else if (item.quranReading || item.tilawatSurah || (item.maktabSubject && item.maktabSubject.startsWith('Quran:'))) {
+        this.maktabStageMode = 'tilawatul_quran';
+      }
+
+      if (item.quranReading || item.tilawatSurah) {
+        const qr = item.quranReading || {};
+        this.tilawatSurah = item.tilawatSurah || qr.surahName || (item.maktabSubject ? item.maktabSubject.replace('Quran: ', '') : 'Al-Fatihah');
+        this.tilawatFromAyah = item.tilawatFromAyah || qr.fromAyah || 1;
+        this.tilawatToAyah = item.tilawatToAyah || qr.toAyah || 7;
+        this.tilawatJuz = item.tilawatJuz || qr.juzNo || 1;
+        this.tilawatFromPage = item.tilawatFromPage || qr.fromPage || 1;
+        this.tilawatToPage = item.tilawatToPage || qr.toPage || 2;
+        this.tilawatEvalMode = qr.evalMode || (item.tilawatJuz ? 'juz' : 'surah');
+      }
+
       if (Array.isArray(item.maktabSubjectsList) && item.maktabSubjectsList.length > 0) {
         this.maktabSubjects = JSON.parse(JSON.stringify(item.maktabSubjectsList));
-      } else {
+      } else if (this.maktabStageMode === 'miftah') {
         const subName = item.weeklyMaktabSubject || item.maktabSubject || 'Noorani Qaida';
         const startPg = item.weeklyMaktabStartPage || 1;
         const endPg = item.weeklyMaktabEndPage || item.maktabPage || 1;
         const lineNo = item.maktabLineNo || 1;
-        this.maktabSubjects.push({
+        this.maktabSubjects = [{
           subject: subName,
           stage: '',
           startPage: startPg,
           endPage: endPg,
           lineNo: lineNo,
           notes: ''
-        });
+        }];
       }
     } else {
       // Hifz / Dawr
@@ -317,20 +363,22 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   }
 
   async fetchStudentHistoricalProgress(): Promise<void> {
-    if (!this.student?.id) return;
+    const stId = this.student?.id || this.student?.['id'] || this.student?.['studentId'];
+    if (!stId) return;
     this.isLoadingHistory = true;
     try {
       const firestore = getDeenDeskFirestore();
-      // Look for latest daily progress record
+      // Look for latest daily progress record strictly BEFORE today
       const dailyColl = collection(firestore, 'studentDailyProgress');
       const q = query(
         dailyColl,
-        where('studentId', '==', this.student.id)
+        where('studentId', '==', stId)
       );
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
         const sortedDocs = snapshot.docs
           .map(d => d.data())
+          .filter(d => !d['isDeleted'] && String(d['date'] || '') < this.data.selectedDateStr)
           .sort((a, b) => String(b['date'] || '').localeCompare(String(a['date'] || '')));
         const docData = sortedDocs[0];
         if (docData) {
@@ -373,10 +421,22 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   buildLastProgressSummary(docData: any): void {
     if (this.studentTypeMode === 'maktab') {
       const m = docData.maktabProgress || docData;
-      const sub = m.subjectName || m.maktabSubject || 'Qaida';
-      const pg = m.pageNo || m.maktabPageNo || 1;
-      const line = m.lineNo || m.maktabLessonNo ? ` Line ${m.lineNo || m.maktabLessonNo}` : '';
-      this.lastProgressSummary = `Last Milestone (${docData.date || 'Recent'}): ${sub} — Pg ${pg}${line}`;
+      const stage = docData.maktabStageMode || m.stage || '';
+      const isTilawat = stage === 'tilawatul_quran' || stage === 'Tilawatul Quran' || !!m.surahName || (docData.maktabSubject && docData.maktabSubject.startsWith('Quran:')) || !!docData.quranReading;
+      if (isTilawat) {
+        const qr = docData.quranReading || m;
+        const surah = qr.surahName || m.surahName || (docData.maktabSubject ? docData.maktabSubject.replace('Quran: ', '') : '');
+        const fromA = qr.fromAyah || m.fromAyah || 1;
+        const toA = qr.toAyah || m.toAyah || docData.maktabLessonNo || 1;
+        const juz = qr.juzNo || m.juzNo || 1;
+        const text = surah ? `Surah ${surah} (${fromA}–${toA})` : `Juz ${juz}`;
+        this.lastProgressSummary = `Last Milestone (${docData.date || 'Recent'}): Tilawatul Quran — ${text}`;
+      } else {
+        const sub = m.subjectName || m.maktabSubject || docData.maktabSubject || 'Qaida';
+        const pg = m.pageNo || m.maktabPageNo || docData.maktabPageNo || 1;
+        const line = m.lineNo || m.maktabLessonNo || docData.maktabLessonNo ? ` Line ${m.lineNo || m.maktabLessonNo || docData.maktabLessonNo}` : '';
+        this.lastProgressSummary = `Last Milestone (${docData.date || 'Recent'}): ${sub} — Pg ${pg}${line}`;
+      }
     } else {
       const h = docData.hifzProgress || docData;
       const sabaq = h.sabaqSurahName || h.sabaqSurah || '';
@@ -396,15 +456,30 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     const docData = this.lastProgressRaw;
     if (this.studentTypeMode === 'maktab') {
       const m = docData.maktabProgress || docData;
-      const lastPg = parseInt(String(m.pageNo || m.maktabPageNo || 1), 10) || 1;
-      const lastLine = parseInt(String(m.lineNo || m.maktabLessonNo || 1), 10) || 1;
-      if (this.maktabSubjects.length === 0) {
-        this.addMaktabSubject(m.subjectName || 'Noorani Qaida');
+      const stage = docData.maktabStageMode || m.stage || '';
+      const isTilawat = stage === 'tilawatul_quran' || stage === 'Tilawatul Quran' || !!m.surahName || (docData.maktabSubject && docData.maktabSubject.startsWith('Quran:')) || !!docData.quranReading;
+      if (isTilawat) {
+        this.maktabStageMode = 'tilawatul_quran';
+        const qr = docData.quranReading || m;
+        const surah = qr.surahName || m.surahName || (docData.maktabSubject ? docData.maktabSubject.replace('Quran: ', '') : 'Al-Baqarah');
+        const lastTo = parseInt(String(qr.toAyah || m.toAyah || docData.maktabLessonNo || 1), 10) || 1;
+        this.tilawatSurah = surah;
+        this.tilawatFromAyah = lastTo + 1;
+        this.tilawatToAyah = lastTo + 10;
+        this.tilawatEvalMode = 'surah';
+        this.snackBar.open(`Continued Tilawatul Quran from ${surah} Ayah ${lastTo + 1}!`, 'OK', { duration: 2500 });
+      } else {
+        this.maktabStageMode = 'miftah';
+        const lastPg = parseInt(String(m.pageNo || m.maktabPageNo || docData.maktabPageNo || 1), 10) || 1;
+        const lastLine = parseInt(String(m.lineNo || m.maktabLessonNo || docData.maktabLessonNo || 1), 10) || 1;
+        if (this.maktabSubjects.length === 0) {
+          this.addMaktabSubject(m.subjectName || 'Noorani Qaida');
+        }
+        this.maktabSubjects[0].startPage = lastPg;
+        this.maktabSubjects[0].endPage = lastPg + 1;
+        this.maktabSubjects[0].lineNo = lastLine;
+        this.snackBar.open(`Continued from Page ${lastPg}!`, 'OK', { duration: 2500 });
       }
-      this.maktabSubjects[0].startPage = lastPg;
-      this.maktabSubjects[0].endPage = lastPg + 1;
-      this.maktabSubjects[0].lineNo = lastLine;
-      this.snackBar.open(`Continued from Page ${lastPg}!`, 'OK', { duration: 2500 });
     } else {
       const h = docData.hifzProgress || docData;
       const sabaq = h.sabaqSurahName || h.sabaqSurah;
@@ -418,6 +493,8 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         this.snackBar.open(`Continued from ${sabaq} Ayah ${toAyah + 1}!`, 'OK', { duration: 2500 });
       }
     }
+    // HIDE banner after clicking continue as requested by user
+    this.lastProgressSummary = null;
   }
 
   // Maktab Methods
@@ -642,19 +719,55 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       };
 
       if (this.studentTypeMode === 'maktab') {
-        dailyPayload.maktabSubject = primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '';
-        dailyPayload.maktabPageNo = primaryMaktab?.endPage || null;
-        dailyPayload.maktabLessonNo = primaryMaktab?.lineNo || null;
-        dailyPayload.maktabSubjectsList = this.maktabSubjects;
-        dailyPayload.maktabProgress = {
-          subjectName: primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '',
-          stage: primaryMaktab?.stage || '',
-          startPage: primaryMaktab?.startPage || null,
-          pageNo: primaryMaktab?.endPage || null,
-          lineNo: primaryMaktab?.lineNo || null,
-          mistakesCount: this.overallMistakes,
-          subjectsCount: this.maktabSubjects.length
-        };
+        dailyPayload.maktabStageMode = this.maktabStageMode;
+        if (this.maktabStageMode === 'tilawatul_quran') {
+          const readingText = this.tilawatEvalMode === 'surah'
+            ? `Quran: ${this.tilawatSurah}`
+            : `Quran: Juz ${this.tilawatJuz}`;
+          dailyPayload.maktabSubject = readingText;
+          dailyPayload.maktabPageNo = this.tilawatToPage || null;
+          dailyPayload.maktabLessonNo = this.tilawatToAyah || null;
+          dailyPayload.quranReading = {
+            evalMode: this.tilawatEvalMode,
+            surahName: this.tilawatSurah,
+            fromAyah: this.tilawatFromAyah,
+            toAyah: this.tilawatToAyah,
+            juzNo: this.tilawatJuz,
+            fromPage: this.tilawatFromPage,
+            toPage: this.tilawatToPage,
+            mistakes: this.overallMistakes,
+            rating: this.starRating
+          };
+          dailyPayload.maktabProgress = {
+            stage: 'Tilawatul Quran',
+            readingText,
+            evalMode: this.tilawatEvalMode,
+            surahName: this.tilawatSurah,
+            fromAyah: this.tilawatFromAyah,
+            toAyah: this.tilawatToAyah,
+            juzNo: this.tilawatJuz,
+            fromPage: this.tilawatFromPage,
+            toPage: this.tilawatToPage,
+            pageNo: this.tilawatToPage || null,
+            lineNo: this.tilawatToAyah || null,
+            mistakesCount: this.overallMistakes,
+            rating: this.starRating
+          };
+        } else {
+          dailyPayload.maktabSubject = primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '';
+          dailyPayload.maktabPageNo = primaryMaktab?.endPage || null;
+          dailyPayload.maktabLessonNo = primaryMaktab?.lineNo || null;
+          dailyPayload.maktabSubjectsList = this.maktabSubjects;
+          dailyPayload.maktabProgress = {
+            stage: 'Miftah',
+            subjectName: primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '',
+            startPage: primaryMaktab?.startPage || null,
+            pageNo: primaryMaktab?.endPage || null,
+            lineNo: primaryMaktab?.lineNo || null,
+            mistakesCount: this.overallMistakes,
+            subjectsCount: this.maktabSubjects.length
+          };
+        }
       } else {
         // Hifz
         dailyPayload.sabaqSurah = this.sabaqEndSurah;
@@ -730,15 +843,40 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         };
 
         if (this.studentTypeMode === 'maktab') {
-          weeklyPayload.maktab = {
-            subject: primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '',
-            startPage: primaryMaktab?.startPage || 1,
-            endPage: primaryMaktab?.endPage || 1,
-            lineNo: primaryMaktab?.lineNo || 1,
-            rating: this.starRating,
-            notes: this.remarks
-          };
-          weeklyPayload.maktabSubjectsList = this.maktabSubjects;
+          weeklyPayload.maktabStageMode = this.maktabStageMode;
+          if (this.maktabStageMode === 'tilawatul_quran') {
+            weeklyPayload.maktab = {
+              stage: 'Tilawatul Quran',
+              subject: this.tilawatEvalMode === 'surah' ? `Quran: ${this.tilawatSurah}` : `Quran: Juz ${this.tilawatJuz}`,
+              startPage: this.tilawatFromPage || 1,
+              endPage: this.tilawatToPage || 1,
+              lineNo: this.tilawatToAyah || 1,
+              rating: this.starRating,
+              notes: this.remarks
+            };
+            weeklyPayload.quranReading = {
+              evalMode: this.tilawatEvalMode,
+              surahName: this.tilawatSurah,
+              fromAyah: this.tilawatFromAyah,
+              toAyah: this.tilawatToAyah,
+              juzNo: this.tilawatJuz,
+              fromPage: this.tilawatFromPage,
+              toPage: this.tilawatToPage,
+              mistakes: this.overallMistakes,
+              rating: this.starRating
+            };
+          } else {
+            weeklyPayload.maktab = {
+              stage: 'Miftah',
+              subject: primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '',
+              startPage: primaryMaktab?.startPage || 1,
+              endPage: primaryMaktab?.endPage || 1,
+              lineNo: primaryMaktab?.lineNo || 1,
+              rating: this.starRating,
+              notes: this.remarks
+            };
+            weeklyPayload.maktabSubjectsList = this.maktabSubjects;
+          }
         } else {
           weeklyPayload.hifz = {
             evalUnitMode: this.hifzEvalUnitMode,
@@ -799,6 +937,14 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           ...(this.evalCadence === 'weekly' ? [`studentWeeklyProgress/${studentId}_week_${weekYear}_${weekNo}`] : [])
         ],
         dailyPayload,
+        maktabStageMode: this.maktabStageMode,
+        quranReading: dailyPayload.quranReading || null,
+        tilawatSurah: this.tilawatSurah,
+        tilawatFromAyah: this.tilawatFromAyah,
+        tilawatToAyah: this.tilawatToAyah,
+        tilawatJuz: this.tilawatJuz,
+        tilawatFromPage: this.tilawatFromPage,
+        tilawatToPage: this.tilawatToPage,
         dawrRoundNo: this.dawrRoundNo,
         maktabSubjects: this.maktabSubjects,
         hifzLessonsList: this.extraLessonsList,

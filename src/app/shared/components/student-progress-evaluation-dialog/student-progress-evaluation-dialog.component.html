@@ -46,15 +46,15 @@
     </div>
 
     <!-- ======================================================== -->
-    <!-- MAKTAB MULTI-SUBJECT EVALUATION SECTION                  -->
+    <!-- MAKTAB MULTI-STAGE EVALUATION SECTION                    -->
     <!-- ======================================================== -->
     <div class="eval-section maktab-section" *ngIf="studentTypeMode === 'maktab'">
       <div class="section-title-row">
         <div class="title-group">
-          <h3 class="section-heading">Maktab Subjects &amp; Progression</h3>
-          <p class="section-subtext">Record page and line progress across curriculum subjects.</p>
+          <h3 class="section-heading">Maktab Student Evaluation</h3>
+          <p class="section-subtext">Evaluate student by stage: Miftah (Curriculum Subjects) or Tilawatul Quran (Quran Reading).</p>
         </div>
-        <div class="section-actions-right">
+        <div class="section-actions-right" *ngIf="maktabStageMode === 'miftah'">
           <button type="button" class="add-subject-btn" (click)="addMaktabSubject()">
             <mat-icon class="btn-ic">add</mat-icon>
             <span>Add Subject</span>
@@ -62,7 +62,26 @@
         </div>
       </div>
 
-      <div class="subjects-card-list">
+      <!-- MAKTAB STAGE SELECTOR TABS -->
+      <div class="maktab-stage-selector-bar">
+        <button type="button" class="stage-tab-btn" [class.active]="maktabStageMode === 'miftah'" (click)="setMaktabStageMode('miftah')">
+          <mat-icon class="tab-ic">auto_stories</mat-icon>
+          <div class="tab-content">
+            <span class="tab-title">Miftah Stage</span>
+            <span class="tab-sub">Curriculum Subjects (Qaida, Duas, Fiqh, Hadith)</span>
+          </div>
+        </button>
+        <button type="button" class="stage-tab-btn" [class.active]="maktabStageMode === 'tilawatul_quran'" (click)="setMaktabStageMode('tilawatul_quran')">
+          <mat-icon class="tab-ic">menu_book</mat-icon>
+          <div class="tab-content">
+            <span class="tab-title">Tilawatul Quran Stage</span>
+            <span class="tab-sub">Quran Reading (Mushaf Nazira)</span>
+          </div>
+        </button>
+      </div>
+
+      <!-- STAGE 1: MIFTAH CURRICULUM SUBJECTS -->
+      <div class="subjects-card-list" *ngIf="maktabStageMode === 'miftah'">
         <div class="subject-item-card" *ngFor="let item of maktabSubjects; let idx = index">
           <div class="item-card-header">
             <span class="sub-num-pill">#{{ idx + 1 }}</span>
@@ -106,6 +125,73 @@
             <div class="form-row">
               <div class="field-item full">
                 <input type="text" class="text-input small" [(ngModel)]="item.notes" placeholder="Notes (e.g., memorized well, revise letters daal/dhaal)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STAGE 2: TILAWATUL QURAN (QURAN READING) -->
+      <div class="tilawat-quran-card" *ngIf="maktabStageMode === 'tilawatul_quran'">
+        <div class="tilawat-card-header">
+          <div class="tilawat-badge-row">
+            <span class="tilawat-pill">📖 Quran Reading Progress</span>
+            <span class="mushaf-note">Reading directly seeing the Holy Quran</span>
+          </div>
+          <!-- Mode Toggle: By Surah vs By Juz -->
+          <div class="reading-mode-toggle">
+            <button type="button" class="mode-btn" [class.active]="tilawatEvalMode === 'surah'" (click)="tilawatEvalMode = 'surah'">
+              By Surah &amp; Ayah
+            </button>
+            <button type="button" class="mode-btn" [class.active]="tilawatEvalMode === 'juz'" (click)="tilawatEvalMode = 'juz'">
+              By Juz &amp; Page
+            </button>
+          </div>
+        </div>
+
+        <div class="tilawat-card-body">
+          <!-- By Surah & Ayah -->
+          <div class="tilawat-form-grid" *ngIf="tilawatEvalMode === 'surah'">
+            <div class="field-item surah-field">
+              <label class="field-label">Surah</label>
+              <div class="select-wrapper">
+                <mat-select [(ngModel)]="tilawatSurah" panelClass="quran-juz-mat-panel" class="mat-select-clean">
+                  <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                </mat-select>
+              </div>
+            </div>
+            <div class="ayah-range-group">
+              <div class="field-item">
+                <label class="field-label">From Ayah</label>
+                <input type="number" class="num-input" [(ngModel)]="tilawatFromAyah" min="1" placeholder="1" />
+              </div>
+              <span class="range-arrow">→</span>
+              <div class="field-item">
+                <label class="field-label">To Ayah</label>
+                <input type="number" class="num-input" [(ngModel)]="tilawatToAyah" min="1" placeholder="7" />
+              </div>
+            </div>
+          </div>
+
+          <!-- By Juz & Page -->
+          <div class="tilawat-form-grid" *ngIf="tilawatEvalMode === 'juz'">
+            <div class="field-item juz-field">
+              <label class="field-label">Juz</label>
+              <div class="select-wrapper">
+                <mat-select [(ngModel)]="tilawatJuz" panelClass="quran-juz-mat-panel" class="mat-select-clean">
+                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">{{ j.displayName || ('Juz ' + j.number) }}</mat-option>
+                </mat-select>
+              </div>
+            </div>
+            <div class="ayah-range-group">
+              <div class="field-item">
+                <label class="field-label">From Page</label>
+                <input type="number" class="num-input" [(ngModel)]="tilawatFromPage" min="1" placeholder="1" />
+              </div>
+              <span class="range-arrow">→</span>
+              <div class="field-item">
+                <label class="field-label">To Page</label>
+                <input type="number" class="num-input" [(ngModel)]="tilawatToPage" min="1" placeholder="2" />
               </div>
             </div>
           </div>

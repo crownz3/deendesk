@@ -1040,6 +1040,7 @@ app-global-loader,
 
     .mat-mdc-dialog-surface, .mdc-dialog__surface {
       max-height: 90vh !important;
+      height: 100% !important;
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
@@ -1047,10 +1048,10 @@ app-global-loader,
   }
 
   @media (max-width: 600px) {
-    max-width: 95vw !important;
-    width: 95vw !important;
-    max-height: 90vh !important;
-    margin: 8px !important;
+    max-width: 96vw !important;
+    width: 96vw !important;
+    max-height: 92vh !important;
+    margin: auto !important;
   }
 }
 
