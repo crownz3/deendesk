@@ -441,15 +441,18 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       const dailyColl = collection(firestore, 'studentDailyProgress');
       const q = query(
         dailyColl,
-        where('studentId', '==', this.student.id),
-        orderBy('date', 'desc'),
-        limit(3)
+        where('studentId', '==', this.student.id)
       );
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        const docData = snapshot.docs[0].data();
-        this.lastProgressRaw = docData;
-        this.buildLastProgressSummary(docData);
+        const sortedDocs = snapshot.docs
+          .map(d => d.data())
+          .sort((a, b) => String(b['date'] || '').localeCompare(String(a['date'] || '')));
+        const docData = sortedDocs[0];
+        if (docData) {
+          this.lastProgressRaw = docData;
+          this.buildLastProgressSummary(docData);
+        }
       }
     } catch (e) {
       console.warn('Could not fetch historical progress:', e);
@@ -775,6 +778,22 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           manzilRange: this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion})` : this.manzilEndSurah,
           rating: this.starRating
         };
+
+        if (this.studentTypeMode === 'dawr') {
+          dailyPayload.dawrRoundNo = this.dawrRoundNo || 1;
+          dailyPayload.dawrPortionJuz = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'})` : 'Juz 1';
+          dailyPayload.dawrMistakes = this.manzilMistakes || 0;
+          dailyPayload.dawrProgress = {
+            roundNo: this.dawrRoundNo || 1,
+            startJuz: this.manzilStartJuz || 1,
+            startPortion: this.manzilStartPortion || 'Full Juz',
+            endJuz: this.manzilEndJuz || 1,
+            endPortion: this.manzilEndPortion || 'Full Juz',
+            portionJuz: this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'})` : 'Juz 1',
+            dawrMistakes: this.manzilMistakes || 0,
+            rating: this.starRating
+          };
+        }
       }
 
       await setDoc(dailyDocRef, dailyPayload, { merge: true });
@@ -843,6 +862,19 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
             notes: this.remarks
           };
           weeklyPayload.hifzLessonsList = this.extraLessonsList;
+
+          if (this.studentTypeMode === 'dawr') {
+            weeklyPayload.dawr = {
+              roundNo: this.dawrRoundNo || 1,
+              startJuz: this.manzilStartJuz || 1,
+              startPortion: this.manzilStartPortion || 'Full Juz',
+              endJuz: this.manzilEndJuz || 1,
+              endPortion: this.manzilEndPortion || 'Full Juz',
+              weeklyJuzCount: 1,
+              rating: this.starRating,
+              notes: this.remarks
+            };
+          }
         }
 
         await setDoc(weeklyDocRef, weeklyPayload, { merge: true });
@@ -860,6 +892,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           ...(this.evalCadence === 'weekly' ? [`studentWeeklyProgress/${studentId}_week_${weekYear}_${weekNo}`] : [])
         ],
         dailyPayload,
+        dawrRoundNo: this.dawrRoundNo,
         maktabSubjects: this.maktabSubjects,
         hifzLessonsList: this.extraLessonsList,
         sabaqStartSurah: this.sabaqStartSurah,

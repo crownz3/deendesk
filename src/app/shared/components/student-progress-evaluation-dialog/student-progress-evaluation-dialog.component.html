@@ -379,37 +379,59 @@
         </div>
 
         <div class="card-inputs-area">
-          <!-- First asks Juz, then Portion -->
-          <div class="dawr-dual-range-row">
-            <div class="dawr-range-col">
-              <span class="from-to-badge from">From</span>
-              <div class="dawr-pair">
-                <mat-select class="dawr-juz-select" [(ngModel)]="manzilStartJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
-                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
-                    <span class="juz-num-pill">{{ j.number }}</span>
-                    <span class="juz-name-text">{{ j.displayName }}</span>
-                  </mat-option>
-                </mat-select>
-                <mat-select class="dawr-portion-select" [(ngModel)]="manzilStartPortion" placeholder="Portion" panelClass="quran-portion-mat-panel">
-                  <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
-                </mat-select>
+          <div class="dawr-revision-container">
+            <!-- FROM Starting Point -->
+            <div class="dawr-endpoint-card from-card">
+              <div class="endpoint-badge-row">
+                <span class="endpoint-badge from">FROM</span>
+                <span class="endpoint-sublabel">Revision Starting Point</span>
+              </div>
+              <div class="endpoint-fields-grid">
+                <div class="field-wrap">
+                  <label class="field-micro-tag">Juz / Para</label>
+                  <mat-select class="modern-dawr-select" [(ngModel)]="manzilStartJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                    <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                      <span class="juz-num-pill">{{ j.number }}</span>
+                      <span class="juz-name-text">{{ j.displayName }}</span>
+                    </mat-option>
+                  </mat-select>
+                </div>
+                <div class="field-wrap">
+                  <label class="field-micro-tag">Portion</label>
+                  <mat-select class="modern-dawr-select portion-sel" [(ngModel)]="manzilStartPortion" placeholder="Portion" panelClass="quran-portion-mat-panel">
+                    <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                  </mat-select>
+                </div>
               </div>
             </div>
 
-            <span class="connector-arrow">→</span>
+            <!-- Flow Indicator Arrow -->
+            <div class="dawr-arrow-node">
+              <span class="arrow-glyph">→</span>
+            </div>
 
-            <div class="dawr-range-col">
-              <span class="from-to-badge to">To</span>
-              <div class="dawr-pair">
-                <mat-select class="dawr-juz-select" [(ngModel)]="manzilEndJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
-                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
-                    <span class="juz-num-pill">{{ j.number }}</span>
-                    <span class="juz-name-text">{{ j.displayName }}</span>
-                  </mat-option>
-                </mat-select>
-                <mat-select class="dawr-portion-select" [(ngModel)]="manzilEndPortion" placeholder="Portion" panelClass="quran-portion-mat-panel">
-                  <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
-                </mat-select>
+            <!-- TO Ending Point -->
+            <div class="dawr-endpoint-card to-card">
+              <div class="endpoint-badge-row">
+                <span class="endpoint-badge to">TO</span>
+                <span class="endpoint-sublabel">Revision Ending Point</span>
+              </div>
+              <div class="endpoint-fields-grid">
+                <div class="field-wrap">
+                  <label class="field-micro-tag">Juz / Para</label>
+                  <mat-select class="modern-dawr-select" [(ngModel)]="manzilEndJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                    <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                      <span class="juz-num-pill">{{ j.number }}</span>
+                      <span class="juz-name-text">{{ j.displayName }}</span>
+                    </mat-option>
+                  </mat-select>
+                </div>
+                <div class="field-wrap">
+                  <label class="field-micro-tag">Portion</label>
+                  <mat-select class="modern-dawr-select portion-sel" [(ngModel)]="manzilEndPortion" placeholder="Portion" panelClass="quran-portion-mat-panel">
+                    <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                  </mat-select>
+                </div>
               </div>
             </div>
           </div>

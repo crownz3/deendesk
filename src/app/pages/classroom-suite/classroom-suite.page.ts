@@ -297,12 +297,51 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   roster: StudentSuiteRosterItem[] = [];
   searchQuery = '';
 
+  isStudentInDawrStage(student: any): boolean {
+    if (!student) return false;
+    const stageStr = (
+      student['stage'] ||
+      student['stageName'] ||
+      student['currentStage'] ||
+      student['stageOrLevel'] ||
+      student['level'] ||
+      student['stageDisplay'] ||
+      student['programStage'] ||
+      student['dawrStage'] ||
+      student['targetGoals']?.stage ||
+      student['targetGoals']?.dawrStage ||
+      student['hifzStage'] ||
+      student['courseStage'] ||
+      ''
+    ).toString().toLowerCase();
+
+    if (stageStr.includes('dawr') || stageStr.includes('daur') || stageStr.includes('revision') || stageStr.includes('repeat')) {
+      return true;
+    }
+
+    if (student['isDawr'] === true || student['dawrStudent'] === true) {
+      return true;
+    }
+
+    return false;
+  }
+
   get filteredRoster(): StudentSuiteRosterItem[] {
+    let list = this.roster;
+    if (this.studentTypeMode === 'dawr') {
+      list = list.filter(item => this.isStudentInDawrStage(item.student));
+    } else if (this.studentTypeMode === 'hifz') {
+      const hasAnyDawr = this.roster.some(item => this.isStudentInDawrStage(item.student));
+      if (hasAnyDawr) {
+        list = list.filter(item => !this.isStudentInDawrStage(item.student));
+      }
+    }
+
     if (!this.searchQuery || !this.searchQuery.trim()) {
-      return this.roster;
+      return list;
     }
     const q = this.searchQuery.trim().toLowerCase();
-    return this.roster.filter(item => {
+    return list.filter(item => {
       const name = (item.student['fullName'] || item.student['name'] || '').toLowerCase();
       const phone = (item.student['parentPhone'] || item.student['phone'] || '').toLowerCase();
       const id = (item.student['admissionNo'] || item.student['id'] || '').toLowerCase();
@@ -1623,12 +1662,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           manzilJuzPortion: (existing && existing.manzilJuzPortion !== undefined) ? existing.manzilJuzPortion : (hifz.manzilJuzPortion || 'Full Juz'),
           manzilMistakes: (existing && existing.manzilMistakes !== undefined) ? existing.manzilMistakes : (hifz.manzilMistakes || 0),
           hifzRating: (existing && existing.hifzRating !== undefined) ? existing.hifzRating : (hifz.rating || 5),
-          dawrRoundNo: (existing && existing.dawrRoundNo !== undefined) ? existing.dawrRoundNo : (dawr.roundNo || 1),
-          dawrPortionJuz: (existing && existing.dawrPortionJuz !== undefined) ? existing.dawrPortionJuz : (dawr.portionJuz || 'Juz 1'),
+          dawrRoundNo: (existing && existing.dawrRoundNo !== undefined) ? existing.dawrRoundNo : (dawr.roundNo || null),
+          dawrPortionJuz: (existing && existing.dawrPortionJuz !== undefined) ? existing.dawrPortionJuz : (dawr.portionJuz || null),
           dawrFromAyah: (existing && existing.dawrFromAyah !== undefined) ? existing.dawrFromAyah : (dawr.fromAyah || null),
           dawrToAyah: (existing && existing.dawrToAyah !== undefined) ? existing.dawrToAyah : (dawr.toAyah || null),
-          dawrMistakes: (existing && existing.dawrMistakes !== undefined) ? existing.dawrMistakes : (dawr.dawrMistakes || 0),
-          dawrManzilMistakes: (existing && existing.dawrManzilMistakes !== undefined) ? existing.dawrManzilMistakes : (dawr.manzilMistakes || 0),
+          dawrMistakes: (existing && existing.dawrMistakes !== undefined) ? existing.dawrMistakes : (dawr.dawrMistakes !== undefined ? dawr.dawrMistakes : null),
+          dawrManzilMistakes: (existing && existing.dawrManzilMistakes !== undefined) ? existing.dawrManzilMistakes : (dawr.manzilMistakes !== undefined ? dawr.manzilMistakes : null),
           dawrRating: (existing && existing.dawrRating !== undefined) ? existing.dawrRating : (dawr.rating || 5),
           maktabSubject: (existing && existing.maktabSubject !== undefined) ? existing.maktabSubject : (maktab.subjectName || ''),
           maktabPage: (existing && existing.maktabPage !== undefined) ? existing.maktabPage : (maktab.pageNo || targets.maktabPage || null),
@@ -2182,7 +2221,11 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         };
       }
     } else if (this.studentTypeMode === 'dawr') {
-      if (item.weeklyDawrRounds || item.dawrRoundNo) {
+      const isDawrDone = (this.evalCadence === 'weekly')
+        ? (item.weeklyDawrRounds !== null && item.weeklyDawrRounds !== undefined)
+        : (item.dawrRoundNo !== null && item.dawrRoundNo !== undefined && !!item.dawrPortionJuz);
+
+      if (isDawrDone) {
         const round = item.weeklyDawrRounds || item.dawrRoundNo || 1;
         const count = item.weeklyDawrJuzCount ? `${item.weeklyDawrJuzCount} Juzs` : (item.dawrPortionJuz || 'Revision');
         return {
@@ -2336,6 +2379,14 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           item.weeklyManzilStartPortion = res.manzilStartPortion;
           item.weeklyManzilEndJuz = res.manzilEndJuz;
           item.weeklyManzilEndPortion = res.manzilEndPortion;
+
+          if (this.studentTypeMode === 'dawr') {
+            item.dawrRoundNo = res.dawrRoundNo || 1;
+            item.dawrPortionJuz = res.manzilStartJuz ? `Juz ${res.manzilStartJuz} (${res.manzilStartPortion || 'Full Juz'})` : (item.dawrPortionJuz || 'Juz 1');
+            item.weeklyDawrRounds = res.dawrRoundNo || 1;
+            item.dawrMistakes = res.overallMistakes || 0;
+            item.dawrRating = res.starRating || 5;
+          }
 
           item.hifzLessonsList = res.hifzLessonsList;
         }
@@ -2819,7 +2870,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             item.weeklyRating = h.rating || 5;
             item.weeklyNotes = h.notes || '';
 
-            item.weeklyDawrRounds = d.roundNo || item.dawrRoundNo || 1;
+            item.weeklyDawrRounds = (d && d.roundNo !== undefined) ? d.roundNo : (d && d.weeklyJuzCount ? 1 : null);
             item.weeklyDawrJuzCount = d.weeklyJuzCount !== undefined ? d.weeklyJuzCount : null;
 
             item.weeklyMaktabSubject = m.subject || '';
@@ -2864,7 +2915,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             item.weeklyRating = 5;
             item.weeklyNotes = '';
 
-            item.weeklyDawrRounds = item.dawrRoundNo || 1;
+            item.weeklyDawrRounds = null;
             item.weeklyDawrJuzCount = null;
 
             item.weeklyMaktabSubject = '';

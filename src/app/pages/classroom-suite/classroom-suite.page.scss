@@ -2889,14 +2889,45 @@ select.inline-select,
   .progress-actions-header {
     flex-direction: column;
     align-items: stretch;
+    gap: 10px;
 
     .mode-toggle-pills {
       width: 100%;
-      justify-content: space-between;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-start;
+
+      .mode-toggle-label {
+        width: 100%;
+        margin-bottom: 2px;
+        font-weight: 700;
+      }
+
+      .mode-pill {
+        flex: 1 1 auto;
+        text-align: center;
+      }
+    }
+
+    .admin-eval-bar {
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+
+      .btn-admin-pill {
+        flex: 1 1 auto;
+        justify-content: center;
+      }
     }
 
     .actions-right {
       width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
 
       button {
         width: 100%;
@@ -4603,51 +4634,96 @@ select.inline-select,
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
   background: #ffffff;
-  padding: 14px 18px;
+  padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  @media (max-width: 860px) {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+    gap: 10px;
+  }
 }
 
 .roster-metrics {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
+
+  @media (max-width: 860px) {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+  }
+
+  @media (max-width: 380px) {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+  }
 
   .metric-pill {
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    padding: 6px 14px;
+    padding: 7px 12px;
     border-radius: 10px;
     font-size: 0.82rem;
+    min-width: 0;
+
+    @media (max-width: 860px) {
+      justify-content: center;
+      padding: 6px 6px;
+      gap: 5px;
+    }
 
     .metric-icon {
       font-size: 20px;
       width: 20px;
       height: 20px;
+      flex-shrink: 0;
+
+      @media (max-width: 600px) {
+        font-size: 17px;
+        width: 17px;
+        height: 17px;
+      }
     }
 
     .metric-text {
       display: flex;
       flex-direction: column;
       line-height: 1.1;
+      min-width: 0;
 
       .metric-num {
         font-weight: 800;
         font-size: 0.95rem;
+
+        @media (max-width: 600px) {
+          font-size: 0.88rem;
+        }
       }
 
       .metric-lbl {
-        font-size: 0.68rem;
-        font-weight: 600;
+        font-size: 0.65rem;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.03em;
+        letter-spacing: 0.02em;
         opacity: 0.85;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+
+        @media (max-width: 600px) {
+          font-size: 0.58rem;
+        }
       }
     }
 
@@ -4688,10 +4764,14 @@ select.inline-select,
   background: #f8fafc;
   border: 1px solid #cbd5e1;
   border-radius: 10px;
-  padding: 6px 12px;
+  padding: 7px 12px;
   width: 320px;
   max-width: 100%;
   transition: all 0.2s ease;
+
+  @media (max-width: 860px) {
+    width: 100%;
+  }
 
   &:focus-within {
     background: #ffffff;

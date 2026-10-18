@@ -774,9 +774,10 @@
           <!-- Empty State -->
           <div class="empty-roster-state" *ngIf="filteredRoster.length === 0">
             <mat-icon class="empty-icon">school</mat-icon>
-            <h3>No Students Found</h3>
+            <h3>{{ studentTypeMode === 'dawr' && !searchQuery ? 'No Dawr Stage Students Found' : 'No Students Found' }}</h3>
             <p *ngIf="searchQuery">No enrolled students match your search query "{{ searchQuery }}".</p>
-            <p *ngIf="!searchQuery">No students are currently enrolled in this class group.</p>
+            <p *ngIf="!searchQuery && studentTypeMode === 'dawr'">No students in this group are currently assigned to the Dawr (Revision Cycles) stage.</p>
+            <p *ngIf="!searchQuery && studentTypeMode !== 'dawr'">No students are currently enrolled in this class group.</p>
           </div>
 
           <!-- Roster Cards Grid -->

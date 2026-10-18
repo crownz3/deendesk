@@ -567,22 +567,28 @@
             width: 100%;
 
             .from-to-badge {
-              font-size: 0.68rem;
+              font-size: 0.70rem;
               font-weight: 800;
               text-transform: uppercase;
-              padding: 4px 6px;
+              padding: 4px 8px;
               border-radius: 6px;
-              color: #ffffff;
-              width: 46px;
+              min-width: 48px;
+              width: auto;
+              white-space: nowrap;
               text-align: center;
               flex-shrink: 0;
-              letter-spacing: 0.03em;
+              letter-spacing: 0.04em;
+              box-sizing: border-box;
 
               &.from {
-                background: #3b82f6;
+                background: #eff6ff;
+                color: #1d4ed8;
+                border: 1px solid #bfdbfe;
               }
               &.to {
-                background: #1d4ed8;
+                background: #f0fdf4;
+                color: #15803d;
+                border: 1px solid #bbf7d0;
               }
             }
 
@@ -793,84 +799,150 @@
           }
         }
 
-        /* Dawr Dual Range */
-        .dawr-dual-range-row {
+        /* Dawr Modern Revision Cards */
+        .dawr-revision-container {
           display: flex;
-          flex-direction: column;
-          gap: 10px;
           align-items: stretch;
+          gap: 12px;
+          width: 100%;
 
-          .connector-arrow {
-            display: none;
+          @media (max-width: 640px) {
+            flex-direction: column;
+            gap: 10px;
           }
 
-          .dawr-range-col {
+          .dawr-endpoint-card {
+            flex: 1 1 0%;
+            min-width: 0;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 12px;
             display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
+            flex-direction: column;
+            gap: 8px;
+            transition: all 0.2s ease;
 
-            .from-to-badge {
-              font-size: 0.70rem;
-              font-weight: 800;
-              text-transform: uppercase;
-              padding: 5px 8px;
-              border-radius: 6px;
-              color: #ffffff;
-              width: 50px;
-              text-align: center;
-              flex-shrink: 0;
-              letter-spacing: 0.03em;
+            &:focus-within {
+              background: #ffffff;
+              border-color: #93c5fd;
+              box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+            }
 
-              &.from {
-                background: #3b82f6;
+            &.from-card {
+              border-left: 3px solid #3b82f6;
+            }
+
+            &.to-card {
+              border-left: 3px solid #10b981;
+            }
+
+            .endpoint-badge-row {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+
+              .endpoint-badge {
+                font-size: 0.70rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+                padding: 2px 8px;
+                border-radius: 4px;
+                white-space: nowrap;
+
+                &.from {
+                  background: #eff6ff;
+                  color: #1d4ed8;
+                  border: 1px solid #bfdbfe;
+                }
+
+                &.to {
+                  background: #ecfdf5;
+                  color: #047857;
+                  border: 1px solid #a7f3d0;
+                }
               }
-              &.to {
-                background: #1d4ed8;
+
+              .endpoint-sublabel {
+                font-size: 0.72rem;
+                font-weight: 600;
+                color: #64748b;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
               }
             }
 
-            .dawr-pair {
-              flex: 1 1 0%;
-              min-width: 0;
+            .endpoint-fields-grid {
               display: grid;
-              grid-template-columns: 1fr 1fr;
-              align-items: center;
-              gap: 10px;
-              background: #ffffff;
-              border: 1px solid #cbd5e1;
-              border-radius: 8px;
-              padding: 4px 10px;
-              transition: border-color 0.15s ease;
+              grid-template-columns: 1.1fr 1fr;
+              gap: 8px;
+              min-width: 0;
 
-              &:focus-within {
-                border-color: #3b82f6;
-                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
-              }
-
-              @media (max-width: 480px) {
+              @media (max-width: 440px) {
                 grid-template-columns: 1fr;
                 gap: 6px;
-                padding: 6px 8px;
               }
 
-              .dawr-juz-select {
-                width: 100%;
+              .field-wrap {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
                 min-width: 0;
-                height: 32px;
-                font-size: 0.86rem;
-                font-weight: 700;
-                color: #0f172a;
-              }
 
-              .dawr-portion-select {
-                width: 100%;
-                min-width: 0;
-                height: 32px;
-                font-size: 0.84rem;
-                font-weight: 600;
-                color: #334155;
+                .field-micro-tag {
+                  font-size: 0.68rem;
+                  font-weight: 700;
+                  text-transform: uppercase;
+                  letter-spacing: 0.03em;
+                  color: #475569;
+                }
+
+                .modern-dawr-select {
+                  background: #ffffff;
+                  border: 1px solid #cbd5e1;
+                  border-radius: 6px;
+                  padding: 5px 8px;
+                  font-size: 0.84rem;
+                  font-weight: 600;
+                  color: #0f172a;
+                  min-height: 34px;
+                  box-sizing: border-box;
+                  transition: all 0.15s ease;
+
+                  &:hover {
+                    border-color: #94a3b8;
+                  }
+
+                  &:focus, &.mat-select-focused {
+                    border-color: #3b82f6;
+                    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+                  }
+
+                  &.portion-sel {
+                    color: #334155;
+                    font-size: 0.80rem;
+                  }
+                }
               }
+            }
+          }
+
+          .dawr-arrow-node {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+
+            .arrow-glyph {
+              font-size: 1.2rem;
+              font-weight: 700;
+              color: #94a3b8;
+            }
+
+            @media (max-width: 640px) {
+              display: none;
             }
           }
         }
