@@ -468,17 +468,21 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       student['stageName'] ||
       student['currentStage'] ||
       student['stageOrLevel'] ||
-      student['level'] ||
       student['stageDisplay'] ||
       student['programStage'] ||
       student['dawrStage'] ||
       student['targetGoals']?.stage ||
       student['hifzStage'] ||
       student['courseStage'] ||
+      student['level'] ||
       ''
     ).toString().trim();
 
     if (!raw || raw === '-' || raw.toLowerCase() === 'n/a') return '';
+    const rawLower = raw.toLowerCase();
+    if (rawLower.includes(' - group ') || rawLower.includes(' – group ') || /^group\s+[a-z0-9]/i.test(rawLower)) {
+      return '';
+    }
     return raw;
   }
 

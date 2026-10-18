@@ -333,17 +333,45 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       student['stageName'] ||
       student['currentStage'] ||
       student['stageOrLevel'] ||
-      student['level'] ||
       student['stageDisplay'] ||
       student['programStage'] ||
       student['dawrStage'] ||
       student['targetGoals']?.stage ||
       student['hifzStage'] ||
       student['courseStage'] ||
+      student['level'] ||
       ''
     ).toString().trim();
 
     if (!raw || raw === '-' || raw.toLowerCase() === 'n/a') return '';
+
+    // If raw matches a configured stage ID, display the stage's friendly name
+    if (this.stages && this.stages.length) {
+      const match = this.stages.find(s => s.id === raw);
+      if (match) {
+        return (match['name'] || match['title'] || raw).toString();
+      }
+    }
+
+    const rawLower = raw.toLowerCase();
+
+    // If raw matches the current active class group name, don't show it as a stage
+    const currentGroup = (this.classGroups || []).find(g => g.id === this.selectedGroupId);
+    const currentGroupName = (currentGroup?.['name'] || currentGroup?.['title'] || '').trim().toLowerCase();
+    if (currentGroupName && (rawLower === currentGroupName || rawLower.includes(currentGroupName))) {
+      return '';
+    }
+
+    // If raw matches any class group in this madrasa, ignore it
+    if (this.classGroups && this.classGroups.some(g => (g['name'] || g['title'] || '').trim().toLowerCase() === rawLower)) {
+      return '';
+    }
+
+    // Ignore if raw is clearly a class group name like "Group A" or contains " - Group "
+    if (rawLower.includes(' - group ') || rawLower.includes(' – group ') || /^group\s+[a-z0-9]/i.test(rawLower)) {
+      return '';
+    }
+
     return raw;
   }
 
