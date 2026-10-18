@@ -741,12 +741,12 @@
                 <div class="eval-section sabaq-section">
                   <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
                     <div class="sec-label" style="margin-bottom:0;"> New Lesson:</div>
-                    <!-- <div class="eval-unit-toggle-row">
+                    <div class="eval-unit-toggle-row">
                       <button type="button" class="unit-mini-pill" [class.active]="sabaqEvalMode !== 'juz'"
                         (click)="sabaqEvalMode = 'surah'"> Surah</button>
                       <button type="button" class="unit-mini-pill" [class.active]="sabaqEvalMode === 'juz'"
                         (click)="sabaqEvalMode = 'juz'"> Juz</button>
-                    </div> -->
+                    </div>
                   </div>
                   <div class="fields-grid" *ngIf="sabaqEvalMode !== 'juz'">
                     <div class="input-wrap full-width">
@@ -1740,16 +1740,16 @@
                 <!-- SUB-HEADERS ROW FOR START & END (HIFZ MODE) -->
                 <tr class="sub-headers-row" *ngIf="studentTypeMode === 'hifz'">
                   <!-- Under New Lesson -->
-                  <th class="sub-new" style="min-width: 150px;">Start (From)</th>
-                  <th class="sub-new" style="min-width: 150px;">End (To)</th>
+                  <th class="sub-new" [style.min-width]="weeklyEvalUnitMode === 'juz' ? '180px' : '150px'">{{ weeklyEvalUnitMode === 'juz' ? 'Juz Name' : 'Start (From)' }}</th>
+                  <th class="sub-new" [style.min-width]="weeklyEvalUnitMode === 'juz' ? '140px' : '150px'">{{ weeklyEvalUnitMode === 'juz' ? 'Pages (From → To)' : 'End (To)' }}</th>
 
                   <!-- Under Old Lesson -->
-                  <th class="sub-old" style="min-width: 150px;">Start (From)</th>
-                  <th class="sub-old" style="min-width: 150px;">End (To)</th>
+                  <th class="sub-old" [style.min-width]="weeklyEvalUnitMode === 'juz' ? '180px' : '150px'">{{ weeklyEvalUnitMode === 'juz' ? 'Juz Name' : 'Start (From)' }}</th>
+                  <th class="sub-old" [style.min-width]="weeklyEvalUnitMode === 'juz' ? '140px' : '150px'">{{ weeklyEvalUnitMode === 'juz' ? 'Pages (From → To)' : 'End (To)' }}</th>
 
-                  <!-- Under Recent Lesson (Sabaq) -->
-                  <th class="sub-recent" style="min-width: 150px;">Start (From)</th>
-                  <th class="sub-recent" style="min-width: 150px;">End (To)</th>
+                  <!-- Under Recent Lesson (Dawr / Manzil) -->
+                  <th class="sub-recent" style="min-width: 170px;">Start (From)</th>
+                  <th class="sub-recent" style="min-width: 170px;">End (To)</th>
                 </tr>
               </thead>
               <tbody>
@@ -1772,8 +1772,9 @@
                       <!-- 1. New Lesson Start & End -->
                       <td>
                         <div class="cell-range-box">
-                          <input type="text" class="cell-surah" list="quranSurahListOptions"
-                            [(ngModel)]="item.weeklySabaqStartSurah" placeholder="Start Surah" />
+                          <mat-select class="cell-surah-mat" [(ngModel)]="item.weeklySabaqStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                            <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                          </mat-select>
                           <span class="cell-separator">:</span>
                           <input type="number" class="cell-ayah" [(ngModel)]="item.weeklySabaqStartAyah"
                             placeholder="Ayah" min="1" />
@@ -1781,8 +1782,9 @@
                       </td>
                       <td>
                         <div class="cell-range-box">
-                          <input type="text" class="cell-surah" list="quranSurahListOptions"
-                            [(ngModel)]="item.weeklySabaqEndSurah" placeholder="End Surah" />
+                          <mat-select class="cell-surah-mat" [(ngModel)]="item.weeklySabaqEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                            <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                          </mat-select>
                           <span class="cell-separator">:</span>
                           <input type="number" class="cell-ayah" [(ngModel)]="item.weeklySabaqEndAyah"
                             placeholder="Ayah" min="1" />
@@ -1792,8 +1794,9 @@
                       <!-- 2. Old Lesson Start & End -->
                       <td>
                         <div class="cell-range-box">
-                          <input type="text" class="cell-surah" list="quranSurahListOptions"
-                            [(ngModel)]="item.weeklySabqiStartSurah" placeholder="Start Surah" />
+                          <mat-select class="cell-surah-mat" [(ngModel)]="item.weeklySabqiStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                            <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                          </mat-select>
                           <span class="cell-separator">:</span>
                           <input type="number" class="cell-ayah" [(ngModel)]="item.weeklySabqiStartAyah"
                             placeholder="Ayah" min="1" />
@@ -1801,8 +1804,9 @@
                       </td>
                       <td>
                         <div class="cell-range-box">
-                          <input type="text" class="cell-surah" list="quranSurahListOptions"
-                            [(ngModel)]="item.weeklySabqiEndSurah" placeholder="End Surah" />
+                          <mat-select class="cell-surah-mat" [(ngModel)]="item.weeklySabqiEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                            <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                          </mat-select>
                           <span class="cell-separator">:</span>
                           <input type="number" class="cell-ayah" [(ngModel)]="item.weeklySabqiEndAyah"
                             placeholder="Ayah" min="1" />
@@ -1812,8 +1816,9 @@
                       <!-- 3. Recent Lesson (Sabaq) Start & End -->
                       <td>
                         <div class="cell-range-box">
-                          <input type="text" class="cell-surah" list="quranSurahListOptions"
-                            [(ngModel)]="item.weeklyManzilStartSurah" placeholder="Start Surah" />
+                          <mat-select class="cell-surah-mat" [(ngModel)]="item.weeklyManzilStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                            <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                          </mat-select>
                           <span class="cell-separator">:</span>
                           <input type="number" class="cell-ayah" [(ngModel)]="item.weeklyManzilStartAyah"
                             placeholder="Ayah" min="1" />
@@ -1821,8 +1826,9 @@
                       </td>
                       <td>
                         <div class="cell-range-box">
-                          <input type="text" class="cell-surah" list="quranSurahListOptions"
-                            [(ngModel)]="item.weeklyManzilEndSurah" placeholder="End Surah" />
+                          <mat-select class="cell-surah-mat" [(ngModel)]="item.weeklyManzilEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                            <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                          </mat-select>
                           <span class="cell-separator">:</span>
                           <input type="number" class="cell-ayah" [(ngModel)]="item.weeklyManzilEndAyah"
                             placeholder="Ayah" min="1" />
@@ -1832,63 +1838,77 @@
 
                     <!-- Juz-wise entry -->
                     <ng-container *ngIf="weeklyEvalUnitMode === 'juz'">
-                      <!-- 1. New Lesson Start & End -->
+                      <!-- 1. New Lesson (Sabaq): Juz Name + Pages From & To -->
                       <td>
-                        <div class="cell-range-box juz">
-                          <input type="number" class="cell-juz-num" [(ngModel)]="item.weeklySabaqStartJuz"
-                            placeholder="Juz #" min="1" max="30" />
-                          <select class="cell-portion" [(ngModel)]="item.weeklySabaqStartPortion">
-                            <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                          </select>
+                        <div class="cell-range-box cell-juz-name-box">
+                          <mat-select class="cell-juz-name-mat" [(ngModel)]="item.weeklySabaqStartJuz" (ngModelChange)="item.weeklySabaqEndJuz = item.weeklySabaqStartJuz" placeholder="Select Juz Name" panelClass="quran-juz-mat-panel">
+                            <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                              <span class="juz-num-pill">{{ j.number }}</span>
+                              <span class="juz-name-text">{{ j.displayName }}</span>
+                            </mat-option>
+                          </mat-select>
                         </div>
                       </td>
                       <td>
-                        <div class="cell-range-box juz">
-                          <input type="number" class="cell-juz-num" [(ngModel)]="item.weeklySabaqEndJuz"
-                            placeholder="Juz #" min="1" max="30" />
-                          <select class="cell-portion" [(ngModel)]="item.weeklySabaqEndPortion">
-                            <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                          </select>
-                        </div>
-                      </td>
-
-                      <!-- 2. Old Lesson Start & End -->
-                      <td>
-                        <div class="cell-range-box juz">
-                          <input type="number" class="cell-juz-num" [(ngModel)]="item.weeklySabqiStartJuz"
-                            placeholder="Juz #" min="1" max="30" />
-                          <select class="cell-portion" [(ngModel)]="item.weeklySabqiStartPortion">
-                            <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                          </select>
-                        </div>
-                      </td>
-                      <td>
-                        <div class="cell-range-box juz">
-                          <input type="number" class="cell-juz-num" [(ngModel)]="item.weeklySabqiEndJuz"
-                            placeholder="Juz #" min="1" max="30" />
-                          <select class="cell-portion" [(ngModel)]="item.weeklySabqiEndPortion">
-                            <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                          </select>
+                        <div class="cell-range-box cell-pages-box">
+                          <span class="cell-pg-lbl">Pg</span>
+                          <input type="number" class="cell-pg-input" [(ngModel)]="item.weeklySabaqStartPage"
+                            placeholder="1" min="1" max="30" />
+                          <span class="cell-pg-arrow">→</span>
+                          <span class="cell-pg-lbl">Pg</span>
+                          <input type="number" class="cell-pg-input" [(ngModel)]="item.weeklySabaqEndPage"
+                            placeholder="20" min="1" max="30" />
                         </div>
                       </td>
 
-                      <!-- 3. Recent Lesson (Sabaq) Start & End -->
+                      <!-- 2. Old Lesson (Sabqi): Juz Name + Pages From & To -->
                       <td>
-                        <div class="cell-range-box juz">
-                          <input type="number" class="cell-juz-num" [(ngModel)]="item.weeklyManzilStartJuz"
-                            placeholder="Juz #" min="1" max="30" />
-                          <select class="cell-portion" [(ngModel)]="item.weeklyManzilStartPortion">
-                            <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                          </select>
+                        <div class="cell-range-box cell-juz-name-box">
+                          <mat-select class="cell-juz-name-mat" [(ngModel)]="item.weeklySabqiStartJuz" (ngModelChange)="item.weeklySabqiEndJuz = item.weeklySabqiStartJuz" placeholder="Select Juz Name" panelClass="quran-juz-mat-panel">
+                            <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                              <span class="juz-num-pill">{{ j.number }}</span>
+                              <span class="juz-name-text">{{ j.displayName }}</span>
+                            </mat-option>
+                          </mat-select>
                         </div>
                       </td>
                       <td>
-                        <div class="cell-range-box juz">
-                          <input type="number" class="cell-juz-num" [(ngModel)]="item.weeklyManzilEndJuz"
-                            placeholder="Juz #" min="1" max="30" />
-                          <select class="cell-portion" [(ngModel)]="item.weeklyManzilEndPortion">
-                            <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                          </select>
+                        <div class="cell-range-box cell-pages-box">
+                          <span class="cell-pg-lbl">Pg</span>
+                          <input type="number" class="cell-pg-input" [(ngModel)]="item.weeklySabqiStartPage"
+                            placeholder="1" min="1" max="30" />
+                          <span class="cell-pg-arrow">→</span>
+                          <span class="cell-pg-lbl">Pg</span>
+                          <input type="number" class="cell-pg-input" [(ngModel)]="item.weeklySabqiEndPage"
+                            placeholder="20" min="1" max="30" />
+                        </div>
+                      </td>
+
+                      <!-- 3. Recent Lesson / Dawr (Manzil): First Juz then Portion -->
+                      <td>
+                        <div class="cell-range-box juz-dawr-box">
+                          <mat-select class="cell-dawr-juz-mat" [(ngModel)]="item.weeklyManzilStartJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                            <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                              <span class="juz-num-pill">{{ j.number }}</span>
+                              <span class="juz-name-text">{{ j.displayName }}</span>
+                            </mat-option>
+                          </mat-select>
+                          <mat-select class="cell-portion-mat" [(ngModel)]="item.weeklyManzilStartPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                            <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                          </mat-select>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="cell-range-box juz-dawr-box">
+                          <mat-select class="cell-dawr-juz-mat" [(ngModel)]="item.weeklyManzilEndJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                            <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                              <span class="juz-num-pill">{{ j.number }}</span>
+                              <span class="juz-name-text">{{ j.displayName }}</span>
+                            </mat-option>
+                          </mat-select>
+                          <mat-select class="cell-portion-mat" [(ngModel)]="item.weeklyManzilEndPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                            <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                          </mat-select>
                         </div>
                       </td>
                     </ng-container>
@@ -2005,7 +2025,7 @@
                 </div>
 
                 <!-- Card Header Mini Toggle -->
-                <div class="eval-unit-toggle-row header-mini" *ngIf="studentTypeMode === 'hifz'">
+                <!-- <div class="eval-unit-toggle-row header-mini" *ngIf="studentTypeMode === 'hifz'">
                   <button type="button" class="unit-mini-pill" [class.active]="weeklyEvalUnitMode === 'surah'"
                     (click)="weeklyEvalUnitMode = 'surah'" title="Switch to Surah-wise entry">
                     Surah
@@ -2014,7 +2034,7 @@
                     (click)="weeklyEvalUnitMode = 'juz'" title="Switch to Juz-wise entry">
                     Juz
                   </button>
-                </div>
+                </div> -->
               </div>
 
               <div class="weekly-card-body">
@@ -2034,8 +2054,9 @@
                         <div class="range-row">
                           <span class="range-badge from">From</span>
                           <div class="range-inputs">
-                            <input type="text" class="surah-input" list="quranSurahListOptions"
-                              [(ngModel)]="item.weeklySabaqStartSurah" placeholder="Start Surah" />
+                            <mat-select class="surah-mat-select" [(ngModel)]="item.weeklySabaqStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                              <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                            </mat-select>
                             <div class="ayah-input-box">
                               <span class="ayah-prefix">Ayah</span>
                               <input type="number" class="ayah-num" [(ngModel)]="item.weeklySabaqStartAyah"
@@ -2052,8 +2073,9 @@
                         <div class="range-row">
                           <span class="range-badge to">To</span>
                           <div class="range-inputs">
-                            <input type="text" class="surah-input" list="quranSurahListOptions"
-                              [(ngModel)]="item.weeklySabaqEndSurah" placeholder="End Surah" />
+                            <mat-select class="surah-mat-select" [(ngModel)]="item.weeklySabaqEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                              <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                            </mat-select>
                             <div class="ayah-input-box">
                               <span class="ayah-prefix">Ayah</span>
                               <input type="number" class="ayah-num" [(ngModel)]="item.weeklySabaqEndAyah"
@@ -2065,36 +2087,26 @@
 
                       <!-- Juz Mode -->
                       <ng-container *ngIf="weeklyEvalUnitMode === 'juz'">
-                        <div class="range-row">
-                          <span class="range-badge from">From</span>
-                          <div class="range-inputs juz-layout">
-                            <div class="juz-num-box">
-                              <span class="juz-prefix">Juz</span>
-                              <input type="number" class="juz-num" [(ngModel)]="item.weeklySabaqStartJuz"
-                                placeholder="1-30" min="1" max="30" />
-                            </div>
-                            <select class="portion-select" [(ngModel)]="item.weeklySabaqStartPortion">
-                              <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                            </select>
+                        <div class="mobile-juz-page-card">
+                          <div class="mobile-juz-select-row">
+                            <span class="juz-label-badge">Juz</span>
+                            <mat-select class="juz-name-mat-select" [(ngModel)]="item.weeklySabaqStartJuz" (ngModelChange)="item.weeklySabaqEndJuz = item.weeklySabaqStartJuz" placeholder="Select Juz Name" panelClass="quran-juz-mat-panel">
+                              <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                                <span class="juz-num-pill">{{ j.number }}</span>
+                                <span class="juz-name-text">{{ j.displayName }}</span>
+                              </mat-option>
+                            </mat-select>
                           </div>
-                        </div>
-
-                        <div class="range-connector">
-                          <span class="connector-arrow">↓</span>
-                          <div class="connector-line"></div>
-                        </div>
-
-                        <div class="range-row">
-                          <span class="range-badge to">To</span>
-                          <div class="range-inputs juz-layout">
-                            <div class="juz-num-box">
-                              <span class="juz-prefix">Juz</span>
-                              <input type="number" class="juz-num" [(ngModel)]="item.weeklySabaqEndJuz"
-                                placeholder="1-30" min="1" max="30" />
+                          <div class="mobile-pages-row">
+                            <div class="page-box">
+                              <span class="page-tag">From Pg</span>
+                              <input type="number" class="page-num-input" [(ngModel)]="item.weeklySabaqStartPage" placeholder="1" min="1" max="30" />
                             </div>
-                            <select class="portion-select" [(ngModel)]="item.weeklySabaqEndPortion">
-                              <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                            </select>
+                            <span class="pages-arrow">→</span>
+                            <div class="page-box">
+                              <span class="page-tag">To Pg</span>
+                              <input type="number" class="page-num-input" [(ngModel)]="item.weeklySabaqEndPage" placeholder="20" min="1" max="30" />
+                            </div>
                           </div>
                         </div>
                       </ng-container>
@@ -2114,8 +2126,9 @@
                         <div class="range-row">
                           <span class="range-badge from">From</span>
                           <div class="range-inputs">
-                            <input type="text" class="surah-input" list="quranSurahListOptions"
-                              [(ngModel)]="item.weeklySabqiStartSurah" placeholder="Start Surah" />
+                            <mat-select class="surah-mat-select" [(ngModel)]="item.weeklySabqiStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                              <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                            </mat-select>
                             <div class="ayah-input-box">
                               <span class="ayah-prefix">Ayah</span>
                               <input type="number" class="ayah-num" [(ngModel)]="item.weeklySabqiStartAyah"
@@ -2132,8 +2145,9 @@
                         <div class="range-row">
                           <span class="range-badge to">To</span>
                           <div class="range-inputs">
-                            <input type="text" class="surah-input" list="quranSurahListOptions"
-                              [(ngModel)]="item.weeklySabqiEndSurah" placeholder="End Surah" />
+                            <mat-select class="surah-mat-select" [(ngModel)]="item.weeklySabqiEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                              <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                            </mat-select>
                             <div class="ayah-input-box">
                               <span class="ayah-prefix">Ayah</span>
                               <input type="number" class="ayah-num" [(ngModel)]="item.weeklySabqiEndAyah"
@@ -2145,46 +2159,36 @@
 
                       <!-- Juz Mode -->
                       <ng-container *ngIf="weeklyEvalUnitMode === 'juz'">
-                        <div class="range-row">
-                          <span class="range-badge from">From</span>
-                          <div class="range-inputs juz-layout">
-                            <div class="juz-num-box">
-                              <span class="juz-prefix">Juz</span>
-                              <input type="number" class="juz-num" [(ngModel)]="item.weeklySabqiStartJuz"
-                                placeholder="1-30" min="1" max="30" />
-                            </div>
-                            <select class="portion-select" [(ngModel)]="item.weeklySabqiStartPortion">
-                              <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                            </select>
+                        <div class="mobile-juz-page-card">
+                          <div class="mobile-juz-select-row">
+                            <span class="juz-label-badge">Juz</span>
+                            <mat-select class="juz-name-mat-select" [(ngModel)]="item.weeklySabqiStartJuz" (ngModelChange)="item.weeklySabqiEndJuz = item.weeklySabqiStartJuz" placeholder="Select Juz Name" panelClass="quran-juz-mat-panel">
+                              <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                                <span class="juz-num-pill">{{ j.number }}</span>
+                                <span class="juz-name-text">{{ j.displayName }}</span>
+                              </mat-option>
+                            </mat-select>
                           </div>
-                        </div>
-
-                        <div class="range-connector">
-                          <span class="connector-arrow">↓</span>
-                          <div class="connector-line"></div>
-                        </div>
-
-                        <div class="range-row">
-                          <span class="range-badge to">To</span>
-                          <div class="range-inputs juz-layout">
-                            <div class="juz-num-box">
-                              <span class="juz-prefix">Juz</span>
-                              <input type="number" class="juz-num" [(ngModel)]="item.weeklySabqiEndJuz"
-                                placeholder="1-30" min="1" max="30" />
+                          <div class="mobile-pages-row">
+                            <div class="page-box">
+                              <span class="page-tag">From Pg</span>
+                              <input type="number" class="page-num-input" [(ngModel)]="item.weeklySabqiStartPage" placeholder="1" min="1" max="30" />
                             </div>
-                            <select class="portion-select" [(ngModel)]="item.weeklySabqiEndPortion">
-                              <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                            </select>
+                            <span class="pages-arrow">→</span>
+                            <div class="page-box">
+                              <span class="page-tag">To Pg</span>
+                              <input type="number" class="page-num-input" [(ngModel)]="item.weeklySabqiEndPage" placeholder="20" min="1" max="30" />
+                            </div>
                           </div>
                         </div>
                       </ng-container>
                     </div>
                   </div>
 
-                  <!-- 3. RECENT LESSON (SABAQ) CARD -->
+                  <!-- 3. RECENT LESSON / DAWR (MANZIL) CARD -->
                   <div class="weekly-lesson-card manzil">
                     <div class="lesson-card-header">
-                      <div class="lesson-title">Recent Lesson (Sabaq)</div>
+                      <div class="lesson-title">Recent Lesson / Dawr</div>
                       <span class="lesson-tag">Manzil</span>
                     </div>
 
@@ -2194,8 +2198,9 @@
                         <div class="range-row">
                           <span class="range-badge from">From</span>
                           <div class="range-inputs">
-                            <input type="text" class="surah-input" list="quranSurahListOptions"
-                              [(ngModel)]="item.weeklyManzilStartSurah" placeholder="Start Surah" />
+                            <mat-select class="surah-mat-select" [(ngModel)]="item.weeklyManzilStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                              <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                            </mat-select>
                             <div class="ayah-input-box">
                               <span class="ayah-prefix">Ayah</span>
                               <input type="number" class="ayah-num" [(ngModel)]="item.weeklyManzilStartAyah"
@@ -2212,8 +2217,9 @@
                         <div class="range-row">
                           <span class="range-badge to">To</span>
                           <div class="range-inputs">
-                            <input type="text" class="surah-input" list="quranSurahListOptions"
-                              [(ngModel)]="item.weeklyManzilEndSurah" placeholder="End Surah" />
+                            <mat-select class="surah-mat-select" [(ngModel)]="item.weeklyManzilEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                              <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                            </mat-select>
                             <div class="ayah-input-box">
                               <span class="ayah-prefix">Ayah</span>
                               <input type="number" class="ayah-num" [(ngModel)]="item.weeklyManzilEndAyah"
@@ -2223,19 +2229,20 @@
                         </div>
                       </ng-container>
 
-                      <!-- Juz Mode -->
+                      <!-- Juz Mode: Dawr first Juz then Portion -->
                       <ng-container *ngIf="weeklyEvalUnitMode === 'juz'">
                         <div class="range-row">
                           <span class="range-badge from">From</span>
-                          <div class="range-inputs juz-layout">
-                            <div class="juz-num-box">
-                              <span class="juz-prefix">Juz</span>
-                              <input type="number" class="juz-num" [(ngModel)]="item.weeklyManzilStartJuz"
-                                placeholder="1-30" min="1" max="30" />
-                            </div>
-                            <select class="portion-select" [(ngModel)]="item.weeklyManzilStartPortion">
-                              <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                            </select>
+                          <div class="range-inputs dawr-layout">
+                            <mat-select class="dawr-juz-mat-select" [(ngModel)]="item.weeklyManzilStartJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                              <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                                <span class="juz-num-pill">{{ j.number }}</span>
+                                <span class="juz-name-text">{{ j.displayName }}</span>
+                              </mat-option>
+                            </mat-select>
+                            <mat-select class="dawr-portion-mat-select" [(ngModel)]="item.weeklyManzilStartPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                              <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                            </mat-select>
                           </div>
                         </div>
 
@@ -2246,15 +2253,16 @@
 
                         <div class="range-row">
                           <span class="range-badge to">To</span>
-                          <div class="range-inputs juz-layout">
-                            <div class="juz-num-box">
-                              <span class="juz-prefix">Juz</span>
-                              <input type="number" class="juz-num" [(ngModel)]="item.weeklyManzilEndJuz"
-                                placeholder="1-30" min="1" max="30" />
-                            </div>
-                            <select class="portion-select" [(ngModel)]="item.weeklyManzilEndPortion">
-                              <option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</option>
-                            </select>
+                          <div class="range-inputs dawr-layout">
+                            <mat-select class="dawr-juz-mat-select" [(ngModel)]="item.weeklyManzilEndJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                              <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                                <span class="juz-num-pill">{{ j.number }}</span>
+                                <span class="juz-name-text">{{ j.displayName }}</span>
+                              </mat-option>
+                            </mat-select>
+                            <mat-select class="dawr-portion-mat-select" [(ngModel)]="item.weeklyManzilEndPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                              <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                            </mat-select>
                           </div>
                         </div>
                       </ng-container>

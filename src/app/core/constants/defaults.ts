@@ -766,3 +766,43 @@ export function getSurahAyahCount(surahInput: string | number | null | undefined
   return null;
 }
 
+export interface QuranJuzItem {
+  number: number;
+  name: string;
+  displayName: string;
+}
+
+export const ALL_QURAN_JUZ: QuranJuzItem[] = [
+  { number: 1, name: 'Alif-Lam-Meem', displayName: 'Juz 1 - Alif-Lam-Meem' },
+  { number: 2, name: 'Sayaqool', displayName: 'Juz 2 - Sayaqool' },
+  { number: 3, name: 'Tilkal-Rusul', displayName: 'Juz 3 - Tilkal-Rusul' },
+  { number: 4, name: 'Lan Tanaloo', displayName: 'Juz 4 - Lan Tanaloo' },
+  { number: 5, name: 'Wal-Muhsanat', displayName: 'Juz 5 - Wal-Muhsanat' },
+  { number: 6, name: 'La Yuhibbullah', displayName: 'Juz 6 - La Yuhibbullah' },
+  { number: 7, name: "Wa Iza Sami'u", displayName: "Juz 7 - Wa Iza Sami'u" },
+  { number: 8, name: 'Wa Lau Annana', displayName: 'Juz 8 - Wa Lau Annana' },
+  { number: 9, name: "Qalal-Mala'u", displayName: "Juz 9 - Qalal-Mala'u" },
+  { number: 10, name: "Wa A'lamu", displayName: "Juz 10 - Wa A'lamu" },
+  { number: 11, name: "Ya'tazirun", displayName: "Juz 11 - Ya'tazirun" },
+  { number: 12, name: 'Wa Ma Min Daabbah', displayName: 'Juz 12 - Wa Ma Min Daabbah' },
+  { number: 13, name: "Wa Ma Ubarri'u", displayName: "Juz 13 - Wa Ma Ubarri'u" },
+  { number: 14, name: 'Rubama', displayName: 'Juz 14 - Rubama' },
+  { number: 15, name: 'Subhanallazi', displayName: 'Juz 15 - Subhanallazi' },
+  { number: 16, name: 'Qala Alam', displayName: 'Juz 16 - Qala Alam' },
+  { number: 17, name: 'Iqtaraba', displayName: 'Juz 17 - Iqtaraba' },
+  { number: 18, name: 'Qad Aflaha', displayName: 'Juz 18 - Qad Aflaha' },
+  { number: 19, name: 'Wa Qalalladhina', displayName: 'Juz 19 - Wa Qalalladhina' },
+  { number: 20, name: 'Amman Khalaqa', displayName: 'Juz 20 - Amman Khalaqa' },
+  { number: 21, name: 'Utlu Ma Oohiya', displayName: 'Juz 21 - Utlu Ma Oohiya' },
+  { number: 22, name: 'Wa Man Yaqnut', displayName: 'Juz 22 - Wa Man Yaqnut' },
+  { number: 23, name: 'Wa Maliya', displayName: 'Juz 23 - Wa Maliya' },
+  { number: 24, name: 'Faman Azlamu', displayName: 'Juz 24 - Faman Azlamu' },
+  { number: 25, name: 'Ilayhi Yuraddu', displayName: 'Juz 25 - Ilayhi Yuraddu' },
+  { number: 26, name: 'Ha-Meem', displayName: 'Juz 26 - Ha-Meem' },
+  { number: 27, name: 'Qala Fama Khatbukum', displayName: 'Juz 27 - Qala Fama Khatbukum' },
+  { number: 28, name: "Qad Sami' Allah", displayName: "Juz 28 - Qad Sami' Allah" },
+  { number: 29, name: 'Tabarakallazi', displayName: 'Juz 29 - Tabarakallazi' },
+  { number: 30, name: "'Amma", displayName: "Juz 30 - 'Amma" },
+];
+
+

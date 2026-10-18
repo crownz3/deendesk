@@ -3290,7 +3290,8 @@ select.inline-select,
       box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
     }
 
-    .cell-surah {
+    .cell-surah,
+    .cell-surah-mat {
       flex: 1 1 85px;
       min-width: 0;
       border: none !important;
@@ -3299,6 +3300,18 @@ select.inline-select,
       padding: 2px 4px !important;
       background: transparent !important;
       outline: none !important;
+      color: #0f172a;
+
+      .mat-mdc-select-trigger {
+        height: 100%;
+        display: flex;
+        align-items: center;
+      }
+      .mat-mdc-select-value {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #0f172a;
+      }
     }
 
     .cell-separator {
@@ -3317,6 +3330,107 @@ select.inline-select,
       background: #f8fafc !important;
       border-radius: 4px;
       outline: none !important;
+      color: #0f172a;
+    }
+
+    &.cell-juz-name-box {
+      width: 100%;
+      min-width: 150px;
+    }
+
+    .cell-juz-name-mat {
+      width: 100%;
+      min-width: 0;
+      height: 28px !important;
+      font-size: 0.78rem !important;
+
+      .mat-mdc-select-trigger {
+        height: 100%;
+        display: flex;
+        align-items: center;
+      }
+      .mat-mdc-select-value {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #0f172a;
+      }
+    }
+
+    &.cell-pages-box {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 2px 6px;
+
+      .cell-pg-lbl {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+      }
+
+      .cell-pg-input {
+        width: 38px;
+        min-width: 32px;
+        border: none !important;
+        height: 24px !important;
+        font-size: 0.80rem !important;
+        font-weight: 700;
+        text-align: center;
+        background: #f8fafc !important;
+        border-radius: 4px;
+        outline: none !important;
+        color: #0f172a;
+        padding: 0 !important;
+      }
+
+      .cell-pg-arrow {
+        font-size: 0.72rem;
+        color: #94a3b8;
+        font-weight: 800;
+      }
+    }
+
+    &.juz-dawr-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      .cell-dawr-juz-mat {
+        flex: 1 1 90px;
+        min-width: 0;
+        height: 28px !important;
+        font-size: 0.78rem !important;
+
+        .mat-mdc-select-trigger {
+          height: 100%;
+          display: flex;
+          align-items: center;
+        }
+        .mat-mdc-select-value {
+          font-size: 0.78rem;
+          font-weight: 700;
+          color: #0f172a;
+        }
+      }
+
+      .cell-portion-mat {
+        flex: 1 1 85px;
+        min-width: 0;
+        height: 28px !important;
+        font-size: 0.74rem !important;
+
+        .mat-mdc-select-trigger {
+          height: 100%;
+          display: flex;
+          align-items: center;
+        }
+        .mat-mdc-select-value {
+          font-size: 0.74rem;
+          color: #334155;
+        }
+      }
     }
 
     &.juz {
@@ -3506,7 +3620,8 @@ select.inline-select,
                 box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
               }
 
-              .surah-input {
+              .surah-input,
+              .surah-mat-select {
                 flex: 1 1 0% !important;
                 min-width: 0 !important;
                 width: 0 !important;
@@ -3518,6 +3633,17 @@ select.inline-select,
                 background: transparent !important;
                 outline: none !important;
                 box-sizing: border-box !important;
+
+                .mat-mdc-select-trigger {
+                  height: 100%;
+                  display: flex;
+                  align-items: center;
+                }
+                .mat-mdc-select-value {
+                  font-size: 0.80rem;
+                  font-weight: 700;
+                  color: #0f172a;
+                }
               }
 
               .ayah-input-box {
@@ -3549,6 +3675,49 @@ select.inline-select,
                   outline: none !important;
                   color: #0f172a;
                   padding: 0 !important;
+                }
+              }
+
+              &.dawr-layout {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+
+                .dawr-juz-mat-select {
+                  flex: 1 1 50% !important;
+                  min-width: 0 !important;
+                  height: 30px !important;
+                  font-size: 0.80rem !important;
+                  color: #0f172a;
+
+                  .mat-mdc-select-trigger {
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                  }
+                  .mat-mdc-select-value {
+                    font-size: 0.80rem;
+                    font-weight: 700;
+                    color: #0f172a;
+                  }
+                }
+
+                .dawr-portion-mat-select {
+                  flex: 1 1 50% !important;
+                  min-width: 0 !important;
+                  height: 30px !important;
+                  font-size: 0.76rem !important;
+                  color: #334155;
+
+                  .mat-mdc-select-trigger {
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                  }
+                  .mat-mdc-select-value {
+                    font-size: 0.76rem;
+                    color: #334155;
+                  }
                 }
               }
 
@@ -3595,6 +3764,113 @@ select.inline-select,
                   outline: none !important;
                   box-sizing: border-box !important;
                 }
+              }
+            }
+          }
+
+          .mobile-juz-page-card {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 8px 10px;
+
+            .mobile-juz-select-row {
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              background: #ffffff;
+              border: 1px solid #cbd5e1;
+              border-radius: 8px;
+              padding: 2px 8px;
+
+              &:focus-within {
+                border-color: #3b82f6;
+                box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+              }
+
+              .juz-label-badge {
+                font-size: 0.68rem;
+                font-weight: 800;
+                text-transform: uppercase;
+                color: #2563eb;
+                background: #eff6ff;
+                padding: 2px 6px;
+                border-radius: 4px;
+                flex-shrink: 0;
+              }
+
+              .juz-name-mat-select {
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                height: 30px !important;
+                font-size: 0.82rem !important;
+
+                .mat-mdc-select-trigger {
+                  height: 100%;
+                  display: flex;
+                  align-items: center;
+                }
+                .mat-mdc-select-value {
+                  font-size: 0.82rem;
+                  font-weight: 700;
+                  color: #0f172a;
+                }
+              }
+            }
+
+            .mobile-pages-row {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 8px;
+
+              .page-box {
+                flex: 1 1 0%;
+                min-width: 0;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                background: #ffffff;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                padding: 4px 8px;
+
+                &:focus-within {
+                  border-color: #3b82f6;
+                  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+                }
+
+                .page-tag {
+                  font-size: 0.65rem;
+                  font-weight: 700;
+                  color: #64748b;
+                  text-transform: uppercase;
+                  white-space: nowrap;
+                }
+
+                .page-num-input {
+                  flex: 1 1 0%;
+                  min-width: 0;
+                  border: none !important;
+                  height: 24px !important;
+                  font-size: 0.84rem !important;
+                  font-weight: 700;
+                  text-align: center;
+                  background: transparent !important;
+                  outline: none !important;
+                  color: #0f172a;
+                  padding: 0 !important;
+                }
+              }
+
+              .pages-arrow {
+                font-size: 0.82rem;
+                font-weight: 800;
+                color: #94a3b8;
+                flex-shrink: 0;
               }
             }
           }
