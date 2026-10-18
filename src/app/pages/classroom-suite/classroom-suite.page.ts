@@ -2221,9 +2221,9 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         const sabqiText = item.weeklySabqiRange || item.sabqiSurah || (item.weeklySabqiStartJuz ? `Juz ${item.weeklySabqiStartJuz}` : '');
         const manzilText = item.weeklyManzilRange || item.manzilSurah || (item.weeklyManzilStartJuz ? `Juz ${item.weeklyManzilStartJuz}` : '');
 
-        let details = `Sabaq: ${sabaqText}`;
-        if (sabqiText) details += ` | Sabqi: ${sabqiText}`;
-        if (manzilText) details += ` | Dawr: ${manzilText}`;
+        let details = `New Lesson: ${sabaqText}`;
+        if (sabqiText) details += ` | Old Lesson: ${sabqiText}`;
+        if (manzilText) details += ` | Revision: ${manzilText}`;
 
         return {
           isEvaluated: true,
