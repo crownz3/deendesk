@@ -217,17 +217,17 @@
 
 
       <!-- Configure Dawr Button (Org Admin / Super Admin only) -->
-      <button mat-stroked-button class="tab-nav-dawr-cfg-btn" *ngIf="(isOrgAdmin || isSuperAdmin) && studentTypeMode !== 'maktab'"
+      <button mat-stroked-button class="tab-nav-dawr-cfg-btn" *ngIf="isOrgAdmin || isSuperAdmin"
         (click)="openConfigureDawrRounds()"
         matTooltip="Set the required number of Dawr revision cycles for your organisation">
         <mat-icon>settings</mat-icon> Configure Dawr
       </button>
 
       <!-- Configure Maktab Subjects Button (Org Admin / Super Admin only) -->
-      <button mat-stroked-button class="tab-nav-dawr-cfg-btn" *ngIf="(isOrgAdmin || isSuperAdmin) && studentTypeMode === 'maktab'"
+      <button mat-stroked-button class="tab-nav-dawr-cfg-btn" *ngIf="isOrgAdmin || isSuperAdmin"
         (click)="openConfigureMaktabSubjects()"
         matTooltip="Configure approved Maktab curriculum subjects for your organisation">
-        <mat-icon>menu_book</mat-icon> Configure Subjects
+        <mat-icon>menu_book</mat-icon> Configure Maktab Subjects
       </button>
     </div>
 

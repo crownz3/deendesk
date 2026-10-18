@@ -52,72 +52,13 @@
       <div class="section-title-row">
         <div class="title-group">
           <h3 class="section-heading">Maktab Subjects &amp; Progression</h3>
-          <p class="section-subtext">
-            {{ canConfigureSubjects ? 'Manage curriculum subjects or assign progress for this student.' : 'Select approved curriculum subjects and record page/line progress.' }}
-          </p>
+          <p class="section-subtext">Record page and line progress across curriculum subjects.</p>
         </div>
         <div class="section-actions-right">
-          <button type="button" class="btn-config-subs" (click)="toggleConfigureSubjectsMode()" *ngIf="canConfigureSubjects" [class.active]="isManagingSubjects" [title]="isManagingSubjects ? 'Done configuring subjects' : 'Configure institution curriculum subjects'">
-            <mat-icon class="btn-ic">{{ isManagingSubjects ? 'check_circle' : 'tune' }}</mat-icon>
-            <span class="btn-lbl-text">{{ isManagingSubjects ? 'Done' : 'Configure Curriculum' }}</span>
-          </button>
-          <button type="button" class="add-subject-btn" (click)="addMaktabSubject()" *ngIf="!isManagingSubjects">
+          <button type="button" class="add-subject-btn" (click)="addMaktabSubject()">
             <mat-icon class="btn-ic">add</mat-icon>
             <span>Add Subject</span>
           </button>
-        </div>
-      </div>
-
-      <!-- ADMIN SUBJECT MANAGER PANEL (Visible ONLY to Org Admin & Super Admin) -->
-      <div class="org-subjects-manager-panel" *ngIf="isManagingSubjects && canConfigureSubjects">
-        <div class="manager-card-header">
-          <div class="manager-title-box">
-            <div class="title-with-icon">
-              <mat-icon class="header-icon">auto_stories</mat-icon>
-              <div class="title-text-wrap">
-                <strong class="manager-title">Organization Curriculum Subjects</strong>
-                <p class="manager-desc">Staff and teachers can evaluate students across these configured subjects.</p>
-              </div>
-            </div>
-            <span class="admin-only-badge">
-              <mat-icon class="badge-icon">admin_panel_settings</mat-icon>
-              Org Admin Only
-            </span>
-          </div>
-        </div>
-
-        <div class="manager-existing-list">
-          <div class="manager-sub-row" *ngFor="let s of predefinedMaktabSubjects; let sIdx = index">
-            <div class="sub-row-main">
-              <strong class="sub-row-title">{{ s.title }}</strong>
-            </div>
-            <button type="button" class="btn-delete-sub" (click)="removeOrgSubject(sIdx)" *ngIf="predefinedMaktabSubjects.length > 1" title="Delete subject">
-              <mat-icon>delete_outline</mat-icon>
-            </button>
-          </div>
-        </div>
-
-        <div class="manager-add-form">
-          <div class="add-form-header">
-            <mat-icon class="add-icon">add_circle_outline</mat-icon>
-            <h4 class="add-form-title">Add New Organization Subject</h4>
-          </div>
-          <div class="add-form-single">
-            <div class="form-col">
-              <label>Subject Name</label>
-              <input type="text" class="text-input" [(ngModel)]="newSubjectTitle" (keyup.enter)="addNewOrgSubject()" placeholder="e.g. Arabic Grammar, Tajweed, Seerah" />
-            </div>
-          </div>
-          <div class="manager-add-actions">
-            <button type="button" class="btn-add-org-sub" (click)="addNewOrgSubject()">
-              <mat-icon class="action-btn-icon">add</mat-icon>
-              <span>Add to Curriculum</span>
-            </button>
-            <button type="button" class="btn-close-manager" (click)="isManagingSubjects = false">
-              <mat-icon class="action-btn-icon">check</mat-icon>
-              <span>Save &amp; Return to Evaluation</span>
-            </button>
-          </div>
         </div>
       </div>
 

@@ -144,8 +144,6 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   isOrgAdmin = false;
   isSuperAdmin = false;
   canConfigureSubjects = false;
-  isManagingSubjects = false;
-  newSubjectTitle = '';
 
   // Snapshot for in-dialog Undo
   initialStateSnapshot = '';
@@ -187,69 +185,9 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       }
     }
 
-    // Strict Role Enforcement: Only Org Admin & Super Admin can configure or select Custom
+    // Strict Role Enforcement: Only Org Admin & Super Admin can select Custom
     if (!this.canConfigureSubjects) {
       this.predefinedMaktabSubjects = this.predefinedMaktabSubjects.filter(s => s.id !== 'Custom');
-    }
-  }
-
-  toggleConfigureSubjectsMode(): void {
-    if (!this.canConfigureSubjects) return;
-    this.isManagingSubjects = !this.isManagingSubjects;
-  }
-
-  addNewOrgSubject(): void {
-    if (!this.canConfigureSubjects) return;
-    const name = this.newSubjectTitle.trim();
-    if (!name) {
-      this.snackBar.open('Please enter a subject name', 'OK', { duration: 2500 });
-      return;
-    }
-
-    const newSub = {
-      id: name,
-      title: name
-    };
-
-    this.predefinedMaktabSubjects.push(newSub);
-    this.newSubjectTitle = '';
-    this.saveOrgConfiguredSubjects();
-  }
-
-  removeOrgSubject(idx: number): void {
-    if (!this.canConfigureSubjects) return;
-    this.predefinedMaktabSubjects.splice(idx, 1);
-    this.saveOrgConfiguredSubjects();
-  }
-
-  async saveOrgConfiguredSubjects(): Promise<void> {
-    if (!this.canConfigureSubjects) return;
-    const orgId = this.data.currentUser?.organizationId;
-    if (!orgId) return;
-
-    try {
-      const orgRef = doc(getDeenDeskFirestore(), 'organizations', orgId);
-      const snap = await getDoc(orgRef);
-      const currentSettings = snap.exists() ? (snap.data()['academicSettings'] || {}) : {};
-
-      const subjectsToSave = this.predefinedMaktabSubjects
-        .filter(s => s.id !== 'Custom')
-        .map(s => ({
-          id: s.id || s.title,
-          title: s.title || s.id
-        }));
-
-      await setDoc(orgRef, {
-        academicSettings: {
-          ...currentSettings,
-          maktabSubjects: subjectsToSave
-        }
-      }, { merge: true });
-
-      this.snackBar.open('Curriculum subjects saved to organization details!', 'OK', { duration: 3000 });
-    } catch (e: any) {
-      console.error('Failed to save org subjects:', e);
-      this.snackBar.open('Failed to save organization subjects: ' + e.message, 'Close', { duration: 4000 });
     }
   }
 
