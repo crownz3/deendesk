@@ -18,6 +18,7 @@ import { QuickAddDialogComponent } from '../../shared/components/quick-add-dialo
 import { StudentAttendanceHistoryDialogComponent, StudentAttendanceHistoryRecord } from './student-attendance-history-dialog.component';
 import { ClassGroupAttendanceDetailsDialogComponent, ClassGroupAttendanceDetailsDialogData, StudentAttendanceDetailRecord } from '../dashboard/class-group-attendance-details-dialog.component';
 import { StudentEvaluationDialogComponent } from '../attendance/student-evaluation-dialog.component';
+import { StudentProgressEvaluationDialogComponent } from '../../shared/components/student-progress-evaluation-dialog/student-progress-evaluation-dialog.component';
 
 export interface OverviewClassGroupStatus {
   groupId: string;
@@ -145,6 +146,8 @@ export interface StudentSuiteRosterItem {
   weeklyMaktabSubject?: string;
   weeklyMaktabStartPage?: number | null;
   weeklyMaktabEndPage?: number | null;
+  maktabSubjectsList?: any[];
+  hifzLessonsList?: any[];
   // UI-only transient state (not persisted)
   _hoverRating?: number;
 }
@@ -2144,66 +2147,82 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     });
   }
 
-  // Single Student Evaluation Dialog Launcher
+  // Single Student Comprehensive Evaluation Dialog Launcher
   openSingleStudentEvaluationModal(item: StudentSuiteRosterItem): void {
-    const dialogRef = this.dialog.open(StudentEvaluationDialogComponent, {
-      width: '540px',
-      maxWidth: '95vw',
+    const dialogRef = this.dialog.open(StudentProgressEvaluationDialogComponent, {
+      width: '680px',
+      maxWidth: '96vw',
+      panelClass: 'custom-target-dialog-panel',
       data: {
-        studentId: item.student.id,
-        studentName: item.student['fullName'] || item.student['name'],
-        date: this.selectedDateStr,
-        courseType: this.studentTypeMode,
+        student: item.student,
+        studentTypeMode: this.studentTypeMode,
+        evalCadence: this.evalCadence,
+        selectedDateStr: this.selectedDateStr,
+        selectedWeekYear: this.selectedWeekYear,
+        selectedWeekNumber: this.selectedWeekNumber,
+        selectedWeekStartStr: this.selectedWeekStartStr,
+        selectedWeekEndStr: this.selectedWeekEndStr,
         classId: this.selectedClassId,
         groupId: this.selectedGroupId,
-        profile: this.currentUser!,
-        existingRecord: {
-          sabaqSurah: item.sabaqSurah,
-          sabaqAyahFrom: item.sabaqFromAyah,
-          sabaqAyahTo: item.sabaqToAyah,
-          sabaqMistakes: item.sabaqMistakes || 0,
-          sabqiSurah: item.sabqiSurah,
-          sabqiAyahFrom: item.sabqiFromAyah,
-          sabqiAyahTo: item.sabqiToAyah,
-          sabqiJuz: item.sabqiJuz ? `Juz ${item.sabqiJuz}` : '',
-          sabqiJuzPortion: item.sabqiJuzPortion,
-          sabqiMistakes: item.sabqiMistakes || 0,
-          manzilSurah: item.manzilSurah,
-          manzilAyahFrom: item.manzilFromAyah,
-          manzilAyahTo: item.manzilToAyah,
-          manzilJuz: item.manzilJuz ? `Juz ${item.manzilJuz}` : '',
-          manzilJuzPortion: item.manzilJuzPortion,
-          manzilMistakes: item.manzilMistakes || 0,
-          daurRoundNumber: item.dawrRoundNo || 1,
-          daurPortionJuz: item.dawrPortionJuz,
-          daurFromAyah: item.dawrFromAyah,
-          daurToAyah: item.dawrToAyah,
-          daurMistakes: item.dawrMistakes || 0,
-          maktabSubject: item.maktabSubject,
-          maktabPageNo: item.maktabPage,
-          maktabLessonNo: item.maktabLineNo,
-          grade: item.hifzRating >= 4 ? 'Good' : 'Needs Revision',
-          starRating: item.hifzRating || 5
-        } as any
+        madrasaId: this.selectedMadrasaId,
+        currentUser: this.currentUser,
+        currentRosterItem: item
       }
     });
 
     dialogRef.afterClosed().subscribe(res => {
-      if (res && res.record) {
-        const rec = res.record;
-        if (rec.sabaqSurah) item.sabaqSurah = rec.sabaqSurah;
-        if (rec.sabaqAyahFrom) item.sabaqFromAyah = rec.sabaqAyahFrom;
-        if (rec.sabaqAyahTo) item.sabaqToAyah = rec.sabaqAyahTo;
-        if (rec.sabaqMistakes !== undefined) item.sabaqMistakes = rec.sabaqMistakes;
-        if (rec.sabqiSurah) item.sabqiSurah = rec.sabqiSurah;
-        if (rec.sabqiAyahFrom) item.sabqiFromAyah = rec.sabqiAyahFrom;
-        if (rec.sabqiAyahTo) item.sabqiToAyah = rec.sabqiAyahTo;
-        if (rec.sabqiMistakes !== undefined) item.sabqiMistakes = rec.sabqiMistakes;
-        if (rec.manzilSurah) item.manzilSurah = rec.manzilSurah;
-        if (rec.manzilAyahFrom) item.manzilFromAyah = rec.manzilAyahFrom;
-        if (rec.manzilAyahTo) item.manzilToAyah = rec.manzilAyahTo;
-        if (rec.manzilMistakes !== undefined) item.manzilMistakes = rec.manzilMistakes;
-        if (rec.starRating) item.hifzRating = rec.starRating;
+      if (res && res.saved) {
+        if (this.studentTypeMode === 'maktab') {
+          item.maktabSubjectsList = res.maktabSubjects;
+          const firstSub = res.maktabSubjects && res.maktabSubjects[0];
+          if (firstSub) {
+            item.weeklyMaktabSubject = firstSub.customSubjectName || firstSub.subject;
+            item.maktabSubject = firstSub.customSubjectName || firstSub.subject;
+            item.weeklyMaktabStartPage = firstSub.startPage;
+            item.weeklyMaktabEndPage = firstSub.endPage;
+            item.maktabPage = firstSub.endPage;
+            item.maktabLineNo = firstSub.lineNo;
+          }
+        } else {
+          item.weeklySabaqStartSurah = res.sabaqStartSurah;
+          item.weeklySabaqStartAyah = res.sabaqStartAyah;
+          item.weeklySabaqEndSurah = res.sabaqEndSurah;
+          item.weeklySabaqEndAyah = res.sabaqEndAyah;
+          item.weeklySabaqStartJuz = res.sabaqJuz;
+          item.weeklySabaqEndJuz = res.sabaqJuz;
+          item.weeklySabaqStartPage = res.sabaqStartPage;
+          item.weeklySabaqEndPage = res.sabaqEndPage;
+
+          item.sabaqSurah = res.sabaqEndSurah;
+          item.sabaqFromAyah = res.sabaqStartAyah;
+          item.sabaqToAyah = res.sabaqEndAyah;
+
+          item.weeklySabqiStartSurah = res.sabqiStartSurah;
+          item.weeklySabqiStartAyah = res.sabqiStartAyah;
+          item.weeklySabqiEndSurah = res.sabqiEndSurah;
+          item.weeklySabqiEndAyah = res.sabqiEndAyah;
+          item.weeklySabqiStartJuz = res.sabqiJuz;
+          item.weeklySabqiEndJuz = res.sabqiJuz;
+          item.weeklySabqiStartPage = res.sabqiStartPage;
+          item.weeklySabqiEndPage = res.sabqiEndPage;
+
+          item.sabqiSurah = res.sabqiEndSurah;
+          item.sabqiFromAyah = res.sabqiStartAyah;
+          item.sabqiToAyah = res.sabqiEndAyah;
+
+          item.weeklyManzilStartJuz = res.manzilStartJuz;
+          item.weeklyManzilStartPortion = res.manzilStartPortion;
+          item.weeklyManzilEndJuz = res.manzilEndJuz;
+          item.weeklyManzilEndPortion = res.manzilEndPortion;
+
+          item.hifzLessonsList = res.hifzLessonsList;
+        }
+
+        item.weeklyRating = res.starRating;
+        item.hifzRating = res.starRating;
+        item.weeklyMistakes = res.overallMistakes;
+        item.weeklyNotes = res.remarks;
+        item.maktabRemarks = res.remarks;
       }
     });
   }

@@ -1285,6 +1285,10 @@
                         </div>
                       </div>
                       <div class="target-actions">
+                        <button type="button" class="target-btn eval-btn-primary" (click)="openSingleStudentEvaluationModal(item)"
+                          matTooltip="Open Full Progress Evaluation Dialog">
+                          <mat-icon class="btn-ic">assignment_turned_in</mat-icon> Evaluate
+                        </button>
                         <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)"
                           matTooltip="Update Progress">
                           Update Progress
@@ -1462,6 +1466,10 @@
                         </div>
                       </div>
                       <div class="target-actions">
+                        <button type="button" class="target-btn eval-btn-primary" (click)="openSingleStudentEvaluationModal(item)"
+                          matTooltip="Open Full Progress Evaluation Dialog">
+                          <mat-icon class="btn-ic">assignment_turned_in</mat-icon> Evaluate
+                        </button>
                         <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)"
                           matTooltip="Update Progress">
                           <mat-icon class="btn-ic">trending_up</mat-icon> Update Progress
@@ -1615,6 +1623,10 @@
                         </div>
                       </div>
                       <div class="target-actions">
+                        <button type="button" class="target-btn eval-btn-primary" (click)="openSingleStudentEvaluationModal(item)"
+                          matTooltip="Open Full Progress Evaluation Dialog">
+                          <mat-icon class="btn-ic">assignment_turned_in</mat-icon> Evaluate
+                        </button>
                         <button type="button" class="target-btn" (click)="openUpdateProgressModal(item)"
                           matTooltip="Update Progress">
                           Update Progress
@@ -1757,7 +1769,12 @@
                   <td style="text-align: center; font-weight: 700; color: #64748b;">{{ idx + 1 }}</td>
                   <td class="st-name-cell">
                     <div class="st-name-wrapper">
-                      <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <div class="st-name-row">
+                        <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                        <button type="button" class="btn-eval-pill" (click)="openSingleStudentEvaluationModal(item)" title="Open Detailed Progress Dialog">
+                          <mat-icon class="eval-pill-ic">tune</mat-icon> Detailed
+                        </button>
+                      </div>
                       <div class="target-sub-pill" *ngIf="item.targetSabaqSurah" title="Target for this period">
                         {{ item.targetSabaqSurah }} ({{ item.targetSabaqFromAyah || 1 }} - {{ item.targetSabaqToAyah
                         || 1 }})
@@ -1958,18 +1975,43 @@
 
                   <!-- MAKTAB MODE COLUMNS -->
                   <ng-container *ngIf="studentTypeMode === 'maktab'">
-                    <td>
-                      <input type="text" class="inline-input" [(ngModel)]="item.weeklyMaktabSubject"
-                        placeholder="Subject" />
+                    <!-- Multiple Subjects Configured -->
+                    <td colspan="3" *ngIf="item.maktabSubjectsList && item.maktabSubjectsList.length > 0" class="maktab-multi-td">
+                      <div class="maktab-multi-subjects-cell">
+                        <div class="maktab-sub-pill-list">
+                          <span class="maktab-subject-badge" *ngFor="let sub of item.maktabSubjectsList" (click)="openSingleStudentEvaluationModal(item)" title="Click to view/edit progress">
+                            <span class="sub-name">{{ sub.customSubjectName || sub.subject }}</span>
+                            <span class="sub-stage" *ngIf="sub.qaidaStage">{{ sub.qaidaStage }}</span>
+                            <span class="sub-pages">Pg {{ sub.startPage }}–{{ sub.endPage }} <small *ngIf="sub.lineNo">(L{{ sub.lineNo }})</small></span>
+                          </span>
+                        </div>
+                        <button type="button" class="btn-sub-edit-compact" (click)="openSingleStudentEvaluationModal(item)" title="Add or edit subjects">
+                          <mat-icon>edit_note</mat-icon> Edit ({{ item.maktabSubjectsList.length }})
+                        </button>
+                      </div>
                     </td>
-                    <td>
-                      <input type="number" class="inline-input num" [(ngModel)]="item.weeklyMaktabStartPage"
-                        placeholder="Start" min="1" />
-                    </td>
-                    <td>
-                      <input type="number" class="inline-input num" [(ngModel)]="item.weeklyMaktabEndPage"
-                        placeholder="End" min="1" />
-                    </td>
+
+                    <!-- Standard Single Subject Inputs with "+ Multi" launcher -->
+                    <ng-container *ngIf="!item.maktabSubjectsList || item.maktabSubjectsList.length === 0">
+                      <td>
+                        <div class="maktab-single-sub-cell">
+                          <input type="text" class="inline-input" [(ngModel)]="item.weeklyMaktabSubject"
+                            placeholder="Subject" />
+                          <button type="button" class="btn-add-multi-sub" (click)="openSingleStudentEvaluationModal(item)" title="Add multiple subjects with stage & line numbers">
+                            + Multi
+                          </button>
+                        </div>
+                      </td>
+                      <td>
+                        <input type="number" class="inline-input num" [(ngModel)]="item.weeklyMaktabStartPage"
+                          placeholder="Start" min="1" />
+                      </td>
+                      <td>
+                        <input type="number" class="inline-input num" [(ngModel)]="item.weeklyMaktabEndPage"
+                          placeholder="End" min="1" />
+                      </td>
+                    </ng-container>
+
                     <td>
                       <div class="star-rating-widget">
                         <button type="button" class="star-btn" *ngFor="let s of [1,2,3,4,5]"
@@ -2024,17 +2066,10 @@
                   </div>
                 </div>
 
-                <!-- Card Header Mini Toggle -->
-                <!-- <div class="eval-unit-toggle-row header-mini" *ngIf="studentTypeMode === 'hifz'">
-                  <button type="button" class="unit-mini-pill" [class.active]="weeklyEvalUnitMode === 'surah'"
-                    (click)="weeklyEvalUnitMode = 'surah'" title="Switch to Surah-wise entry">
-                    Surah
-                  </button>
-                  <button type="button" class="unit-mini-pill" [class.active]="weeklyEvalUnitMode === 'juz'"
-                    (click)="weeklyEvalUnitMode = 'juz'" title="Switch to Juz-wise entry">
-                    Juz
-                  </button>
-                </div> -->
+                <button type="button" class="btn-mobile-eval-launch" (click)="openSingleStudentEvaluationModal(item)">
+                  <mat-icon>tune</mat-icon>
+                  <span>Evaluate</span>
+                </button>
               </div>
 
               <div class="weekly-card-body">
@@ -2318,36 +2353,55 @@
                 <div *ngIf="studentTypeMode === 'maktab'" class="weekly-lesson-card">
                   <div class="lesson-card-header">
                     <div class="lesson-title">Maktab Progress</div>
-                    <span class="lesson-tag">Lesson & Pages</span>
+                    <button type="button" class="btn-sub-card-header" (click)="openSingleStudentEvaluationModal(item)">
+                      <mat-icon>tune</mat-icon> {{ item.maktabSubjectsList?.length ? 'Edit Subjects' : '+ Multi-Subject' }}
+                    </button>
                   </div>
 
                   <div class="maktab-card-body">
-                    <!-- Subject Row -->
-                    <div class="maktab-subject-field">
-                      <span class="field-lbl">Subject:</span>
-                      <input type="text" class="subject-input" [(ngModel)]="item.weeklyMaktabSubject"
-                        placeholder="Subject (e.g. Fiqh, Seerah...)" />
-                    </div>
-
-                    <!-- Page Range Row -->
-                    <div class="maktab-pages-grid">
-                      <div class="page-range-cell">
-                        <span class="range-badge from">From</span>
-                        <div class="page-input-box">
-                          <span class="p-lbl">Page</span>
-                          <input type="number" class="p-input" [(ngModel)]="item.weeklyMaktabStartPage"
-                            placeholder="1" min="1" />
+                    <!-- Multi-Subject List if configured -->
+                    <div class="mobile-multi-sub-list" *ngIf="item.maktabSubjectsList && item.maktabSubjectsList.length > 0">
+                      <div class="mobile-sub-card" *ngFor="let sub of item.maktabSubjectsList" (click)="openSingleStudentEvaluationModal(item)">
+                        <div class="m-sub-top">
+                          <span class="m-sub-name">{{ sub.customSubjectName || sub.subject }}</span>
+                          <span class="m-sub-stage" *ngIf="sub.qaidaStage">{{ sub.qaidaStage }}</span>
+                        </div>
+                        <div class="m-sub-bottom">
+                          <span class="m-sub-range">Pages {{ sub.startPage }} → {{ sub.endPage }}</span>
+                          <span class="m-sub-line" *ngIf="sub.lineNo">Line {{ sub.lineNo }}</span>
                         </div>
                       </div>
+                    </div>
 
-                      <div class="range-arrow-sep">→</div>
+                    <!-- Single Subject fallback inputs -->
+                    <div *ngIf="!item.maktabSubjectsList || item.maktabSubjectsList.length === 0">
+                      <!-- Subject Row -->
+                      <div class="maktab-subject-field">
+                        <span class="field-lbl">Subject:</span>
+                        <input type="text" class="subject-input" [(ngModel)]="item.weeklyMaktabSubject"
+                          placeholder="Subject (e.g. Fiqh, Seerah...)" />
+                      </div>
 
-                      <div class="page-range-cell">
-                        <span class="range-badge to">To</span>
-                        <div class="page-input-box">
-                          <span class="p-lbl">Page</span>
-                          <input type="number" class="p-input" [(ngModel)]="item.weeklyMaktabEndPage"
-                            placeholder="5" min="1" />
+                      <!-- Page Range Row -->
+                      <div class="maktab-pages-grid">
+                        <div class="page-range-cell">
+                          <span class="range-badge from">From</span>
+                          <div class="page-input-box">
+                            <span class="p-lbl">Page</span>
+                            <input type="number" class="p-input" [(ngModel)]="item.weeklyMaktabStartPage"
+                              placeholder="1" min="1" />
+                          </div>
+                        </div>
+
+                        <div class="range-arrow-sep">→</div>
+
+                        <div class="page-range-cell">
+                          <span class="range-badge to">To</span>
+                          <div class="page-input-box">
+                            <span class="p-lbl">Page</span>
+                            <input type="number" class="p-input" [(ngModel)]="item.weeklyMaktabEndPage"
+                              placeholder="5" min="1" />
+                          </div>
                         </div>
                       </div>
                     </div>

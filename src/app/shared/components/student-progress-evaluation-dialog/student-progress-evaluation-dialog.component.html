@@ -1,0 +1,435 @@
+<div class="progress-eval-dialog">
+  <!-- DIALOG HEADER -->
+  <div class="dialog-header">
+    <div class="student-profile-bar">
+      <div class="student-avatar-badge">
+        {{ (student['fullName'] || student['name'] || 'S').charAt(0).toUpperCase() }}
+      </div>
+      <div class="student-meta">
+        <h2 class="student-title">{{ student['fullName'] || student['name'] }}</h2>
+        <div class="meta-tags">
+          <span class="mode-tag" [class.maktab]="studentTypeMode === 'maktab'" [class.hifz]="studentTypeMode === 'hifz'" [class.dawr]="studentTypeMode === 'dawr'">
+            {{ studentTypeMode | uppercase }}
+          </span>
+          <span class="cadence-tag">
+            {{ evalCadence === 'weekly' ? 'Weekly Evaluation' : 'Daily Evaluation' }}
+          </span>
+          <span class="date-tag">{{ data.selectedDateStr }}</span>
+        </div>
+      </div>
+    </div>
+    <button type="button" class="close-x-btn" (click)="cancel()" aria-label="Close dialog">✕</button>
+  </div>
+
+  <div class="dialog-scroll-body">
+    <!-- PREVIOUS PROGRESS / LAST MILESTONE BANNER -->
+    <div class="history-milestone-banner" *ngIf="lastProgressSummary">
+      <div class="banner-left">
+        <span class="history-icon">📜</span>
+        <div class="banner-text">
+          <span class="history-title">Previous Progress</span>
+          <p class="history-desc">{{ lastProgressSummary }}</p>
+        </div>
+      </div>
+      <button type="button" class="continue-btn" (click)="continueFromLastMilestone()">
+        <span>Continue from here</span>
+        <span class="arrow-ico">→</span>
+      </button>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- MAKTAB MULTI-SUBJECT EVALUATION SECTION                  -->
+    <!-- ======================================================== -->
+    <div class="eval-section maktab-section" *ngIf="studentTypeMode === 'maktab'">
+      <div class="section-title-row">
+        <div>
+          <h3 class="section-heading">Maktab Subjects & Progression</h3>
+          <p class="section-subtext">Add all subjects completed by this student with stages, page numbers, and lines.</p>
+        </div>
+        <button type="button" class="add-subject-btn" (click)="addMaktabSubject()">
+          <span>+ Add Subject</span>
+        </button>
+      </div>
+
+      <div class="subjects-card-list">
+        <div class="subject-item-card" *ngFor="let item of maktabSubjects; let idx = index">
+          <div class="item-card-header">
+            <span class="sub-num-pill">#{{ idx + 1 }}</span>
+            <div class="sub-select-wrapper">
+              <mat-select class="subject-mat-select" [(ngModel)]="item.subject" (ngModelChange)="onSubjectChanged(item)" panelClass="quran-juz-mat-panel">
+                <mat-option *ngFor="let s of predefinedMaktabSubjects" [value]="s.id">{{ s.title }}</mat-option>
+              </mat-select>
+            </div>
+            <button type="button" class="remove-sub-btn" (click)="removeMaktabSubject(idx)" title="Remove subject" *ngIf="maktabSubjects.length > 1">
+              🗑
+            </button>
+          </div>
+
+          <div class="item-card-body">
+            <!-- Custom Subject Input if Custom selected -->
+            <div class="form-row" *ngIf="item.subject === 'Custom'">
+              <div class="field-item full">
+                <label class="field-label">Custom Subject Name</label>
+                <input type="text" class="text-input" [(ngModel)]="item.customSubjectName" placeholder="Enter subject name (e.g. Arabic Writing, Seerah)" />
+              </div>
+            </div>
+
+            <!-- Stage Configuration -->
+            <div class="form-row">
+              <div class="field-item full">
+                <label class="field-label">Topic / Stage Configuration</label>
+                <mat-select class="stage-mat-select" [(ngModel)]="item.stage" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let stg of getStagesForSubject(item.subject)" [value]="stg">{{ stg }}</mat-option>
+                </mat-select>
+              </div>
+            </div>
+
+            <!-- Page Range and Line Number Row -->
+            <div class="form-row numbers-row">
+              <div class="field-item">
+                <label class="field-label">From Page</label>
+                <input type="number" class="num-input" [(ngModel)]="item.startPage" placeholder="1" min="1" />
+              </div>
+              <span class="range-divider">→</span>
+              <div class="field-item">
+                <label class="field-label">To Page</label>
+                <input type="number" class="num-input" [(ngModel)]="item.endPage" placeholder="2" min="1" />
+              </div>
+              <div class="field-item line-item">
+                <label class="field-label">Line No</label>
+                <input type="number" class="num-input line-num" [(ngModel)]="item.lineNo" placeholder="1" min="1" max="25" />
+              </div>
+            </div>
+
+            <!-- Optional Subject Notes -->
+            <div class="form-row">
+              <div class="field-item full">
+                <input type="text" class="text-input small" [(ngModel)]="item.notes" placeholder="Notes (e.g., memorized well, revise letters daal/dhaal)" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- HIFZ & DAWR EVALUATION SECTION                           -->
+    <!-- ======================================================== -->
+    <div class="eval-section hifz-section" *ngIf="studentTypeMode === 'hifz' || studentTypeMode === 'dawr'">
+      <!-- Unit Mode Toggle Bar -->
+      <div class="unit-mode-toggle-bar">
+        <div class="toggle-group">
+          <span class="toggle-label">Evaluation Unit:</span>
+          <button type="button" class="unit-btn" [class.active]="hifzEvalUnitMode === 'surah'" (click)="hifzEvalUnitMode = 'surah'">
+            Surah-wise
+          </button>
+          <button type="button" class="unit-btn" [class.active]="hifzEvalUnitMode === 'juz'" (click)="hifzEvalUnitMode = 'juz'">
+            Juz-wise
+          </button>
+        </div>
+
+        <div class="toggle-group" *ngIf="hifzEvalUnitMode === 'surah'">
+          <span class="toggle-label">Granularity:</span>
+          <button type="button" class="unit-btn mini" [class.active]="hifzEntryMethod === 'ayah'" (click)="hifzEntryMethod = 'ayah'">
+            Ayah-wise
+          </button>
+          <button type="button" class="unit-btn mini" [class.active]="hifzEntryMethod === 'page'" (click)="hifzEntryMethod = 'page'">
+            Page-wise
+          </button>
+        </div>
+      </div>
+
+      <!-- 1. NEW LESSON (SABAQ) CARD -->
+      <div class="lesson-eval-card sabaq-card">
+        <div class="card-top-bar">
+          <div class="card-title-group">
+            <span class="card-tag sabaq">SABAQ</span>
+            <span class="card-name">New Lesson</span>
+          </div>
+          <div class="card-mistakes-box">
+            <span class="mist-label">Mistakes:</span>
+            <input type="number" class="mist-input" [(ngModel)]="sabaqMistakes" placeholder="0" min="0" />
+          </div>
+        </div>
+
+        <div class="card-inputs-area">
+          <!-- Surah Mode -->
+          <ng-container *ngIf="hifzEvalUnitMode === 'surah'">
+            <div class="range-row-container">
+              <div class="range-half">
+                <span class="from-to-badge from">From</span>
+                <div class="inputs-group">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabaqStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                    <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                  </mat-select>
+                  <div class="ayah-input-wrap">
+                    <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
+                    <input type="number" class="ayah-input" [(ngModel)]="sabaqStartAyah" placeholder="1" min="1" />
+                  </div>
+                </div>
+              </div>
+
+              <span class="connector-arrow">→</span>
+
+              <div class="range-half">
+                <span class="from-to-badge to">To</span>
+                <div class="inputs-group">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabaqEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                    <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                  </mat-select>
+                  <div class="ayah-input-wrap">
+                    <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
+                    <input type="number" class="ayah-input" [(ngModel)]="sabaqEndAyah" placeholder="10" min="1" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- Juz Mode: Juz Name + Pages from & to -->
+          <ng-container *ngIf="hifzEvalUnitMode === 'juz'">
+            <div class="juz-page-grid">
+              <div class="juz-col">
+                <label class="field-label">Juz Name</label>
+                <mat-select class="juz-name-mat-select" [(ngModel)]="sabaqJuz" placeholder="Select Juz Name" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                    <span class="juz-num-pill">{{ j.number }}</span>
+                    <span class="juz-name-text">{{ j.displayName }}</span>
+                  </mat-option>
+                </mat-select>
+              </div>
+              <div class="pages-col">
+                <label class="field-label">Page Range of that Juz</label>
+                <div class="pages-input-pair">
+                  <div class="pg-box">
+                    <span class="pg-lbl">From Pg</span>
+                    <input type="number" class="pg-num" [(ngModel)]="sabaqStartPage" placeholder="1" min="1" max="30" />
+                  </div>
+                  <span class="pg-sep">→</span>
+                  <div class="pg-box">
+                    <span class="pg-lbl">To Pg</span>
+                    <input type="number" class="pg-num" [(ngModel)]="sabaqEndPage" placeholder="20" min="1" max="30" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- 2. OLD LESSON (SABQI) CARD -->
+      <div class="lesson-eval-card sabqi-card">
+        <div class="card-top-bar">
+          <div class="card-title-group">
+            <span class="card-tag sabqi">SABQI</span>
+            <span class="card-name">Old Lesson</span>
+          </div>
+          <div class="card-mistakes-box">
+            <span class="mist-label">Mistakes:</span>
+            <input type="number" class="mist-input" [(ngModel)]="sabqiMistakes" placeholder="0" min="0" />
+          </div>
+        </div>
+
+        <div class="card-inputs-area">
+          <!-- Surah Mode -->
+          <ng-container *ngIf="hifzEvalUnitMode === 'surah'">
+            <div class="range-row-container">
+              <div class="range-half">
+                <span class="from-to-badge from">From</span>
+                <div class="inputs-group">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabqiStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                    <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                  </mat-select>
+                  <div class="ayah-input-wrap">
+                    <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
+                    <input type="number" class="ayah-input" [(ngModel)]="sabqiStartAyah" placeholder="1" min="1" />
+                  </div>
+                </div>
+              </div>
+
+              <span class="connector-arrow">→</span>
+
+              <div class="range-half">
+                <span class="from-to-badge to">To</span>
+                <div class="inputs-group">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabqiEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                    <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                  </mat-select>
+                  <div class="ayah-input-wrap">
+                    <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
+                    <input type="number" class="ayah-input" [(ngModel)]="sabqiEndAyah" placeholder="10" min="1" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- Juz Mode -->
+          <ng-container *ngIf="hifzEvalUnitMode === 'juz'">
+            <div class="juz-page-grid">
+              <div class="juz-col">
+                <label class="field-label">Juz Name</label>
+                <mat-select class="juz-name-mat-select" [(ngModel)]="sabqiJuz" placeholder="Select Juz Name" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                    <span class="juz-num-pill">{{ j.number }}</span>
+                    <span class="juz-name-text">{{ j.displayName }}</span>
+                  </mat-option>
+                </mat-select>
+              </div>
+              <div class="pages-col">
+                <label class="field-label">Page Range of that Juz</label>
+                <div class="pages-input-pair">
+                  <div class="pg-box">
+                    <span class="pg-lbl">From Pg</span>
+                    <input type="number" class="pg-num" [(ngModel)]="sabqiStartPage" placeholder="1" min="1" max="30" />
+                  </div>
+                  <span class="pg-sep">→</span>
+                  <div class="pg-box">
+                    <span class="pg-lbl">To Pg</span>
+                    <input type="number" class="pg-num" [(ngModel)]="sabqiEndPage" placeholder="20" min="1" max="30" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- 3. RECENT LESSON / DAWR (MANZIL) CARD -->
+      <div class="lesson-eval-card manzil-card">
+        <div class="card-top-bar">
+          <div class="card-title-group">
+            <span class="card-tag manzil">DAWR / MANZIL</span>
+            <span class="card-name">Revision of Memorized Quran</span>
+          </div>
+          <div class="card-mistakes-box">
+            <span class="mist-label">Mistakes:</span>
+            <input type="number" class="mist-input" [(ngModel)]="manzilMistakes" placeholder="0" min="0" />
+          </div>
+        </div>
+
+        <div class="card-inputs-area">
+          <!-- First asks Juz, then Portion -->
+          <div class="dawr-dual-range-row">
+            <div class="dawr-range-col">
+              <span class="from-to-badge from">From</span>
+              <div class="dawr-pair">
+                <mat-select class="dawr-juz-select" [(ngModel)]="manzilStartJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                    <span class="juz-num-pill">{{ j.number }}</span>
+                    <span class="juz-name-text">{{ j.displayName }}</span>
+                  </mat-option>
+                </mat-select>
+                <mat-select class="dawr-portion-select" [(ngModel)]="manzilStartPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                </mat-select>
+              </div>
+            </div>
+
+            <span class="connector-arrow">→</span>
+
+            <div class="dawr-range-col">
+              <span class="from-to-badge to">To</span>
+              <div class="dawr-pair">
+                <mat-select class="dawr-juz-select" [(ngModel)]="manzilEndJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                    <span class="juz-num-pill">{{ j.number }}</span>
+                    <span class="juz-name-text">{{ j.displayName }}</span>
+                  </mat-option>
+                </mat-select>
+                <mat-select class="dawr-portion-select" [(ngModel)]="manzilEndPortion" placeholder="Portion" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                </mat-select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extra Lessons Container -->
+      <div class="extra-lessons-section" *ngIf="extraLessonsList.length > 0">
+        <h4 class="extra-heading">Additional Completed Lessons in this Period</h4>
+        <div class="extra-lesson-card" *ngFor="let extra of extraLessonsList; let eIdx = index">
+          <div class="extra-header">
+            <span class="extra-badge">Extra Lesson #{{ eIdx + 1 }}</span>
+            <button type="button" class="remove-extra-btn" (click)="removeExtraLesson(eIdx)">🗑</button>
+          </div>
+          <div class="extra-body">
+            <div class="form-row">
+              <div class="field-item">
+                <label class="field-label">Type</label>
+                <mat-select [(ngModel)]="extra.lessonType">
+                  <mat-option value="sabaq">Sabaq (New Lesson)</mat-option>
+                  <mat-option value="sabqi">Sabqi (Old Lesson)</mat-option>
+                  <mat-option value="manzil">Manzil / Dawr</mat-option>
+                </mat-select>
+              </div>
+              <div class="field-item">
+                <label class="field-label">Surah / Juz</label>
+                <mat-select [(ngModel)]="extra.surahName" panelClass="quran-surah-mat-panel">
+                  <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                </mat-select>
+              </div>
+              <div class="field-item">
+                <label class="field-label">From Ayah/Pg</label>
+                <input type="number" class="num-input" [(ngModel)]="extra.fromAyah" placeholder="1" />
+              </div>
+              <div class="field-item">
+                <label class="field-label">To Ayah/Pg</label>
+                <input type="number" class="num-input" [(ngModel)]="extra.toAyah" placeholder="10" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-extra-lesson-bar">
+        <button type="button" class="btn-extra" (click)="addExtraLesson()">
+          <span>+ Add Another Surah / Juz Milestone</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- OVERALL SCORING & TEACHER REMARKS                        -->
+    <!-- ======================================================== -->
+    <div class="evaluation-summary-section">
+      <div class="summary-grid">
+        <!-- Quality Rating & Grade -->
+        <div class="rating-box">
+          <label class="summary-label">Performance Rating</label>
+          <div class="stars-interactive-row">
+            <button type="button" class="star-interactive-btn" *ngFor="let star of [1,2,3,4,5]"
+              [class.active]="star <= starRating" (click)="setRating(star)">
+              ★
+            </button>
+            <span class="grade-badge" [class.excellent]="starRating >= 4" [class.fair]="starRating === 3" [class.poor]="starRating < 3">
+              {{ performanceGrade }}
+            </span>
+          </div>
+        </div>
+
+        <!-- Overall Mistakes -->
+        <div class="mistakes-overall-box">
+          <label class="summary-label">Total Mistakes (Session / Week)</label>
+          <input type="number" class="num-input big" [(ngModel)]="overallMistakes" placeholder="0" min="0" />
+        </div>
+      </div>
+
+      <!-- Remarks -->
+      <div class="remarks-box">
+        <label class="summary-label">Teacher Feedback & Remarks</label>
+        <textarea class="remarks-textarea" [(ngModel)]="remarks" rows="2" placeholder="Add specific guidance or notes for this student..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG FOOTER -->
+  <div class="dialog-actions-footer">
+    <button type="button" class="btn-cancel" (click)="cancel()">Cancel</button>
+    <button type="button" class="btn-save" (click)="saveEvaluation()" [disabled]="isSaving">
+      <span *ngIf="!isSaving">Save Evaluation Progress</span>
+      <span *ngIf="isSaving">Saving...</span>
+    </button>
+  </div>
+</div>

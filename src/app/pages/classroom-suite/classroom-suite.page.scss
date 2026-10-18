@@ -4202,3 +4202,290 @@ select.inline-select,
   }
 }
 
+/* Comprehensive Evaluation Dialog & Multi-Subject Styles */
+.eval-btn-primary {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  border-color: #0284c7 !important;
+  font-weight: 700 !important;
+
+  &:hover {
+    background: #0369a1 !important;
+  }
+
+  .btn-ic {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+  }
+}
+
+.st-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.btn-eval-pill {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #047857;
+  font-size: 0.70rem;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 2px 7px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+
+  .eval-pill-ic {
+    font-size: 13px;
+    width: 13px;
+    height: 13px;
+  }
+
+  &:hover {
+    background: #d1fae5;
+    border-color: #6ee7b7;
+    color: #065f46;
+  }
+}
+
+.maktab-multi-td {
+  padding: 6px 8px !important;
+  vertical-align: middle;
+}
+
+.maktab-multi-subjects-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  width: 100%;
+
+  .maktab-sub-pill-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex: 1;
+
+    .maktab-subject-badge {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 6px;
+      padding: 3px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #dcfce7;
+        border-color: #86efac;
+      }
+
+      .sub-name {
+        font-weight: 700;
+        color: #15803d;
+      }
+
+      .sub-stage {
+        background: #e0e7ff;
+        color: #3730a3;
+        border-radius: 4px;
+        padding: 1px 5px;
+        font-size: 0.67rem;
+        font-weight: 600;
+      }
+
+      .sub-pages {
+        color: #334155;
+        font-weight: 600;
+
+        small {
+          color: #b45309;
+          font-weight: 700;
+        }
+      }
+    }
+  }
+
+  .btn-sub-edit-compact {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    color: #475569;
+    font-size: 0.72rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 7px;
+    cursor: pointer;
+    white-space: nowrap;
+
+    mat-icon {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
+
+    &:hover {
+      background: #f1f5f9;
+      color: #1e293b;
+    }
+  }
+}
+
+.maktab-single-sub-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+
+  .inline-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .btn-add-multi-sub {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 3px 6px;
+    cursor: pointer;
+    white-space: nowrap;
+
+    &:hover {
+      background: #dbeafe;
+    }
+  }
+}
+
+/* Mobile Card Evaluation Triggers */
+.btn-mobile-eval-launch {
+  background: linear-gradient(135deg, #0284c7, #2563eb);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+
+  mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+  }
+
+  &:hover {
+    background: linear-gradient(135deg, #0369a1, #1d4ed8);
+  }
+}
+
+.btn-sub-card-header {
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #065f46;
+  border-radius: 6px;
+  font-size: 0.70rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: #d1fae5;
+  }
+}
+
+.mobile-multi-sub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+
+  .mobile-sub-card {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .m-sub-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+
+      .m-sub-name {
+        font-weight: 700;
+        color: #0f172a;
+        font-size: 0.84rem;
+      }
+
+      .m-sub-stage {
+        background: #e0e7ff;
+        color: #3730a3;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: 0.68rem;
+        font-weight: 600;
+      }
+    }
+
+    .m-sub-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.77rem;
+      color: #475569;
+
+      .m-sub-range {
+        font-weight: 600;
+        color: #1e293b;
+      }
+
+      .m-sub-line {
+        background: #fef3c7;
+        color: #92400e;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 0.69rem;
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+

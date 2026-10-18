@@ -1,0 +1,632 @@
+import { Component, Inject, OnInit } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { doc, getDoc, setDoc, getDocs, collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { getDeenDeskFirestore } from '../../../core/services/firebase-app';
+import { ALL_QURAN_SURAHS, ALL_QURAN_JUZ, QuranJuzItem, getSurahAyahCount } from '../../../core/constants/defaults';
+import { EntityRecord } from '../../../core/services/repository.service';
+
+export interface MaktabSubjectEntry {
+  subject: string;
+  customSubjectName?: string;
+  stage: string;
+  startPage: number | null;
+  endPage: number | null;
+  lineNo: number | null;
+  notes?: string;
+}
+
+export interface HifzExtraLessonEntry {
+  id: string;
+  lessonType: 'sabaq' | 'sabqi' | 'manzil' | 'dawr';
+  evalMode: 'surah' | 'juz';
+  surahName?: string;
+  fromAyah?: number | null;
+  toAyah?: number | null;
+  juzNo?: number | null;
+  juzPortion?: string;
+  fromPage?: number | null;
+  toPage?: number | null;
+  mistakes?: number;
+}
+
+export interface StudentProgressEvaluationDialogData {
+  student: EntityRecord;
+  studentTypeMode: 'hifz' | 'maktab' | 'dawr';
+  evalCadence: 'daily' | 'weekly';
+  selectedDateStr: string;
+  selectedWeekYear: number;
+  selectedWeekNumber: number;
+  selectedWeekStartStr: string;
+  selectedWeekEndStr: string;
+  classId?: string;
+  groupId?: string;
+  madrasaId?: string;
+  currentUser: any;
+  currentRosterItem?: any;
+}
+
+@Component({
+  selector: 'app-student-progress-evaluation-dialog',
+  templateUrl: './student-progress-evaluation-dialog.component.html',
+  styleUrls: ['./student-progress-evaluation-dialog.component.scss'],
+  standalone: false
+})
+export class StudentProgressEvaluationDialogComponent implements OnInit {
+  student: EntityRecord;
+  studentTypeMode: 'hifz' | 'maktab' | 'dawr' = 'hifz';
+  evalCadence: 'daily' | 'weekly' = 'daily';
+  
+  isSaving = false;
+  isLoadingHistory = false;
+  lastProgressSummary: string | null = null;
+  lastProgressRaw: any = null;
+
+  // Constants
+  allQuranSurahs = ALL_QURAN_SURAHS;
+  allQuranJuzList: QuranJuzItem[] = ALL_QURAN_JUZ;
+  allJuzNumbers: number[] = Array.from({ length: 30 }, (_, i) => i + 1);
+  juzPortionOptions: string[] = [
+    'Full Juz',
+    '1st Quarter (Rub\' 1)',
+    '2nd Quarter (Rub\' 2)',
+    '3rd Quarter (Rub\' 3)',
+    '4th Quarter (Rub\' 4)',
+    '1st Half (Nisf 1)',
+    '2nd Half (Nisf 2)'
+  ];
+
+  // Pre-configured Maktab Subjects and Stages
+  predefinedMaktabSubjects = [
+    {
+      id: 'Noorani Qaida',
+      title: 'Noorani Qaida / Base Qaida',
+      stages: [
+        'Letters Only (Mufradat / Single Letters)',
+        'Compound Letters (Murakkabat)',
+        'With Harakath (Zabar, Zer, Pesh)',
+        'Tanween (Double Harakath)',
+        'Sukoon / Jazm Practice',
+        'Madd & Leen Letters',
+        'Tashdeed (Shaddah) Practice',
+        'Nun Sakin & Meem Sakin Rules',
+        'Full Qaida Revision'
+      ]
+    },
+    {
+      id: 'Nazira Quran',
+      title: 'Nazira (Quran Reading)',
+      stages: [
+        'Juz 30 (Amma Para)',
+        'Beginning Juz (Juz 1-5)',
+        'Mid Quran (Juz 6-20)',
+        'Full Mushaf Reading',
+        'Tajweed Fluency'
+      ]
+    },
+    {
+      id: 'Masnoon Duas',
+      title: 'Masnoon Duas & Daily Adhkar',
+      stages: [
+        'Daily Routine Duas (Eating, Sleeping, Leaving Home)',
+        'Wudu & Salah Duas',
+        'Kalimahs & Basic Iman',
+        'Selected Short Surahs & Duas'
+      ]
+    },
+    {
+      id: 'Fiqh & Akhlaq',
+      title: 'Fiqh & Islamic Studies (Akhlaq)',
+      stages: [
+        'Taharah (Purity & Wudu)',
+        'Salah Guide & Practice',
+        'Fasting & Halal/Haram',
+        'Islamic Morals & Etiquette'
+      ]
+    },
+    {
+      id: 'Hadith',
+      title: 'Hadith Memorization',
+      stages: [
+        'Short Daily Hadiths',
+        'Arba\'een (40 Hadith)',
+        'Hadith Meanings & Action'
+      ]
+    },
+    {
+      id: 'Custom',
+      title: 'Other / Custom Subject',
+      stages: ['General Reading', 'Writing / Arabic Script', 'Chapter Revision', 'Oral Exam']
+    }
+  ];
+
+  // Maktab Multi-Subject Entries
+  maktabSubjects: MaktabSubjectEntry[] = [];
+
+  // Hifz Evaluation Settings
+  hifzEvalUnitMode: 'surah' | 'juz' = 'surah';
+  hifzEntryMethod: 'ayah' | 'page' = 'ayah';
+
+  // Hifz Primary Lessons
+  // 1. Sabaq (New Lesson)
+  sabaqStartSurah = '';
+  sabaqStartAyah: number | null = null;
+  sabaqEndSurah = '';
+  sabaqEndAyah: number | null = null;
+  sabaqJuz: number | null = null;
+  sabaqStartPage: number | null = null;
+  sabaqEndPage: number | null = null;
+  sabaqMistakes: number | null = null;
+
+  // 2. Sabqi (Old Lesson)
+  sabqiStartSurah = '';
+  sabqiStartAyah: number | null = null;
+  sabqiEndSurah = '';
+  sabqiEndAyah: number | null = null;
+  sabqiJuz: number | null = null;
+  sabqiStartPage: number | null = null;
+  sabqiEndPage: number | null = null;
+  sabqiMistakes: number | null = null;
+
+  // 3. Dawr / Manzil (Revision)
+  manzilStartSurah = '';
+  manzilStartAyah: number | null = null;
+  manzilEndSurah = '';
+  manzilEndAyah: number | null = null;
+  manzilStartJuz: number | null = null;
+  manzilStartPortion = 'Full Juz';
+  manzilEndJuz: number | null = null;
+  manzilEndPortion = 'Full Juz';
+  manzilMistakes: number | null = null;
+
+  // Dawr specific
+  dawrRoundNo: number = 1;
+  dawrWeeklyJuzCount: number = 5;
+
+  // Multi-Lesson Extra Entries for Hifz
+  extraLessonsList: HifzExtraLessonEntry[] = [];
+
+  // General Evaluation
+  overallMistakes: number = 0;
+  starRating: number = 5;
+  performanceGrade: string = 'Mumtaz (Excellent)';
+  remarks: string = '';
+
+  constructor(
+    @Inject(MAT_DIALOG_DATA) public data: StudentProgressEvaluationDialogData,
+    public dialogRef: MatDialogRef<StudentProgressEvaluationDialogComponent>,
+    private snackBar: MatSnackBar
+  ) {
+    this.student = data.student;
+    this.studentTypeMode = data.studentTypeMode || 'hifz';
+    this.evalCadence = data.evalCadence || 'daily';
+  }
+
+  async ngOnInit(): Promise<void> {
+    this.initFromExistingRoster();
+    await this.fetchStudentHistoricalProgress();
+  }
+
+  initFromExistingRoster(): void {
+    const item = this.data.currentRosterItem;
+    if (!item) {
+      if (this.studentTypeMode === 'maktab') {
+        this.addMaktabSubject('Noorani Qaida');
+      }
+      return;
+    }
+
+    if (this.studentTypeMode === 'maktab') {
+      if (Array.isArray(item.maktabSubjectsList) && item.maktabSubjectsList.length > 0) {
+        this.maktabSubjects = JSON.parse(JSON.stringify(item.maktabSubjectsList));
+      } else {
+        const subName = item.weeklyMaktabSubject || item.maktabSubject || 'Noorani Qaida';
+        const startPg = item.weeklyMaktabStartPage || 1;
+        const endPg = item.weeklyMaktabEndPage || item.maktabPage || 1;
+        const lineNo = item.maktabLineNo || 1;
+        this.maktabSubjects.push({
+          subject: subName,
+          stage: 'With Harakath (Zabar, Zer, Pesh)',
+          startPage: startPg,
+          endPage: endPg,
+          lineNo: lineNo,
+          notes: ''
+        });
+      }
+    } else {
+      // Hifz / Dawr
+      this.sabaqStartSurah = item.weeklySabaqStartSurah || item.sabaqSurah || '';
+      this.sabaqStartAyah = item.weeklySabaqStartAyah || item.sabaqFromAyah || null;
+      this.sabaqEndSurah = item.weeklySabaqEndSurah || item.sabaqSurah || '';
+      this.sabaqEndAyah = item.weeklySabaqEndAyah || item.sabaqToAyah || null;
+      this.sabaqJuz = item.weeklySabaqStartJuz || item.sabaqJuzNo || null;
+      this.sabaqStartPage = item.weeklySabaqStartPage || null;
+      this.sabaqEndPage = item.weeklySabaqEndPage || null;
+      this.sabaqMistakes = item.sabaqMistakes || null;
+
+      this.sabqiStartSurah = item.weeklySabqiStartSurah || item.sabqiSurah || '';
+      this.sabqiStartAyah = item.weeklySabqiStartAyah || item.sabqiFromAyah || null;
+      this.sabqiEndSurah = item.weeklySabqiEndSurah || item.sabqiSurah || '';
+      this.sabqiEndAyah = item.weeklySabqiEndAyah || item.sabqiToAyah || null;
+      this.sabqiJuz = item.weeklySabqiStartJuz || item.sabqiJuz || null;
+      this.sabqiStartPage = item.weeklySabqiStartPage || null;
+      this.sabqiEndPage = item.weeklySabqiEndPage || null;
+      this.sabqiMistakes = item.sabqiMistakes || null;
+
+      this.manzilStartSurah = item.weeklyManzilStartSurah || item.manzilSurah || '';
+      this.manzilStartAyah = item.weeklyManzilStartAyah || item.manzilFromAyah || null;
+      this.manzilEndSurah = item.weeklyManzilEndSurah || item.manzilSurah || '';
+      this.manzilEndAyah = item.weeklyManzilEndAyah || item.manzilToAyah || null;
+      this.manzilStartJuz = item.weeklyManzilStartJuz || item.manzilJuz || null;
+      this.manzilStartPortion = item.weeklyManzilStartPortion || item.manzilJuzPortion || 'Full Juz';
+      this.manzilEndJuz = item.weeklyManzilEndJuz || item.manzilJuz || null;
+      this.manzilEndPortion = item.weeklyManzilEndPortion || 'Full Juz';
+      this.manzilMistakes = item.manzilMistakes || null;
+
+      this.dawrRoundNo = item.weeklyDawrRounds || item.dawrRoundNo || 1;
+      this.dawrWeeklyJuzCount = item.weeklyDawrJuzCount || 5;
+
+      if (Array.isArray(item.hifzLessonsList) && item.hifzLessonsList.length > 0) {
+        this.extraLessonsList = JSON.parse(JSON.stringify(item.hifzLessonsList));
+      }
+
+      if (this.sabaqStartPage || this.sabaqJuz) {
+        this.hifzEvalUnitMode = 'juz';
+      } else {
+        this.hifzEvalUnitMode = 'surah';
+      }
+    }
+
+    this.starRating = item.weeklyRating || item.hifzRating || 5;
+    this.overallMistakes = item.weeklyMistakes || item.sabaqMistakes || 0;
+    this.remarks = item.weeklyNotes || item.maktabRemarks || '';
+    this.updateGradeFromRating();
+  }
+
+  async fetchStudentHistoricalProgress(): Promise<void> {
+    if (!this.student?.id) return;
+    this.isLoadingHistory = true;
+    try {
+      const firestore = getDeenDeskFirestore();
+      // Look for latest daily progress record
+      const dailyColl = collection(firestore, 'studentDailyProgress');
+      const q = query(
+        dailyColl,
+        where('studentId', '==', this.student.id),
+        orderBy('date', 'desc'),
+        limit(3)
+      );
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const docData = snapshot.docs[0].data();
+        this.lastProgressRaw = docData;
+        this.buildLastProgressSummary(docData);
+      }
+    } catch (e) {
+      console.warn('Could not fetch historical progress:', e);
+    } finally {
+      this.isLoadingHistory = false;
+    }
+  }
+
+  buildLastProgressSummary(docData: any): void {
+    if (this.studentTypeMode === 'maktab') {
+      const m = docData.maktabProgress || docData;
+      const sub = m.subjectName || m.maktabSubject || 'Qaida';
+      const pg = m.pageNo || m.maktabPageNo || 1;
+      const line = m.lineNo || m.maktabLessonNo ? ` Line ${m.lineNo || m.maktabLessonNo}` : '';
+      this.lastProgressSummary = `Last Milestone (${docData.date || 'Recent'}): ${sub} — Pg ${pg}${line}`;
+    } else {
+      const h = docData.hifzProgress || docData;
+      const sabaq = h.sabaqSurahName || h.sabaqSurah || '';
+      const fromAyah = h.sabaqFromAyah || h.sabaqAyahFrom || 1;
+      const toAyah = h.sabaqToAyah || h.sabaqAyahTo || 1;
+      const juz = h.sabaqJuzNo || h.sabaqJuz;
+      if (sabaq) {
+        this.lastProgressSummary = `Last Milestone (${docData.date || 'Recent'}): Sabaq: ${sabaq} (${fromAyah} - ${toAyah})`;
+      } else if (juz) {
+        this.lastProgressSummary = `Last Milestone (${docData.date || 'Recent'}): Sabaq: Juz ${juz} (${h.sabaqJuzPortion || 'Full Juz'})`;
+      }
+    }
+  }
+
+  continueFromLastMilestone(): void {
+    if (!this.lastProgressRaw) return;
+    const docData = this.lastProgressRaw;
+    if (this.studentTypeMode === 'maktab') {
+      const m = docData.maktabProgress || docData;
+      const lastPg = parseInt(String(m.pageNo || m.maktabPageNo || 1), 10) || 1;
+      const lastLine = parseInt(String(m.lineNo || m.maktabLessonNo || 1), 10) || 1;
+      if (this.maktabSubjects.length === 0) {
+        this.addMaktabSubject(m.subjectName || 'Noorani Qaida');
+      }
+      this.maktabSubjects[0].startPage = lastPg;
+      this.maktabSubjects[0].endPage = lastPg + 1;
+      this.maktabSubjects[0].lineNo = lastLine;
+      this.snackBar.open(`Continued from Page ${lastPg}!`, 'OK', { duration: 2500 });
+    } else {
+      const h = docData.hifzProgress || docData;
+      const sabaq = h.sabaqSurahName || h.sabaqSurah;
+      const toAyah = parseInt(String(h.sabaqToAyah || h.sabaqAyahTo || 1), 10) || 1;
+      if (sabaq) {
+        this.sabaqStartSurah = sabaq;
+        this.sabaqStartAyah = toAyah + 1;
+        this.sabaqEndSurah = sabaq;
+        this.sabaqEndAyah = toAyah + 10;
+        this.hifzEvalUnitMode = 'surah';
+        this.snackBar.open(`Continued from ${sabaq} Ayah ${toAyah + 1}!`, 'OK', { duration: 2500 });
+      }
+    }
+  }
+
+  // Maktab Methods
+  addMaktabSubject(defaultId: string = 'Noorani Qaida'): void {
+    const config = this.predefinedMaktabSubjects.find(s => s.id === defaultId);
+    this.maktabSubjects.push({
+      subject: config ? config.id : defaultId,
+      stage: config?.stages[0] || 'General',
+      startPage: 1,
+      endPage: 2,
+      lineNo: 1,
+      notes: ''
+    });
+  }
+
+  removeMaktabSubject(index: number): void {
+    this.maktabSubjects.splice(index, 1);
+  }
+
+  getStagesForSubject(subjectId: string): string[] {
+    const found = this.predefinedMaktabSubjects.find(s => s.id === subjectId);
+    return found ? found.stages : ['General'];
+  }
+
+  onSubjectChanged(item: MaktabSubjectEntry): void {
+    const stages = this.getStagesForSubject(item.subject);
+    item.stage = stages[0] || 'General';
+  }
+
+  // Hifz Extra Lessons
+  addExtraLesson(): void {
+    this.extraLessonsList.push({
+      id: 'lesson_' + Date.now(),
+      lessonType: 'sabaq',
+      evalMode: this.hifzEvalUnitMode,
+      surahName: this.allQuranSurahs[0],
+      fromAyah: 1,
+      toAyah: 10,
+      juzNo: 1,
+      fromPage: 1,
+      toPage: 5,
+      mistakes: 0
+    });
+  }
+
+  removeExtraLesson(idx: number): void {
+    this.extraLessonsList.splice(idx, 1);
+  }
+
+  setRating(rating: number): void {
+    this.starRating = rating;
+    this.updateGradeFromRating();
+  }
+
+  updateGradeFromRating(): void {
+    switch (this.starRating) {
+      case 5:
+        this.performanceGrade = 'Mumtaz (Excellent)';
+        break;
+      case 4:
+        this.performanceGrade = 'Jayyid Jiddan (Very Good)';
+        break;
+      case 3:
+        this.performanceGrade = 'Jayyid (Good)';
+        break;
+      case 2:
+        this.performanceGrade = 'Maqbool (Fair)';
+        break;
+      default:
+        this.performanceGrade = 'Needs Revision';
+        break;
+    }
+  }
+
+  async saveEvaluation(): Promise<void> {
+    this.isSaving = true;
+    try {
+      const firestore = getDeenDeskFirestore();
+      const studentId = this.student.id;
+      const orgId = this.data.currentUser?.organizationId || '';
+      const madrasaId = this.data.madrasaId || '';
+      const classId = this.data.classId || '';
+      const groupId = this.data.groupId || '';
+
+      const dateStr = this.data.selectedDateStr;
+      const weekYear = this.data.selectedWeekYear;
+      const weekNo = this.data.selectedWeekNumber;
+
+      // 1. Prepare clean primary representations for backward compatibility
+      const primaryMaktab = this.maktabSubjects[0] || null;
+
+      // 2. Build Daily Progress Record
+      const dailyDocId = `${studentId}_${dateStr}`;
+      const dailyDocRef = doc(firestore, 'studentDailyProgress', dailyDocId);
+      const dailyPayload: any = {
+        id: dailyDocId,
+        studentId: studentId,
+        studentName: this.student['fullName'] || this.student['name'],
+        organizationId: orgId,
+        madrasaId: madrasaId,
+        classId: classId,
+        groupId: groupId,
+        date: dateStr,
+        studentType: this.studentTypeMode,
+        evaluatedByUid: this.data.currentUser?.uid || '',
+        evaluatedByName: this.data.currentUser?.displayName || this.data.currentUser?.email || '',
+        recordedAt: Timestamp.now(),
+        starRating: this.starRating,
+        grade: this.performanceGrade,
+        remarks: this.remarks
+      };
+
+      if (this.studentTypeMode === 'maktab') {
+        dailyPayload.maktabSubject = primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '';
+        dailyPayload.maktabPageNo = primaryMaktab?.endPage || null;
+        dailyPayload.maktabLessonNo = primaryMaktab?.lineNo || null;
+        dailyPayload.maktabSubjectsList = this.maktabSubjects;
+        dailyPayload.maktabProgress = {
+          subjectName: primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '',
+          stage: primaryMaktab?.stage || '',
+          startPage: primaryMaktab?.startPage || null,
+          pageNo: primaryMaktab?.endPage || null,
+          lineNo: primaryMaktab?.lineNo || null,
+          mistakesCount: this.overallMistakes,
+          subjectsCount: this.maktabSubjects.length
+        };
+      } else {
+        // Hifz
+        dailyPayload.sabaqSurah = this.sabaqEndSurah;
+        dailyPayload.sabaqAyahFrom = this.sabaqStartAyah;
+        dailyPayload.sabaqAyahTo = this.sabaqEndAyah;
+        dailyPayload.sabaqMistakes = this.sabaqMistakes || 0;
+        dailyPayload.sabqiSurah = this.sabqiEndSurah;
+        dailyPayload.sabqiAyahFrom = this.sabqiStartAyah;
+        dailyPayload.sabqiAyahTo = this.sabqiEndAyah;
+        dailyPayload.sabqiJuz = this.sabqiJuz ? `Juz ${this.sabqiJuz}` : '';
+        dailyPayload.sabqiMistakes = this.sabqiMistakes || 0;
+        dailyPayload.manzilSurah = this.manzilEndSurah;
+        dailyPayload.manzilAyahFrom = this.manzilStartAyah;
+        dailyPayload.manzilAyahTo = this.manzilEndAyah;
+        dailyPayload.manzilJuz = this.manzilStartJuz ? `Juz ${this.manzilStartJuz}` : '';
+        dailyPayload.manzilMistakes = this.manzilMistakes || 0;
+        dailyPayload.hifzLessonsList = this.extraLessonsList;
+        dailyPayload.hifzProgress = {
+          evalUnitMode: this.hifzEvalUnitMode,
+          sabaqSurahName: this.sabaqEndSurah,
+          sabaqFromAyah: this.sabaqStartAyah,
+          sabaqToAyah: this.sabaqEndAyah,
+          sabaqJuzNo: this.sabaqJuz,
+          sabaqStartPage: this.sabaqStartPage,
+          sabaqEndPage: this.sabaqEndPage,
+          sabaqMistakes: this.sabaqMistakes || 0,
+          sabqiRange: this.sabqiEndSurah || (this.sabqiJuz ? `Juz ${this.sabqiJuz}` : ''),
+          manzilRange: this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion})` : this.manzilEndSurah,
+          rating: this.starRating
+        };
+      }
+
+      await setDoc(dailyDocRef, dailyPayload, { merge: true });
+
+      // 3. If Weekly evaluation cadence or selected, also save to studentWeeklyProgress
+      if (this.evalCadence === 'weekly') {
+        const weeklyDocId = `${studentId}_week_${weekYear}_${weekNo}`;
+        const weeklyDocRef = doc(firestore, 'studentWeeklyProgress', weeklyDocId);
+        const weeklyPayload: any = {
+          id: weeklyDocId,
+          studentId: studentId,
+          organizationId: orgId,
+          madrasaId: madrasaId,
+          classId: classId,
+          groupId: groupId,
+          year: weekYear,
+          weekNumber: weekNo,
+          weekStartDate: this.data.selectedWeekStartStr,
+          weekEndDate: this.data.selectedWeekEndStr,
+          studentType: this.studentTypeMode,
+          recordedByUid: this.data.currentUser?.uid || '',
+          recordedByName: this.data.currentUser?.displayName || '',
+          recordedAt: Timestamp.now(),
+          starRating: this.starRating,
+          grade: this.performanceGrade,
+          notes: this.remarks
+        };
+
+        if (this.studentTypeMode === 'maktab') {
+          weeklyPayload.maktab = {
+            subject: primaryMaktab ? (primaryMaktab.customSubjectName || primaryMaktab.subject) : '',
+            startPage: primaryMaktab?.startPage || 1,
+            endPage: primaryMaktab?.endPage || 1,
+            lineNo: primaryMaktab?.lineNo || 1,
+            rating: this.starRating,
+            notes: this.remarks
+          };
+          weeklyPayload.maktabSubjectsList = this.maktabSubjects;
+        } else {
+          weeklyPayload.hifz = {
+            evalUnitMode: this.hifzEvalUnitMode,
+            sabaqStartSurah: this.sabaqStartSurah,
+            sabaqStartAyah: this.sabaqStartAyah,
+            sabaqEndSurah: this.sabaqEndSurah,
+            sabaqEndAyah: this.sabaqEndAyah,
+            sabaqStartJuz: this.sabaqJuz,
+            sabaqEndJuz: this.sabaqJuz,
+            sabaqStartPage: this.sabaqStartPage,
+            sabaqEndPage: this.sabaqEndPage,
+            sabqiStartSurah: this.sabqiStartSurah,
+            sabqiStartAyah: this.sabqiStartAyah,
+            sabqiEndSurah: this.sabqiEndSurah,
+            sabqiEndAyah: this.sabqiEndAyah,
+            sabqiStartJuz: this.sabqiJuz,
+            sabqiEndJuz: this.sabqiJuz,
+            sabqiStartPage: this.sabqiStartPage,
+            sabqiEndPage: this.sabqiEndPage,
+            manzilStartSurah: this.manzilStartSurah,
+            manzilEndSurah: this.manzilEndSurah,
+            manzilStartJuz: this.manzilStartJuz,
+            manzilStartPortion: this.manzilStartPortion,
+            manzilEndJuz: this.manzilEndJuz,
+            manzilEndPortion: this.manzilEndPortion,
+            weeklyMistakes: this.overallMistakes,
+            rating: this.starRating,
+            notes: this.remarks
+          };
+          weeklyPayload.hifzLessonsList = this.extraLessonsList;
+        }
+
+        await setDoc(weeklyDocRef, weeklyPayload, { merge: true });
+      }
+
+      this.snackBar.open(`Progress saved for ${this.student['fullName'] || this.student['name']}!`, 'OK', {
+        duration: 3000,
+        panelClass: ['app-snackbar']
+      });
+
+      this.dialogRef.close({
+        saved: true,
+        dailyPayload,
+        maktabSubjects: this.maktabSubjects,
+        hifzLessonsList: this.extraLessonsList,
+        sabaqStartSurah: this.sabaqStartSurah,
+        sabaqStartAyah: this.sabaqStartAyah,
+        sabaqEndSurah: this.sabaqEndSurah,
+        sabaqEndAyah: this.sabaqEndAyah,
+        sabaqJuz: this.sabaqJuz,
+        sabaqStartPage: this.sabaqStartPage,
+        sabaqEndPage: this.sabaqEndPage,
+        sabqiStartSurah: this.sabqiStartSurah,
+        sabqiStartAyah: this.sabqiStartAyah,
+        sabqiEndSurah: this.sabqiEndSurah,
+        sabqiEndAyah: this.sabqiEndAyah,
+        sabqiJuz: this.sabqiJuz,
+        sabqiStartPage: this.sabqiStartPage,
+        sabqiEndPage: this.sabqiEndPage,
+        manzilStartJuz: this.manzilStartJuz,
+        manzilStartPortion: this.manzilStartPortion,
+        manzilEndJuz: this.manzilEndJuz,
+        manzilEndPortion: this.manzilEndPortion,
+        starRating: this.starRating,
+        overallMistakes: this.overallMistakes,
+        remarks: this.remarks
+      });
+    } catch (err: any) {
+      console.error('Error saving student progress evaluation:', err);
+      this.snackBar.open(err.message || 'Failed to save evaluation', 'Close', { duration: 4000 });
+    } finally {
+      this.isSaving = false;
+    }
+  }
+
+  cancel(): void {
+    this.dialogRef.close(null);
+  }
+}
