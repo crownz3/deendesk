@@ -580,7 +580,120 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     }
   }
 
+  // Surah Ayah Count & Validation Helpers
+  getMaxAyah(surahName: string | null | undefined): number | null {
+    if (!surahName) return null;
+    return getSurahAyahCount(surahName);
+  }
+
+  onSabaqStartSurahChange(): void {
+    if (this.sabaqStartSurah) {
+      if (!this.sabaqEndSurah) {
+        this.sabaqEndSurah = this.sabaqStartSurah;
+      }
+      const maxA = this.getMaxAyah(this.sabaqStartSurah);
+      if (!this.sabaqStartAyah || this.sabaqStartAyah < 1) {
+        this.sabaqStartAyah = 1;
+      } else if (maxA && this.sabaqStartAyah > maxA) {
+        this.sabaqStartAyah = maxA;
+      }
+    }
+  }
+
+  onSabaqEndSurahChange(): void {
+    if (this.sabaqEndSurah) {
+      const maxA = this.getMaxAyah(this.sabaqEndSurah);
+      if (!this.sabaqEndAyah || this.sabaqEndAyah < 1) {
+        this.sabaqEndAyah = maxA ? Math.min(10, maxA) : 10;
+      } else if (maxA && this.sabaqEndAyah > maxA) {
+        this.sabaqEndAyah = maxA;
+      }
+    }
+  }
+
+  onSabqiStartSurahChange(): void {
+    if (this.sabqiStartSurah) {
+      if (!this.sabqiEndSurah) {
+        this.sabqiEndSurah = this.sabqiStartSurah;
+      }
+      const maxA = this.getMaxAyah(this.sabqiStartSurah);
+      if (!this.sabqiStartAyah || this.sabqiStartAyah < 1) {
+        this.sabqiStartAyah = 1;
+      } else if (maxA && this.sabqiStartAyah > maxA) {
+        this.sabqiStartAyah = maxA;
+      }
+    }
+  }
+
+  onSabqiEndSurahChange(): void {
+    if (this.sabqiEndSurah) {
+      const maxA = this.getMaxAyah(this.sabqiEndSurah);
+      if (!this.sabqiEndAyah || this.sabqiEndAyah < 1) {
+        this.sabqiEndAyah = maxA ? Math.min(10, maxA) : 10;
+      } else if (maxA && this.sabqiEndAyah > maxA) {
+        this.sabqiEndAyah = maxA;
+      }
+    }
+  }
+
+  validateSabaqAyahs(): string | null {
+    if (this.hifzEvalUnitMode !== 'surah' || this.hifzEntryMethod !== 'ayah') return null;
+    if (this.sabaqStartSurah && this.sabaqStartAyah) {
+      const maxStart = this.getMaxAyah(this.sabaqStartSurah);
+      if (maxStart && this.sabaqStartAyah > maxStart) {
+        return `Start Ayah (${this.sabaqStartAyah}) exceeds total ${maxStart} ayahs of ${this.sabaqStartSurah}.`;
+      }
+    }
+    if (this.sabaqEndSurah && this.sabaqEndAyah) {
+      const maxEnd = this.getMaxAyah(this.sabaqEndSurah);
+      if (maxEnd && this.sabaqEndAyah > maxEnd) {
+        return `End Ayah (${this.sabaqEndAyah}) exceeds total ${maxEnd} ayahs of ${this.sabaqEndSurah}.`;
+      }
+    }
+    if (this.sabaqStartSurah && this.sabaqEndSurah && this.sabaqStartSurah === this.sabaqEndSurah) {
+      if (this.sabaqStartAyah && this.sabaqEndAyah && this.sabaqStartAyah > this.sabaqEndAyah) {
+        return `Start Ayah (${this.sabaqStartAyah}) cannot be greater than End Ayah (${this.sabaqEndAyah}).`;
+      }
+    }
+    return null;
+  }
+
+  validateSabqiAyahs(): string | null {
+    if (this.hifzEvalUnitMode !== 'surah' || this.hifzEntryMethod !== 'ayah') return null;
+    if (this.sabqiStartSurah && this.sabqiStartAyah) {
+      const maxStart = this.getMaxAyah(this.sabqiStartSurah);
+      if (maxStart && this.sabqiStartAyah > maxStart) {
+        return `Start Ayah (${this.sabqiStartAyah}) exceeds total ${maxStart} ayahs of ${this.sabqiStartSurah}.`;
+      }
+    }
+    if (this.sabqiEndSurah && this.sabqiEndAyah) {
+      const maxEnd = this.getMaxAyah(this.sabqiEndSurah);
+      if (maxEnd && this.sabqiEndAyah > maxEnd) {
+        return `End Ayah (${this.sabqiEndAyah}) exceeds total ${maxEnd} ayahs of ${this.sabqiEndSurah}.`;
+      }
+    }
+    if (this.sabqiStartSurah && this.sabqiEndSurah && this.sabqiStartSurah === this.sabqiEndSurah) {
+      if (this.sabqiStartAyah && this.sabqiEndAyah && this.sabqiStartAyah > this.sabqiEndAyah) {
+        return `Start Ayah (${this.sabqiStartAyah}) cannot be greater than End Ayah (${this.sabqiEndAyah}).`;
+      }
+    }
+    return null;
+  }
+
   async saveEvaluation(): Promise<void> {
+    if (this.studentTypeMode !== 'maktab') {
+      const sabaqErr = this.validateSabaqAyahs();
+      if (sabaqErr) {
+        this.snackBar.open(sabaqErr, 'Fix Ayah', { duration: 4000 });
+        return;
+      }
+      const sabqiErr = this.validateSabqiAyahs();
+      if (sabqiErr) {
+        this.snackBar.open(sabqiErr, 'Fix Ayah', { duration: 4000 });
+        return;
+      }
+    }
+
     this.isSaving = true;
     try {
       const firestore = getDeenDeskFirestore();

@@ -217,12 +217,13 @@
               <div class="range-half">
                 <span class="from-to-badge from">From</span>
                 <div class="inputs-group">
-                  <mat-select class="surah-mat-select" [(ngModel)]="sabaqStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabaqStartSurah" (ngModelChange)="onSabaqStartSurahChange()" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
                     <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
                   </mat-select>
-                  <div class="ayah-input-wrap">
+                  <div class="ayah-input-wrap" [class.input-error]="sabaqStartAyah && getMaxAyah(sabaqStartSurah) && sabaqStartAyah > getMaxAyah(sabaqStartSurah)!">
                     <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
-                    <input type="number" class="ayah-input" [(ngModel)]="sabaqStartAyah" placeholder="1" min="1" />
+                    <input type="number" class="ayah-input" [(ngModel)]="sabaqStartAyah" placeholder="1" min="1" [max]="getMaxAyah(sabaqStartSurah) || 286" />
+                    <span class="ayah-max-label" *ngIf="hifzEntryMethod === 'ayah' && getMaxAyah(sabaqStartSurah)">/{{ getMaxAyah(sabaqStartSurah) }}</span>
                   </div>
                 </div>
               </div>
@@ -232,15 +233,21 @@
               <div class="range-half">
                 <span class="from-to-badge to">To</span>
                 <div class="inputs-group">
-                  <mat-select class="surah-mat-select" [(ngModel)]="sabaqEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabaqEndSurah" (ngModelChange)="onSabaqEndSurahChange()" placeholder="End Surah" panelClass="quran-surah-mat-panel">
                     <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
                   </mat-select>
-                  <div class="ayah-input-wrap">
+                  <div class="ayah-input-wrap" [class.input-error]="(sabaqEndAyah && getMaxAyah(sabaqEndSurah) && sabaqEndAyah > getMaxAyah(sabaqEndSurah)!) || (sabaqStartSurah === sabaqEndSurah && sabaqStartAyah && sabaqEndAyah && sabaqStartAyah > sabaqEndAyah)">
                     <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
-                    <input type="number" class="ayah-input" [(ngModel)]="sabaqEndAyah" placeholder="10" min="1" />
+                    <input type="number" class="ayah-input" [(ngModel)]="sabaqEndAyah" placeholder="10" min="1" [max]="getMaxAyah(sabaqEndSurah) || 286" />
+                    <span class="ayah-max-label" *ngIf="hifzEntryMethod === 'ayah' && getMaxAyah(sabaqEndSurah)">/{{ getMaxAyah(sabaqEndSurah) }}</span>
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div class="ayah-validation-warning" *ngIf="validateSabaqAyahs()">
+              <mat-icon class="warn-ic">warning</mat-icon>
+              <span>{{ validateSabaqAyahs() }}</span>
             </div>
           </ng-container>
 
@@ -294,12 +301,13 @@
               <div class="range-half">
                 <span class="from-to-badge from">From</span>
                 <div class="inputs-group">
-                  <mat-select class="surah-mat-select" [(ngModel)]="sabqiStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabqiStartSurah" (ngModelChange)="onSabqiStartSurahChange()" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
                     <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
                   </mat-select>
-                  <div class="ayah-input-wrap">
+                  <div class="ayah-input-wrap" [class.input-error]="sabqiStartAyah && getMaxAyah(sabqiStartSurah) && sabqiStartAyah > getMaxAyah(sabqiStartSurah)!">
                     <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
-                    <input type="number" class="ayah-input" [(ngModel)]="sabqiStartAyah" placeholder="1" min="1" />
+                    <input type="number" class="ayah-input" [(ngModel)]="sabqiStartAyah" placeholder="1" min="1" [max]="getMaxAyah(sabqiStartSurah) || 286" />
+                    <span class="ayah-max-label" *ngIf="hifzEntryMethod === 'ayah' && getMaxAyah(sabqiStartSurah)">/{{ getMaxAyah(sabqiStartSurah) }}</span>
                   </div>
                 </div>
               </div>
@@ -309,15 +317,21 @@
               <div class="range-half">
                 <span class="from-to-badge to">To</span>
                 <div class="inputs-group">
-                  <mat-select class="surah-mat-select" [(ngModel)]="sabqiEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                  <mat-select class="surah-mat-select" [(ngModel)]="sabqiEndSurah" (ngModelChange)="onSabqiEndSurahChange()" placeholder="End Surah" panelClass="quran-surah-mat-panel">
                     <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
                   </mat-select>
-                  <div class="ayah-input-wrap">
+                  <div class="ayah-input-wrap" [class.input-error]="(sabqiEndAyah && getMaxAyah(sabqiEndSurah) && sabqiEndAyah > getMaxAyah(sabqiEndSurah)!) || (sabqiStartSurah === sabqiEndSurah && sabqiStartAyah && sabqiEndAyah && sabqiStartAyah > sabqiEndAyah)">
                     <span class="ayah-prefix">{{ hifzEntryMethod === 'page' ? 'Pg' : 'Ayah' }}</span>
-                    <input type="number" class="ayah-input" [(ngModel)]="sabqiEndAyah" placeholder="10" min="1" />
+                    <input type="number" class="ayah-input" [(ngModel)]="sabqiEndAyah" placeholder="10" min="1" [max]="getMaxAyah(sabqiEndSurah) || 286" />
+                    <span class="ayah-max-label" *ngIf="hifzEntryMethod === 'ayah' && getMaxAyah(sabqiEndSurah)">/{{ getMaxAyah(sabqiEndSurah) }}</span>
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div class="ayah-validation-warning" *ngIf="validateSabqiAyahs()">
+              <mat-icon class="warn-ic">warning</mat-icon>
+              <span>{{ validateSabqiAyahs() }}</span>
             </div>
           </ng-container>
 

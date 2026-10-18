@@ -615,29 +615,64 @@
               .ayah-input-wrap {
                 display: flex;
                 align-items: center;
-                gap: 3px;
-                background: #f1f5f9;
-                border-radius: 5px;
-                padding: 2px 6px;
+                gap: 4px;
+                background: #f8fafc;
+                border: 1.5px solid #cbd5e1;
+                border-radius: 6px;
+                padding: 2px 8px;
+                min-width: 95px;
+                height: 32px;
+                box-sizing: border-box;
                 flex-shrink: 0;
+                transition: all 0.15s ease;
+
+                &:focus-within {
+                  border-color: #2563eb;
+                  background: #ffffff;
+                  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+                }
+
+                &.input-error {
+                  border-color: #ef4444;
+                  background: #fef2f2;
+                }
 
                 .ayah-prefix {
-                  font-size: 0.65rem;
-                  font-weight: 700;
+                  font-size: 0.70rem;
+                  font-weight: 800;
                   color: #64748b;
                   text-transform: uppercase;
+                  letter-spacing: 0.03em;
+                  flex-shrink: 0;
                 }
 
                 .ayah-input {
-                  width: 42px;
+                  width: 44px;
                   border: none;
                   background: transparent;
-                  height: 24px;
-                  font-size: 0.84rem;
+                  height: 100%;
+                  font-size: 0.90rem;
                   font-weight: 800;
                   text-align: center;
                   outline: none;
                   color: #0f172a;
+                  padding: 0;
+                  -moz-appearance: textfield;
+
+                  &::-webkit-inner-spin-button,
+                  &::-webkit-outer-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                  }
+                }
+
+                .ayah-max-label {
+                  font-size: 0.70rem;
+                  font-weight: 700;
+                  color: #94a3b8;
+                  user-select: none;
+                  white-space: nowrap;
+                  flex-shrink: 0;
                 }
               }
             }
@@ -647,6 +682,28 @@
             font-size: 1rem;
             font-weight: 800;
             color: #94a3b8;
+            flex-shrink: 0;
+          }
+        }
+
+        .ayah-validation-warning {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          color: #b91c1c;
+          font-size: 0.74rem;
+          font-weight: 600;
+          padding: 6px 10px;
+          border-radius: 6px;
+          margin-top: 8px;
+
+          .warn-ic {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+            color: #ef4444;
             flex-shrink: 0;
           }
         }
