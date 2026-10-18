@@ -18,7 +18,12 @@
         </div>
       </div>
     </div>
-    <button type="button" class="close-x-btn" (click)="cancel()" aria-label="Close dialog">✕</button>
+    <div class="header-action-group">
+      <button type="button" class="btn-undo-header" (click)="resetToInitialSnapshot()" title="Revert all changes made in this dialog to initial state">
+        ↺ Revert
+      </button>
+      <button type="button" class="close-x-btn" (click)="cancel()" aria-label="Close dialog">✕</button>
+    </div>
   </div>
 
   <div class="dialog-scroll-body">
@@ -44,11 +49,65 @@
       <div class="section-title-row">
         <div>
           <h3 class="section-heading">Maktab Subjects & Progression</h3>
-          <p class="section-subtext">Add all subjects completed by this student with stages, page numbers, and lines.</p>
+          <p class="section-subtext">
+            {{ canConfigureSubjects ? 'Manage curriculum subjects or assign progress for this student.' : 'Select approved curriculum subjects and record page/line progress.' }}
+          </p>
         </div>
-        <button type="button" class="add-subject-btn" (click)="addMaktabSubject()">
-          <span>+ Add Subject</span>
-        </button>
+        <div class="section-actions-right">
+          <button type="button" class="btn-config-subs" (click)="toggleConfigureSubjectsMode()" *ngIf="canConfigureSubjects" [class.active]="isManagingSubjects">
+            ⚙ {{ isManagingSubjects ? 'Done' : 'Configure Curriculum Subjects' }}
+          </button>
+          <button type="button" class="add-subject-btn" (click)="addMaktabSubject()" *ngIf="!isManagingSubjects">
+            <span>+ Add Subject</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ADMIN SUBJECT MANAGER PANEL (Visible ONLY to Org Admin & Super Admin) -->
+      <div class="org-subjects-manager-panel" *ngIf="isManagingSubjects && canConfigureSubjects">
+        <div class="manager-card-header">
+          <div class="manager-title-box">
+            <strong>Organization Curriculum Subjects</strong>
+            <span class="admin-only-badge">Org Admin Only</span>
+          </div>
+          <p class="manager-desc">Staff and teachers can only evaluate students using these configured subjects.</p>
+        </div>
+
+        <div class="manager-existing-list">
+          <div class="manager-sub-row" *ngFor="let s of predefinedMaktabSubjects; let sIdx = index">
+            <div class="sub-row-main">
+              <strong class="sub-row-title">{{ s.title }}</strong>
+              <div class="sub-row-stages">
+                <span class="stage-chip" *ngFor="let st of s.stages">{{ st }}</span>
+              </div>
+            </div>
+            <button type="button" class="btn-delete-sub" (click)="removeOrgSubject(sIdx)" *ngIf="predefinedMaktabSubjects.length > 1" title="Delete subject">
+              🗑
+            </button>
+          </div>
+        </div>
+
+        <div class="manager-add-form">
+          <h4 class="add-form-title">+ Add New Organization Subject</h4>
+          <div class="add-form-grid">
+            <div class="form-col">
+              <label>Subject Name</label>
+              <input type="text" class="text-input" [(ngModel)]="newSubjectTitle" placeholder="e.g. Arabic Grammar (Nahw)" />
+            </div>
+            <div class="form-col">
+              <label>Stages / Milestones (comma-separated)</label>
+              <input type="text" class="text-input" [(ngModel)]="newSubjectStagesText" placeholder="e.g. Chapter 1, Chapter 2, Revision" />
+            </div>
+          </div>
+          <div class="manager-add-actions">
+            <button type="button" class="btn-add-org-sub" (click)="addNewOrgSubject()">
+              + Add to Curriculum
+            </button>
+            <button type="button" class="btn-close-manager" (click)="isManagingSubjects = false">
+              Save & Return to Evaluation
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="subjects-card-list">

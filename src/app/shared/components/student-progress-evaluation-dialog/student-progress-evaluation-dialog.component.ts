@@ -43,6 +43,8 @@ export interface StudentProgressEvaluationDialogData {
   groupId?: string;
   madrasaId?: string;
   currentUser: any;
+  isOrgAdmin?: boolean;
+  isSuperAdmin?: boolean;
   currentRosterItem?: any;
 }
 
@@ -192,6 +194,17 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   performanceGrade: string = 'Mumtaz (Excellent)';
   remarks: string = '';
 
+  // Role permissions & Organization Subject Configuration
+  isOrgAdmin = false;
+  isSuperAdmin = false;
+  canConfigureSubjects = false;
+  isManagingSubjects = false;
+  newSubjectTitle = '';
+  newSubjectStagesText = 'Letters, Harakath, Tanween, Sukoon, Madd, Tashdeed';
+
+  // Snapshot for in-dialog Undo
+  initialStateSnapshot = '';
+
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: StudentProgressEvaluationDialogData,
     public dialogRef: MatDialogRef<StudentProgressEvaluationDialogComponent>,
@@ -200,11 +213,147 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     this.student = data.student;
     this.studentTypeMode = data.studentTypeMode || 'hifz';
     this.evalCadence = data.evalCadence || 'daily';
+    this.isOrgAdmin = !!data.isOrgAdmin;
+    this.isSuperAdmin = !!data.isSuperAdmin;
+    this.canConfigureSubjects = this.isOrgAdmin || this.isSuperAdmin;
   }
 
   async ngOnInit(): Promise<void> {
+    await this.loadOrgConfiguredSubjects();
     this.initFromExistingRoster();
     await this.fetchStudentHistoricalProgress();
+    this.captureInitialSnapshot();
+  }
+
+  async loadOrgConfiguredSubjects(): Promise<void> {
+    const orgId = this.data.currentUser?.organizationId;
+    if (orgId) {
+      try {
+        const snap = await getDoc(doc(getDeenDeskFirestore(), 'organizations', orgId));
+        if (snap.exists()) {
+          const orgData: any = snap.data();
+          const orgSubs = orgData?.academicSettings?.maktabSubjects;
+          if (Array.isArray(orgSubs) && orgSubs.length > 0) {
+            this.predefinedMaktabSubjects = JSON.parse(JSON.stringify(orgSubs));
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load org maktab subjects:', e);
+      }
+    }
+
+    // Strict Role Enforcement: Only Org Admin & Super Admin can configure or select Custom
+    if (!this.canConfigureSubjects) {
+      this.predefinedMaktabSubjects = this.predefinedMaktabSubjects.filter(s => s.id !== 'Custom');
+    }
+  }
+
+  toggleConfigureSubjectsMode(): void {
+    if (!this.canConfigureSubjects) return;
+    this.isManagingSubjects = !this.isManagingSubjects;
+  }
+
+  addNewOrgSubject(): void {
+    if (!this.canConfigureSubjects) return;
+    if (!this.newSubjectTitle.trim()) {
+      this.snackBar.open('Please enter a subject name', 'OK', { duration: 2500 });
+      return;
+    }
+
+    const stages = this.newSubjectStagesText
+      .split(',')
+      .map(s => s.trim())
+      .filter(s => !!s);
+
+    const newSub = {
+      id: this.newSubjectTitle.trim(),
+      title: this.newSubjectTitle.trim(),
+      stages: stages.length > 0 ? stages : ['Stage 1', 'Stage 2', 'Completed']
+    };
+
+    this.predefinedMaktabSubjects.push(newSub);
+    this.newSubjectTitle = '';
+    this.newSubjectStagesText = 'Stage 1, Stage 2, Completed';
+    this.saveOrgConfiguredSubjects();
+  }
+
+  removeOrgSubject(idx: number): void {
+    if (!this.canConfigureSubjects) return;
+    this.predefinedMaktabSubjects.splice(idx, 1);
+    this.saveOrgConfiguredSubjects();
+  }
+
+  async saveOrgConfiguredSubjects(): Promise<void> {
+    if (!this.canConfigureSubjects) return;
+    const orgId = this.data.currentUser?.organizationId;
+    if (!orgId) return;
+
+    try {
+      const orgRef = doc(getDeenDeskFirestore(), 'organizations', orgId);
+      const snap = await getDoc(orgRef);
+      const currentSettings = snap.exists() ? (snap.data()['academicSettings'] || {}) : {};
+
+      await setDoc(orgRef, {
+        academicSettings: {
+          ...currentSettings,
+          maktabSubjects: this.predefinedMaktabSubjects
+        }
+      }, { merge: true });
+
+      this.snackBar.open('Organization curriculum subjects updated successfully!', 'OK', { duration: 3000 });
+    } catch (e: any) {
+      console.error('Failed to save org subjects:', e);
+      this.snackBar.open('Failed to save organization subjects: ' + e.message, 'Close', { duration: 4000 });
+    }
+  }
+
+  captureInitialSnapshot(): void {
+    this.initialStateSnapshot = JSON.stringify({
+      maktabSubjects: this.maktabSubjects,
+      sabaqStartSurah: this.sabaqStartSurah,
+      sabaqStartAyah: this.sabaqStartAyah,
+      sabaqEndSurah: this.sabaqEndSurah,
+      sabaqEndAyah: this.sabaqEndAyah,
+      sabaqJuz: this.sabaqJuz,
+      sabaqStartPage: this.sabaqStartPage,
+      sabaqEndPage: this.sabaqEndPage,
+      sabaqMistakes: this.sabaqMistakes,
+      sabqiStartSurah: this.sabqiStartSurah,
+      sabqiStartAyah: this.sabqiStartAyah,
+      sabqiEndSurah: this.sabqiEndSurah,
+      sabqiEndAyah: this.sabqiEndAyah,
+      sabqiJuz: this.sabqiJuz,
+      sabqiStartPage: this.sabqiStartPage,
+      sabqiEndPage: this.sabqiEndPage,
+      sabqiMistakes: this.sabqiMistakes,
+      manzilStartSurah: this.manzilStartSurah,
+      manzilStartAyah: this.manzilStartAyah,
+      manzilEndSurah: this.manzilEndSurah,
+      manzilEndAyah: this.manzilEndAyah,
+      manzilStartJuz: this.manzilStartJuz,
+      manzilStartPortion: this.manzilStartPortion,
+      manzilEndJuz: this.manzilEndJuz,
+      manzilEndPortion: this.manzilEndPortion,
+      manzilMistakes: this.manzilMistakes,
+      dawrRoundNo: this.dawrRoundNo,
+      dawrWeeklyJuzCount: this.dawrWeeklyJuzCount,
+      extraLessonsList: this.extraLessonsList,
+      overallMistakes: this.overallMistakes,
+      starRating: this.starRating,
+      performanceGrade: this.performanceGrade,
+      remarks: this.remarks
+    });
+  }
+
+  resetToInitialSnapshot(): void {
+    if (!this.initialStateSnapshot) return;
+    try {
+      const snap = JSON.parse(this.initialStateSnapshot);
+      Object.assign(this, snap);
+      this.snackBar.open('Dialog inputs reverted to original values.', 'OK', { duration: 2500 });
+    } catch (e) {
+      console.error(e);
+    }
   }
 
   initFromExistingRoster(): void {
@@ -593,6 +742,10 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
 
       this.dialogRef.close({
         saved: true,
+        savedDocRefs: [
+          `studentDailyProgress/${dailyDocId}`,
+          ...(this.evalCadence === 'weekly' ? [`studentWeeklyProgress/${studentId}_week_${weekYear}_${weekNo}`] : [])
+        ],
         dailyPayload,
         maktabSubjects: this.maktabSubjects,
         hifzLessonsList: this.extraLessonsList,

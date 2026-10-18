@@ -4488,4 +4488,106 @@ select.inline-select,
   }
 }
 
+/* Admin Evaluation Controls & Undo Buttons */
+.admin-eval-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+
+  .btn-admin-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.74rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+
+    .admin-pill-ic {
+      font-size: 15px;
+      width: 15px;
+      height: 15px;
+    }
+
+    &.cfg-pill {
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+      color: #15803d;
+
+      &:hover {
+        background: #dcfce7;
+        border-color: #86efac;
+      }
+    }
+
+    &.rst-pill {
+      background: #fff1f2;
+      border-color: #fecdd3;
+      color: #be123c;
+
+      &:hover {
+        background: #ffe4e6;
+        border-color: #fda4af;
+      }
+    }
+  }
+}
+
+.undo-header-btn {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: #b91c1c;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    background: #fee2e2;
+    border-color: #f87171;
+  }
+}
+
+.undo-tab-btn {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+  color: #c2410c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 7px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+
+  mat-icon {
+    font-size: 17px;
+    width: 17px;
+    height: 17px;
+  }
+
+  &:hover {
+    background: #ffedd5;
+    border-color: #fb923c;
+  }
+}
+
+
 

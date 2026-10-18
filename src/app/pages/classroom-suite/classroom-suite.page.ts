@@ -4,7 +4,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, combineLatest, of, Subject, firstValueFrom } from 'rxjs';
 import { catchError, distinctUntilChanged, filter, map, switchMap, takeUntil } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
-import { doc, getDoc, setDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, Timestamp } from 'firebase/firestore';
 import { AppUser, AttendanceStatus, TimetableEntry } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
@@ -180,6 +180,15 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   canManageReports = false;
   canManageAttendance = true;
   canSelectMadrasa = false;
+
+  // Undo & Snapshot Management
+  lastProgressSaveSnapshot: {
+    type: 'daily' | 'weekly' | 'single';
+    dateOrWeek: string;
+    savedDocRefs: string[];
+    rosterBackup: any[];
+  } | null = null;
+  canUndoProgress = false;
 
   // Header Selectors Data
   madrasas: EntityRecord[] = [];
@@ -2149,6 +2158,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
   // Single Student Comprehensive Evaluation Dialog Launcher
   openSingleStudentEvaluationModal(item: StudentSuiteRosterItem): void {
+    const prevItemBackup = JSON.parse(JSON.stringify(item));
+
     const dialogRef = this.dialog.open(StudentProgressEvaluationDialogComponent, {
       width: '680px',
       maxWidth: '96vw',
@@ -2166,6 +2177,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         groupId: this.selectedGroupId,
         madrasaId: this.selectedMadrasaId,
         currentUser: this.currentUser,
+        isOrgAdmin: this.isOrgAdmin,
+        isSuperAdmin: this.isSuperAdmin,
         currentRosterItem: item
       }
     });
@@ -2223,6 +2236,24 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         item.weeklyMistakes = res.overallMistakes;
         item.weeklyNotes = res.remarks;
         item.maktabRemarks = res.remarks;
+
+        // Save snapshot for Undo
+        this.lastProgressSaveSnapshot = {
+          type: 'single',
+          dateOrWeek: this.evalCadence === 'weekly' ? `${this.selectedWeekYear}_${this.selectedWeekNumber}` : this.selectedDateStr,
+          savedDocRefs: res.savedDocRefs || [],
+          rosterBackup: [prevItemBackup]
+        };
+        this.canUndoProgress = true;
+
+        const snack = this.snackBar.open(
+          `Progress recorded for ${item.student['fullName'] || item.student['name']}`,
+          'UNDO',
+          { duration: 8000 }
+        );
+        snack.onAction().subscribe(() => {
+          this.undoLastProgressSave();
+        });
       }
     });
   }
@@ -2326,11 +2357,28 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     if (!this.canManageAttendance || !this.currentUser || !this.selectedGroupId) return;
     if (this.isSavingProgress || this.isSavingAll) return;
 
+    const rosterBackup = JSON.parse(JSON.stringify(this.roster));
+    const savedDocRefs: string[] = this.roster
+      .filter(i => !!i.student.id)
+      .map(i => `studentDailyProgress/${i.student.id}_${this.selectedDateStr}`);
+
     try {
       this.isSavingProgress = true;
       this.loader.show();
       await this.executeSaveProgress();
-      this.snackBar.open('Daily Progress evaluations saved successfully!', 'Dismiss', { duration: 3500 });
+
+      this.lastProgressSaveSnapshot = {
+        type: 'daily',
+        dateOrWeek: this.selectedDateStr,
+        savedDocRefs,
+        rosterBackup
+      };
+      this.canUndoProgress = true;
+
+      const snack = this.snackBar.open('Daily Progress evaluations saved successfully!', 'UNDO', { duration: 9000 });
+      snack.onAction().subscribe(() => {
+        this.undoLastProgressSave();
+      });
     } catch (err: any) {
       console.error('Error saving daily progress:', err);
       this.snackBar.open(`Failed to save daily progress: ${err?.message || 'Permissions issue'}`, 'Close', { duration: 5000 });
@@ -2824,6 +2872,15 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     if (!this.canManageAttendance || !this.currentUser || !this.selectedGroupId) return;
     if (this.isSavingWeeklyProgress) return;
 
+    const rosterBackup = JSON.parse(JSON.stringify(this.roster));
+    const savedDocRefs: string[] = [];
+    this.roster.forEach(i => {
+      if (i.student.id) {
+        savedDocRefs.push(`studentWeeklyProgress/${i.student.id}_week_${this.selectedWeekYear}_${this.selectedWeekNumber}`);
+        savedDocRefs.push(`studentDailyProgress/${i.student.id}_${this.selectedWeekEndStr}`);
+      }
+    });
+
     try {
       this.isSavingWeeklyProgress = true;
       this.loader.show();
@@ -2945,7 +3002,19 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       });
 
       await Promise.all(savePromises);
-      this.snackBar.open(`Weekly Batch Progress for ${this.roster.length} students saved successfully!`, 'OK', { duration: 4000 });
+
+      this.lastProgressSaveSnapshot = {
+        type: 'weekly',
+        dateOrWeek: `${this.selectedWeekYear}_${this.selectedWeekNumber}`,
+        savedDocRefs,
+        rosterBackup
+      };
+      this.canUndoProgress = true;
+
+      const snack = this.snackBar.open(`Weekly Batch Progress for ${this.roster.length} students saved successfully!`, 'UNDO', { duration: 9000 });
+      snack.onAction().subscribe(() => {
+        this.undoLastProgressSave();
+      });
     } catch (err: any) {
       console.error('Error saving weekly progress:', err);
       this.snackBar.open(`Failed to save weekly progress: ${err?.message || 'Error'}`, 'Close', { duration: 5000 });
@@ -2953,5 +3022,235 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       this.isSavingWeeklyProgress = false;
       this.loader.hide();
     }
+  }
+
+  // Undo Progress Save (Reverts saved Firestore documents and restores roster)
+  async undoLastProgressSave(): Promise<void> {
+    if (!this.lastProgressSaveSnapshot) return;
+
+    try {
+      this.loader.show();
+      const firestore = getDeenDeskFirestore();
+      const { savedDocRefs, rosterBackup, type } = this.lastProgressSaveSnapshot;
+
+      // 1. Delete written documents
+      for (const path of savedDocRefs) {
+        const [coll, id] = path.split('/');
+        if (coll && id) {
+          try {
+            await deleteDoc(doc(firestore, coll, id));
+          } catch (e) {
+            console.warn(`Could not delete doc ${path}:`, e);
+          }
+        }
+      }
+
+      // 2. Restore roster items from backup
+      if (Array.isArray(rosterBackup)) {
+        for (const backup of rosterBackup) {
+          const target = this.roster.find(r => r.student.id === backup.student?.id);
+          if (target) {
+            Object.assign(target, backup);
+          }
+        }
+      }
+
+      this.repo.clearCache('studentDailyProgress');
+      this.repo.clearCache('studentWeeklyProgress');
+
+      this.lastProgressSaveSnapshot = null;
+      this.canUndoProgress = false;
+      this.snackBar.open(`Progress save (${type}) was undone successfully.`, 'OK', { duration: 4000 });
+    } catch (err: any) {
+      console.error('Error undoing progress:', err);
+      this.snackBar.open(`Undo failed: ${err?.message || 'Error'}`, 'Close', { duration: 4000 });
+    } finally {
+      this.loader.hide();
+    }
+  }
+
+  // Admin: Reset all student progress for this group (Initial Fresh Baseline Setup)
+  async resetAllStudentProgress(): Promise<void> {
+    if (!this.isSuperAdmin && !this.isOrgAdmin) {
+      this.snackBar.open('Only Organization Admin and Super Admin can reset student progress.', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    if (!this.selectedGroupId) {
+      this.snackBar.open('Please select a class group first.', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    const confirmed = confirm(
+      '⚠️ RESET ALL STUDENT PROGRESS\n\n' +
+      'Are you sure you want to remove all existing progress records for all students in this group?\n\n' +
+      'This will clear previously recorded progress logs so staff can enter each student’s current baseline progress fresh for Hifz, Dawr, or Maktab.\n\n' +
+      'Attendance records will NOT be deleted.\n\n' +
+      'Click OK to proceed with the reset.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      this.loader.show();
+      const firestore = getDeenDeskFirestore();
+
+      // 1. Query and delete studentDailyProgress for this group
+      const dailyQ = query(
+        collection(firestore, 'studentDailyProgress'),
+        where('groupId', '==', this.selectedGroupId)
+      );
+      const dailySnap = await getDocs(dailyQ);
+      const deleteDailyPromises = dailySnap.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deleteDailyPromises);
+
+      // 2. Query and delete studentWeeklyProgress for this group
+      const weeklyQ = query(
+        collection(firestore, 'studentWeeklyProgress'),
+        where('groupId', '==', this.selectedGroupId)
+      );
+      const weeklySnap = await getDocs(weeklyQ);
+      const deleteWeeklyPromises = weeklySnap.docs.map(w => deleteDoc(w.ref));
+      await Promise.all(deleteWeeklyPromises);
+
+      // 3. Clear local roster item fields so the UI displays completely blank baseline inputs
+      for (const item of this.roster) {
+        item.maktabSubjectsList = [];
+        item.weeklyMaktabSubject = '';
+        item.weeklyMaktabStartPage = null;
+        item.weeklyMaktabEndPage = null;
+        item.maktabSubject = '';
+        item.maktabPage = null;
+        item.maktabLineNo = null;
+        item.maktabMistakes = 0;
+        item.maktabRemarks = '';
+
+        item.weeklySabaqStartSurah = '';
+        item.weeklySabaqStartAyah = null;
+        item.weeklySabaqEndSurah = '';
+        item.weeklySabaqEndAyah = null;
+        item.weeklySabaqStartJuz = null;
+        item.weeklySabaqEndJuz = null;
+        item.weeklySabaqStartPage = null;
+        item.weeklySabaqEndPage = null;
+        item.weeklySabqiStartSurah = '';
+        item.weeklySabqiStartAyah = null;
+        item.weeklySabqiEndSurah = '';
+        item.weeklySabqiEndAyah = null;
+        item.weeklySabqiStartJuz = null;
+        item.weeklySabqiEndJuz = null;
+        item.weeklySabqiStartPage = null;
+        item.weeklySabqiEndPage = null;
+        item.weeklyManzilStartSurah = '';
+        item.weeklyManzilStartAyah = null;
+        item.weeklyManzilEndSurah = '';
+        item.weeklyManzilEndAyah = null;
+        item.weeklyManzilStartJuz = null;
+        item.weeklyManzilEndJuz = null;
+        item.weeklyMistakes = 0;
+        item.weeklyRating = 5;
+        item.weeklyNotes = '';
+
+        item.sabaqSurah = '';
+        item.sabaqFromAyah = null;
+        item.sabaqToAyah = null;
+        item.sabaqMistakes = 0;
+        item.sabqiSurah = '';
+        item.sabqiFromAyah = null;
+        item.sabqiToAyah = null;
+        item.sabqiMistakes = 0;
+        item.manzilSurah = '';
+        item.manzilFromAyah = null;
+        item.manzilToAyah = null;
+        item.manzilMistakes = 0;
+      }
+
+      this.repo.clearCache('studentDailyProgress');
+      this.repo.clearCache('studentWeeklyProgress');
+
+      this.snackBar.open(
+        `All progress records removed (${dailySnap.size} daily, ${weeklySnap.size} weekly)! Staff can now enter fresh baseline progress.`,
+        'OK',
+        { duration: 5000 }
+      );
+    } catch (err: any) {
+      console.error('Error clearing progress:', err);
+      this.snackBar.open(`Failed to clear progress: ${err?.message || 'Error'}`, 'Close', { duration: 5000 });
+    } finally {
+      this.loader.hide();
+    }
+  }
+
+  // Admin: Configure Maktab curriculum subjects for organization
+  async openConfigureMaktabSubjects(): Promise<void> {
+    if (!this.isSuperAdmin && !this.isOrgAdmin) {
+      this.snackBar.open('Only Organization Admin and Super Admin can configure Maktab subjects.', 'Dismiss', { duration: 3000 });
+      return;
+    }
+
+    if (!this.currentUser?.organizationId) return;
+
+    let org: any = null;
+    try {
+      this.loader.show();
+      const snap = await getDoc(doc(getDeenDeskFirestore(), 'organizations', this.currentUser.organizationId));
+      if (snap.exists()) org = { id: snap.id, ...snap.data() };
+    } catch (e) {
+      console.error(e);
+    } finally {
+      this.loader.hide();
+    }
+
+    const currentSubs: any[] = org?.academicSettings?.maktabSubjects || [
+      { id: 'Noorani Qaida', title: 'Noorani Qaida / Base Qaida', stages: ['Letters', 'Harakath', 'Tanween', 'Sukoon', 'Madd', 'Tashdeed'] },
+      { id: 'Nazira Quran', title: 'Nazira (Quran Reading)', stages: ['Juz 30 (Amma)', 'Juz 1-5', 'Full Quran', 'Tajweed Fluency'] },
+      { id: 'Masnoon Duas', title: 'Masnoon Duas & Daily Adhkar', stages: ['Daily Routine', 'Salah Duas', 'Kalimahs'] },
+      { id: 'Fiqh & Akhlaq', title: 'Fiqh & Islamic Studies', stages: ['Taharah', 'Salah', 'Fasting & Morals'] },
+      { id: 'Hadith', title: 'Hadith Memorization', stages: ['Short Hadiths', '40 Hadith'] }
+    ];
+
+    const currentNames = currentSubs.map(s => s.title).join(', ');
+
+    const dialogRef = this.dialog.open(QuickAddDialogComponent, {
+      width: '500px',
+      data: {
+        title: 'Configure Maktab Curriculum Subjects',
+        subtitle: 'Define approved Maktab subjects for your organization. Regular staff can only evaluate students using these subjects.',
+        submitLabel: 'Save Subjects',
+        initialValue: {
+          subjectsCsv: currentNames
+        },
+        fields: [
+          { key: 'subjectsCsv', label: 'Approved Subjects (comma-separated)', type: 'textarea' }
+        ],
+        saveFn: async (payload: any) => {
+          const raw = String(payload.subjectsCsv || '');
+          const names = raw.split(',').map((n: string) => n.trim()).filter((n: string) => !!n);
+          if (names.length === 0) throw new Error('Please specify at least one subject.');
+
+          const updatedSubs = names.map((name: string) => {
+            const existing = currentSubs.find(cs => cs.title.toLowerCase() === name.toLowerCase() || cs.id.toLowerCase() === name.toLowerCase());
+            return existing || {
+              id: name,
+              title: name,
+              stages: ['Stage 1', 'Stage 2', 'Completed']
+            };
+          });
+
+          await this.repo.update('organizations', this.currentUser!.organizationId as string, {
+            academicSettings: {
+              ...(org?.academicSettings || {}),
+              maktabSubjects: updatedSubs
+            }
+          }, this.currentUser);
+        }
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(res => {
+      if (res) {
+        this.snackBar.open('Maktab curriculum subjects updated successfully!', 'OK', { duration: 3000 });
+      }
+    });
   }
 }
