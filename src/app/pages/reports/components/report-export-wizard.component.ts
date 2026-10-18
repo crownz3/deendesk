@@ -163,6 +163,7 @@ import { ReportFieldMetadata } from '../../../core/models/report.model';
                 <table class="pdf-live-table">
                   <thead>
                     <tr [style.background-color]="validHexColor(pdfOptions.headerColor)">
+                      <th style="width: 42px; text-align: center; font-weight: 700;">S.No</th>
                       <th *ngFor="let col of activePreviewColumns" [style.text-align]="pdfOptions.alignColumns || 'center'">
                         {{ col.label }}
                       </th>
@@ -170,6 +171,7 @@ import { ReportFieldMetadata } from '../../../core/models/report.model';
                   </thead>
                   <tbody>
                     <tr *ngFor="let row of mockRows; let idx = index" [style.background-color]="pdfOptions.highlightRows && idx % 2 === 1 ? validHexColor(pdfOptions.highlightColor, '#f8fafc') : 'transparent'">
+                      <td style="width: 42px; text-align: center; font-weight: 700; color: #475569;">{{ idx + 1 }}</td>
                       <td *ngFor="let col of activePreviewColumns" [style.text-align]="pdfOptions.alignColumns || 'center'">
                         {{ getMockValue(col, idx) }}
                       </td>

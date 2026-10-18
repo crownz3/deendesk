@@ -13,13 +13,15 @@ export class ExportService {
 
   exportToCsv(filename: string, data: any[]) {
     if (!data || data.length === 0) return;
-    const csvContent = this.csvService.toCsv(data);
+    const numberedData = data.map((item, idx) => ({ 'S.No': idx + 1, ...item }));
+    const csvContent = this.csvService.toCsv(numberedData);
     this.csvService.download(`${filename}.csv`, csvContent);
   }
 
   exportToExcel(filename: string, data: any[]) {
     if (!data || data.length === 0) return;
-    const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+    const numberedData = data.map((item, idx) => ({ 'S.No': idx + 1, ...item }));
+    const worksheet: XLSX.WorkSheet = XLSX.utils.json_to_sheet(numberedData);
     const workbook: XLSX.WorkBook = { Sheets: { 'data': worksheet }, SheetNames: ['data'] };
     XLSX.writeFile(workbook, `${filename}.xlsx`);
   }
@@ -34,13 +36,17 @@ export class ExportService {
         doc.text(title, 14, 22);
     }
     
-    const rows = data.map(item => columns.map(col => item[col] || ''));
+    const rows = data.map((item, index) => [
+      String(index + 1),
+      ...columns.map(col => item[col] || '')
+    ]);
     
     (doc as any).autoTable({
-      head: [columns.map(c => this.camelCaseToTitle(c))],
+      head: [['S.No', ...columns.map(c => this.camelCaseToTitle(c))]],
       body: rows,
       startY: title ? 30 : 10,
       theme: 'grid',
+      columnStyles: { 0: { cellWidth: 15, halign: 'center' } },
       styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
       headStyles: { fillColor: [41, 128, 185], textColor: 255 }
     });

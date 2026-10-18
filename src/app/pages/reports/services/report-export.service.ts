@@ -71,7 +71,7 @@ export class ReportExportService {
         exportData = data.slice(0, Number(options.maxRows));
       }
 
-      const headers = columns.map(c => c.label);
+      const headers = ['S.No', ...columns.map(c => c.label)];
       const keys = columns.map(c => c.key);
 
       const getNormalizedRowValue = (row: any, key: string): string => {
@@ -168,10 +168,23 @@ export class ReportExportService {
           groups.push({ val: curVal || 'Group', rows: curRows });
         }
 
+        let globalRowNumber = 1;
         for (const g of groups) {
           for (let rIdx = 0; rIdx < g.rows.length; rIdx++) {
             const row = g.rows[rIdx];
             const rowCells: any[] = [];
+
+            // Prepend S.No cell
+            rowCells.push({
+              content: String(globalRowNumber++),
+              styles: {
+                valign: 'middle',
+                halign: 'center',
+                fontStyle: 'bold',
+                textColor: [71, 85, 105],
+                fillColor: [255, 255, 255]
+              }
+            });
 
             for (let c = 0; c < columns.length; c++) {
               const col = columns[c];
@@ -210,7 +223,7 @@ export class ReportExportService {
 
           // Per-group Subtotal Row insertion
           if (options.enableGroupSubtotals !== false) {
-            const subtotalRow = columns.map((col, idx) => {
+            const subtotalRowCells = columns.map((col, idx) => {
               const key = col.key;
 
               if (idx === 0) {
@@ -253,6 +266,17 @@ export class ReportExportService {
               };
             });
 
+            // Prepend blank cell for S.No column on Subtotal Row
+            const subtotalRow = [
+              {
+                content: '',
+                styles: {
+                  fillColor: [241, 245, 249]
+                }
+              },
+              ...subtotalRowCells
+            ];
+
             tableData.push(subtotalRow);
           }
         }
@@ -260,15 +284,19 @@ export class ReportExportService {
         // Flat table structure when no grouping is selected
         for (let i = 0; i < N; i++) {
           const row = exportData[i];
-          tableData.push(columns.map(col => {
-            let val = getNormalizedRowValue(row, col.key) || row[col.key];
-            if (val && typeof val === 'object' && 'toDate' in val) {
-              val = val.toDate().toISOString().split('T')[0];
-            } else if (val instanceof Date) {
-              val = val.toISOString().split('T')[0];
-            }
-            return val === null || val === undefined || val === '' ? '-' : String(val);
-          }));
+          const rowCells: any[] = [
+            String(i + 1),
+            ...columns.map(col => {
+              let val = getNormalizedRowValue(row, col.key) || row[col.key];
+              if (val && typeof val === 'object' && 'toDate' in val) {
+                val = val.toDate().toISOString().split('T')[0];
+              } else if (val instanceof Date) {
+                val = val.toISOString().split('T')[0];
+              }
+              return val === null || val === undefined || val === '' ? '-' : String(val);
+            })
+          ];
+          tableData.push(rowCells);
         }
       }
 
@@ -290,7 +318,7 @@ export class ReportExportService {
       let footerRow: any[] = [];
 
       if (enableTotal) {
-        footerRow = columns.map((col, idx) => {
+        const footerCells = columns.map((col, idx) => {
           const key = col.key;
           const isNumeric = isColumnNumeric(key);
 
@@ -330,6 +358,15 @@ export class ReportExportService {
             styles: { fontStyle: 'bold', halign: alignment, fillColor: [241, 245, 249], textColor: [100, 116, 139] }
           };
         });
+
+        // Prepend '#' for S.No on footer total row
+        footerRow = [
+          {
+            content: '#',
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [15, 23, 42] }
+          },
+          ...footerCells
+        ];
       }
 
       autoTable(doc, {
@@ -351,6 +388,9 @@ export class ReportExportService {
           textColor: [255, 255, 255],
           fontStyle: 'bold',
           halign: alignment
+        },
+        columnStyles: {
+          0: { cellWidth: 14, halign: 'center', fontStyle: 'bold' }
         },
         styles: {
           fontSize: 8,
@@ -411,7 +451,9 @@ export class ReportExportService {
     };
 
     const exportData = data.map((row, index) => {
-      const newRow: any = {};
+      const newRow: any = {
+        'S.No': index + 1
+      };
       columns.forEach(col => {
         let val = row[col.key];
         if (val && typeof val === 'object' && 'toDate' in val) {
@@ -449,7 +491,9 @@ export class ReportExportService {
     };
 
     const exportData = data.map((row, index) => {
-      const newRow: any = {};
+      const newRow: any = {
+        'S.No': index + 1
+      };
       columns.forEach(col => {
         let val = row[col.key];
         if (val && typeof val === 'object' && 'toDate' in val) {

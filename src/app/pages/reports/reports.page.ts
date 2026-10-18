@@ -329,11 +329,18 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
   public columnTotalModes: { [key: string]: 'sum' | 'count' } = {};
 
   public updateDisplayColumns(): void {
-    let keys = this.selectedColumns.map(c => c.key);
-    if (this.enableTotalSummary && this.showRowTotalColumn) {
-      keys = [...keys, 'row_total_summary'];
+    let keys: string[] = [];
+    if (this.selectedColumns && this.selectedColumns.length > 0) {
+      keys = ['s_no', ...this.selectedColumns.map(c => c.key)];
+      if (this.enableTotalSummary && this.showRowTotalColumn) {
+        keys = [...keys, 'row_total_summary'];
+      }
     }
     this.displayColumns = keys;
+  }
+
+  public getSerialNumber(pageIndexOnScreen: number): number {
+    return this.getAbsoluteIndex(pageIndexOnScreen) + 1;
   }
 
   public isTotalColumnSelected(key: string): boolean {
@@ -807,7 +814,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     }
     
     // IMMEDIATELY sync displayColumns and availableFields
-    this.displayColumns = this.selectedColumns.map(c => c.key);
+    this.updateDisplayColumns();
     this.updateAvailableFields();
 
     if (event.container.id === 'selectedColumnsList' || event.previousContainer.id === 'selectedColumnsList') {
@@ -819,7 +826,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
 
   public removeColumn(index: number) {
     const removed = this.selectedColumns.splice(index, 1);
-    this.displayColumns = this.selectedColumns.map(c => c.key);
+    this.updateDisplayColumns();
     this.updateAvailableFields();
     this.builder.updateColumns([...this.selectedColumns]);
   }
@@ -828,7 +835,7 @@ export class ReportsPage implements OnInit, OnDestroy, AfterViewInit {
     if (!this.selectedColumns.some(c => c.key === field.key)) {
       this.selectedColumns.push(field);
     }
-    this.displayColumns = this.selectedColumns.map(c => c.key);
+    this.updateDisplayColumns();
     this.updateAvailableFields();
     this.builder.updateColumns([...this.selectedColumns]);
   }
