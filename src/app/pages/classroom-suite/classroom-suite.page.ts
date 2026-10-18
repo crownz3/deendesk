@@ -326,6 +326,27 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     return false;
   }
 
+  getStudentStageDisplay(student: any): string {
+    if (!student) return '';
+    const raw = (
+      student['stage'] ||
+      student['stageName'] ||
+      student['currentStage'] ||
+      student['stageOrLevel'] ||
+      student['level'] ||
+      student['stageDisplay'] ||
+      student['programStage'] ||
+      student['dawrStage'] ||
+      student['targetGoals']?.stage ||
+      student['hifzStage'] ||
+      student['courseStage'] ||
+      ''
+    ).toString().trim();
+
+    if (!raw || raw === '-' || raw.toLowerCase() === 'n/a') return '';
+    return raw;
+  }
+
   get filteredRoster(): StudentSuiteRosterItem[] {
     let list = this.roster;
     if (this.studentTypeMode === 'dawr') {

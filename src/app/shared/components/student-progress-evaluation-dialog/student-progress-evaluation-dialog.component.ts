@@ -461,6 +461,27 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     }
   }
 
+  getStudentStageDisplay(student: any): string {
+    if (!student) return '';
+    const raw = (
+      student['stage'] ||
+      student['stageName'] ||
+      student['currentStage'] ||
+      student['stageOrLevel'] ||
+      student['level'] ||
+      student['stageDisplay'] ||
+      student['programStage'] ||
+      student['dawrStage'] ||
+      student['targetGoals']?.stage ||
+      student['hifzStage'] ||
+      student['courseStage'] ||
+      ''
+    ).toString().trim();
+
+    if (!raw || raw === '-' || raw.toLowerCase() === 'n/a') return '';
+    return raw;
+  }
+
   buildLastProgressSummary(docData: any): void {
     if (this.studentTypeMode === 'maktab') {
       const m = docData.maktabProgress || docData;

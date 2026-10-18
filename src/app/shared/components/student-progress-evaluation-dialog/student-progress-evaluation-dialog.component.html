@@ -11,6 +11,9 @@
           <span class="mode-tag" [class.maktab]="studentTypeMode === 'maktab'" [class.hifz]="studentTypeMode === 'hifz'" [class.dawr]="studentTypeMode === 'dawr'">
             {{ studentTypeMode | uppercase }}
           </span>
+          <span class="stage-tag" *ngIf="getStudentStageDisplay(student)">
+            Stage: {{ getStudentStageDisplay(student) }}
+          </span>
           <span class="cadence-tag">
             {{ evalCadence === 'weekly' ? 'Weekly Evaluation' : 'Daily Evaluation' }}
           </span>

@@ -4950,6 +4950,21 @@ select.inline-select,
             overflow: hidden;
             text-overflow: ellipsis;
           }
+
+          .st-stage-badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #4338ca;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            padding: 1px 7px;
+            border-radius: 10px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            letter-spacing: 0.02em;
+          }
         }
 
         .st-sub-chips {
@@ -4969,6 +4984,19 @@ select.inline-select,
               font-size: 13px;
               width: 13px;
               height: 13px;
+            }
+
+            &.stage-chip {
+              background: #eef2ff;
+              border: 1px solid #c7d2fe;
+              color: #4338ca;
+              font-weight: 700;
+              padding: 1px 6px;
+              border-radius: 4px;
+
+              .chip-ic {
+                color: #6366f1;
+              }
             }
 
             &.phone {

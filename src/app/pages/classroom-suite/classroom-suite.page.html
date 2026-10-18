@@ -797,8 +797,14 @@
                     <div class="st-name-row">
                       <span class="st-order-no">#{{ i + 1 }}</span>
                       <strong class="st-full-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <span class="st-stage-badge" *ngIf="getStudentStageDisplay(item.student)" [title]="'Stage: ' + getStudentStageDisplay(item.student)">
+                        {{ getStudentStageDisplay(item.student) }}
+                      </span>
                     </div>
                     <div class="st-sub-chips">
+                      <span class="sub-chip stage-chip" *ngIf="getStudentStageDisplay(item.student)" [title]="'Stage: ' + getStudentStageDisplay(item.student)">
+                        <mat-icon class="chip-ic">school</mat-icon> {{ getStudentStageDisplay(item.student) }}
+                      </span>
                       <span class="sub-chip phone" *ngIf="item.student['parentPhone'] || item.student['phone']">
                         <mat-icon class="chip-ic">phone</mat-icon> {{ item.student['parentPhone'] || item.student['phone'] }}
                       </span>
