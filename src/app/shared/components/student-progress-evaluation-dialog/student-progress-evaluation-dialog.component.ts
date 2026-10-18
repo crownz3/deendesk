@@ -131,11 +131,14 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   sabqiMistakes: number | null = null;
 
   // 3. Dawr / Manzil (Revision)
+  manzilEvalUnitMode: 'portion' | 'surah' | 'page' = 'portion';
   manzilStartSurah = '';
   manzilStartAyah: number | null = null;
   manzilEndSurah = '';
   manzilEndAyah: number | null = null;
   manzilStartJuz: number | null = null;
+  manzilStartPage: number | null = null;
+  manzilEndPage: number | null = null;
   manzilStartPortion = 'Full Juz';
   manzilEndJuz: number | null = null;
   manzilEndPortion = 'Full Juz';
@@ -836,6 +839,19 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         dailyPayload.manzilJuz = this.manzilStartJuz ? `Juz ${this.manzilStartJuz}` : '';
         dailyPayload.manzilMistakes = this.manzilMistakes || 0;
         dailyPayload.hifzLessonsList = this.extraLessonsList;
+        let formattedManzilRange = '';
+        if (this.manzilEvalUnitMode === 'surah') {
+          formattedManzilRange = this.manzilStartSurah ? `${this.manzilStartSurah} (${this.manzilStartAyah || 1}–${this.manzilEndAyah || 10})` : '';
+        } else if (this.manzilEvalUnitMode === 'page') {
+          formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (Pg ${this.manzilStartPage || 1}–${this.manzilEndPage || 20})` : '';
+        } else {
+          formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'})` : '';
+        }
+
+        dailyPayload.manzilRange = formattedManzilRange;
+        dailyPayload.manzilEvalUnitMode = this.manzilEvalUnitMode;
+        dailyPayload.manzilStartPage = this.manzilStartPage;
+        dailyPayload.manzilEndPage = this.manzilEndPage;
         dailyPayload.hifzProgress = {
           evalUnitMode: this.hifzEvalUnitMode,
           sabaqSurahName: this.sabaqEndSurah,
@@ -846,21 +862,28 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           sabaqEndPage: this.sabaqEndPage,
           sabaqMistakes: this.sabaqMistakes || 0,
           sabqiRange: this.sabqiEndSurah || (this.sabqiJuz ? `Juz ${this.sabqiJuz}` : ''),
-          manzilRange: this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion})` : this.manzilEndSurah,
+          manzilRange: formattedManzilRange,
+          manzilEvalUnitMode: this.manzilEvalUnitMode,
           rating: this.starRating
         };
 
         if (this.studentTypeMode === 'dawr') {
           dailyPayload.dawrRoundNo = this.dawrRoundNo || 1;
-          dailyPayload.dawrPortionJuz = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'})` : 'Juz 1';
+          dailyPayload.dawrPortionJuz = formattedManzilRange || (this.manzilStartJuz ? `Juz ${this.manzilStartJuz}` : 'Juz 1');
           dailyPayload.dawrMistakes = this.manzilMistakes || 0;
           dailyPayload.dawrProgress = {
             roundNo: this.dawrRoundNo || 1,
+            evalUnitMode: this.manzilEvalUnitMode,
             startJuz: this.manzilStartJuz || 1,
             startPortion: this.manzilStartPortion || 'Full Juz',
             endJuz: this.manzilEndJuz || 1,
             endPortion: this.manzilEndPortion || 'Full Juz',
-            portionJuz: this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'})` : 'Juz 1',
+            surahName: this.manzilEndSurah || this.manzilStartSurah,
+            fromAyah: this.manzilStartAyah,
+            toAyah: this.manzilEndAyah,
+            startPage: this.manzilStartPage,
+            endPage: this.manzilEndPage,
+            portionJuz: formattedManzilRange || (this.manzilStartJuz ? `Juz ${this.manzilStartJuz}` : 'Juz 1'),
             dawrMistakes: this.manzilMistakes || 0,
             rating: this.starRating
           };

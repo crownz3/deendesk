@@ -2182,11 +2182,13 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   // Update Progress Modal Launcher
   openUpdateProgressModal(item: StudentSuiteRosterItem): void {
     const dialogRef = this.dialog.open(StudentProgressEntryDialogComponent, {
-      width: '650px',
-      maxWidth: '95vw',
+      width: '780px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
       panelClass: 'custom-target-dialog-panel',
       data: {
         student: item.student,
+        studentTypeMode: this.studentTypeMode,
         currentUser: this.currentUser
       }
     });

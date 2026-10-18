@@ -397,6 +397,11 @@
         <div class="card-top-bar">
           <div class="card-title-group">
             <span class="card-name">Revision of Memorized Quran</span>
+            <div class="revision-mode-toggles">
+              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'portion'" (click)="manzilEvalUnitMode = 'portion'">Portion-wise</button>
+              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'surah'" (click)="manzilEvalUnitMode = 'surah'">Surah-wise</button>
+              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'page'" (click)="manzilEvalUnitMode = 'page'">Page-wise</button>
+            </div>
           </div>
           <div class="card-mistakes-box">
             <span class="mist-label">Mistakes:</span>
@@ -405,7 +410,8 @@
         </div>
 
         <div class="card-inputs-area">
-          <div class="dawr-revision-container">
+          <!-- 1. Portion-wise Revision (Juz + Quarter / Half / Full Juz) -->
+          <div class="dawr-revision-container" *ngIf="manzilEvalUnitMode === 'portion'">
             <!-- FROM Starting Point -->
             <div class="dawr-endpoint-card from-card">
               <div class="endpoint-badge-row">
@@ -457,6 +463,62 @@
                   <mat-select class="modern-dawr-select portion-sel" [(ngModel)]="manzilEndPortion" placeholder="Portion" panelClass="quran-portion-mat-panel">
                     <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
                   </mat-select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Surah & Ayah-wise Revision -->
+          <div class="range-row-container" *ngIf="manzilEvalUnitMode === 'surah'">
+            <div class="range-half">
+              <span class="from-to-badge from">From</span>
+              <div class="inputs-group">
+                <mat-select class="surah-mat-select" [(ngModel)]="manzilStartSurah" placeholder="Start Surah" panelClass="quran-surah-mat-panel">
+                  <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                </mat-select>
+                <div class="ayah-input-wrap">
+                  <span class="ayah-prefix">Ayah</span>
+                  <input type="number" class="ayah-input" [(ngModel)]="manzilStartAyah" placeholder="1" min="1" />
+                </div>
+              </div>
+            </div>
+            <span class="connector-arrow">→</span>
+            <div class="range-half">
+              <span class="from-to-badge to">To</span>
+              <div class="inputs-group">
+                <mat-select class="surah-mat-select" [(ngModel)]="manzilEndSurah" placeholder="End Surah" panelClass="quran-surah-mat-panel">
+                  <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
+                </mat-select>
+                <div class="ayah-input-wrap">
+                  <span class="ayah-prefix">Ayah</span>
+                  <input type="number" class="ayah-input" [(ngModel)]="manzilEndAyah" placeholder="10" min="1" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Page-wise Revision -->
+          <div class="juz-page-grid" *ngIf="manzilEvalUnitMode === 'page'">
+            <div class="juz-col">
+              <label class="field-label">Juz Name / Number</label>
+              <mat-select class="juz-name-mat-select" [(ngModel)]="manzilStartJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                  <span class="juz-num-pill">{{ j.number }}</span>
+                  <span class="juz-name-text">{{ j.displayName }}</span>
+                </mat-option>
+              </mat-select>
+            </div>
+            <div class="pages-col">
+              <label class="field-label">Page Range of that Juz</label>
+              <div class="pages-input-pair">
+                <div class="pg-box">
+                  <span class="pg-lbl">From Pg</span>
+                  <input type="number" class="pg-num" [(ngModel)]="manzilStartPage" placeholder="1" min="1" />
+                </div>
+                <span class="pg-sep">→</span>
+                <div class="pg-box">
+                  <span class="pg-lbl">To Pg</span>
+                  <input type="number" class="pg-num" [(ngModel)]="manzilEndPage" placeholder="10" min="1" />
                 </div>
               </div>
             </div>

@@ -1,65 +1,252 @@
 <div class="dialog-header">
   <div class="title-box">
-    <mat-icon color="primary">fact_check</mat-icon>
-    <div>
-      <h2>Update Progress: {{ student['fullName'] || student['name'] }}</h2>
-      <p>Log historical progress for Dawr and Hifz.</p>
+    <mat-icon class="header-ic">fact_check</mat-icon>
+    <div class="title-meta">
+      <h2 class="dialog-title">Baseline Progress: {{ student['fullName'] || student['name'] }}</h2>
+      <div class="legend-row">
+        <span class="legend-chip completed"><span class="dot"></span> Completed (Green)</span>
+        <span class="legend-chip in-progress"><span class="dot"></span> In-Progress (Amber)</span>
+        <span class="legend-chip weak"><span class="dot"></span> Weak Spot / Recite Again</span>
+        <span class="legend-chip not-started"><span class="dot"></span> Not Started</span>
+      </div>
     </div>
   </div>
-  <button mat-icon-button (click)="dialogRef.close()"><mat-icon>close</mat-icon></button>
+  <button type="button" class="close-x-btn" (click)="dialogRef.close()" aria-label="Close dialog">✕</button>
 </div>
 
 <div class="dialog-content">
-  <mat-tab-group [(selectedIndex)]="activeTabIndex">
-    <!-- Hifz Tab -->
-    <mat-tab label="Hifz (Memorization)">
-      <div class="tab-body">
-        <h3 class="section-title">Completed Juzs</h3>
-        <div class="juz-grid">
-          <div *ngFor="let juz of juzArray" class="juz-box" [class.selected]="completedJuzs.has(juz)" (click)="toggleJuz(juz)">
-            {{ juz }}
+  <div class="dialog-main-layout" [class.has-inspection]="inspectedItem !== null">
+    <div class="tabs-scroll-area">
+      <mat-tab-group [(selectedIndex)]="activeTabIndex" dynamicHeight>
+        <!-- 1. HIFZ (MEMORIZATION) TAB -->
+        <mat-tab label="Hifz (Memorization)">
+          <div class="tab-body">
+            <div class="section-header-row">
+              <h3 class="section-title">Quran Juzs (1 – 30)</h3>
+              <span class="section-tip">Tap any Juz to inspect mistakes, lesson history, or change status</span>
+            </div>
+
+            <div class="juz-grid">
+              <div *ngFor="let juz of juzArray" 
+                   class="juz-box" 
+                   [class.completed]="getJuzStatus(juz) === 'completed'"
+                   [class.in-progress]="getJuzStatus(juz) === 'in_progress'"
+                   [class.has-weakness]="hasWeakness(juz.toString(), 'juz')"
+                   [class.active-selected]="inspectedItem?.key === 'juz_' + juz"
+                   (click)="inspectJuz(juz)">
+                <span class="juz-num">{{ juz }}</span>
+                <span class="status-indicator"></span>
+                <span class="weak-badge" *ngIf="hasWeakness(juz.toString(), 'juz')">⚠️</span>
+              </div>
+            </div>
+
+            <div class="section-header-row mt-4">
+              <h3 class="section-title">Completed &amp; In-Progress Surahs (1 – 114)</h3>
+              <span class="section-tip">Search and click any Surah to view logged mistakes or mark completed</span>
+            </div>
+
+            <div class="search-wrap">
+              <mat-icon class="search-ic">search</mat-icon>
+              <input type="text" class="surah-search-input" [(ngModel)]="surahSearch" (ngModelChange)="filterSurahs()" placeholder="Search Surah by name (e.g., Al-Baqarah, Yasin)...">
+            </div>
+
+            <div class="surah-grid">
+              <div *ngFor="let surah of filteredSurahs" 
+                   class="surah-pill" 
+                   [class.completed]="getSurahStatus(surah) === 'completed'"
+                   [class.in-progress]="getSurahStatus(surah) === 'in_progress'"
+                   [class.has-weakness]="hasWeakness(surah, 'surah')"
+                   [class.active-selected]="inspectedItem?.key === 'surah_' + surah"
+                   (click)="inspectSurah(surah)">
+                <span class="surah-label">{{ surah }}</span>
+                <span class="pill-badge" *ngIf="getSurahStatus(surah) === 'completed'">✓</span>
+                <span class="pill-badge in-prog" *ngIf="getSurahStatus(surah) === 'in_progress'">⏳</span>
+                <span class="weak-dot" *ngIf="hasWeakness(surah, 'surah')" title="Weak spot: Mistakes recorded">⚠️</span>
+              </div>
+            </div>
           </div>
+        </mat-tab>
+
+        <!-- 2. DAWR (REVISION) TAB -->
+        <mat-tab label="Dawr (Revision)">
+          <div class="tab-body">
+            <div class="dawr-settings-card">
+              <div class="form-row">
+                <div class="field-item">
+                  <label class="field-label">Completed Full Quran Dawr Rounds</label>
+                  <input type="number" class="text-input" [(ngModel)]="completedDawrRounds" placeholder="0" min="0">
+                  <span class="field-hint">Total number of complete revisions finished by student</span>
+                </div>
+                <div class="field-item">
+                  <label class="field-label">Current Round In-Progress Juz #</label>
+                  <input type="number" class="text-input" [(ngModel)]="currentRoundJuz" placeholder="e.g. 15" min="1" max="30">
+                  <span class="field-hint">Current Juz student is currently revising in this round</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-header-row mt-4">
+              <h3 class="section-title">Dawr Revision Tracking Grid</h3>
+              <span class="section-tip">Click a Juz to check previous revision rounds and mistakes</span>
+            </div>
+
+            <div class="juz-grid">
+              <div *ngFor="let juz of juzArray" 
+                   class="juz-box" 
+                   [class.completed]="currentRoundJuz && juz < currentRoundJuz"
+                   [class.in-progress]="currentRoundJuz === juz"
+                   [class.has-weakness]="hasWeakness(juz.toString(), 'juz')"
+                   [class.active-selected]="inspectedItem?.key === 'juz_' + juz"
+                   (click)="inspectJuz(juz)">
+                <span class="juz-num">{{ juz }}</span>
+                <span class="status-indicator"></span>
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+
+        <!-- 3. MAKTAB (FOUNDATION & TILAWAT) TAB -->
+        <mat-tab label="Maktab Progress">
+          <div class="tab-body">
+            <!-- Sub-stage Mode Switcher -->
+            <div class="maktab-substage-bar">
+              <button type="button" class="substage-btn" [class.active]="activeMaktabSubStage === 'miftah'" (click)="activeMaktabSubStage = 'miftah'">
+                <mat-icon class="sub-ic">auto_stories</mat-icon>
+                <span>Miftah: Base Qaida &amp; Duas</span>
+              </button>
+              <button type="button" class="substage-btn" [class.active]="activeMaktabSubStage === 'tilawat'" (click)="activeMaktabSubStage = 'tilawat'">
+                <mat-icon class="sub-ic">menu_book</mat-icon>
+                <span>Tilawatul Quran Reading</span>
+              </button>
+            </div>
+
+            <!-- Miftah Qaida Page Grid -->
+            <div class="miftah-view" *ngIf="activeMaktabSubStage === 'miftah'">
+              <div class="section-header-row">
+                <h3 class="section-title">Noorani / Base Qaida Pages</h3>
+                <span class="section-tip">Tap a page to inspect pronunciation mistakes and lesson history</span>
+              </div>
+
+              <div class="page-grid">
+                <div *ngFor="let page of qaidaTotalPages" 
+                     class="page-box"
+                     [class.completed]="getMaktabPageStatus(page) === 'completed'"
+                     [class.in-progress]="getMaktabPageStatus(page) === 'in_progress'"
+                     [class.has-weakness]="hasWeakness(page.toString(), 'maktab')"
+                     [class.active-selected]="inspectedItem?.key === 'maktab_pg_' + page"
+                     (click)="inspectMaktabPage(page)">
+                  <span class="pg-num">Pg {{ page }}</span>
+                  <span class="pg-badge" *ngIf="getMaktabPageStatus(page) === 'completed'">✓</span>
+                  <span class="pg-badge in-prog" *ngIf="getMaktabPageStatus(page) === 'in_progress'">Active</span>
+                  <span class="weak-badge" *ngIf="hasWeakness(page.toString(), 'maktab')">⚠️</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tilawatul Quran Surahs -->
+            <div class="tilawat-view" *ngIf="activeMaktabSubStage === 'tilawat'">
+              <div class="section-header-row">
+                <h3 class="section-title">Holy Quran Reading Status</h3>
+                <span class="section-tip">Mushaf Nazira completed &amp; in-progress Surahs</span>
+              </div>
+
+              <div class="search-wrap">
+                <mat-icon class="search-ic">search</mat-icon>
+                <input type="text" class="surah-search-input" [(ngModel)]="surahSearch" (ngModelChange)="filterSurahs()" placeholder="Search Surah...">
+              </div>
+
+              <div class="surah-grid">
+                <div *ngFor="let surah of filteredSurahs" 
+                     class="surah-pill" 
+                     [class.completed]="getSurahStatus(surah) === 'completed'"
+                     [class.in-progress]="getSurahStatus(surah) === 'in_progress'"
+                     [class.has-weakness]="hasWeakness(surah, 'surah')"
+                     [class.active-selected]="inspectedItem?.key === 'surah_' + surah"
+                     (click)="inspectSurah(surah)">
+                  <span class="surah-label">{{ surah }}</span>
+                  <span class="pill-badge" *ngIf="getSurahStatus(surah) === 'completed'">✓</span>
+                  <span class="pill-badge in-prog" *ngIf="getSurahStatus(surah) === 'in_progress'">Reading</span>
+                  <span class="weak-dot" *ngIf="hasWeakness(surah, 'surah')">⚠️</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </div>
+
+    <!-- RIGHT/BOTTOM INSPECTION DRAWER -->
+    <div class="inspection-panel" *ngIf="inspectedItem">
+      <div class="panel-header">
+        <div class="panel-title-group">
+          <span class="panel-tag">{{ inspectedItem.type | uppercase }} DETAILS</span>
+          <h4 class="panel-title">{{ inspectedItem.title }}</h4>
+        </div>
+        <button type="button" class="close-panel-btn" (click)="closeInspection()">✕</button>
+      </div>
+
+      <div class="panel-body">
+        <!-- Status Switcher Bar -->
+        <div class="status-action-row">
+          <button type="button" 
+                  class="status-btn btn-complete" 
+                  [class.active]="inspectedItem.status === 'completed'"
+                  (click)="setItemStatus(inspectedItem, 'completed')">
+            ✓ Completed
+          </button>
+          <button type="button" 
+                  class="status-btn btn-in-prog" 
+                  [class.active]="inspectedItem.status === 'in_progress'"
+                  (click)="setItemStatus(inspectedItem, 'in_progress')">
+            ⏳ In-Progress
+          </button>
+          <button type="button" 
+                  class="status-btn btn-reset" 
+                  [class.active]="inspectedItem.status === 'not_started'"
+                  (click)="setItemStatus(inspectedItem, 'not_started')">
+            Not Started
+          </button>
         </div>
 
-        <h3 class="section-title mt-4">Completed Surahs (Overrides Juz)</h3>
-        <mat-form-field appearance="outline" class="w-100">
-          <mat-label>Search Surah</mat-label>
-          <input matInput [(ngModel)]="surahSearch" (ngModelChange)="filterSurahs()" placeholder="Type surah name...">
-        </mat-form-field>
-        <div class="surah-grid">
-          <div *ngFor="let surah of filteredSurahs" class="surah-pill" [class.selected]="completedSurahs.has(surah)" (click)="toggleSurah(surah)">
-            {{ surah }}
+        <!-- Advisory / Weakness Banner -->
+        <div class="advisory-card" [class.alert]="inspectedItem.needsRevision" [class.strong]="!inspectedItem.needsRevision && inspectedItem.evaluations.length > 0">
+          <div class="adv-header">
+            <span class="adv-ic">{{ inspectedItem.needsRevision ? '⚠️' : (inspectedItem.evaluations.length > 0 ? '✨' : 'ℹ️') }}</span>
+            <span class="adv-title">{{ inspectedItem.needsRevision ? 'Weak Area Detected' : (inspectedItem.evaluations.length > 0 ? 'Strong Performance' : 'Diagnostic Status') }}</span>
+          </div>
+          <p class="adv-text">{{ inspectedItem.advisoryNote }}</p>
+        </div>
+
+        <!-- Evaluation Timeline -->
+        <div class="timeline-section">
+          <h5 class="timeline-heading">Lesson &amp; Mistake Records ({{ inspectedItem.evaluations.length }})</h5>
+
+          <div class="timeline-empty" *ngIf="inspectedItem.evaluations.length === 0">
+            <p>No individual evaluation sessions recorded for this item yet. Set the baseline status using the buttons above.</p>
+          </div>
+
+          <div class="timeline-list" *ngIf="inspectedItem.evaluations.length > 0">
+            <div class="timeline-item" *ngFor="let ev of inspectedItem.evaluations">
+              <div class="item-head">
+                <span class="ev-date">{{ ev.date }}</span>
+                <span class="ev-type">{{ ev.lessonType }}</span>
+                <span class="ev-mistakes" [class.danger]="ev.mistakes > 0">{{ ev.mistakes }} mistakes</span>
+              </div>
+              <div class="item-range">{{ ev.rangeText }}</div>
+              <div class="item-remarks" *ngIf="ev.remarks">"{{ ev.remarks }}"</div>
+              <div class="item-teacher" *ngIf="ev.evaluatedByName">Recorded by: {{ ev.evaluatedByName }}</div>
+            </div>
           </div>
         </div>
       </div>
-    </mat-tab>
-
-    <!-- Dawr Tab -->
-    <mat-tab label="Dawr (Revision)">
-      <div class="tab-body">
-        <div class="dawr-settings">
-          <mat-form-field appearance="outline" class="w-100">
-            <mat-label>Completed Dawr Rounds</mat-label>
-            <input matInput type="number" [(ngModel)]="completedDawrRounds" placeholder="e.g. 1">
-            <mat-hint>Total full Quran revisions completed.</mat-hint>
-          </mat-form-field>
-          
-          <mat-form-field appearance="outline" class="w-100 mt-3">
-            <mat-label>Current Round Progress (Juz #)</mat-label>
-            <input matInput type="number" [(ngModel)]="currentRoundJuz" placeholder="e.g. 15">
-            <mat-hint>Which Juz are they currently revising in their current round?</mat-hint>
-          </mat-form-field>
-        </div>
-      </div>
-    </mat-tab>
-  </mat-tab-group>
+    </div>
+  </div>
 </div>
 
 <div class="dialog-actions">
-  <button mat-button (click)="dialogRef.close()" [disabled]="isSaving">Cancel</button>
-  <button mat-raised-button color="primary" (click)="saveProgress()" [disabled]="isSaving">
-    <mat-icon *ngIf="!isSaving">save</mat-icon>
-    <mat-spinner diameter="20" *ngIf="isSaving"></mat-spinner>
-    {{ isSaving ? 'Saving...' : 'Save Progress' }}
+  <button type="button" class="btn-cancel" (click)="dialogRef.close()" [disabled]="isSaving">Cancel</button>
+  <button type="button" class="btn-save" (click)="saveProgress()" [disabled]="isSaving">
+    <span *ngIf="!isSaving">Save Baseline Progress</span>
+    <span *ngIf="isSaving">Saving...</span>
   </button>
 </div>
