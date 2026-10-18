@@ -690,14 +690,10 @@
           </div>
 
           <!-- ADMIN CONTROLS (Organization Admin & Super Admin ONLY) -->
-          <div class="admin-eval-bar" *ngIf="isSuperAdmin || isOrgAdmin">
-            <button type="button" class="btn-admin-pill cfg-pill" (click)="openConfigureMaktabSubjects()" *ngIf="studentTypeMode === 'maktab'" title="Configure approved Maktab curriculum subjects for organization">
+          <div class="admin-eval-bar" *ngIf="(isSuperAdmin || isOrgAdmin) && studentTypeMode === 'maktab'">
+            <button type="button" class="btn-admin-pill cfg-pill" (click)="openConfigureMaktabSubjects()" title="Configure approved Maktab curriculum subjects for organization">
               <mat-icon class="admin-pill-ic">tune</mat-icon>
               <span>Configure Subjects</span>
-            </button>
-            <button type="button" class="btn-admin-pill rst-pill" (click)="resetAllStudentProgress()" title="Remove all existing progress logs to start fresh with initial student progress">
-              <mat-icon class="admin-pill-ic">restart_alt</mat-icon>
-              <span>Reset All Progress (Fresh Start)</span>
             </button>
           </div>
 
@@ -705,9 +701,6 @@
             <button *ngIf="canUndoProgress" type="button" class="undo-header-btn" (click)="undoLastProgressSave()" title="Undo the most recent progress save">
               <mat-icon>undo</mat-icon>
               <span>Undo Save</span>
-            </button>
-            <button mat-stroked-button color="accent" (click)="copyPreviousTarget()" [disabled]="!canManageAttendance">
-              <mat-icon>content_copy</mat-icon> Copy Yesterday's Target
             </button>
             <button mat-raised-button color="primary" class="save-progress-header-btn" (click)="saveProgressOnly()"
               [disabled]="!canManageAttendance || isSavingProgress || isSavingAll">
