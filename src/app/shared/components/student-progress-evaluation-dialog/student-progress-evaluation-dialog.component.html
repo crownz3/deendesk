@@ -2,9 +2,6 @@
   <!-- DIALOG HEADER -->
   <div class="dialog-header">
     <div class="student-profile-bar">
-      <div class="student-avatar-badge">
-        {{ (student['fullName'] || student['name'] || 'S').charAt(0).toUpperCase() }}
-      </div>
       <div class="student-meta">
         <h2 class="student-title">{{ student['fullName'] || student['name'] }}</h2>
         <div class="meta-tags">
@@ -23,7 +20,8 @@
     </div>
     <div class="header-action-group">
       <button type="button" class="btn-undo-header" (click)="resetToInitialSnapshot()" title="Revert all changes made in this dialog to initial state">
-        ↺ Revert
+        <mat-icon class="undo-ic">replay</mat-icon>
+        <span>Revert</span>
       </button>
       <button type="button" class="close-x-btn" (click)="cancel()" aria-label="Close dialog">✕</button>
     </div>

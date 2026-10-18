@@ -2400,6 +2400,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(StudentProgressEvaluationDialogComponent, {
       width: '680px',
       maxWidth: '96vw',
+      maxHeight: '90vh',
       panelClass: 'custom-target-dialog-panel',
       data: {
         student: item.student,

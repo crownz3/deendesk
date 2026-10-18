@@ -1029,14 +1029,18 @@ app-global-loader,
 
 .custom-target-dialog-panel {
   max-height: 90vh !important;
+  display: flex !important;
+  flex-direction: column !important;
 
   .mat-mdc-dialog-container, .mat-dialog-container {
     padding: 0 !important;
-    border-radius: 16px !important;
+    border-radius: 18px !important;
     overflow: hidden !important;
     max-height: 90vh !important;
+    height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
+    background: transparent !important;
 
     .mat-mdc-dialog-surface, .mdc-dialog__surface {
       max-height: 90vh !important;
@@ -1044,14 +1048,25 @@ app-global-loader,
       display: flex !important;
       flex-direction: column !important;
       overflow: hidden !important;
+      background: #ffffff !important;
+      border-radius: 18px !important;
     }
   }
 
   @media (max-width: 600px) {
     max-width: 96vw !important;
     width: 96vw !important;
-    max-height: 92vh !important;
+    max-height: 94vh !important;
+    height: 94vh !important;
     margin: auto !important;
+
+    .mat-mdc-dialog-container, .mat-dialog-container {
+      max-height: 94vh !important;
+
+      .mat-mdc-dialog-surface, .mdc-dialog__surface {
+        max-height: 94vh !important;
+      }
+    }
   }
 }
 
