@@ -463,38 +463,89 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         const qr = docData.quranReading || m;
         const surah = qr.surahName || m.surahName || (docData.maktabSubject ? docData.maktabSubject.replace('Quran: ', '') : 'Al-Baqarah');
         const lastTo = parseInt(String(qr.toAyah || m.toAyah || docData.maktabLessonNo || 1), 10) || 1;
+        const maxAyahs = this.getMaxAyah(surah) || 286;
         this.tilawatSurah = surah;
         this.tilawatFromAyah = lastTo + 1;
-        this.tilawatToAyah = lastTo + 10;
+        this.tilawatToAyah = Math.min(lastTo + 10, maxAyahs);
         this.tilawatEvalMode = 'surah';
         this.snackBar.open(`Continued Tilawatul Quran from ${surah} Ayah ${lastTo + 1}!`, 'OK', { duration: 2500 });
       } else {
         this.maktabStageMode = 'miftah';
-        const lastPg = parseInt(String(m.pageNo || m.maktabPageNo || docData.maktabPageNo || 1), 10) || 1;
+        const lastPg = parseInt(String(m.endPage || m.pageNo || m.maktabPageNo || docData.maktabPageNo || 1), 10) || 1;
         const lastLine = parseInt(String(m.lineNo || m.maktabLessonNo || docData.maktabLessonNo || 1), 10) || 1;
         if (this.maktabSubjects.length === 0) {
-          this.addMaktabSubject(m.subjectName || 'Noorani Qaida');
+          this.addMaktabSubject(m.subjectName || m.subject || 'Noorani Qaida');
         }
         this.maktabSubjects[0].startPage = lastPg;
         this.maktabSubjects[0].endPage = lastPg + 1;
         this.maktabSubjects[0].lineNo = lastLine;
-        this.snackBar.open(`Continued from Page ${lastPg}!`, 'OK', { duration: 2500 });
+        this.snackBar.open(`Continued Maktab Miftah from Page ${lastPg}!`, 'OK', { duration: 2500 });
       }
     } else {
       const h = docData.hifzProgress || docData;
       const sabaq = h.sabaqSurahName || h.sabaqSurah;
-      const toAyah = parseInt(String(h.sabaqToAyah || h.sabaqAyahTo || 1), 10) || 1;
+      const prevFromAyah = parseInt(String(h.sabaqFromAyah || h.sabaqAyahFrom || 1), 10) || 1;
+      const prevToAyah = parseInt(String(h.sabaqToAyah || h.sabaqAyahTo || 1), 10) || 1;
+
       if (sabaq) {
+        // 1. New Lesson (Sabaq): Starts right after previous Sabaq's ending ayah
         this.sabaqStartSurah = sabaq;
-        this.sabaqStartAyah = toAyah + 1;
+        this.sabaqStartAyah = prevToAyah + 1;
         this.sabaqEndSurah = sabaq;
-        this.sabaqEndAyah = toAyah + 10;
+        const maxAyah = this.getMaxAyah(sabaq) || 286;
+        this.sabaqEndAyah = Math.min(prevToAyah + 10, maxAyah);
         this.hifzEvalUnitMode = 'surah';
-        this.snackBar.open(`Continued from ${sabaq} Ayah ${toAyah + 1}!`, 'OK', { duration: 2500 });
+
+        // 2. Old Lesson (Sabqi / Recent Lesson): In Madrasa curriculum, yesterday's New Lesson is tested as today's Old Lesson!
+        this.sabqiStartSurah = sabaq;
+        this.sabqiStartAyah = prevFromAyah;
+        this.sabqiEndSurah = sabaq;
+        this.sabqiEndAyah = prevToAyah;
+        this.snackBar.open(`Continued: New Lesson from Ayah ${prevToAyah + 1}, Old Lesson set to previous Sabaq (${prevFromAyah}–${prevToAyah})!`, 'OK', { duration: 3000 });
+      } else if (h.sabaqJuzNo || h.sabaqJuz) {
+        const lastJuz = parseInt(String(h.sabaqJuzNo || h.sabaqJuz), 10) || 1;
+        const lastEndPg = parseInt(String(h.sabaqEndPage || 1), 10) || 1;
+        this.sabaqJuz = lastJuz;
+        this.sabaqStartPage = lastEndPg + 1;
+        this.sabaqEndPage = lastEndPg + 2;
+        this.hifzEvalUnitMode = 'juz';
+        this.snackBar.open(`Continued: New Lesson Juz ${lastJuz} from Page ${lastEndPg + 1}!`, 'OK', { duration: 2500 });
+      }
+
+      // 3. Revision of Memorized Quran (Manzil / Dawr)
+      const d = docData.dawrProgress || h;
+      const prevEndJuz = d.manzilEndJuz || h.manzilEndJuz || d.dawrEndJuz || d.manzilStartJuz;
+      const prevEndPortion = d.manzilEndPortion || h.manzilEndPortion || d.dawrEndPortion || 'Full Juz';
+      if (prevEndJuz) {
+        this.manzilStartJuz = prevEndJuz;
+        this.manzilStartPortion = prevEndPortion;
+        if (prevEndPortion === 'Full Juz' || prevEndPortion === '2nd Half (Nisf 2)' || prevEndPortion === "4th Quarter (Rub' 4)") {
+          const nextJuz = prevEndJuz >= 30 ? 1 : prevEndJuz + 1;
+          this.manzilEndJuz = nextJuz;
+          this.manzilEndPortion = prevEndPortion === 'Full Juz' ? 'Full Juz' : (prevEndPortion.includes('Half') ? '1st Half (Nisf 1)' : "1st Quarter (Rub' 1)");
+        } else {
+          this.manzilEndJuz = prevEndJuz;
+          this.manzilEndPortion = this.getNextPortion(prevEndPortion);
+        }
       }
     }
     // HIDE banner after clicking continue as requested by user
     this.lastProgressSummary = null;
+  }
+
+  getNextPortion(portion: string): string {
+    switch (portion) {
+      case "1st Quarter (Rub' 1)":
+        return "2nd Quarter (Rub' 2)";
+      case "2nd Quarter (Rub' 2)":
+        return "3rd Quarter (Rub' 3)";
+      case "3rd Quarter (Rub' 3)":
+        return "4th Quarter (Rub' 4)";
+      case "1st Half (Nisf 1)":
+        return "2nd Half (Nisf 2)";
+      default:
+        return portion || 'Full Juz';
+    }
   }
 
   // Maktab Methods
