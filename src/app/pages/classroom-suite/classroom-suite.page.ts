@@ -64,6 +64,7 @@ export interface StudentSuiteRosterItem {
   targetDawrDailyJuz?: string;
   targetIncompleteReason?: string;
   targetIncompleteNotes?: string;
+  targetGoal?: string;
   // Hifz Progress Fields
   evalUnitMode?: 'surah' | 'juz' | 'page';
   sabaqSurah: string;
@@ -2154,6 +2155,114 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         this.snackBar.open('Dawr revision requirement updated successfully!', 'OK', { duration: 3000 });
       }
     });
+  }
+
+  getStudentProgressStatus(item: StudentSuiteRosterItem): { isEvaluated: boolean; label: string; details: string; rating: number; mistakes?: number | null } {
+    if (this.studentTypeMode === 'maktab') {
+      if (item.maktabSubjectsList && item.maktabSubjectsList.length > 0) {
+        const subNames = item.maktabSubjectsList.map(s => `${s.customSubjectName || s.subject} (Pg ${s.startPage || 1}–${s.endPage || 1})`).join(' • ');
+        return {
+          isEvaluated: true,
+          label: `${item.maktabSubjectsList.length} Subject${item.maktabSubjectsList.length > 1 ? 's' : ''}`,
+          details: subNames,
+          rating: item.weeklyRating || 5,
+          mistakes: item.maktabMistakes
+        };
+      }
+      if (item.weeklyMaktabSubject || item.maktabSubject) {
+        const name = item.weeklyMaktabSubject || item.maktabSubject;
+        const startPg = item.weeklyMaktabStartPage || 1;
+        const endPg = item.weeklyMaktabEndPage || item.maktabPage || 1;
+        return {
+          isEvaluated: true,
+          label: name,
+          details: `Pg ${startPg}–${endPg}${item.maktabLineNo ? ', Line ' + item.maktabLineNo : ''}`,
+          rating: item.weeklyRating || 5,
+          mistakes: item.maktabMistakes
+        };
+      }
+    } else if (this.studentTypeMode === 'dawr') {
+      if (item.weeklyDawrRounds || item.dawrRoundNo) {
+        const round = item.weeklyDawrRounds || item.dawrRoundNo || 1;
+        const count = item.weeklyDawrJuzCount ? `${item.weeklyDawrJuzCount} Juzs` : (item.dawrPortionJuz || 'Revision');
+        return {
+          isEvaluated: true,
+          label: `Round ${round}`,
+          details: count,
+          rating: item.weeklyRating || item.dawrRating || 5,
+          mistakes: item.dawrMistakes
+        };
+      }
+    } else {
+      // Hifz
+      if (item.hifzLessonsList && item.hifzLessonsList.length > 0) {
+        const summary = item.hifzLessonsList.map(l => {
+          if (l.mode === 'juz') {
+            return `Juz ${l.juzNumber} (Pg ${l.fromPage || 1}–${l.toPage || 1})`;
+          }
+          return `${l.surahName || 'Surah'} (${l.fromAyah || 1}–${l.toAyah || 1})`;
+        }).join(' • ');
+        return {
+          isEvaluated: true,
+          label: 'Hifz Portions',
+          details: summary,
+          rating: item.weeklyRating || item.hifzRating || 5,
+          mistakes: item.weeklyMistakes || item.sabaqMistakes
+        };
+      }
+
+      const sabaq = item.weeklySabaqEndSurah || item.sabaqSurah;
+      const sabaqJuz = item.weeklySabaqStartJuz || item.sabaqJuz;
+      if (sabaq || sabaqJuz) {
+        const sabaqText = sabaq
+          ? `${sabaq} (${item.weeklySabaqStartAyah || item.sabaqFromAyah || 1}–${item.weeklySabaqEndAyah || item.sabaqToAyah || 1})`
+          : `Juz ${sabaqJuz} (Pg ${item.weeklySabaqStartPage || 1}–${item.weeklySabaqEndPage || 1})`;
+
+        const sabqiText = item.weeklySabqiRange || item.sabqiSurah || (item.weeklySabqiStartJuz ? `Juz ${item.weeklySabqiStartJuz}` : '');
+        const manzilText = item.weeklyManzilRange || item.manzilSurah || (item.weeklyManzilStartJuz ? `Juz ${item.weeklyManzilStartJuz}` : '');
+
+        let details = `Sabaq: ${sabaqText}`;
+        if (sabqiText) details += ` | Sabqi: ${sabqiText}`;
+        if (manzilText) details += ` | Dawr: ${manzilText}`;
+
+        return {
+          isEvaluated: true,
+          label: sabaqText,
+          details,
+          rating: item.weeklyRating || item.hifzRating || 5,
+          mistakes: item.weeklyMistakes || item.sabaqMistakes
+        };
+      }
+    }
+
+    return {
+      isEvaluated: false,
+      label: 'Pending Evaluation',
+      details: 'No progress recorded yet for this session',
+      rating: 5,
+      mistakes: null
+    };
+  }
+
+  getEvaluatedCount(): number {
+    return this.filteredRoster.filter(r => this.getStudentProgressStatus(r).isEvaluated).length;
+  }
+
+  getTargetGoalText(item: StudentSuiteRosterItem): string | null {
+    if (item.targetGoal) return item.targetGoal;
+    if (item.targetSabaqSurah) {
+      return `${item.targetSabaqSurah} (${item.targetSabaqFromAyah || 1}–${item.targetSabaqToAyah || ''})`;
+    }
+    if (item.targetSabaqJuz) {
+      return `Juz ${item.targetSabaqJuz}`;
+    }
+    if (item.targetMaktabSubject) {
+      return `${item.targetMaktabSubject} (Pg ${item.targetMaktabPage || 1})`;
+    }
+    if (item.targetDawrDailyJuz) {
+      return item.targetDawrDailyJuz;
+    }
+    return item.student['targetGoal'] || null;
   }
 
   // Single Student Comprehensive Evaluation Dialog Launcher
