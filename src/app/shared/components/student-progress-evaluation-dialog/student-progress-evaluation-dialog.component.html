@@ -89,13 +89,7 @@
         <div class="manager-existing-list">
           <div class="manager-sub-row" *ngFor="let s of predefinedMaktabSubjects; let sIdx = index">
             <div class="sub-row-main">
-              <div class="sub-row-title-bar">
-                <strong class="sub-row-title">{{ s.title }}</strong>
-                <span class="sub-stages-count">{{ s.stages.length }} Milestones</span>
-              </div>
-              <div class="sub-row-stages">
-                <span class="stage-chip" *ngFor="let st of s.stages">{{ st }}</span>
-              </div>
+              <strong class="sub-row-title">{{ s.title }}</strong>
             </div>
             <button type="button" class="btn-delete-sub" (click)="removeOrgSubject(sIdx)" *ngIf="predefinedMaktabSubjects.length > 1" title="Delete subject">
               <mat-icon>delete_outline</mat-icon>
@@ -108,14 +102,10 @@
             <mat-icon class="add-icon">add_circle_outline</mat-icon>
             <h4 class="add-form-title">Add New Organization Subject</h4>
           </div>
-          <div class="add-form-grid">
+          <div class="add-form-single">
             <div class="form-col">
               <label>Subject Name</label>
-              <input type="text" class="text-input" [(ngModel)]="newSubjectTitle" placeholder="e.g. Arabic Grammar (Nahw)" />
-            </div>
-            <div class="form-col">
-              <label>Stages / Milestones (comma-separated)</label>
-              <input type="text" class="text-input" [(ngModel)]="newSubjectStagesText" placeholder="e.g. Letters, Harakath, Tanween, Sukoon..." />
+              <input type="text" class="text-input" [(ngModel)]="newSubjectTitle" (keyup.enter)="addNewOrgSubject()" placeholder="e.g. Arabic Grammar, Tajweed, Seerah" />
             </div>
           </div>
           <div class="manager-add-actions">
@@ -141,7 +131,7 @@
               </mat-select>
             </div>
             <button type="button" class="remove-sub-btn" (click)="removeMaktabSubject(idx)" title="Remove subject" *ngIf="maktabSubjects.length > 1">
-              🗑
+              <mat-icon>delete_outline</mat-icon>
             </button>
           </div>
 
@@ -151,16 +141,6 @@
               <div class="field-item full">
                 <label class="field-label">Custom Subject Name</label>
                 <input type="text" class="text-input" [(ngModel)]="item.customSubjectName" placeholder="Enter subject name (e.g. Arabic Writing, Seerah)" />
-              </div>
-            </div>
-
-            <!-- Stage Configuration -->
-            <div class="form-row">
-              <div class="field-item full">
-                <label class="field-label">Topic / Stage Configuration</label>
-                <mat-select class="stage-mat-select" [(ngModel)]="item.stage" panelClass="quran-juz-mat-panel">
-                  <mat-option *ngFor="let stg of getStagesForSubject(item.subject)" [value]="stg">{{ stg }}</mat-option>
-                </mat-select>
               </div>
             </div>
 

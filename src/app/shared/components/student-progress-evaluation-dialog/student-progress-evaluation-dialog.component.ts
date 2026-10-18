@@ -78,68 +78,14 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     '2nd Half (Nisf 2)'
   ];
 
-  // Pre-configured Maktab Subjects and Stages
-  predefinedMaktabSubjects = [
-    {
-      id: 'Noorani Qaida',
-      title: 'Noorani Qaida / Base Qaida',
-      stages: [
-        'Letters Only (Mufradat / Single Letters)',
-        'Compound Letters (Murakkabat)',
-        'With Harakath (Zabar, Zer, Pesh)',
-        'Tanween (Double Harakath)',
-        'Sukoon / Jazm Practice',
-        'Madd & Leen Letters',
-        'Tashdeed (Shaddah) Practice',
-        'Nun Sakin & Meem Sakin Rules',
-        'Full Qaida Revision'
-      ]
-    },
-    {
-      id: 'Nazira Quran',
-      title: 'Nazira (Quran Reading)',
-      stages: [
-        'Juz 30 (Amma Para)',
-        'Beginning Juz (Juz 1-5)',
-        'Mid Quran (Juz 6-20)',
-        'Full Mushaf Reading',
-        'Tajweed Fluency'
-      ]
-    },
-    {
-      id: 'Masnoon Duas',
-      title: 'Masnoon Duas & Daily Adhkar',
-      stages: [
-        'Daily Routine Duas (Eating, Sleeping, Leaving Home)',
-        'Wudu & Salah Duas',
-        'Kalimahs & Basic Iman',
-        'Selected Short Surahs & Duas'
-      ]
-    },
-    {
-      id: 'Fiqh & Akhlaq',
-      title: 'Fiqh & Islamic Studies (Akhlaq)',
-      stages: [
-        'Taharah (Purity & Wudu)',
-        'Salah Guide & Practice',
-        'Fasting & Halal/Haram',
-        'Islamic Morals & Etiquette'
-      ]
-    },
-    {
-      id: 'Hadith',
-      title: 'Hadith Memorization',
-      stages: [
-        'Short Daily Hadiths',
-        'Arba\'een (40 Hadith)',
-        'Hadith Meanings & Action'
-      ]
-    },
-    {
-      id: 'Custom',
-      title: 'Other / Custom Subject',
-      stages: ['General Reading', 'Writing / Arabic Script', 'Chapter Revision', 'Oral Exam']
-    }
+  // Pre-configured Maktab Subjects (stages are managed at class/student level)
+  predefinedMaktabSubjects: Array<{ id: string; title: string }> = [
+    { id: 'Noorani Qaida', title: 'Noorani Qaida / Base Qaida' },
+    { id: 'Nazira Quran', title: 'Nazira (Quran Reading)' },
+    { id: 'Masnoon Duas', title: 'Masnoon Duas & Daily Adhkar' },
+    { id: 'Fiqh & Akhlaq', title: 'Fiqh & Islamic Studies (Akhlaq)' },
+    { id: 'Hadith', title: 'Hadith Memorization' },
+    { id: 'Custom', title: 'Other / Custom Subject' }
   ];
 
   // Maktab Multi-Subject Entries
@@ -200,7 +146,6 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   canConfigureSubjects = false;
   isManagingSubjects = false;
   newSubjectTitle = '';
-  newSubjectStagesText = 'Letters, Harakath, Tanween, Sukoon, Madd, Tashdeed';
 
   // Snapshot for in-dialog Undo
   initialStateSnapshot = '';
@@ -234,7 +179,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           const orgData: any = snap.data();
           const orgSubs = orgData?.academicSettings?.maktabSubjects;
           if (Array.isArray(orgSubs) && orgSubs.length > 0) {
-            this.predefinedMaktabSubjects = JSON.parse(JSON.stringify(orgSubs));
+            this.predefinedMaktabSubjects = orgSubs.map((s: any) => typeof s === 'string' ? { id: s, title: s } : { id: s.id || s.title, title: s.title || s.id });
           }
         }
       } catch (e) {
@@ -255,25 +200,19 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
 
   addNewOrgSubject(): void {
     if (!this.canConfigureSubjects) return;
-    if (!this.newSubjectTitle.trim()) {
+    const name = this.newSubjectTitle.trim();
+    if (!name) {
       this.snackBar.open('Please enter a subject name', 'OK', { duration: 2500 });
       return;
     }
 
-    const stages = this.newSubjectStagesText
-      .split(',')
-      .map(s => s.trim())
-      .filter(s => !!s);
-
     const newSub = {
-      id: this.newSubjectTitle.trim(),
-      title: this.newSubjectTitle.trim(),
-      stages: stages.length > 0 ? stages : ['Stage 1', 'Stage 2', 'Completed']
+      id: name,
+      title: name
     };
 
     this.predefinedMaktabSubjects.push(newSub);
     this.newSubjectTitle = '';
-    this.newSubjectStagesText = 'Stage 1, Stage 2, Completed';
     this.saveOrgConfiguredSubjects();
   }
 
@@ -293,14 +232,21 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       const snap = await getDoc(orgRef);
       const currentSettings = snap.exists() ? (snap.data()['academicSettings'] || {}) : {};
 
+      const subjectsToSave = this.predefinedMaktabSubjects
+        .filter(s => s.id !== 'Custom')
+        .map(s => ({
+          id: s.id || s.title,
+          title: s.title || s.id
+        }));
+
       await setDoc(orgRef, {
         academicSettings: {
           ...currentSettings,
-          maktabSubjects: this.predefinedMaktabSubjects
+          maktabSubjects: subjectsToSave
         }
       }, { merge: true });
 
-      this.snackBar.open('Organization curriculum subjects updated successfully!', 'OK', { duration: 3000 });
+      this.snackBar.open('Curriculum subjects saved to organization details!', 'OK', { duration: 3000 });
     } catch (e: any) {
       console.error('Failed to save org subjects:', e);
       this.snackBar.open('Failed to save organization subjects: ' + e.message, 'Close', { duration: 4000 });
@@ -375,7 +321,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         const lineNo = item.maktabLineNo || 1;
         this.maktabSubjects.push({
           subject: subName,
-          stage: 'With Harakath (Zabar, Zer, Pesh)',
+          stage: '',
           startPage: startPg,
           endPage: endPg,
           lineNo: lineNo,
@@ -540,8 +486,8 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   addMaktabSubject(defaultId: string = 'Noorani Qaida'): void {
     const config = this.predefinedMaktabSubjects.find(s => s.id === defaultId);
     this.maktabSubjects.push({
-      subject: config ? config.id : defaultId,
-      stage: config?.stages[0] || 'General',
+      subject: config ? config.id : (this.predefinedMaktabSubjects[0]?.id || defaultId),
+      stage: '',
       startPage: 1,
       endPage: 2,
       lineNo: 1,
@@ -554,13 +500,11 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   }
 
   getStagesForSubject(subjectId: string): string[] {
-    const found = this.predefinedMaktabSubjects.find(s => s.id === subjectId);
-    return found ? found.stages : ['General'];
+    return [];
   }
 
   onSubjectChanged(item: MaktabSubjectEntry): void {
-    const stages = this.getStagesForSubject(item.subject);
-    item.stage = stages[0] || 'General';
+    item.stage = '';
   }
 
   // Hifz Extra Lessons

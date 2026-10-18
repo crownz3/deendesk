@@ -3438,11 +3438,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           if (names.length === 0) throw new Error('Please specify at least one subject.');
 
           const updatedSubs = names.map((name: string) => {
-            const existing = currentSubs.find(cs => cs.title.toLowerCase() === name.toLowerCase() || cs.id.toLowerCase() === name.toLowerCase());
-            return existing || {
-              id: name,
-              title: name,
-              stages: ['Stage 1', 'Stage 2', 'Completed']
+            const existing = currentSubs.find(cs => (cs.title || cs.id || '').toLowerCase() === name.toLowerCase());
+            return {
+              id: existing?.id || name,
+              title: existing?.title || name
             };
           });
 
