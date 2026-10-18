@@ -19,6 +19,7 @@ log.txt
 
 # Ionic
 /.ionic
+/.firebase
 /www
 /platforms
 /plugins
@@ -69,3 +70,12 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Firebase & Cloud Credentials
+*adminsdk*.json
+*firebase-adminsdk*.json
+service-account*.json
+*.pem
+*.key
+google-services.json
+GoogleService-Info.plist
