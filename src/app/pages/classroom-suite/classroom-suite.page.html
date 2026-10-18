@@ -888,9 +888,10 @@
                 <button type="button" 
                         class="btn-card-action btn-evaluate" 
                         [class.evaluated]="getStudentProgressStatus(item).isEvaluated"
-                        (click)="openSingleStudentEvaluationModal(item)">
+                        (click)="openSingleStudentEvaluationModal(item)"
+                        [title]="getStudentProgressStatus(item).isEvaluated ? 'Edit Student Evaluation' : 'Evaluate Student Progress'">
                   <mat-icon class="act-ic">{{ getStudentProgressStatus(item).isEvaluated ? 'edit' : 'add_task' }}</mat-icon>
-                  <span>{{ getStudentProgressStatus(item).isEvaluated ? 'Edit Evaluation' : 'Evaluate Progress' }}</span>
+                  <span>{{ getStudentProgressStatus(item).isEvaluated ? 'Edit' : 'Evaluate' }}</span>
                 </button>
               </div>
 

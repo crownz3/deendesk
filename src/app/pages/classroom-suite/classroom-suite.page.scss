@@ -5243,7 +5243,7 @@ select.inline-select,
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 16px 14px 16px;
+    padding: 10px 14px 14px 14px;
     background: #ffffff;
     border-top: 1px solid #f1f5f9;
 
@@ -5255,8 +5255,9 @@ select.inline-select,
       font-size: 0.78rem;
       font-weight: 700;
       border-radius: 8px;
-      padding: 7px 12px;
+      padding: 7px 11px;
       cursor: pointer;
+      white-space: nowrap;
       transition: all 0.15s ease;
       border: 1px solid transparent;
 
@@ -5264,12 +5265,14 @@ select.inline-select,
         font-size: 16px;
         width: 16px;
         height: 16px;
+        flex-shrink: 0;
       }
 
       &.btn-target {
         background: #f8fafc;
         border-color: #e2e8f0;
         color: #475569;
+        flex: 0 0 auto;
 
         &:hover {
           background: #eff6ff;
@@ -5282,6 +5285,7 @@ select.inline-select,
         background: #f8fafc;
         border-color: #e2e8f0;
         color: #475569;
+        flex: 0 0 auto;
 
         &:hover {
           background: #f0fdf4;
@@ -5291,9 +5295,14 @@ select.inline-select,
       }
 
       &.btn-evaluate {
-        flex: 1;
+        flex: 1 1 auto;
+        min-width: 0;
         background: #2563eb;
         color: #ffffff;
+
+        span {
+          white-space: nowrap;
+        }
 
         &:hover {
           background: #1d4ed8;
@@ -5310,6 +5319,20 @@ select.inline-select,
             border-color: #6ee7b7;
           }
         }
+      }
+    }
+
+    @media (max-width: 360px) {
+      flex-wrap: wrap;
+
+      .btn-target,
+      .btn-baseline {
+        flex: 1 1 calc(50% - 4px);
+      }
+
+      .btn-evaluate {
+        flex: 1 1 100%;
+        order: -1;
       }
     }
   }
