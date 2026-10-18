@@ -1,0 +1,118 @@
+<div class="maktab-config-dialog">
+  <!-- DIALOG HEADER -->
+  <div class="dialog-header">
+    <div class="header-title-box">
+      <div class="header-icon-wrap">
+        <mat-icon class="header-icon">menu_book</mat-icon>
+      </div>
+      <div class="header-text">
+        <div class="title-row">
+          <h2 class="dialog-title">Configure Maktab Curriculum Subjects</h2>
+          <span class="admin-badge">Org Admin</span>
+        </div>
+        <p class="dialog-subtitle">Manage approved subjects for student progress evaluations across your organization.</p>
+      </div>
+    </div>
+    <button type="button" class="btn-close-header" (click)="cancel()" aria-label="Close dialog">✕</button>
+  </div>
+
+  <!-- DIALOG BODY -->
+  <div class="dialog-body">
+    <!-- ADD SUBJECT FORM -->
+    <div class="add-subject-card">
+      <div class="add-card-header">
+        <mat-icon class="add-card-icon">add_circle_outline</mat-icon>
+        <span class="add-card-title">Add New Subject</span>
+      </div>
+      <div class="add-input-row">
+        <div class="input-field-wrap">
+          <input
+            type="text"
+            class="subject-text-input"
+            [(ngModel)]="newSubjectTitle"
+            (keyup.enter)="addSubject()"
+            placeholder="e.g. Arabic Grammar, Tajweed, Seerah, Duas..."
+            [disabled]="isSaving || isLoading"
+            maxlength="80"
+          />
+        </div>
+        <button
+          type="button"
+          class="btn-add-subject"
+          (click)="addSubject()"
+          [disabled]="!newSubjectTitle.trim() || isSaving || isLoading"
+        >
+          <mat-icon>add</mat-icon>
+          <span>Add</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- SUBJECTS LIST HEADER -->
+    <div class="list-section-header">
+      <div class="section-title-wrap">
+        <span class="section-label">Configured Subjects</span>
+        <span class="count-badge">{{ subjects.length }}</span>
+      </div>
+      <button
+        type="button"
+        class="btn-restore-defaults"
+        (click)="restoreDefaults()"
+        [disabled]="isSaving || isLoading"
+        title="Reset subjects list to standard default Maktab curriculum"
+      >
+        <mat-icon>restart_alt</mat-icon>
+        <span>Reset Defaults</span>
+      </button>
+    </div>
+
+    <!-- LOADING STATE -->
+    <div class="loading-state" *ngIf="isLoading">
+      <mat-icon class="spin-icon">sync</mat-icon>
+      <span>Loading curriculum subjects...</span>
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div class="empty-state" *ngIf="!isLoading && subjects.length === 0">
+      <mat-icon class="empty-icon">school</mat-icon>
+      <p class="empty-title">No Subjects Configured</p>
+      <p class="empty-desc">Add a subject above or click "Reset Defaults" to load the standard Maktab subjects.</p>
+    </div>
+
+    <!-- SUBJECTS LIST -->
+    <div class="subjects-list" *ngIf="!isLoading && subjects.length > 0">
+      <div class="subject-row" *ngFor="let item of subjects; let i = index">
+        <div class="row-left">
+          <span class="subject-index">#{{ i + 1 }}</span>
+          <span class="subject-name">{{ item.title }}</span>
+        </div>
+        <button
+          type="button"
+          class="btn-delete-row"
+          (click)="removeSubject(i)"
+          [disabled]="isSaving"
+          title="Remove {{ item.title }}"
+        >
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIALOG FOOTER -->
+  <div class="dialog-footer">
+    <button type="button" class="btn-cancel" (click)="cancel()" [disabled]="isSaving">
+      Cancel
+    </button>
+    <button
+      type="button"
+      class="btn-save-curriculum"
+      (click)="save()"
+      [disabled]="isSaving || isLoading || subjects.length === 0"
+    >
+      <mat-icon *ngIf="!isSaving">check_circle</mat-icon>
+      <mat-icon *ngIf="isSaving" class="spin-icon">sync</mat-icon>
+      <span>{{ isSaving ? 'Saving...' : 'Save Curriculum' }}</span>
+    </button>
+  </div>
+</div>

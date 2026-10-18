@@ -89,6 +89,7 @@ import { UserDetailsDialogComponent } from './shared/components/user-details-dia
 import { StudentProgressTrackerDialogComponent } from './shared/components/student-progress-tracker-dialog/student-progress-tracker-dialog.component';
 import { StudentProgressEntryDialogComponent } from './shared/components/student-progress-entry-dialog/student-progress-entry-dialog.component';
 import { StudentProgressEvaluationDialogComponent } from './shared/components/student-progress-evaluation-dialog/student-progress-evaluation-dialog.component';
+import { ConfigureMaktabSubjectsDialogComponent } from './shared/components/configure-maktab-subjects-dialog/configure-maktab-subjects-dialog.component';
 import { MadrasaDetailsDialogComponent } from './shared/components/madrasa-details-dialog/madrasa-details-dialog.component';
 import { HelpGuideDialogComponent } from './shared/components/help-guide-dialog/help-guide-dialog.component';
 import { SetupMapComponent } from './shared/components/setup-map/setup-map.component';
@@ -273,6 +274,7 @@ import { ComplianceMonitorPage } from './pages/compliance-monitor/compliance-mon
     StudentProgressTrackerDialogComponent,
     StudentProgressEntryDialogComponent,
     StudentProgressEvaluationDialogComponent,
+    ConfigureMaktabSubjectsDialogComponent,
     MadrasaDetailsDialogComponent,
     HelpGuideDialogComponent,
     SetupMapComponent,

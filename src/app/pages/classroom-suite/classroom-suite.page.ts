@@ -19,6 +19,7 @@ import { StudentAttendanceHistoryDialogComponent, StudentAttendanceHistoryRecord
 import { ClassGroupAttendanceDetailsDialogComponent, ClassGroupAttendanceDetailsDialogData, StudentAttendanceDetailRecord } from '../dashboard/class-group-attendance-details-dialog.component';
 import { StudentEvaluationDialogComponent } from '../attendance/student-evaluation-dialog.component';
 import { StudentProgressEvaluationDialogComponent } from '../../shared/components/student-progress-evaluation-dialog/student-progress-evaluation-dialog.component';
+import { ConfigureMaktabSubjectsDialogComponent } from '../../shared/components/configure-maktab-subjects-dialog/configure-maktab-subjects-dialog.component';
 
 export interface OverviewClassGroupStatus {
   groupId: string;
@@ -3391,7 +3392,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   }
 
   // Admin: Configure Maktab curriculum subjects for organization
-  async openConfigureMaktabSubjects(): Promise<void> {
+  openConfigureMaktabSubjects(): void {
     if (!this.isSuperAdmin && !this.isOrgAdmin) {
       this.snackBar.open('Only Organization Admin and Super Admin can configure Maktab subjects.', 'Dismiss', { duration: 3000 });
       return;
@@ -3399,65 +3400,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
     if (!this.currentUser?.organizationId) return;
 
-    let org: any = null;
-    try {
-      this.loader.show();
-      const snap = await getDoc(doc(getDeenDeskFirestore(), 'organizations', this.currentUser.organizationId));
-      if (snap.exists()) org = { id: snap.id, ...snap.data() };
-    } catch (e) {
-      console.error(e);
-    } finally {
-      this.loader.hide();
-    }
-
-    const currentSubs: any[] = org?.academicSettings?.maktabSubjects || [
-      { id: 'Noorani Qaida', title: 'Noorani Qaida / Base Qaida', stages: ['Letters', 'Harakath', 'Tanween', 'Sukoon', 'Madd', 'Tashdeed'] },
-      { id: 'Nazira Quran', title: 'Nazira (Quran Reading)', stages: ['Juz 30 (Amma)', 'Juz 1-5', 'Full Quran', 'Tajweed Fluency'] },
-      { id: 'Masnoon Duas', title: 'Masnoon Duas & Daily Adhkar', stages: ['Daily Routine', 'Salah Duas', 'Kalimahs'] },
-      { id: 'Fiqh & Akhlaq', title: 'Fiqh & Islamic Studies', stages: ['Taharah', 'Salah', 'Fasting & Morals'] },
-      { id: 'Hadith', title: 'Hadith Memorization', stages: ['Short Hadiths', '40 Hadith'] }
-    ];
-
-    const currentNames = currentSubs.map(s => s.title).join(', ');
-
-    const dialogRef = this.dialog.open(QuickAddDialogComponent, {
-      width: '500px',
+    this.dialog.open(ConfigureMaktabSubjectsDialogComponent, {
+      width: '560px',
+      maxWidth: '96vw',
+      panelClass: 'custom-target-dialog-panel',
       data: {
-        title: 'Configure Maktab Curriculum Subjects',
-        subtitle: 'Define approved Maktab subjects for your organization. Regular staff can only evaluate students using these subjects.',
-        submitLabel: 'Save Subjects',
-        initialValue: {
-          subjectsCsv: currentNames
-        },
-        fields: [
-          { key: 'subjectsCsv', label: 'Approved Subjects (comma-separated)', type: 'textarea' }
-        ],
-        saveFn: async (payload: any) => {
-          const raw = String(payload.subjectsCsv || '');
-          const names = raw.split(',').map((n: string) => n.trim()).filter((n: string) => !!n);
-          if (names.length === 0) throw new Error('Please specify at least one subject.');
-
-          const updatedSubs = names.map((name: string) => {
-            const existing = currentSubs.find(cs => (cs.title || cs.id || '').toLowerCase() === name.toLowerCase());
-            return {
-              id: existing?.id || name,
-              title: existing?.title || name
-            };
-          });
-
-          await this.repo.update('organizations', this.currentUser!.organizationId as string, {
-            academicSettings: {
-              ...(org?.academicSettings || {}),
-              maktabSubjects: updatedSubs
-            }
-          }, this.currentUser);
-        }
-      }
-    });
-
-    dialogRef.afterClosed().subscribe(res => {
-      if (res) {
-        this.snackBar.open('Maktab curriculum subjects updated successfully!', 'OK', { duration: 3000 });
+        currentUser: this.currentUser
       }
     });
   }

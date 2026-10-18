@@ -696,13 +696,6 @@
             </button>
           </div>
 
-          <!-- ADMIN CONTROLS (Organization Admin & Super Admin ONLY) -->
-          <div class="admin-eval-bar" *ngIf="(isSuperAdmin || isOrgAdmin) && studentTypeMode === 'maktab'">
-            <button type="button" class="btn-admin-pill cfg-pill" (click)="openConfigureMaktabSubjects()" title="Configure approved Maktab curriculum subjects for organization">
-              <mat-icon class="admin-pill-ic">tune</mat-icon>
-              <span>Configure Subjects</span>
-            </button>
-          </div>
 
           <div class="actions-right" *ngIf="evalCadence === 'daily'">
             <button *ngIf="canUndoProgress" type="button" class="undo-header-btn" (click)="undoLastProgressSave()" title="Undo the most recent progress save">
