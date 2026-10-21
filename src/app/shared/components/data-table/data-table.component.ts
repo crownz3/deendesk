@@ -368,6 +368,12 @@ export class DataTableComponent implements OnInit, OnChanges, AfterViewInit {
     return Boolean(row['classId'] || row['className'] || row['stage'] || row['groupId'] || row['classGroup']);
   }
 
+  hasProgressTrackerButton(row: EntityRecord): boolean {
+    if (!this.allowProgressTracker) return false;
+    const role = String(row['role'] || '').toLowerCase();
+    return this.resourceKey === 'students' || this.resourceKey === 'student' || role === 'student' || this.resourceKey === 'users';
+  }
+
   isMultiValue(row: EntityRecord, column: TableColumn): boolean {
     const items = this.getCardMultiValues(row, column);
     return Array.isArray(items) && items.length > 1;

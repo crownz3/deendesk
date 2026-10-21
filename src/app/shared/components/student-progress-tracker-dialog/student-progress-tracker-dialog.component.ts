@@ -24,7 +24,7 @@ export interface CourseProgressDetail {
 
 export interface TrajectoryEvent {
   date: string;
-  type: 'promotion' | 'demotion' | 'stage_update' | 'enrollment';
+  type: 'promotion' | 'demotion' | 'transfer' | 'stage_update' | 'enrollment';
   title: string;
   fromStage: string;
   toStage: string;
@@ -51,7 +51,9 @@ export interface HifzRangeMastery {
 })
 export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewInit, OnDestroy {
   student: EntityRecord;
-  activeTab: 'attendance' | 'hifz' | 'courses' | 'overview' | 'trajectory' | 'analytics' | 'hifz-analytics' = 'attendance';
+  activeTab: 'attendance' | 'evaluations' | 'trajectory' | 'courses' | 'hifz' = 'attendance';
+  activeEvalFilter: 'all' | 'daily' | 'weekly' = 'all';
+  weeklyLogs: any[] = [];
   isLoading = true;
   hasAttendanceData = false;
   hasProgressData = false;
@@ -110,10 +112,9 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
   ngOnInit(): void {
     this.loadRealStudentData();
     this.buildCourseProgressDetails();
-    this.buildTrajectoryEvents();
   }
 
-  setTab(tab: 'attendance' | 'hifz' | 'courses' | 'overview' | 'trajectory' | 'analytics' | 'hifz-analytics'): void {
+  setTab(tab: 'attendance' | 'evaluations' | 'trajectory' | 'courses' | 'hifz'): void {
     this.activeTab = tab;
   }
 
@@ -136,7 +137,16 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
       const progressDocs: any[] = [];
       pSnap.forEach(d => progressDocs.push(d.data()));
 
-      // 2. Fetch Attendance collection
+      // 2. Fetch Student Weekly Progress records
+      const wpRef = collection(db, 'studentWeeklyProgress');
+      const wpQuery = query(wpRef, where('studentId', '==', stId), limit(100));
+      const wpSnap = await getDocs(wpQuery);
+      const weeklyDocs: any[] = [];
+      wpSnap.forEach(d => weeklyDocs.push(d.data()));
+      weeklyDocs.sort((a, b) => (b.weekStartDate || '').localeCompare(a.weekStartDate || ''));
+      this.weeklyLogs = weeklyDocs;
+
+      // 3. Fetch Attendance collection
       const aRef = collection(db, 'attendance');
       const aQuery = query(aRef, limit(100));
       const aSnap = await getDocs(aQuery);
@@ -155,6 +165,20 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
         }
       });
 
+      // 4. Fetch Promotion, Demotion & Transfer History
+      const promRef = collection(db, 'promotionHistory');
+      const promQuery = query(promRef, where('studentId', '==', stId), limit(50));
+      const promSnap = await getDocs(promQuery);
+      const promDocs: any[] = [];
+      promSnap.forEach(d => promDocs.push(d.data()));
+
+      // 5. Fetch Lifecycle History
+      const lifeRef = collection(db, 'userLifecycleHistory');
+      const lifeQuery = query(lifeRef, where('userId', '==', stId), limit(50));
+      const lifeSnap = await getDocs(lifeQuery);
+      const lifeDocs: any[] = [];
+      lifeSnap.forEach(d => lifeDocs.push(d.data()));
+
       // Sort by date descending
       attDocs.sort((a, b) => b.date.localeCompare(a.date));
       progressDocs.sort((a, b) => (b['date'] || '').localeCompare(a['date'] || ''));
@@ -164,6 +188,9 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
 
       // Process Progress
       this.processProgress(progressDocs);
+
+      // Process Trajectory (Promotions, Demotions & Transfers)
+      this.processTrajectoryEvents(promDocs, lifeDocs);
 
     } catch (err) {
       console.error('Error fetching student progress data:', err);
@@ -495,6 +522,16 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
     return this.student['code'] || this.student['rollNumber'] || this.student['studentId'] || this.student.id || 'N/A';
   }
 
+  get studentDisplayCode(): string {
+    const code = this.student['rollNumber'] || this.student['code'] || this.student['studentId'];
+    if (code) return String(code);
+    const rawId = String(this.student.id || '');
+    if (rawId.length > 14) {
+      return rawId.slice(0, 6) + '...' + rawId.slice(-4);
+    }
+    return rawId;
+  }
+
   get studentGender(): string {
     return this.student['gender'] ? String(this.student['gender']).toLowerCase() : 'male';
   }
@@ -572,45 +609,135 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
     this.overallProgressPercent = Math.round(totalPerc / this.courseDetails.length);
   }
 
-  private buildTrajectoryEvents(): void {
-    this.trajectoryEvents = [
-      {
-        date: '2026-08-10',
-        type: 'promotion',
-        title: 'Promoted to Juz 15 (Hifz Stage 15)',
-        fromStage: 'Juz 14',
-        toStage: 'Juz 15',
-        conductedBy: 'Ustadh Hafiz Ahmed',
-        notes: 'Passed oral evaluation with 95% fluency and tajweed excellence.'
-      },
-      {
-        date: '2026-05-18',
-        type: 'promotion',
-        title: 'Advanced to Alim Year 3',
-        fromStage: 'Year 2 (Second Year)',
-        toStage: 'Year 3 (Third Year)',
-        conductedBy: 'Maulana Usama',
-        notes: 'Completed Fiqh and Hadith exams with Distinction.'
-      },
-      {
-        date: '2026-02-04',
-        type: 'stage_update',
-        title: 'Promoted to Grade 5 Primary Academic',
-        fromStage: 'Grade 4',
-        toStage: 'Grade 5',
-        conductedBy: 'Academic Supervisor',
-        notes: 'Annual examination results: 92% aggregate.'
-      },
-      {
-        date: '2025-06-15',
+  private processTrajectoryEvents(promDocs: any[], lifeDocs: any[]): void {
+    const events: TrajectoryEvent[] = [];
+
+    const toIsoDate = (val: any): string => {
+      if (!val) return '';
+      if (typeof val === 'string') return val.slice(0, 10);
+      if (typeof val === 'object' && typeof val.toDate === 'function') {
+        return val.toDate().toISOString().slice(0, 10);
+      }
+      return '';
+    };
+
+    promDocs.forEach(p => {
+      const act = String(p.action || p.actionType || 'promotion').toLowerCase();
+      let type: 'promotion' | 'demotion' | 'transfer' | 'stage_update' | 'enrollment' = 'promotion';
+      let title = '';
+      if (act.includes('demot')) {
+        type = 'demotion';
+        title = `Demoted to ${p.newStage || 'Previous Stage'}`;
+      } else if (act.includes('transf')) {
+        type = 'transfer';
+        title = `Transferred to ${p.newClassId || p.newGroupId || 'New Class/Group'}`;
+      } else {
+        type = 'promotion';
+        title = `Promoted to ${p.newStage || 'Next Stage'}`;
+      }
+
+      events.push({
+        date: p.actionDate || toIsoDate(p.createdAt) || '',
+        type,
+        title,
+        fromStage: p.previousStage || p.fromStage || p.previousClassId || '-',
+        toStage: p.newStage || p.toStage || p.newClassId || '-',
+        conductedBy: p.performedBy || p.createdBy || p.performedByEmail || 'Administration',
+        notes: p.reason || 'No specific notes recorded.'
+      });
+    });
+
+    lifeDocs.forEach(l => {
+      const act = String(l.actionType || l.lifecycleAction || '').toLowerCase();
+      let type: 'promotion' | 'demotion' | 'transfer' | 'stage_update' | 'enrollment' = 'stage_update';
+      if (act.includes('promot')) type = 'promotion';
+      else if (act.includes('demot')) type = 'demotion';
+      else if (act.includes('transf')) type = 'transfer';
+      else if (act.includes('enroll')) type = 'enrollment';
+
+      const dStr = toIsoDate(l.createdAt) || l.actionDate || '';
+      const exists = events.some(e => e.date === dStr && e.type === type);
+      if (!exists) {
+        events.push({
+          date: dStr,
+          type,
+          title: l.lifecycleAction || l.actionType || 'Lifecycle Event',
+          fromStage: l.fromStage || '-',
+          toStage: l.toStage || '-',
+          conductedBy: l.performedBy || l.userName || 'Administration',
+          notes: l.reason || ''
+        });
+      }
+    });
+
+    const admitDate = this.student['admissionDate'] || toIsoDate(this.student['createdAt']) || this.student['enrolledAt'] || '';
+    if (admitDate) {
+      events.push({
+        date: String(admitDate).slice(0, 10),
         type: 'enrollment',
         title: 'Initial Admission & Enrollment',
         fromStage: 'N/A',
-        toStage: 'Juz 1 / Grade 1',
+        toStage: this.student['stage'] || this.student['initialStage'] || 'Enrolled',
         conductedBy: 'Madrasa Administration',
-        notes: 'Enrolled into Tahfeez and Academic Dual Program.'
-      }
-    ];
+        notes: `Admitted into ${this.student['className'] || this.student['courseName'] || 'Madrasa program'}.`
+      });
+    }
+
+    if (events.length === 0) {
+      events.push({
+        date: new Date().toISOString().slice(0, 10),
+        type: 'enrollment',
+        title: 'Active Student Record',
+        fromStage: 'N/A',
+        toStage: this.student['stage'] || 'Active',
+        conductedBy: 'Madrasa Administration',
+        notes: 'Currently enrolled and active in this class group.'
+      });
+    }
+
+    events.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    this.trajectoryEvents = events;
+  }
+
+  // Baseline Progress Getters
+  get studentProgress(): any {
+    return this.student['progress'] || {};
+  }
+
+  get completedJuzsList(): number[] {
+    return this.studentProgress?.hifz?.completedJuzs || [];
+  }
+
+  get inProgressJuzsList(): number[] {
+    return this.studentProgress?.hifz?.inProgressJuzs || [];
+  }
+
+  get completedSurahsList(): string[] {
+    return this.studentProgress?.hifz?.completedSurahs || [];
+  }
+
+  get inProgressSurahsList(): string[] {
+    return this.studentProgress?.hifz?.inProgressSurahs || [];
+  }
+
+  get dawrCompletedRounds(): number {
+    return this.studentProgress?.dawr?.completedRounds || 0;
+  }
+
+  get dawrCurrentJuz(): number | null {
+    return this.studentProgress?.dawr?.currentRoundJuz || null;
+  }
+
+  get maktabCompletedPages(): number[] {
+    return this.studentProgress?.maktab?.miftahCompletedPages || [];
+  }
+
+  get maktabCurrentPage(): number {
+    return this.studentProgress?.maktab?.miftahCurrentPage || 1;
+  }
+
+  get maktabTilawatSurahs(): string[] {
+    return this.studentProgress?.maktab?.tilawatCompletedSurahs || [];
   }
 
   private buildMonthlyAttendance(): void {

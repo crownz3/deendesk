@@ -1,43 +1,43 @@
 <div class="progress-dialog-container">
-  <!-- Dialog Header Toolbar -->
+  <!-- Dialog Header Toolbar (Simple & Clean) -->
   <header class="dialog-header">
-    <div class="header-left">
-      <div class="student-avatar" [class.female]="studentGender === 'female'">
-        <span>{{ studentName.substring(0, 2).toUpperCase() }}</span>
+    <div class="student-header-info">
+      <div class="title-row">
+        <h2 class="student-name-heading">{{ studentName }}</h2>
+        <span class="status-badge" [class.active]="studentStatus === 'Active'">{{ studentStatus }}</span>
       </div>
-      <div class="student-header-info">
-        <div class="title-row">
-          <h2>{{ studentName }}</h2>
-          <span class="status-badge" [class.active]="studentStatus === 'Active'">{{ studentStatus }}</span>
-        </div>
-        <div class="meta-row">
-          <span class="meta-item"><ion-icon name="id-card-outline"></ion-icon> ID: {{ studentCode }}</span>
-          <span class="meta-item"><ion-icon name="business-outline"></ion-icon> {{ madrasaName }}</span>
-          <span class="meta-item"><ion-icon name="easel-outline"></ion-icon> {{ className }}</span>
-        </div>
-      </div>
+      <p class="student-subline">
+        <span>{{ className || 'Class' }}</span>
+        <span class="dot" *ngIf="className && madrasaName">•</span>
+        <span>{{ madrasaName }}</span>
+        <span class="dot" *ngIf="studentDisplayCode && !studentDisplayCode.includes('...')">•</span>
+        <span *ngIf="studentDisplayCode && !studentDisplayCode.includes('...')">ID: {{ studentDisplayCode }}</span>
+      </p>
     </div>
 
-    <div class="header-actions">
-      <div class="overall-progress-pill">
-        <ion-icon name="analytics-outline"></ion-icon>
-        <span>{{ attendanceSummary.attendanceRatePct }}% Attendance Rate</span>
-      </div>
-      <button mat-icon-button (click)="close()" class="close-btn">
-        <ion-icon name="close-outline"></ion-icon>
-      </button>
-    </div>
+    <button type="button" class="compact-close-btn" (click)="close()" title="Close dialog" aria-label="Close">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
   </header>
 
   <!-- Navigation Tabs Header -->
   <nav class="tabs-nav">
     <button type="button" class="tab-btn" [class.active]="activeTab === 'attendance'" (click)="activeTab = 'attendance'">
       <ion-icon name="calendar-outline"></ion-icon>
-      <span>Attendance History</span>
+      <span>Attendance</span>
+      <span class="tab-count-badge" *ngIf="attendanceSummary.totalDays > 0">{{ attendanceSummary.totalDays }}</span>
     </button>
-    <button type="button" class="tab-btn hifz-tab-btn" [class.active]="activeTab === 'hifz'" (click)="activeTab = 'hifz'">
-      <ion-icon name="book-sharp"></ion-icon>
-      <span>Academic & Hifz Progress</span>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'evaluations' || activeTab === 'hifz'" (click)="activeTab = 'evaluations'">
+      <ion-icon name="book-outline"></ion-icon>
+      <span>Evaluations</span>
+      <span class="tab-count-badge" *ngIf="(hifzAnalytics.progressLogs.length + weeklyLogs.length) > 0">
+        {{ hifzAnalytics.progressLogs.length + weeklyLogs.length }}
+      </span>
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeTab === 'trajectory'" (click)="activeTab = 'trajectory'">
+      <ion-icon name="git-branch-outline"></ion-icon>
+      <span>Promotions &amp; Lifecycle</span>
+      <span class="tab-count-badge" *ngIf="trajectoryEvents.length > 0">{{ trajectoryEvents.length }}</span>
     </button>
     <button type="button" class="tab-btn" [class.active]="activeTab === 'courses'" (click)="activeTab = 'courses'">
       <ion-icon name="layers-outline"></ion-icon>
@@ -60,35 +60,43 @@
         <!-- Attendance Metrics Summary Row -->
         <div class="stats-cards-row">
           <div class="metric-card primary">
-            <div class="metric-icon"><ion-icon name="calendar-outline"></ion-icon></div>
-            <div class="metric-data">
-              <span class="metric-val">{{ attendanceSummary.totalDays }} Days</span>
-              <span class="metric-lbl">Total Logged Days</span>
+            <div class="card-content-wrap">
+              <div class="metric-icon"><ion-icon name="calendar-outline"></ion-icon></div>
+              <div class="metric-data">
+                <span class="metric-val">{{ attendanceSummary.totalDays }} Days</span>
+                <span class="metric-lbl">Total Logged Days</span>
+              </div>
             </div>
           </div>
 
           <div class="metric-card success">
-            <div class="metric-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
-            <div class="metric-data">
-              <span class="metric-val">{{ attendanceSummary.presentDays }} Days</span>
-              <span class="metric-lbl">Present Days</span>
+            <div class="card-content-wrap">
+              <div class="metric-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+              <div class="metric-data">
+                <span class="metric-val">{{ attendanceSummary.presentDays }} Days</span>
+                <span class="metric-lbl">Present Days</span>
+              </div>
             </div>
             <mat-progress-bar mode="determinate" [value]="(attendanceSummary.presentDays / (attendanceSummary.totalDays || 1)) * 100" class="metric-bar green"></mat-progress-bar>
           </div>
 
           <div class="metric-card danger">
-            <div class="metric-icon"><ion-icon name="close-circle-outline"></ion-icon></div>
-            <div class="metric-data">
-              <span class="metric-val">{{ attendanceSummary.absentDays }} Days</span>
-              <span class="metric-lbl">Absent Days</span>
+            <div class="card-content-wrap">
+              <div class="metric-icon"><ion-icon name="close-circle-outline"></ion-icon></div>
+              <div class="metric-data">
+                <span class="metric-val">{{ attendanceSummary.absentDays }} Days</span>
+                <span class="metric-lbl">Absent Days</span>
+              </div>
             </div>
           </div>
 
           <div class="metric-card warning">
-            <div class="metric-icon"><ion-icon name="time-outline"></ion-icon></div>
-            <div class="metric-data">
-              <span class="metric-val">{{ attendanceSummary.lateDays }} Late / {{ attendanceSummary.leaveDays }} Leave</span>
-              <span class="metric-lbl">Late & Approved Leave</span>
+            <div class="card-content-wrap">
+              <div class="metric-icon"><ion-icon name="time-outline"></ion-icon></div>
+              <div class="metric-data">
+                <span class="metric-val">{{ attendanceSummary.lateDays }} Late / {{ attendanceSummary.leaveDays }} Leave</span>
+                <span class="metric-lbl">Late &amp; Approved Leave</span>
+              </div>
             </div>
           </div>
         </div>
@@ -142,32 +150,38 @@
       </ng-template>
     </div>
 
-    <!-- TAB 2: ACADEMIC & HIFZ PROGRESS -->
-    <div *ngIf="!isLoading && activeTab === 'hifz'" class="tab-pane animate-fade">
+    <!-- TAB 2: ACADEMIC & HIFZ EVALUATIONS -->
+    <div *ngIf="!isLoading && (activeTab === 'evaluations' || activeTab === 'hifz')" class="tab-pane animate-fade">
       <div *ngIf="hasProgressData; else emptyProgressState">
         <!-- Hifz / Evaluation Metrics Row -->
         <div class="stats-cards-row">
           <div class="metric-card primary">
-            <div class="metric-icon"><ion-icon name="book-outline"></ion-icon></div>
-            <div class="metric-data">
-              <span class="metric-val">{{ hifzAnalytics.totalAyahsMemorized }}</span>
-              <span class="metric-lbl">Total Ayahs Logged</span>
+            <div class="card-content-wrap">
+              <div class="metric-icon"><ion-icon name="book-outline"></ion-icon></div>
+              <div class="metric-data">
+                <span class="metric-val">{{ hifzAnalytics.totalAyahsMemorized }}</span>
+                <span class="metric-lbl">Total Ayahs Logged</span>
+              </div>
             </div>
           </div>
 
           <div class="metric-card success">
-            <div class="metric-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
-            <div class="metric-data">
-              <span class="metric-val">{{ hifzAnalytics.strongSurahs.length }} Surahs / {{ hifzAnalytics.strongJuz.length }} Juz</span>
-              <span class="metric-lbl">🟢 Stronger / Flawless (Mutqan)</span>
+            <div class="card-content-wrap">
+              <div class="metric-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+              <div class="metric-data">
+                <span class="metric-val">{{ hifzAnalytics.strongSurahs.length }} Surahs / {{ hifzAnalytics.strongJuz.length }} Juz</span>
+                <span class="metric-lbl">🟢 Stronger / Flawless (Mutqan)</span>
+              </div>
             </div>
           </div>
 
           <div class="metric-card warning">
-            <div class="metric-icon"><ion-icon name="alert-circle-outline"></ion-icon></div>
-            <div class="metric-data">
-              <span class="metric-val">{{ hifzAnalytics.weakSurahs.length }} Surahs / {{ hifzAnalytics.weakJuz.length }} Juz</span>
-              <span class="metric-lbl">🟠 Weaker / Needs Revision</span>
+            <div class="card-content-wrap">
+              <div class="metric-icon"><ion-icon name="alert-circle-outline"></ion-icon></div>
+              <div class="metric-data">
+                <span class="metric-val">{{ hifzAnalytics.weakSurahs.length }} Surahs / {{ hifzAnalytics.weakJuz.length }} Juz</span>
+                <span class="metric-lbl">🟠 Weaker / Needs Revision</span>
+              </div>
             </div>
           </div>
         </div>
@@ -285,6 +299,40 @@
             </table>
           </div>
         </div>
+
+        <!-- Weekly Progress Batch Records Section if available -->
+        <div class="section-card margin-top" *ngIf="weeklyLogs.length > 0">
+          <div class="section-header">
+            <h3><ion-icon name="calendar-number-outline"></ion-icon> Weekly Cumulative Evaluation Log ({{ weeklyLogs.length }})</h3>
+            <span class="sub-text">Week-end batch evaluation milestones recorded by teacher</span>
+          </div>
+          <div class="table-responsive">
+            <table class="ranges-table">
+              <thead>
+                <tr>
+                  <th>Week Period</th>
+                  <th>Sabaq (New Lesson)</th>
+                  <th>Sabqi (Old Lesson)</th>
+                  <th>Revision (Manzil / Dawr)</th>
+                  <th>Mistakes</th>
+                  <th>Rating</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let w of weeklyLogs">
+                  <td><strong>Week {{ w.weekNumber }}, {{ w.year }}</strong><br><small class="text-muted">{{ w.weekStartDate }} to {{ w.weekEndDate }}</small></td>
+                  <td>{{ w.hifz?.sabaqEndSurah || w.hifz?.sabaqStartSurah || (w.hifz?.sabaqStartJuz ? 'Juz ' + w.hifz?.sabaqStartJuz : '-') }}</td>
+                  <td>{{ w.hifz?.sabqiRange || w.hifz?.sabqiEndSurah || '-' }}</td>
+                  <td>{{ w.hifz?.manzilRange || (w.dawr?.roundNo ? 'Round ' + w.dawr?.roundNo : '-') }}</td>
+                  <td><span class="mistake-badge" [class.has-mistakes]="(w.hifz?.weeklyMistakes || 0) > 0">{{ w.hifz?.weeklyMistakes || 0 }}</span></td>
+                  <td><span class="rating-stars">★ {{ w.hifz?.rating || w.dawr?.rating || w.maktab?.rating || 5 }}/5</span></td>
+                  <td>{{ w.hifz?.notes || w.dawr?.notes || w.maktab?.notes || '-' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <!-- Progress Empty State -->
@@ -293,14 +341,105 @@
           <div class="empty-icon-circle green">
             <ion-icon name="book-outline"></ion-icon>
           </div>
-          <h3>No Daily Progress Logged</h3>
-          <p>There are no daily evaluation entries recorded for <strong>{{ studentName }}</strong> yet.</p>
+          <h3>No Evaluations Recorded</h3>
+          <p>There are no daily or weekly evaluation entries recorded for <strong>{{ studentName }}</strong> yet.</p>
         </div>
       </ng-template>
     </div>
 
-    <!-- TAB 3: CURRICULUM ROADMAP -->
+    <!-- TAB 3: PROMOTIONS, DEMOTIONS & TRANSFERS -->
+    <div *ngIf="!isLoading && activeTab === 'trajectory'" class="tab-pane animate-fade">
+      <div class="trajectory-container">
+        <div class="section-card">
+          <div class="section-header">
+            <h3><ion-icon name="git-branch-outline"></ion-icon> Promotions, Demotions &amp; Movement Timeline ({{ trajectoryEvents.length }})</h3>
+            <span class="sub-text">Chronological audit log of promotions, demotions, stage changes, and transfers</span>
+          </div>
+
+          <div class="timeline-list" *ngIf="trajectoryEvents.length > 0; else emptyTrajectoryState">
+            <div *ngFor="let ev of trajectoryEvents" class="timeline-card" [ngClass]="ev.type">
+              <div class="timeline-icon-box">
+                <ion-icon *ngIf="ev.type === 'promotion'" name="arrow-up-circle"></ion-icon>
+                <ion-icon *ngIf="ev.type === 'demotion'" name="arrow-down-circle"></ion-icon>
+                <ion-icon *ngIf="ev.type === 'transfer'" name="swap-horizontal"></ion-icon>
+                <ion-icon *ngIf="ev.type === 'stage_update'" name="checkmark-circle"></ion-icon>
+                <ion-icon *ngIf="ev.type === 'enrollment'" name="school"></ion-icon>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-top">
+                  <div class="timeline-title-row">
+                    <span class="event-badge" [ngClass]="ev.type">
+                      {{ ev.type === 'promotion' ? 'Promoted' : (ev.type === 'demotion' ? 'Demoted' : (ev.type === 'transfer' ? 'Transferred' : (ev.type === 'enrollment' ? 'Enrolled' : 'Stage Advancement'))) }}
+                    </span>
+                    <strong class="event-title">{{ ev.title }}</strong>
+                  </div>
+                  <span class="event-date"><ion-icon name="calendar-outline"></ion-icon> {{ ev.date }}</span>
+                </div>
+
+                <div class="stage-transition-row" *ngIf="ev.fromStage !== '-' || ev.toStage !== '-'">
+                  <span class="stage-pill from">{{ ev.fromStage }}</span>
+                  <ion-icon name="arrow-forward" class="arrow-ic"></ion-icon>
+                  <span class="stage-pill to">{{ ev.toStage }}</span>
+                </div>
+
+                <p class="event-notes" *ngIf="ev.notes">"{{ ev.notes }}"</p>
+                <div class="event-author" *ngIf="ev.conductedBy">
+                  <ion-icon name="person-outline"></ion-icon> Authorized by: <strong>{{ ev.conductedBy }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ng-template #emptyTrajectoryState>
+            <div class="empty-state-box">
+              <div class="empty-icon-circle blue">
+                <ion-icon name="git-branch-outline"></ion-icon>
+              </div>
+              <h3>No Movement History Found</h3>
+              <p>There are no recorded promotions, demotions or transfers for <strong>{{ studentName }}</strong>.</p>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: CURRICULUM ROADMAP & BASELINE -->
     <div *ngIf="!isLoading && activeTab === 'courses'" class="tab-pane animate-fade">
+      <!-- Master Baseline Progress Card -->
+      <div class="section-card margin-bottom" *ngIf="studentProgress">
+        <div class="section-header">
+          <h3><ion-icon name="trophy-outline"></ion-icon> Master Baseline Progress Record</h3>
+          <span class="sub-text">Current verified milestones for this student</span>
+        </div>
+
+        <div class="baseline-summary-grid">
+          <!-- Hifz Baseline -->
+          <div class="baseline-col" *ngIf="completedJuzsList.length > 0 || inProgressJuzsList.length > 0 || completedSurahsList.length > 0">
+            <h4>Hifz Memorization:</h4>
+            <div class="baseline-badges-wrap">
+              <span class="b-chip done" *ngFor="let j of completedJuzsList">✓ Juz {{ j }}</span>
+              <span class="b-chip prog" *ngFor="let j of inProgressJuzsList">⏳ Juz {{ j }}</span>
+              <span class="b-chip surah" *ngFor="let s of completedSurahsList">📖 {{ s }}</span>
+            </div>
+          </div>
+
+          <!-- Dawr Baseline -->
+          <div class="baseline-col" *ngIf="dawrCompletedRounds > 0 || dawrCurrentJuz">
+            <h4>Dawr Revisions:</h4>
+            <p>Completed Rounds: <strong>{{ dawrCompletedRounds }}</strong> | Current Round Juz: <strong>{{ dawrCurrentJuz || 'Juz 1' }}</strong></p>
+          </div>
+
+          <!-- Maktab Baseline -->
+          <div class="baseline-col" *ngIf="maktabCurrentPage > 1 || maktabCompletedPages.length > 0 || maktabTilawatSurahs.length > 0">
+            <h4>Maktab Foundation:</h4>
+            <p>Noorani Qaida Page: <strong>Pg {{ maktabCurrentPage }}</strong> ({{ maktabCompletedPages.length }} pages passed)</p>
+            <div class="baseline-badges-wrap" *ngIf="maktabTilawatSurahs.length > 0">
+              <span class="b-chip surah" *ngFor="let s of maktabTilawatSurahs">📖 {{ s }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="detailed-courses-container">
         <div *ngFor="let course of courseDetails" class="detailed-course-card">
           <div class="card-top-bar">
@@ -337,14 +476,4 @@
     </div>
 
   </div>
-
-  <!-- Dialog Footer Toolbar -->
-  <footer class="dialog-footer">
-    <div class="footer-left">
-      <span>Deendesk Academic Progress Tracker Super-View</span>
-    </div>
-    <div class="footer-actions">
-      <button mat-stroked-button (click)="close()">Close</button>
-    </div>
-  </footer>
 </div>

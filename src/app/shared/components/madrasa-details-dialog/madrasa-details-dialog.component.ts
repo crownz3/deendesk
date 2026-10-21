@@ -162,9 +162,9 @@ export class MadrasaDetailsDialogComponent implements OnInit {
   viewUser(user: EntityRecord) {
     this.dialog.open(UserDetailsDialogComponent, {
       data: { user },
-      width: '80vw',
-      maxWidth: '80vw',
-      height: '85vh',
+      width: '95vw',
+      maxWidth: '900px',
+      maxHeight: '90vh',
       panelClass: 'user-details-dialog-panel'
     });
   }

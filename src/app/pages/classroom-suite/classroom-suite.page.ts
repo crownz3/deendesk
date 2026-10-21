@@ -20,6 +20,7 @@ import { ClassGroupAttendanceDetailsDialogComponent, ClassGroupAttendanceDetails
 import { StudentEvaluationDialogComponent } from '../attendance/student-evaluation-dialog.component';
 import { StudentProgressEvaluationDialogComponent } from '../../shared/components/student-progress-evaluation-dialog/student-progress-evaluation-dialog.component';
 import { ConfigureMaktabSubjectsDialogComponent } from '../../shared/components/configure-maktab-subjects-dialog/configure-maktab-subjects-dialog.component';
+import { StudentProgressTrackerDialogComponent } from '../../shared/components/student-progress-tracker-dialog/student-progress-tracker-dialog.component';
 
 export interface OverviewClassGroupStatus {
   groupId: string;
@@ -275,7 +276,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   ];
 
   // Evaluation Cadence: 'daily' (Everyday register) vs 'weekly' (End-of-Week Batch)
-  evalCadence: 'daily' | 'weekly' = 'daily';
+  evalCadence: 'daily' | 'weekly' = 'weekly';
   weeklyEvalUnitMode: 'surah' | 'juz' = 'surah';
   selectedWeekYear: number = new Date().getFullYear();
   selectedWeekNumber: number = 1;
@@ -2200,6 +2201,20 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     });
   }
 
+  // Open Full Student History, Lifecycle, Promotions, Demotions & Evaluations
+  openStudentCompleteHistoryModal(student: EntityRecord): void {
+    if (!student) return;
+    this.dialog.open(StudentProgressTrackerDialogComponent, {
+      width: '1000px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'custom-target-dialog-panel',
+      data: {
+        student: student
+      }
+    });
+  }
+
   getStudentProgressText(student: EntityRecord): string | null {
     const prog = student['progress'];
     if (!prog) return null;
@@ -2425,6 +2440,9 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
     dialogRef.afterClosed().subscribe(res => {
       if (res && res.saved) {
+        if (res.updatedProgress) {
+          item.student['progress'] = res.updatedProgress;
+        }
         if (this.studentTypeMode === 'maktab') {
           item.maktabStageMode = res.maktabStageMode;
           if (res.maktabStageMode === 'tilawatul_quran') {
@@ -3267,6 +3285,79 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           } : null
         };
         await setDoc(dailyDocRef, dailyMirror, { merge: true });
+
+        // Also auto-update student baseline progress in users collection
+        try {
+          const currentProg = item.student['progress'] || {};
+          const hifz = currentProg.hifz || { completedJuzs: [], inProgressJuzs: [], completedSurahs: [], inProgressSurahs: [] };
+          const dawr = currentProg.dawr || { completedRounds: 0, currentRoundJuz: null };
+          const maktab = currentProg.maktab || { miftahCompletedPages: [], miftahCurrentPage: 1, tilawatCompletedSurahs: [] };
+
+          const compJuz = new Set<number>(Array.isArray(hifz.completedJuzs) ? hifz.completedJuzs : []);
+          const inProgJuz = new Set<number>(Array.isArray(hifz.inProgressJuzs) ? hifz.inProgressJuzs : []);
+          const compSurahs = new Set<string>(Array.isArray(hifz.completedSurahs) ? hifz.completedSurahs : []);
+          const inProgSurahs = new Set<string>(Array.isArray(hifz.inProgressSurahs) ? hifz.inProgressSurahs : []);
+          const compPages = new Set<number>(Array.isArray(maktab.miftahCompletedPages) ? maktab.miftahCompletedPages : []);
+          const compTilawat = new Set<string>(Array.isArray(maktab.tilawatCompletedSurahs) ? maktab.tilawatCompletedSurahs : []);
+
+          if (this.studentTypeMode === 'hifz') {
+            const sSurah = item.weeklySabaqEndSurah || item.weeklySabaqStartSurah;
+            if (sSurah) {
+              if ((item.weeklyRating || 5) >= 4 && (item.weeklyMistakes || 0) <= 1) {
+                compSurahs.add(sSurah);
+                inProgSurahs.delete(sSurah);
+              } else {
+                inProgSurahs.add(sSurah);
+              }
+            }
+            const sJuz = item.weeklySabaqEndJuz || item.weeklySabaqStartJuz;
+            if (sJuz && sJuz >= 1 && sJuz <= 30) {
+              inProgJuz.add(sJuz);
+              for (let j = 1; j < sJuz; j++) {
+                if (!inProgJuz.has(j)) compJuz.add(j);
+              }
+            }
+          } else if (this.studentTypeMode === 'dawr') {
+            if (item.weeklyDawrRounds || item.dawrRoundNo) {
+              dawr.completedRounds = Math.max(dawr.completedRounds || 0, (item.weeklyDawrRounds || item.dawrRoundNo || 1) - 1);
+            }
+          } else if (this.studentTypeMode === 'maktab') {
+            if (item.weeklyMaktabEndPage) {
+              maktab.miftahCurrentPage = item.weeklyMaktabEndPage;
+              for (let p = 1; p < item.weeklyMaktabEndPage; p++) {
+                compPages.add(p);
+              }
+              if ((item.weeklyRating || 5) >= 4 && (item.weeklyMistakes || 0) <= 1) {
+                compPages.add(item.weeklyMaktabEndPage);
+              }
+            }
+          }
+
+          const updatedProgress = {
+            hifz: {
+              completedJuzs: Array.from(compJuz).sort((a, b) => a - b),
+              inProgressJuzs: Array.from(inProgJuz).sort((a, b) => a - b),
+              completedSurahs: Array.from(compSurahs),
+              inProgressSurahs: Array.from(inProgSurahs)
+            },
+            dawr: {
+              completedRounds: dawr.completedRounds || 0,
+              currentRoundJuz: dawr.currentRoundJuz || null
+            },
+            maktab: {
+              miftahCompletedPages: Array.from(compPages).sort((a, b) => a - b),
+              miftahCurrentPage: maktab.miftahCurrentPage || 1,
+              tilawatCompletedSurahs: Array.from(compTilawat)
+            },
+            lastUpdated: new Date().toISOString()
+          };
+
+          const userDocRef = doc(firestore, 'users', item.student.id);
+          await setDoc(userDocRef, { progress: updatedProgress }, { merge: true });
+          item.student['progress'] = updatedProgress;
+        } catch (autoErr) {
+          console.warn('Auto-update baseline progress in weekly batch:', autoErr);
+        }
       });
 
       await Promise.all(savePromises);

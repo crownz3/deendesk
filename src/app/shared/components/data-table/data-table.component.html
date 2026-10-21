@@ -241,10 +241,21 @@
       <ng-container matColumnDef="actions" *ngIf="showActions" stickyEnd>
         <th mat-header-cell *matHeaderCellDef></th>
         <td mat-cell *matCellDef="let row" class="actions-cell">
+          <button *ngIf="hasProgressTrackerButton(row)"
+                  mat-icon-button type="button" class="tracker-quick-btn"
+                  (click)="viewProgressTracker.emit(row); $event.stopPropagation()"
+                  matTooltip="Open Student Progress &amp; Attendance Tracker"
+                  aria-label="Progress Tracker">
+            <ion-icon name="analytics-outline" color="primary"></ion-icon>
+          </button>
           <button mat-icon-button type="button" [matMenuTriggerFor]="rowMenu" aria-label="Record actions">
             <ion-icon name="ellipsis-horizontal"></ion-icon>
           </button>
           <mat-menu #rowMenu="matMenu">
+            <button *ngIf="hasProgressTrackerButton(row)" mat-menu-item type="button" (click)="viewProgressTracker.emit(row)">
+              <ion-icon name="analytics-outline"></ion-icon>
+              <span>Student Progress Tracker</span>
+            </button>
             <button *ngIf="allowDetails" mat-menu-item type="button" (click)="viewDetails.emit(row)">
               <ion-icon name="eye-outline"></ion-icon>
               <span>View details</span>
@@ -602,10 +613,16 @@
         </div>
       </mat-card-content>
 
-      <mat-divider *ngIf="hasMadrasasButton(row) || hasStudentsButton(row) || hasAcademicButton(row)"></mat-divider>
+      <mat-divider *ngIf="hasMadrasasButton(row) || hasStudentsButton(row) || hasAcademicButton(row) || hasProgressTrackerButton(row)"></mat-divider>
 
       <!-- Card Action Buttons Bar -->
-      <div class="card-footer-actions" *ngIf="hasMadrasasButton(row) || hasStudentsButton(row) || hasAcademicButton(row)">
+      <div class="card-footer-actions" *ngIf="hasMadrasasButton(row) || hasStudentsButton(row) || hasAcademicButton(row) || hasProgressTrackerButton(row)">
+        <!-- Progress Tracker Button -->
+        <button type="button" class="card-action-btn primary" (click)="viewProgressTracker.emit(row); $event.stopPropagation()" *ngIf="hasProgressTrackerButton(row)">
+          <ion-icon name="analytics-outline"></ion-icon>
+          <span>Progress Tracker</span>
+        </button>
+
         <!-- Madrasas Button -->
         <button type="button" class="card-action-btn" (click)="viewMadrasas.emit(row); $event.stopPropagation()" *ngIf="hasMadrasasButton(row)">
           <ion-icon name="business-outline"></ion-icon>

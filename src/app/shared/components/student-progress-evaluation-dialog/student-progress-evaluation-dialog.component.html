@@ -531,32 +531,86 @@
         <h4 class="extra-heading">Additional Completed Lessons in this Period</h4>
         <div class="extra-lesson-card" *ngFor="let extra of extraLessonsList; let eIdx = index">
           <div class="extra-header">
-            <span class="extra-badge">Extra Lesson #{{ eIdx + 1 }}</span>
-            <button type="button" class="remove-extra-btn" (click)="removeExtraLesson(eIdx)">🗑</button>
-          </div>
-          <div class="extra-body">
-            <div class="form-row">
-              <div class="field-item">
-                <label class="field-label">Type</label>
-                <mat-select [(ngModel)]="extra.lessonType">
-                  <mat-option value="sabaq">New Lesson</mat-option>
-                  <mat-option value="sabqi">Old Lesson</mat-option>
-                  <mat-option value="manzil">Revision of Memorized Quran</mat-option>
+            <div class="extra-header-left">
+              <span class="extra-badge">Extra Lesson #{{ eIdx + 1 }}</span>
+              <div class="extra-type-picker">
+                <label class="type-picker-label">Type:</label>
+                <mat-select [(ngModel)]="extra.lessonType" class="extra-type-select">
+                  <mat-option value="sabaq">New Lesson (Sabaq)</mat-option>
+                  <mat-option value="sabqi">Old Lesson (Sabqi)</mat-option>
+                  <mat-option value="manzil">Revision (Manzil)</mat-option>
                 </mat-select>
               </div>
-              <div class="field-item">
-                <label class="field-label">Surah / Juz</label>
+            </div>
+            <div class="extra-header-right">
+              <div class="extra-mistakes-box">
+                <span class="mist-label">Mistakes:</span>
+                <input type="number" class="mist-input" [(ngModel)]="extra.mistakes" placeholder="0" min="0" />
+              </div>
+              <button type="button" class="remove-extra-btn" (click)="removeExtraLesson(eIdx)" title="Remove this extra lesson">🗑</button>
+            </div>
+          </div>
+
+          <!-- Unit Mode (Surah vs Juz) and Granularity (Ayah vs Page) Toggle Bar -->
+          <div class="extra-mode-bar">
+            <div class="toggle-group">
+              <span class="toggle-label">Unit:</span>
+              <button type="button" class="unit-btn" [class.active]="extra.evalMode === 'surah'" (click)="extra.evalMode = 'surah'">
+                Surah-wise
+              </button>
+              <button type="button" class="unit-btn" [class.active]="extra.evalMode === 'juz'" (click)="extra.evalMode = 'juz'">
+                Juz-wise
+              </button>
+            </div>
+
+            <div class="toggle-group" *ngIf="extra.evalMode === 'surah'">
+              <span class="toggle-label">Granularity:</span>
+              <button type="button" class="unit-btn mini" [class.active]="extra.entryMethod === 'ayah' || !extra.entryMethod" (click)="extra.entryMethod = 'ayah'">
+                Ayah-wise
+              </button>
+              <button type="button" class="unit-btn mini" [class.active]="extra.entryMethod === 'page'" (click)="extra.entryMethod = 'page'">
+                Page-wise
+              </button>
+            </div>
+          </div>
+
+          <div class="extra-body">
+            <!-- Surah Mode -->
+            <div class="form-row" *ngIf="extra.evalMode === 'surah'">
+              <div class="field-item flex-2">
+                <label class="field-label">Surah Name</label>
                 <mat-select [(ngModel)]="extra.surahName" panelClass="quran-surah-mat-panel">
                   <mat-option *ngFor="let s of allQuranSurahs" [value]="s">{{ s }}</mat-option>
                 </mat-select>
               </div>
               <div class="field-item">
-                <label class="field-label">From Ayah/Pg</label>
-                <input type="number" class="num-input" [(ngModel)]="extra.fromAyah" placeholder="1" />
+                <label class="field-label">{{ extra.entryMethod === 'page' ? 'From Page' : 'From Ayah' }}</label>
+                <input type="number" class="num-input" [(ngModel)]="extra.fromAyah" placeholder="1" min="1" [max]="extra.entryMethod === 'page' ? 604 : (getMaxAyah(extra.surahName) || 286)" />
               </div>
               <div class="field-item">
-                <label class="field-label">To Ayah/Pg</label>
-                <input type="number" class="num-input" [(ngModel)]="extra.toAyah" placeholder="10" />
+                <label class="field-label">{{ extra.entryMethod === 'page' ? 'To Page' : 'To Ayah' }}</label>
+                <input type="number" class="num-input" [(ngModel)]="extra.toAyah" placeholder="10" min="1" [max]="extra.entryMethod === 'page' ? 604 : (getMaxAyah(extra.surahName) || 286)" />
+              </div>
+            </div>
+
+            <!-- Juz Mode -->
+            <div class="form-row" *ngIf="extra.evalMode === 'juz'">
+              <div class="field-item flex-2">
+                <label class="field-label">Juz Name</label>
+                <mat-select [(ngModel)]="extra.juzNo" panelClass="quran-juz-mat-panel">
+                  <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                    <span class="juz-num-pill">{{ j.number }}</span>
+                    <span class="juz-name-text">{{ j.displayName }}</span>
+                  </mat-option>
+                </mat-select>
+              </div>
+              <div class="field-item">
+                <label class="field-label">From Page (Juz)</label>
+                <input type="number" class="num-input" [(ngModel)]="extra.fromPage" placeholder="1" min="1" max="30" />
+              </div>
+              <div class="field-item">
+                <label class="field-label">To Page (Juz)</label>
+                <input type="number" class="num-input" [(ngModel)]="extra.toPage" placeholder="20" min="1" max="30" />
               </div>
             </div>
           </div>

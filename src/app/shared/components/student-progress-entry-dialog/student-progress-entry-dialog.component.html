@@ -4,9 +4,9 @@
     <div class="title-meta">
       <h2 class="dialog-title">Baseline Progress: {{ student['fullName'] || student['name'] }}</h2>
       <div class="legend-row">
-        <span class="legend-chip completed"><span class="dot"></span> Completed (Green)</span>
-        <span class="legend-chip in-progress"><span class="dot"></span> In-Progress (Amber)</span>
-        <span class="legend-chip weak"><span class="dot"></span> Weak Spot / Recite Again</span>
+        <span class="legend-chip completed"><span class="dot"></span> Completed</span>
+        <span class="legend-chip in-progress"><span class="dot"></span> In-Progress</span>
+        <span class="legend-chip weak"><span class="dot"></span> Weak Spot</span>
         <span class="legend-chip not-started"><span class="dot"></span> Not Started</span>
       </div>
     </div>
@@ -17,9 +17,13 @@
 <div class="dialog-content">
   <div class="dialog-main-layout" [class.has-inspection]="inspectedItem !== null">
     <div class="tabs-scroll-area">
-      <mat-tab-group [(selectedIndex)]="activeTabIndex" dynamicHeight>
+      <mat-tab-group [(selectedIndex)]="activeTabIndex" dynamicHeight class="custom-entry-tabs">
         <!-- 1. HIFZ (MEMORIZATION) TAB -->
-        <mat-tab label="Hifz (Memorization)">
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <span class="tab-txt-full">Hifz (Memorization)</span>
+            <span class="tab-txt-short">Hifz</span>
+          </ng-template>
           <div class="tab-body">
             <div class="section-header-row">
               <h3 class="section-title">Quran Juzs (1 – 30)</h3>
@@ -68,7 +72,11 @@
         </mat-tab>
 
         <!-- 2. DAWR (REVISION) TAB -->
-        <mat-tab label="Dawr (Revision)">
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <span class="tab-txt-full">Dawr (Revision)</span>
+            <span class="tab-txt-short">Dawr</span>
+          </ng-template>
           <div class="tab-body">
             <div class="dawr-settings-card">
               <div class="form-row">
@@ -106,17 +114,23 @@
         </mat-tab>
 
         <!-- 3. MAKTAB (FOUNDATION & TILAWAT) TAB -->
-        <mat-tab label="Maktab Progress">
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <span class="tab-txt-full">Maktab Progress</span>
+            <span class="tab-txt-short">Maktab</span>
+          </ng-template>
           <div class="tab-body">
             <!-- Sub-stage Mode Switcher -->
             <div class="maktab-substage-bar">
               <button type="button" class="substage-btn" [class.active]="activeMaktabSubStage === 'miftah'" (click)="activeMaktabSubStage = 'miftah'">
                 <mat-icon class="sub-ic">auto_stories</mat-icon>
-                <span>Miftah: Base Qaida &amp; Duas</span>
+                <span class="btn-txt-full">Miftah: Base Qaida &amp; Duas</span>
+                <span class="btn-txt-short">Miftah Qaida</span>
               </button>
               <button type="button" class="substage-btn" [class.active]="activeMaktabSubStage === 'tilawat'" (click)="activeMaktabSubStage = 'tilawat'">
                 <mat-icon class="sub-ic">menu_book</mat-icon>
-                <span>Tilawatul Quran Reading</span>
+                <span class="btn-txt-full">Tilawatul Quran Reading</span>
+                <span class="btn-txt-short">Tilawat Reading</span>
               </button>
             </div>
 

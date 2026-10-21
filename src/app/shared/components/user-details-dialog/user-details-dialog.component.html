@@ -16,17 +16,17 @@
         </span>
       </div>
     </div>
-    <div class="header-right-actions" style="display: flex; align-items: center; gap: 8px;">
-      <button *ngIf="currentUserRole === 'superAdmin' && (user['role'] === 'student' || user['course'] || user['stage'])" mat-raised-button color="primary"
-        type="button" (click)="openProgressTracker()"
-        style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; height: 38px; border-radius: 20px;">
-        <ion-icon name="analytics-outline"></ion-icon>
-        <span>Super Progress View</span>
-      </button>
-      <button mat-icon-button (click)="close()" aria-label="Close dialog">
-        <ion-icon name="close-outline"></ion-icon>
-      </button>
-    </div>
+  </div>
+  <div class="header-right-actions">
+    <button *ngIf="currentUserRole === 'superAdmin' && (user['role'] === 'student' || user['course'] || user['stage'])" mat-stroked-button color="primary"
+      type="button" class="tracker-header-btn" (click)="openProgressTracker()"
+      title="View Student Progress & Attendance Tracker">
+      <ion-icon name="analytics-outline"></ion-icon>
+      <span class="btn-text">Progress Tracker</span>
+    </button>
+    <button mat-icon-button (click)="close()" aria-label="Close dialog" class="close-dialog-btn">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
   </div>
 </header>
 

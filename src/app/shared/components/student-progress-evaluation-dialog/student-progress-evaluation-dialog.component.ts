@@ -20,6 +20,7 @@ export interface HifzExtraLessonEntry {
   id: string;
   lessonType: 'sabaq' | 'sabqi' | 'manzil' | 'dawr';
   evalMode: 'surah' | 'juz';
+  entryMethod?: 'ayah' | 'page';
   surahName?: string;
   fromAyah?: number | null;
   toAyah?: number | null;
@@ -57,7 +58,7 @@ export interface StudentProgressEvaluationDialogData {
 export class StudentProgressEvaluationDialogComponent implements OnInit {
   student: EntityRecord;
   studentTypeMode: 'hifz' | 'maktab' | 'dawr' = 'hifz';
-  evalCadence: 'daily' | 'weekly' = 'daily';
+  evalCadence: 'daily' | 'weekly' = 'weekly';
   
   isSaving = false;
   isLoadingHistory = false;
@@ -172,7 +173,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   ) {
     this.student = data.student;
     this.studentTypeMode = data.studentTypeMode || 'hifz';
-    this.evalCadence = data.evalCadence || 'daily';
+    this.evalCadence = data.evalCadence || 'weekly';
     this.isOrgAdmin = !!data.isOrgAdmin;
     this.isSuperAdmin = !!data.isSuperAdmin;
     this.canConfigureSubjects = this.isOrgAdmin || this.isSuperAdmin;
@@ -581,7 +582,8 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     this.extraLessonsList.push({
       id: 'lesson_' + Date.now(),
       lessonType: 'sabaq',
-      evalMode: this.hifzEvalUnitMode,
+      evalMode: this.hifzEvalUnitMode || 'surah',
+      entryMethod: this.hifzEntryMethod || 'ayah',
       surahName: this.allQuranSurahs[0],
       fromAyah: 1,
       toAyah: 10,
@@ -738,7 +740,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     this.isSaving = true;
     try {
       const firestore = getDeenDeskFirestore();
-      const studentId = this.student.id;
+      const studentId = String(this.student.id || this.student['uid'] || '');
       const orgId = this.data.currentUser?.organizationId || '';
       const madrasaId = this.data.madrasaId || '';
       const classId = this.data.classId || '';
@@ -999,6 +1001,93 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         await setDoc(weeklyDocRef, weeklyPayload, { merge: true });
       }
 
+      // Auto-update student baseline progress in users collection
+      let updatedProgress: any = null;
+      try {
+        const currentProg = this.student['progress'] || {};
+        const hifz = currentProg.hifz || { completedJuzs: [], inProgressJuzs: [], completedSurahs: [], inProgressSurahs: [] };
+        const dawr = currentProg.dawr || { completedRounds: 0, currentRoundJuz: null };
+        const maktab = currentProg.maktab || { miftahCompletedPages: [], miftahCurrentPage: 1, tilawatCompletedSurahs: [] };
+
+        const compJuz = new Set<number>(Array.isArray(hifz.completedJuzs) ? hifz.completedJuzs : []);
+        const inProgJuz = new Set<number>(Array.isArray(hifz.inProgressJuzs) ? hifz.inProgressJuzs : []);
+        const compSurahs = new Set<string>(Array.isArray(hifz.completedSurahs) ? hifz.completedSurahs : []);
+        const inProgSurahs = new Set<string>(Array.isArray(hifz.inProgressSurahs) ? hifz.inProgressSurahs : []);
+
+        const compPages = new Set<number>(Array.isArray(maktab.miftahCompletedPages) ? maktab.miftahCompletedPages : []);
+        const compTilawat = new Set<string>(Array.isArray(maktab.tilawatCompletedSurahs) ? maktab.tilawatCompletedSurahs : []);
+
+        if (this.studentTypeMode === 'hifz') {
+          const sSurah = this.sabaqEndSurah || this.sabaqStartSurah;
+          if (sSurah) {
+            if (this.starRating >= 4 && this.overallMistakes <= 1) {
+              compSurahs.add(sSurah);
+              inProgSurahs.delete(sSurah);
+            } else {
+              inProgSurahs.add(sSurah);
+            }
+          }
+          if (this.sabaqJuz && this.sabaqJuz >= 1 && this.sabaqJuz <= 30) {
+            inProgJuz.add(this.sabaqJuz);
+            for (let j = 1; j < this.sabaqJuz; j++) {
+              if (!inProgJuz.has(j)) compJuz.add(j);
+            }
+          }
+        } else if (this.studentTypeMode === 'dawr') {
+          if (this.dawrRoundNo) {
+            dawr.completedRounds = Math.max(dawr.completedRounds || 0, this.dawrRoundNo - 1);
+          }
+          const currJuz = this.manzilEndJuz || this.manzilStartJuz;
+          if (currJuz) {
+            dawr.currentRoundJuz = currJuz;
+          }
+        } else if (this.studentTypeMode === 'maktab') {
+          if (this.maktabStageMode === 'tilawatul_quran') {
+            if (this.tilawatSurah) {
+              compTilawat.add(this.tilawatSurah);
+            }
+          } else {
+            const activePg = (this.maktabSubjects && this.maktabSubjects[0]?.endPage) || null;
+            if (activePg) {
+              maktab.miftahCurrentPage = activePg;
+              for (let p = 1; p < activePg; p++) {
+                compPages.add(p);
+              }
+              if (this.starRating >= 4 && this.overallMistakes <= 1) {
+                compPages.add(activePg);
+              }
+            }
+          }
+        }
+
+        updatedProgress = {
+          hifz: {
+            completedJuzs: Array.from(compJuz).sort((a, b) => a - b),
+            inProgressJuzs: Array.from(inProgJuz).sort((a, b) => a - b),
+            completedSurahs: Array.from(compSurahs),
+            inProgressSurahs: Array.from(inProgSurahs)
+          },
+          dawr: {
+            completedRounds: dawr.completedRounds || 0,
+            currentRoundJuz: dawr.currentRoundJuz || null
+          },
+          maktab: {
+            miftahCompletedPages: Array.from(compPages).sort((a, b) => a - b),
+            miftahCurrentPage: maktab.miftahCurrentPage || 1,
+            tilawatCompletedSurahs: Array.from(compTilawat)
+          },
+          lastUpdated: new Date().toISOString()
+        };
+
+        if (studentId) {
+          const userDocRef = doc(firestore, 'users', studentId);
+          await setDoc(userDocRef, { progress: updatedProgress }, { merge: true });
+          this.student['progress'] = updatedProgress;
+        }
+      } catch (autoErr) {
+        console.warn('Auto-update baseline progress warning:', autoErr);
+      }
+
       this.snackBar.open(`Progress saved for ${this.student['fullName'] || this.student['name']}!`, 'OK', {
         duration: 3000,
         panelClass: ['app-snackbar']
@@ -1006,6 +1095,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
 
       this.dialogRef.close({
         saved: true,
+        updatedProgress,
         savedDocRefs: [
           `studentDailyProgress/${dailyDocId}`,
           ...(this.evalCadence === 'weekly' ? [`studentWeeklyProgress/${studentId}_week_${weekYear}_${weekNo}`] : [])

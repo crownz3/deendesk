@@ -2762,9 +2762,9 @@ export class ManagementPage {
 
     this.dialog.open(UserDetailsDialogComponent, {
       data: { user: row },
-      width: '80vw',
-      maxWidth: '80vw',
-      height: '85vh',
+      width: '95vw',
+      maxWidth: '900px',
+      maxHeight: '90vh',
       panelClass: 'user-details-dialog-panel'
     });
   }
@@ -2772,10 +2772,9 @@ export class ManagementPage {
   openProgressTracker(row: EntityRecord): void {
     this.dialog.open(StudentProgressTrackerDialogComponent, {
       data: { student: row },
-      width: '90vw',
-      maxWidth: '100vw',
-      height: '90vh',
-      maxHeight: '100vh',
+      width: '95vw',
+      maxWidth: '1000px',
+      maxHeight: '92vh',
       panelClass: 'student-progress-tracker-dialog-panel'
     });
   }

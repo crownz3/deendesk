@@ -68,6 +68,85 @@
       ion-icon { font-size: 15px; color: #0284c7; }
     }
   }
+
+  .header-right-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+
+    .tracker-header-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      height: 36px;
+      border-radius: 8px;
+      white-space: nowrap;
+
+      ion-icon {
+        font-size: 17px;
+      }
+    }
+
+    .close-dialog-btn {
+      color: #64748b;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .dialog-header {
+    padding: 12px 14px;
+    gap: 8px;
+
+    .profile-avatar {
+      width: 42px;
+      height: 42px;
+      min-width: 42px;
+    }
+
+    .user-titles {
+      h2 {
+        font-size: 16px;
+      }
+    }
+
+    .header-right-actions {
+      .tracker-header-btn {
+        padding: 0 8px;
+        min-width: 34px;
+        height: 34px;
+
+        .btn-text {
+          display: none;
+        }
+      }
+    }
+  }
+
+  .dialog-tabs-bar {
+    padding: 6px 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      padding: 6px 10px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+  }
+
+  mat-dialog-actions {
+    padding: 8px 12px !important;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    button {
+      font-size: 12px;
+    }
+  }
 }
 
 .dialog-tabs-bar {

@@ -868,3 +868,24 @@ ion-icon {
   }
 }
 
+.actions-cell {
+  white-space: nowrap;
+
+  .tracker-quick-btn {
+    width: 32px;
+    height: 32px;
+    line-height: 32px;
+    margin-right: 4px;
+    color: #0284c7;
+
+    ion-icon {
+      font-size: 19px;
+    }
+
+    &:hover {
+      background: rgba(2, 132, 199, 0.1);
+    }
+  }
+}
+
+

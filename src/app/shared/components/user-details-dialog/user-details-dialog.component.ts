@@ -506,9 +506,9 @@ export class UserDetailsDialogComponent implements OnInit {
   openStudentDetails(student: EntityRecord): void {
     this.dialog.open(UserDetailsDialogComponent, {
       data: { user: student },
-      width: '80vw',
-      maxWidth: '80vw',
-      height: '85vh',
+      width: '95vw',
+      maxWidth: '900px',
+      maxHeight: '90vh',
       panelClass: 'user-details-dialog-panel'
     });
   }
@@ -519,10 +519,10 @@ export class UserDetailsDialogComponent implements OnInit {
 
   openProgressTracker(): void {
     this.dialog.open(StudentProgressTrackerDialogComponent, {
-      width: '90vw',
-      maxWidth: '100vw',
-      height: '90vh',
-      maxHeight: '100vh',
+      width: '95vw',
+      maxWidth: '1000px',
+      maxHeight: '92vh',
+      panelClass: 'student-progress-tracker-dialog-panel',
       data: { student: this.user }
     });
   }

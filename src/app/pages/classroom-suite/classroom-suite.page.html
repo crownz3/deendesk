@@ -84,16 +84,18 @@
         <mat-icon>person</mat-icon> Assigned Staff:
       </div>
       <div class="staff-chips-container" *ngIf="assignedStaffList.length > 0; else noStaffTpl">
-        <span class="staff-chip" *ngFor="let s of assignedStaffList"
-          [matTooltip]="(s.role || 'Ustadh / Teacher') + ' assigned to this group'">
+        <div class="staff-chip" *ngFor="let s of assignedStaffList" [matTooltip]="(s.role || 'Ustadh / Teacher') + ' assigned to this group'">
           <mat-icon class="staff-icon">account_circle</mat-icon>
-          <span class="staff-name">{{ s.name }}</span>
-          <span class="staff-role-badge" *ngIf="s.role">{{ s.role }}</span>
-          <span class="multi-group-tag" *ngIf="s.allGroupNames && s.allGroupNames.length > 1"
-            [matTooltip]="'Teaches ' + s.allGroupNames.length + ' Class Groups: ' + s.allGroupNames.join(', ')">
-            <mat-icon class="tag-icon">groups</mat-icon> {{ s.allGroupNames.length }} Class Groups
-          </span>
-        </span>
+          <div class="staff-info">
+            <span class="staff-name">{{ s.name }}</span>
+            <div class="staff-meta-badges">
+              <span class="staff-role-badge" *ngIf="s.role">{{ s.role }}</span>
+              <span class="multi-group-tag" *ngIf="s.allGroupNames && s.allGroupNames.length > 1" [matTooltip]="'Teaches ' + s.allGroupNames.length + ' Class Groups: ' + s.allGroupNames.join(', ')">
+                <mat-icon class="tag-icon">groups</mat-icon> {{ s.allGroupNames.length }} Class Groups
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
       <ng-template #noStaffTpl>
         <span class="no-staff-text">No staff assigned to this class group</span>
@@ -473,7 +475,7 @@
             <div class="card-top-row">
               <div class="st-num-badge">#{{ i + 1 }}</div>
               <div class="st-main-info">
-                <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                <strong class="st-name clickable-student-name" (click)="openStudentCompleteHistoryModal(item.student)" title="Click to view complete student history & logs">{{ item.student['fullName'] || item.student['name'] }}</strong>
                 <div class="st-sub-meta">
                   <span class="parent-phone" *ngIf="getParentPhone(item.student)">
                     <mat-icon class="meta-icon">phone</mat-icon> {{ getParentPhone(item.student) }}
@@ -534,7 +536,7 @@
                 <td class="student-name-td st-name-cell">
                   <div class="st-info">
                     <div class="st-name-row">
-                      <strong class="st-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <strong class="st-name clickable-student-name" (click)="openStudentCompleteHistoryModal(item.student)" title="Click to view complete student history & logs">{{ item.student['fullName'] || item.student['name'] }}</strong>
                       <span class="st-id" *ngIf="item.student['admissionNo']">#{{ item.student['admissionNo'] }}</span>
                     </div>
                     <div class="st-sub-meta">
@@ -782,14 +784,14 @@
 
               <!-- Card Header Row -->
               <div class="card-header-bar">
-                <div class="card-user-info">
+                <div class="card-user-info clickable-student-header" (click)="$event.stopPropagation(); openStudentCompleteHistoryModal(item.student)" title="Click to view complete student history & logs">
                   <div class="st-avatar" [class.avatar-eval]="getStudentProgressStatus(item).isEvaluated">
                     {{ (item.student['fullName'] || item.student['name'] || 'S').charAt(0).toUpperCase() }}
                   </div>
                   <div class="st-meta">
                     <div class="st-name-row">
                       <span class="st-order-no">#{{ i + 1 }}</span>
-                      <strong class="st-full-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
+                      <strong class="st-full-name clickable-student-name">{{ item.student['fullName'] || item.student['name'] }}</strong>
                     </div>
                     <div class="st-sub-chips">
                       <span class="sub-chip stage-chip" *ngIf="getStudentStageDisplay(item.student)" [title]="'Stage: ' + getStudentStageDisplay(item.student)">
