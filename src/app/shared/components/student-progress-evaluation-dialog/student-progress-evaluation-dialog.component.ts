@@ -19,12 +19,18 @@ export interface MaktabSubjectEntry {
 export interface HifzExtraLessonEntry {
   id: string;
   lessonType: 'sabaq' | 'sabqi' | 'manzil' | 'dawr';
-  evalMode: 'surah' | 'juz';
+  evalMode: 'portion' | 'surah' | 'page' | 'juz';
   entryMethod?: 'ayah' | 'page';
   surahName?: string;
+  startSurah?: string;
+  endSurah?: string;
   fromAyah?: number | null;
   toAyah?: number | null;
   juzNo?: number | null;
+  startJuz?: number | null;
+  endJuz?: number | null;
+  startPortion?: string;
+  endPortion?: string;
   juzPortion?: string;
   fromPage?: number | null;
   toPage?: number | null;
@@ -112,20 +118,30 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
 
   // Hifz Primary Lessons
   // 1. Sabaq (New Lesson)
+  sabaqEvalUnitMode: 'portion' | 'surah' | 'page' = 'surah';
   sabaqStartSurah = '';
   sabaqStartAyah: number | null = null;
   sabaqEndSurah = '';
   sabaqEndAyah: number | null = null;
+  sabaqStartJuz: number | null = null;
+  sabaqStartPortion: string = 'Full Juz';
+  sabaqEndJuz: number | null = null;
+  sabaqEndPortion: string = 'Full Juz';
   sabaqJuz: number | null = null;
   sabaqStartPage: number | null = null;
   sabaqEndPage: number | null = null;
   sabaqMistakes: number | null = null;
 
   // 2. Sabqi (Old Lesson)
+  sabqiEvalUnitMode: 'portion' | 'surah' | 'page' = 'surah';
   sabqiStartSurah = '';
   sabqiStartAyah: number | null = null;
   sabqiEndSurah = '';
   sabqiEndAyah: number | null = null;
+  sabqiStartJuz: number | null = null;
+  sabqiStartPortion: string = 'Full Juz';
+  sabqiEndJuz: number | null = null;
+  sabqiEndPortion: string = 'Full Juz';
   sabqiJuz: number | null = null;
   sabqiStartPage: number | null = null;
   sabqiEndPage: number | null = null;
@@ -227,22 +243,33 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       tilawatFromPage: this.tilawatFromPage,
       tilawatToPage: this.tilawatToPage,
       tilawatEvalMode: this.tilawatEvalMode,
+      sabaqEvalUnitMode: this.sabaqEvalUnitMode,
       sabaqStartSurah: this.sabaqStartSurah,
       sabaqStartAyah: this.sabaqStartAyah,
       sabaqEndSurah: this.sabaqEndSurah,
       sabaqEndAyah: this.sabaqEndAyah,
+      sabaqStartJuz: this.sabaqStartJuz,
+      sabaqStartPortion: this.sabaqStartPortion,
+      sabaqEndJuz: this.sabaqEndJuz,
+      sabaqEndPortion: this.sabaqEndPortion,
       sabaqJuz: this.sabaqJuz,
       sabaqStartPage: this.sabaqStartPage,
       sabaqEndPage: this.sabaqEndPage,
       sabaqMistakes: this.sabaqMistakes,
+      sabqiEvalUnitMode: this.sabqiEvalUnitMode,
       sabqiStartSurah: this.sabqiStartSurah,
       sabqiStartAyah: this.sabqiStartAyah,
       sabqiEndSurah: this.sabqiEndSurah,
       sabqiEndAyah: this.sabqiEndAyah,
+      sabqiStartJuz: this.sabqiStartJuz,
+      sabqiStartPortion: this.sabqiStartPortion,
+      sabqiEndJuz: this.sabqiEndJuz,
+      sabqiEndPortion: this.sabqiEndPortion,
       sabqiJuz: this.sabqiJuz,
       sabqiStartPage: this.sabqiStartPage,
       sabqiEndPage: this.sabqiEndPage,
       sabqiMistakes: this.sabqiMistakes,
+      manzilEvalUnitMode: this.manzilEvalUnitMode,
       manzilStartSurah: this.manzilStartSurah,
       manzilStartAyah: this.manzilStartAyah,
       manzilEndSurah: this.manzilEndSurah,
@@ -318,24 +345,35 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       }
     } else {
       // Hifz / Dawr
+      this.sabaqEvalUnitMode = item.sabaqEvalUnitMode || (item.sabaqStartPortion ? 'portion' : ((item.sabaqStartPage || item.weeklySabaqStartPage) ? 'page' : 'surah'));
       this.sabaqStartSurah = item.weeklySabaqStartSurah || item.sabaqSurah || '';
       this.sabaqStartAyah = item.weeklySabaqStartAyah || item.sabaqFromAyah || null;
       this.sabaqEndSurah = item.weeklySabaqEndSurah || item.sabaqSurah || '';
       this.sabaqEndAyah = item.weeklySabaqEndAyah || item.sabaqToAyah || null;
-      this.sabaqJuz = item.weeklySabaqStartJuz || item.sabaqJuzNo || null;
-      this.sabaqStartPage = item.weeklySabaqStartPage || null;
-      this.sabaqEndPage = item.weeklySabaqEndPage || null;
+      this.sabaqStartJuz = item.sabaqStartJuz || item.weeklySabaqStartJuz || item.sabaqJuzNo || null;
+      this.sabaqStartPortion = item.sabaqStartPortion || item.weeklySabaqStartPortion || 'Full Juz';
+      this.sabaqEndJuz = item.sabaqEndJuz || item.weeklySabaqEndJuz || item.sabaqJuzNo || this.sabaqStartJuz;
+      this.sabaqEndPortion = item.sabaqEndPortion || item.weeklySabaqEndPortion || 'Full Juz';
+      this.sabaqJuz = this.sabaqStartJuz;
+      this.sabaqStartPage = item.weeklySabaqStartPage || item.sabaqStartPage || null;
+      this.sabaqEndPage = item.weeklySabaqEndPage || item.sabaqEndPage || null;
       this.sabaqMistakes = item.sabaqMistakes || null;
 
+      this.sabqiEvalUnitMode = item.sabqiEvalUnitMode || (item.sabqiStartPortion ? 'portion' : ((item.sabqiStartPage || item.weeklySabqiStartPage) ? 'page' : 'surah'));
       this.sabqiStartSurah = item.weeklySabqiStartSurah || item.sabqiSurah || '';
       this.sabqiStartAyah = item.weeklySabqiStartAyah || item.sabqiFromAyah || null;
       this.sabqiEndSurah = item.weeklySabqiEndSurah || item.sabqiSurah || '';
       this.sabqiEndAyah = item.weeklySabqiEndAyah || item.sabqiToAyah || null;
-      this.sabqiJuz = item.weeklySabqiStartJuz || item.sabqiJuz || null;
-      this.sabqiStartPage = item.weeklySabqiStartPage || null;
-      this.sabqiEndPage = item.weeklySabqiEndPage || null;
+      this.sabqiStartJuz = item.sabqiStartJuz || item.weeklySabqiStartJuz || item.sabqiJuz || null;
+      this.sabqiStartPortion = item.sabqiStartPortion || item.weeklySabqiStartPortion || 'Full Juz';
+      this.sabqiEndJuz = item.sabqiEndJuz || item.weeklySabqiEndJuz || item.sabqiJuz || this.sabqiStartJuz;
+      this.sabqiEndPortion = item.sabqiEndPortion || item.weeklySabqiEndPortion || 'Full Juz';
+      this.sabqiJuz = this.sabqiStartJuz;
+      this.sabqiStartPage = item.weeklySabqiStartPage || item.sabqiStartPage || null;
+      this.sabqiEndPage = item.weeklySabqiEndPage || item.sabqiEndPage || null;
       this.sabqiMistakes = item.sabqiMistakes || null;
 
+      this.manzilEvalUnitMode = item.manzilEvalUnitMode || (item.weeklyManzilStartPortion ? 'portion' : 'portion');
       this.manzilStartSurah = item.weeklyManzilStartSurah || item.manzilSurah || '';
       this.manzilStartAyah = item.weeklyManzilStartAyah || item.manzilFromAyah || null;
       this.manzilEndSurah = item.weeklyManzilEndSurah || item.manzilSurah || '';
@@ -350,7 +388,16 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       this.dawrWeeklyJuzCount = item.weeklyDawrJuzCount || 5;
 
       if (Array.isArray(item.hifzLessonsList) && item.hifzLessonsList.length > 0) {
-        this.extraLessonsList = JSON.parse(JSON.stringify(item.hifzLessonsList));
+        this.extraLessonsList = JSON.parse(JSON.stringify(item.hifzLessonsList)).map((extra: any) => ({
+          ...extra,
+          evalMode: extra.evalMode || (extra.startPortion ? 'portion' : (extra.fromPage ? 'page' : 'surah')),
+          startPortion: extra.startPortion || 'Full Juz',
+          endPortion: extra.endPortion || 'Full Juz',
+          startJuz: extra.startJuz || extra.juzNo || 1,
+          endJuz: extra.endJuz || extra.juzNo || 1,
+          startSurah: extra.startSurah || extra.surahName || '',
+          endSurah: extra.endSurah || extra.surahName || ''
+        }));
       }
 
       if (this.sabaqStartPage || this.sabaqJuz) {
@@ -582,12 +629,18 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     this.extraLessonsList.push({
       id: 'lesson_' + Date.now(),
       lessonType: 'sabaq',
-      evalMode: this.hifzEvalUnitMode || 'surah',
-      entryMethod: this.hifzEntryMethod || 'ayah',
+      evalMode: 'portion',
+      entryMethod: 'ayah',
       surahName: this.allQuranSurahs[0],
+      startSurah: this.allQuranSurahs[0],
+      endSurah: this.allQuranSurahs[0],
       fromAyah: 1,
       toAyah: 10,
       juzNo: 1,
+      startJuz: 1,
+      endJuz: 1,
+      startPortion: 'Full Juz',
+      endPortion: 'Full Juz',
       fromPage: 1,
       toPage: 5,
       mistakes: 0
@@ -753,6 +806,34 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       // 1. Prepare clean primary representations for backward compatibility
       const primaryMaktab = this.maktabSubjects[0] || null;
 
+      // Pre-calculate formatted Hifz ranges for reuse in dailyPayload and weeklyPayload
+      let formattedSabaqRange = '';
+      if (this.sabaqEvalUnitMode === 'surah') {
+        formattedSabaqRange = this.sabaqEndSurah ? `${this.sabaqEndSurah} (${this.sabaqStartAyah || 1}–${this.sabaqEndAyah || 10})` : '';
+      } else if (this.sabaqEvalUnitMode === 'page') {
+        formattedSabaqRange = (this.sabaqStartJuz || this.sabaqJuz) ? `Juz ${this.sabaqStartJuz || this.sabaqJuz} (Pg ${this.sabaqStartPage || 1}–${this.sabaqEndPage || 20})` : '';
+      } else {
+        formattedSabaqRange = (this.sabaqStartJuz || this.sabaqJuz) ? `Juz ${this.sabaqStartJuz || this.sabaqJuz} (${this.sabaqStartPortion || 'Full Juz'}${this.sabaqEndJuz && this.sabaqEndJuz !== (this.sabaqStartJuz || this.sabaqJuz) ? ' to Juz ' + this.sabaqEndJuz + ' (' + (this.sabaqEndPortion || 'Full Juz') + ')' : ''})` : '';
+      }
+
+      let formattedSabqiRange = '';
+      if (this.sabqiEvalUnitMode === 'surah') {
+        formattedSabqiRange = this.sabqiEndSurah ? `${this.sabqiEndSurah} (${this.sabqiStartAyah || 1}–${this.sabqiEndAyah || 10})` : '';
+      } else if (this.sabqiEvalUnitMode === 'page') {
+        formattedSabqiRange = (this.sabqiStartJuz || this.sabqiJuz) ? `Juz ${this.sabqiStartJuz || this.sabqiJuz} (Pg ${this.sabqiStartPage || 1}–${this.sabqiEndPage || 20})` : '';
+      } else {
+        formattedSabqiRange = (this.sabqiStartJuz || this.sabqiJuz) ? `Juz ${this.sabqiStartJuz || this.sabqiJuz} (${this.sabqiStartPortion || 'Full Juz'}${this.sabqiEndJuz && this.sabqiEndJuz !== (this.sabqiStartJuz || this.sabqiJuz) ? ' to Juz ' + this.sabqiEndJuz + ' (' + (this.sabqiEndPortion || 'Full Juz') + ')' : ''})` : '';
+      }
+
+      let formattedManzilRange = '';
+      if (this.manzilEvalUnitMode === 'surah') {
+        formattedManzilRange = this.manzilStartSurah ? `${this.manzilStartSurah} (${this.manzilStartAyah || 1}–${this.manzilEndAyah || 10})` : '';
+      } else if (this.manzilEvalUnitMode === 'page') {
+        formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (Pg ${this.manzilStartPage || 1}–${this.manzilEndPage || 20})` : '';
+      } else {
+        formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'}${this.manzilEndJuz && this.manzilEndJuz !== this.manzilStartJuz ? ' to Juz ' + this.manzilEndJuz + ' (' + (this.manzilEndPortion || 'Full Juz') + ')' : ''})` : '';
+      }
+
       // 2. Build Daily Progress Record
       const dailyDocId = `${studentId}_${dateStr}`;
       const dailyDocRef = doc(firestore, 'studentDailyProgress', dailyDocId);
@@ -830,40 +911,52 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         dailyPayload.sabaqAyahFrom = this.sabaqStartAyah;
         dailyPayload.sabaqAyahTo = this.sabaqEndAyah;
         dailyPayload.sabaqMistakes = this.sabaqMistakes || 0;
+        dailyPayload.sabaqEvalUnitMode = this.sabaqEvalUnitMode;
+        dailyPayload.sabaqStartPortion = this.sabaqStartPortion;
+        dailyPayload.sabaqEndPortion = this.sabaqEndPortion;
+        dailyPayload.sabaqStartJuz = this.sabaqStartJuz || this.sabaqJuz;
+        dailyPayload.sabaqEndJuz = this.sabaqEndJuz || this.sabaqJuz;
+        dailyPayload.sabaqRange = formattedSabaqRange;
+
         dailyPayload.sabqiSurah = this.sabqiEndSurah;
         dailyPayload.sabqiAyahFrom = this.sabqiStartAyah;
         dailyPayload.sabqiAyahTo = this.sabqiEndAyah;
-        dailyPayload.sabqiJuz = this.sabqiJuz ? `Juz ${this.sabqiJuz}` : '';
+        dailyPayload.sabqiJuz = (this.sabqiStartJuz || this.sabqiJuz) ? `Juz ${this.sabqiStartJuz || this.sabqiJuz}` : '';
         dailyPayload.sabqiMistakes = this.sabqiMistakes || 0;
+        dailyPayload.sabqiEvalUnitMode = this.sabqiEvalUnitMode;
+        dailyPayload.sabqiStartPortion = this.sabqiStartPortion;
+        dailyPayload.sabqiEndPortion = this.sabqiEndPortion;
+        dailyPayload.sabqiStartJuz = this.sabqiStartJuz || this.sabqiJuz;
+        dailyPayload.sabqiEndJuz = this.sabqiEndJuz || this.sabqiJuz;
+        dailyPayload.sabqiRange = formattedSabqiRange;
+
         dailyPayload.manzilSurah = this.manzilEndSurah;
         dailyPayload.manzilAyahFrom = this.manzilStartAyah;
         dailyPayload.manzilAyahTo = this.manzilEndAyah;
         dailyPayload.manzilJuz = this.manzilStartJuz ? `Juz ${this.manzilStartJuz}` : '';
         dailyPayload.manzilMistakes = this.manzilMistakes || 0;
         dailyPayload.hifzLessonsList = this.extraLessonsList;
-        let formattedManzilRange = '';
-        if (this.manzilEvalUnitMode === 'surah') {
-          formattedManzilRange = this.manzilStartSurah ? `${this.manzilStartSurah} (${this.manzilStartAyah || 1}–${this.manzilEndAyah || 10})` : '';
-        } else if (this.manzilEvalUnitMode === 'page') {
-          formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (Pg ${this.manzilStartPage || 1}–${this.manzilEndPage || 20})` : '';
-        } else {
-          formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'})` : '';
-        }
-
         dailyPayload.manzilRange = formattedManzilRange;
         dailyPayload.manzilEvalUnitMode = this.manzilEvalUnitMode;
         dailyPayload.manzilStartPage = this.manzilStartPage;
         dailyPayload.manzilEndPage = this.manzilEndPage;
+
         dailyPayload.hifzProgress = {
           evalUnitMode: this.hifzEvalUnitMode,
-          sabaqSurahName: this.sabaqEndSurah,
+          sabaqEvalUnitMode: this.sabaqEvalUnitMode,
+          sabaqSurahName: this.sabaqEndSurah || this.sabaqStartSurah,
           sabaqFromAyah: this.sabaqStartAyah,
           sabaqToAyah: this.sabaqEndAyah,
-          sabaqJuzNo: this.sabaqJuz,
+          sabaqJuzNo: this.sabaqStartJuz || this.sabaqJuz,
           sabaqStartPage: this.sabaqStartPage,
           sabaqEndPage: this.sabaqEndPage,
+          sabaqStartPortion: this.sabaqStartPortion,
+          sabaqEndPortion: this.sabaqEndPortion,
+          sabaqRange: formattedSabaqRange,
           sabaqMistakes: this.sabaqMistakes || 0,
-          sabqiRange: this.sabqiEndSurah || (this.sabqiJuz ? `Juz ${this.sabqiJuz}` : ''),
+          sabqiEvalUnitMode: this.sabqiEvalUnitMode,
+          sabqiRange: formattedSabqiRange,
+          sabqiMistakes: this.sabqiMistakes || 0,
           manzilRange: formattedManzilRange,
           manzilEvalUnitMode: this.manzilEvalUnitMode,
           rating: this.starRating
@@ -956,28 +1049,45 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         } else {
           weeklyPayload.hifz = {
             evalUnitMode: this.hifzEvalUnitMode,
+            sabaqEvalUnitMode: this.sabaqEvalUnitMode,
             sabaqStartSurah: this.sabaqStartSurah,
             sabaqStartAyah: this.sabaqStartAyah,
             sabaqEndSurah: this.sabaqEndSurah,
             sabaqEndAyah: this.sabaqEndAyah,
-            sabaqStartJuz: this.sabaqJuz,
-            sabaqEndJuz: this.sabaqJuz,
+            sabaqStartJuz: this.sabaqStartJuz || this.sabaqJuz,
+            sabaqEndJuz: this.sabaqEndJuz || this.sabaqJuz,
+            sabaqStartPortion: this.sabaqStartPortion,
+            sabaqEndPortion: this.sabaqEndPortion,
             sabaqStartPage: this.sabaqStartPage,
             sabaqEndPage: this.sabaqEndPage,
+            sabaqMistakes: this.sabaqMistakes || 0,
+            sabaqRange: formattedSabaqRange,
+            sabqiEvalUnitMode: this.sabqiEvalUnitMode,
             sabqiStartSurah: this.sabqiStartSurah,
             sabqiStartAyah: this.sabqiStartAyah,
             sabqiEndSurah: this.sabqiEndSurah,
             sabqiEndAyah: this.sabqiEndAyah,
-            sabqiStartJuz: this.sabqiJuz,
-            sabqiEndJuz: this.sabqiJuz,
+            sabqiStartJuz: this.sabqiStartJuz || this.sabqiJuz,
+            sabqiEndJuz: this.sabqiEndJuz || this.sabqiJuz,
+            sabqiStartPortion: this.sabqiStartPortion,
+            sabqiEndPortion: this.sabqiEndPortion,
             sabqiStartPage: this.sabqiStartPage,
             sabqiEndPage: this.sabqiEndPage,
+            sabqiMistakes: this.sabqiMistakes || 0,
+            sabqiRange: formattedSabqiRange,
+            manzilEvalUnitMode: this.manzilEvalUnitMode,
             manzilStartSurah: this.manzilStartSurah,
+            manzilStartAyah: this.manzilStartAyah,
             manzilEndSurah: this.manzilEndSurah,
+            manzilEndAyah: this.manzilEndAyah,
             manzilStartJuz: this.manzilStartJuz,
-            manzilStartPortion: this.manzilStartPortion,
             manzilEndJuz: this.manzilEndJuz,
+            manzilStartPortion: this.manzilStartPortion,
             manzilEndPortion: this.manzilEndPortion,
+            manzilStartPage: this.manzilStartPage,
+            manzilEndPage: this.manzilEndPage,
+            manzilMistakes: this.manzilMistakes || 0,
+            manzilRange: formattedManzilRange,
             weeklyMistakes: this.overallMistakes,
             rating: this.starRating,
             notes: this.remarks
@@ -1112,24 +1222,41 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         dawrRoundNo: this.dawrRoundNo,
         maktabSubjects: this.maktabSubjects,
         hifzLessonsList: this.extraLessonsList,
+        sabaqEvalUnitMode: this.sabaqEvalUnitMode,
         sabaqStartSurah: this.sabaqStartSurah,
         sabaqStartAyah: this.sabaqStartAyah,
         sabaqEndSurah: this.sabaqEndSurah,
         sabaqEndAyah: this.sabaqEndAyah,
-        sabaqJuz: this.sabaqJuz,
+        sabaqStartJuz: this.sabaqStartJuz || this.sabaqJuz,
+        sabaqStartPortion: this.sabaqStartPortion,
+        sabaqEndJuz: this.sabaqEndJuz || this.sabaqJuz,
+        sabaqEndPortion: this.sabaqEndPortion,
+        sabaqJuz: this.sabaqStartJuz || this.sabaqJuz,
         sabaqStartPage: this.sabaqStartPage,
         sabaqEndPage: this.sabaqEndPage,
+        sabqiEvalUnitMode: this.sabqiEvalUnitMode,
         sabqiStartSurah: this.sabqiStartSurah,
         sabqiStartAyah: this.sabqiStartAyah,
         sabqiEndSurah: this.sabqiEndSurah,
         sabqiEndAyah: this.sabqiEndAyah,
-        sabqiJuz: this.sabqiJuz,
+        sabqiStartJuz: this.sabqiStartJuz || this.sabqiJuz,
+        sabqiStartPortion: this.sabqiStartPortion,
+        sabqiEndJuz: this.sabqiEndJuz || this.sabqiJuz,
+        sabqiEndPortion: this.sabqiEndPortion,
+        sabqiJuz: this.sabqiStartJuz || this.sabqiJuz,
         sabqiStartPage: this.sabqiStartPage,
         sabqiEndPage: this.sabqiEndPage,
+        manzilEvalUnitMode: this.manzilEvalUnitMode,
+        manzilStartSurah: this.manzilStartSurah,
+        manzilStartAyah: this.manzilStartAyah,
+        manzilEndSurah: this.manzilEndSurah,
+        manzilEndAyah: this.manzilEndAyah,
         manzilStartJuz: this.manzilStartJuz,
         manzilStartPortion: this.manzilStartPortion,
         manzilEndJuz: this.manzilEndJuz,
         manzilEndPortion: this.manzilEndPortion,
+        manzilStartPage: this.manzilStartPage,
+        manzilEndPage: this.manzilEndPage,
         starRating: this.starRating,
         overallMistakes: this.overallMistakes,
         remarks: this.remarks

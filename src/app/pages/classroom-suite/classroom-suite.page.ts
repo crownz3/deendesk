@@ -75,6 +75,13 @@ export interface StudentSuiteRosterItem {
   sabaqMistakes: number | null;
   sabaqJuz?: number | null;
   sabaqJuzPortion?: string;
+  sabaqEvalUnitMode?: 'portion' | 'surah' | 'page';
+  sabaqStartJuz?: number | null;
+  sabaqStartPortion?: string;
+  sabaqEndJuz?: number | null;
+  sabaqEndPortion?: string;
+  sabaqStartPage?: number | null;
+  sabaqEndPage?: number | null;
 
   sabqiSurah?: string;
   sabqiFromAyah?: number | null;
@@ -82,6 +89,13 @@ export interface StudentSuiteRosterItem {
   sabqiJuz: number | null;
   sabqiJuzPortion?: string;
   sabqiMistakes: number | null;
+  sabqiEvalUnitMode?: 'portion' | 'surah' | 'page';
+  sabqiStartJuz?: number | null;
+  sabqiStartPortion?: string;
+  sabqiEndJuz?: number | null;
+  sabqiEndPortion?: string;
+  sabqiStartPage?: number | null;
+  sabqiEndPage?: number | null;
 
   manzilSurah?: string;
   manzilFromAyah?: number | null;
@@ -89,6 +103,13 @@ export interface StudentSuiteRosterItem {
   manzilJuz: number | null;
   manzilJuzPortion?: string;
   manzilMistakes: number | null;
+  manzilEvalUnitMode?: 'portion' | 'surah' | 'page';
+  manzilStartJuz?: number | null;
+  manzilStartPortion?: string;
+  manzilEndJuz?: number | null;
+  manzilEndPortion?: string;
+  manzilStartPage?: number | null;
+  manzilEndPage?: number | null;
   hifzRating: number; // 1-5
   // Dawr (Full Quran Revision) Progress Fields
   dawrRoundNo: number | null;
@@ -124,6 +145,7 @@ export interface StudentSuiteRosterItem {
   weeklySabaqEndPortion?: string;
   weeklySabaqStartPage?: number | null;
   weeklySabaqEndPage?: number | null;
+  weeklySabaqRange?: string;
 
   // 2. Old Lesson (Sabqi)
   weeklySabqiStartSurah?: string;
@@ -147,6 +169,8 @@ export interface StudentSuiteRosterItem {
   weeklyManzilStartPortion?: string;
   weeklyManzilEndJuz?: number | null;
   weeklyManzilEndPortion?: string;
+  weeklyManzilStartPage?: number | null;
+  weeklyManzilEndPage?: number | null;
   weeklyManzilRange?: string;
   weeklyMistakes?: number | null;
   weeklyRating?: number; // 1-5
@@ -479,7 +503,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       }
       if (params['classId']) this.selectedClassId = params['classId'];
 
-      if (params['tab'] && ['attendance', 'overview', 'progress', 'timetable'].includes(params['tab'])) {
+      if (params['tab'] && ['attendance', 'progress', 'timetable'].includes(params['tab'])) {
         this.activeTab = params['tab'] as any;
       }
 
@@ -2612,10 +2636,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       // Hifz
       if (item.hifzLessonsList && item.hifzLessonsList.length > 0) {
         const summary = item.hifzLessonsList.map(l => {
-          if (l.mode === 'juz') {
-            return `Juz ${l.juzNumber} (Pg ${l.fromPage || 1}–${l.toPage || 1})`;
+          if (l.evalMode === 'portion') {
+            return `Juz ${l.startJuz || l.juzNo || 1} (${l.startPortion || 'Full Juz'}${l.endJuz && l.endJuz !== (l.startJuz || l.juzNo || 1) ? ' to Juz ' + l.endJuz + ' (' + (l.endPortion || 'Full Juz') + ')' : ''})`;
+          } else if (l.evalMode === 'page' || l.mode === 'juz') {
+            return `Juz ${l.juzNumber || l.juzNo || 1} (Pg ${l.fromPage || 1}–${l.toPage || 1})`;
           }
-          return `${l.surahName || 'Surah'} (${l.fromAyah || 1}–${l.toAyah || 1})`;
+          return `${l.endSurah || l.surahName || 'Surah'} (${l.fromAyah || 1}–${l.toAyah || 1})`;
         }).join(' • ');
         return {
           isEvaluated: true,
@@ -2627,14 +2653,39 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       }
 
       const sabaq = item.weeklySabaqEndSurah || item.sabaqSurah;
-      const sabaqJuz = item.weeklySabaqStartJuz || item.sabaqJuz;
-      if (sabaq || sabaqJuz) {
-        const sabaqText = sabaq
-          ? `${sabaq} (${item.weeklySabaqStartAyah || item.sabaqFromAyah || 1}–${item.weeklySabaqEndAyah || item.sabaqToAyah || 1})`
-          : `Juz ${sabaqJuz} (Pg ${item.weeklySabaqStartPage || 1}–${item.weeklySabaqEndPage || 1})`;
+      const sabaqJuz = item.sabaqStartJuz || item.weeklySabaqStartJuz || item.sabaqJuz;
+      const sabaqPortion = item.sabaqStartPortion || item.weeklySabaqStartPortion;
+      if (sabaq || sabaqJuz || sabaqPortion) {
+        let sabaqText = '';
+        if (sabaqPortion && sabaqJuz) {
+          sabaqText = `Juz ${sabaqJuz} (${sabaqPortion})`;
+        } else if (sabaq) {
+          sabaqText = `${sabaq} (${item.weeklySabaqStartAyah || item.sabaqFromAyah || 1}–${item.weeklySabaqEndAyah || item.sabaqToAyah || 1})`;
+        } else {
+          sabaqText = `Juz ${sabaqJuz} (Pg ${item.weeklySabaqStartPage || item.sabaqStartPage || 1}–${item.weeklySabaqEndPage || item.sabaqEndPage || 1})`;
+        }
 
-        const sabqiText = item.weeklySabqiRange || item.sabqiSurah || (item.weeklySabqiStartJuz ? `Juz ${item.weeklySabqiStartJuz}` : '');
-        const manzilText = item.weeklyManzilRange || item.manzilSurah || (item.weeklyManzilStartJuz ? `Juz ${item.weeklyManzilStartJuz}` : '');
+        let sabqiText = item.weeklySabqiRange || '';
+        if (!sabqiText) {
+          if ((item.sabqiStartPortion || item.weeklySabqiStartPortion) && (item.sabqiStartJuz || item.weeklySabqiStartJuz || item.sabqiJuz)) {
+            sabqiText = `Juz ${item.sabqiStartJuz || item.weeklySabqiStartJuz || item.sabqiJuz} (${item.sabqiStartPortion || item.weeklySabqiStartPortion})`;
+          } else if (item.sabqiSurah) {
+            sabqiText = item.sabqiSurah;
+          } else if (item.weeklySabqiStartJuz || item.sabqiJuz) {
+            sabqiText = `Juz ${item.weeklySabqiStartJuz || item.sabqiJuz}`;
+          }
+        }
+
+        let manzilText = item.weeklyManzilRange || '';
+        if (!manzilText) {
+          if ((item.manzilStartPortion || item.weeklyManzilStartPortion) && (item.manzilStartJuz || item.weeklyManzilStartJuz || item.manzilJuz)) {
+            manzilText = `Juz ${item.manzilStartJuz || item.weeklyManzilStartJuz || item.manzilJuz} (${item.manzilStartPortion || item.weeklyManzilStartPortion})`;
+          } else if (item.manzilSurah) {
+            manzilText = item.manzilSurah;
+          } else if (item.weeklyManzilStartJuz || item.manzilJuz) {
+            manzilText = `Juz ${item.weeklyManzilStartJuz || item.manzilJuz}`;
+          }
+        }
 
         let details = `New Lesson: ${sabaqText}`;
         if (sabqiText) details += ` | Old Lesson: ${sabqiText}`;
@@ -2763,36 +2814,72 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             }
           }
         } else {
+          item.sabaqEvalUnitMode = res.sabaqEvalUnitMode;
           item.weeklySabaqStartSurah = res.sabaqStartSurah;
           item.weeklySabaqStartAyah = res.sabaqStartAyah;
           item.weeklySabaqEndSurah = res.sabaqEndSurah;
           item.weeklySabaqEndAyah = res.sabaqEndAyah;
-          item.weeklySabaqStartJuz = res.sabaqJuz;
-          item.weeklySabaqEndJuz = res.sabaqJuz;
+          item.weeklySabaqStartJuz = res.sabaqStartJuz || res.sabaqJuz;
+          item.weeklySabaqEndJuz = res.sabaqEndJuz || res.sabaqJuz;
+          item.weeklySabaqStartPortion = res.sabaqStartPortion;
+          item.weeklySabaqEndPortion = res.sabaqEndPortion;
           item.weeklySabaqStartPage = res.sabaqStartPage;
           item.weeklySabaqEndPage = res.sabaqEndPage;
+          item.weeklySabaqRange = res.dailyPayload?.sabaqRange;
 
           item.sabaqSurah = res.sabaqEndSurah;
           item.sabaqFromAyah = res.sabaqStartAyah;
           item.sabaqToAyah = res.sabaqEndAyah;
+          item.sabaqJuz = res.sabaqStartJuz || res.sabaqJuz;
+          item.sabaqStartJuz = res.sabaqStartJuz || res.sabaqJuz;
+          item.sabaqStartPortion = res.sabaqStartPortion;
+          item.sabaqEndJuz = res.sabaqEndJuz || res.sabaqJuz;
+          item.sabaqEndPortion = res.sabaqEndPortion;
+          item.sabaqStartPage = res.sabaqStartPage;
+          item.sabaqEndPage = res.sabaqEndPage;
 
+          item.sabqiEvalUnitMode = res.sabqiEvalUnitMode;
           item.weeklySabqiStartSurah = res.sabqiStartSurah;
           item.weeklySabqiStartAyah = res.sabqiStartAyah;
           item.weeklySabqiEndSurah = res.sabqiEndSurah;
           item.weeklySabqiEndAyah = res.sabqiEndAyah;
-          item.weeklySabqiStartJuz = res.sabqiJuz;
-          item.weeklySabqiEndJuz = res.sabqiJuz;
+          item.weeklySabqiStartJuz = res.sabqiStartJuz || res.sabqiJuz;
+          item.weeklySabqiEndJuz = res.sabqiEndJuz || res.sabqiJuz;
+          item.weeklySabqiStartPortion = res.sabqiStartPortion;
+          item.weeklySabqiEndPortion = res.sabqiEndPortion;
           item.weeklySabqiStartPage = res.sabqiStartPage;
           item.weeklySabqiEndPage = res.sabqiEndPage;
+          item.weeklySabqiRange = res.dailyPayload?.sabqiRange;
 
           item.sabqiSurah = res.sabqiEndSurah;
           item.sabqiFromAyah = res.sabqiStartAyah;
           item.sabqiToAyah = res.sabqiEndAyah;
+          item.sabqiJuz = res.sabqiStartJuz || res.sabqiJuz;
+          item.sabqiStartJuz = res.sabqiStartJuz || res.sabqiJuz;
+          item.sabqiStartPortion = res.sabqiStartPortion;
+          item.sabqiEndJuz = res.sabqiEndJuz || res.sabqiJuz;
+          item.sabqiEndPortion = res.sabqiEndPortion;
+          item.sabqiStartPage = res.sabqiStartPage;
+          item.sabqiEndPage = res.sabqiEndPage;
 
+          item.manzilEvalUnitMode = res.manzilEvalUnitMode;
+          item.weeklyManzilStartSurah = res.manzilStartSurah;
+          item.weeklyManzilStartAyah = res.manzilStartAyah;
+          item.weeklyManzilEndSurah = res.manzilEndSurah;
+          item.weeklyManzilEndAyah = res.manzilEndAyah;
           item.weeklyManzilStartJuz = res.manzilStartJuz;
           item.weeklyManzilStartPortion = res.manzilStartPortion;
           item.weeklyManzilEndJuz = res.manzilEndJuz;
           item.weeklyManzilEndPortion = res.manzilEndPortion;
+          item.weeklyManzilStartPage = res.manzilStartPage;
+          item.weeklyManzilEndPage = res.manzilEndPage;
+          item.weeklyManzilRange = res.dailyPayload?.manzilRange;
+          item.manzilStartJuz = res.manzilStartJuz;
+          item.manzilStartPortion = res.manzilStartPortion;
+          item.manzilEndJuz = res.manzilEndJuz;
+          item.manzilEndPortion = res.manzilEndPortion;
+          item.manzilStartPage = res.manzilStartPage;
+          item.manzilEndPage = res.manzilEndPage;
 
           if (this.studentTypeMode === 'dawr') {
             item.dawrRoundNo = res.dawrRoundNo || 1;

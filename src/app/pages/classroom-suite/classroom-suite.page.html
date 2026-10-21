@@ -231,11 +231,13 @@
         <mat-icon>how_to_reg</mat-icon> Attendance Register
       </button>
 
-      <!-- Status Overview Tab for Org Admin & Madrasa Incharge -->
+      <!-- Commented out / Hidden: Class Group Status Overview Tab -->
+      <!--
       <button type="button" class="tab-nav-btn overview-tab" [class.active]="activeTab === 'overview'"
         (click)="setOverviewTabActive()" *ngIf="isSuperAdmin || isOrgAdmin || isMadrasaIncharge">
         <mat-icon>analytics</mat-icon> Class Group Status Overview
       </button>
+      -->
 
       <button type="button" class="tab-nav-btn" [class.active]="activeTab === 'progress'"
         (click)="activeTab = 'progress'">
@@ -266,9 +268,9 @@
     <div class="tab-body-content">
 
       <!-- ========================================== -->
-      <!-- TAB: CLASS GROUP STATUS OVERVIEW -->
+      <!-- TAB: CLASS GROUP STATUS OVERVIEW (COMMENTED OUT / HIDDEN) -->
       <!-- ========================================== -->
-      <div class="tab-pane overview-pane" *ngIf="activeTab === 'overview'">
+      <div class="tab-pane overview-pane" *ngIf="false && activeTab === 'overview'">
         <!-- Overview Header Toolbar -->
         <div class="overview-toolbar-card">
           <div class="toolbar-top-row">
