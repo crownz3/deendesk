@@ -124,16 +124,16 @@
       <!-- Save Actions Group: Context-Aware Dynamic Button + Universal Save All -->
       <div class="save-actions-group">
         <!-- Context Action: Save Attendance (Attendance Register Tab) -->
-        <button mat-stroked-button color="primary" class="context-save-btn attendance-btn"
+        <button mat-raised-button color="primary" class="context-save-btn attendance-btn"
           *ngIf="activeTab === 'attendance'" (click)="saveAttendanceOnly()"
-          [disabled]="!canManageAttendance || isSavingAttendance || isSavingAll">
+          [disabled]="!canManageAttendance || isSavingAttendance">
           <mat-icon>check_circle</mat-icon>
           <span>{{ isSavingAttendance ? 'Saving Attendance...' : 'Save Attendance' }}</span>
         </button>
 
         <!-- Context Action: Save Progress (Daily Progress Tab) -->
-        <button mat-stroked-button color="accent" class="context-save-btn progress-btn" *ngIf="activeTab === 'progress'"
-          (click)="saveProgressOnly()" [disabled]="!canManageAttendance || isSavingProgress || isSavingAll">
+        <button mat-raised-button color="primary" class="context-save-btn progress-btn" *ngIf="activeTab === 'progress'"
+          (click)="saveProgressOnly()" [disabled]="!canManageAttendance || isSavingProgress">
           <mat-icon>auto_stories</mat-icon>
           <span>{{ isSavingProgress ? 'Saving Progress...' : 'Save Progress' }}</span>
         </button>
@@ -143,14 +143,6 @@
           (click)="openAddTimetableDialog()" [disabled]="!selectedGroupId">
           <mat-icon>add_alarm</mat-icon>
           <span>+ Add Timetable Slot</span>
-        </button>
-
-        <!-- Universal Save All Button (Attendance & Progress) -->
-        <button mat-raised-button color="primary" class="save-all-btn" (click)="saveSuiteData()"
-          [disabled]="!canManageAttendance || isSavingAll || isSavingAttendance || isSavingProgress"
-          [matTooltip]="'Saves both Attendance and Daily Progress evaluations simultaneously'">
-          <mat-icon>done_all</mat-icon>
-          <span>{{ isSavingAll ? 'Saving All...' : 'Save All' }}</span>
         </button>
       </div>
 
@@ -180,17 +172,55 @@
     </div>
   </div>
 
-  <!-- Attendance Taken Audit Status Banner -->
-  <div class="audit-banner" [class.recorded]="isAttendanceRecorded" [class.pending]="!isAttendanceRecorded">
-    <div class="audit-info" *ngIf="isAttendanceRecorded">
-      <mat-icon color="primary">verified</mat-icon>
-      <span>Attendance Recorded by <strong>{{ recordedByName }}</strong> on {{ recordedAtText }} for <strong>{{
-          selectedPeriodTitle }}</strong></span>
+  <!-- If No Class / Holiday / Function Exception Exists -->
+  <div class="holiday-exception-banner" *ngIf="todayException">
+    <div class="ex-left">
+      <mat-icon class="ex-icon">celebration</mat-icon>
+      <div class="ex-text">
+        <span class="ex-title">No Class Today: <strong>{{ todayException['reason'] || 'Madrasa Holiday / Event' }}</strong></span>
+        <span class="ex-sub">Exempted from Attendance & Progress Evaluation ({{ todayException['type'] === 'specialActivity' ? 'Annual Day / Function' : (todayException['type'] | titlecase) }})</span>
+      </div>
     </div>
-    <div class="audit-info" *ngIf="!isAttendanceRecorded">
-      <mat-icon color="warn">pending_actions</mat-icon>
-      <span>Attendance Pending for <strong>{{ selectedPeriodTitle }}</strong> (Date: {{ selectedDateStr }})</span>
+    <div class="ex-right">
+      <button type="button" class="btn-cancel-ex" (click)="openNoClassDialog()" *ngIf="canManageAttendance" title="Edit or resume class">
+        <mat-icon>edit</mat-icon> Change / Resume Class
+      </button>
     </div>
+  </div>
+
+  <!-- Attendance & Evaluation Audit Status Banner Grid -->
+  <div class="audit-banner-grid" *ngIf="!todayException">
+    <!-- Attendance Taken Audit Status Banner -->
+    <div class="audit-banner" [class.recorded]="isAttendanceRecorded" [class.pending]="!isAttendanceRecorded">
+      <div class="audit-info" *ngIf="isAttendanceRecorded">
+        <mat-icon color="primary">verified</mat-icon>
+        <span>Attendance Recorded by <strong>{{ recordedByName }}</strong> on {{ recordedAtText }} for <strong>{{ selectedPeriodTitle }}</strong></span>
+      </div>
+      <div class="audit-info" *ngIf="!isAttendanceRecorded">
+        <mat-icon color="warn">pending_actions</mat-icon>
+        <span>Attendance Pending for <strong>{{ selectedPeriodTitle }}</strong> (Date: {{ selectedDateStr }})</span>
+      </div>
+    </div>
+
+    <!-- Daily Progress Evaluation Audit Status Banner -->
+    <div class="audit-banner" [class.recorded]="isEvaluationRecorded" [class.pending]="!isEvaluationRecorded">
+      <div class="audit-info" *ngIf="isEvaluationRecorded">
+        <mat-icon color="primary">fact_check</mat-icon>
+        <span>Evaluation Recorded for <strong>{{ evaluationRecordedCount }} of {{ roster.length }} students</strong><span *ngIf="evaluatedByName"> by <strong>{{ evaluatedByName }}</strong></span><span *ngIf="evaluatedAtText"> {{ evaluatedAtText }}</span></span>
+      </div>
+      <div class="audit-info" *ngIf="!isEvaluationRecorded">
+        <mat-icon color="warn">pending</mat-icon>
+        <span>Progress Evaluation Pending for this session (0 of {{ roster.length }} evaluated)</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick No Class / Holiday Action Link -->
+  <div class="no-class-bar-row" *ngIf="!todayException && canManageAttendance">
+    <button type="button" class="btn-no-class-action" (click)="openNoClassDialog()">
+      <mat-icon>event_busy</mat-icon>
+      <span>No Class Today? Mark Annual Day / Holiday / Event</span>
+    </button>
   </div>
 
   <!-- Main 4-Tab Suite Container -->
@@ -595,12 +625,8 @@
           </div>
           <div class="bottom-btns">
             <button mat-raised-button color="primary" class="save-tab-btn" (click)="saveAttendanceOnly()"
-              [disabled]="isSavingAttendance || isSavingAll">
+              [disabled]="isSavingAttendance">
               <mat-icon>save</mat-icon> Save Attendance
-            </button>
-            <button mat-flat-button class="save-all-bottom-btn" (click)="saveSuiteData()"
-              [disabled]="isSavingAll || isSavingAttendance || isSavingProgress">
-              <mat-icon>done_all</mat-icon> Save All
             </button>
           </div>
         </div>
@@ -904,18 +930,13 @@
               <mat-icon>undo</mat-icon>
               <span>Undo Last Save</span>
             </button>
-            <button *ngIf="evalCadence === 'daily'" mat-raised-button color="accent" class="save-tab-btn"
-              (click)="saveProgressOnly()" [disabled]="isSavingProgress || isSavingAll">
+            <button *ngIf="evalCadence === 'daily'" mat-raised-button color="primary" class="save-tab-btn"
+              (click)="saveProgressOnly()" [disabled]="isSavingProgress">
               <mat-icon>save</mat-icon> Save Daily Progress
             </button>
             <button *ngIf="evalCadence === 'weekly'" mat-raised-button color="primary" class="save-tab-btn"
               (click)="saveWeeklyProgress()" [disabled]="isSavingWeeklyProgress">
-              <mat-icon>save</mat-icon> {{ isSavingWeeklyProgress ? 'Saving Week...' : 'Save Weekly Progress (All
-              Students)' }}
-            </button>
-            <button mat-flat-button class="save-all-bottom-btn" (click)="saveSuiteData()"
-              [disabled]="isSavingAll || isSavingAttendance || isSavingProgress">
-              <mat-icon>done_all</mat-icon> Save All
+              <mat-icon>save</mat-icon> {{ isSavingWeeklyProgress ? 'Saving Week...' : 'Save Weekly Progress (All Students)' }}
             </button>
           </div>
         </div>
@@ -1064,3 +1085,67 @@
     </div>
   </div>
 </div>
+
+<!-- ========================================== -->
+<!-- SIMPLE NO CLASS / HOLIDAY DIALOG MODAL    -->
+<!-- ========================================== -->
+<ng-template #noClassDialog>
+  <div class="no-class-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <mat-icon color="primary">celebration</mat-icon>
+        <span>{{ todayException ? 'Class Exception Details' : 'Mark No Class for Today' }}</span>
+      </div>
+      <button mat-icon-button mat-dialog-close><mat-icon>close</mat-icon></button>
+    </div>
+
+    <!-- Mode 1: Creating New Exception -->
+    <div class="modal-body" *ngIf="!todayException">
+      <p class="modal-desc">
+        Record reason why there is no regular class on <strong>{{ selectedDateDisplay || selectedDateStr }}</strong>:
+      </p>
+
+      <mat-form-field appearance="outline" class="w-100">
+        <mat-label>Exception Type</mat-label>
+        <mat-select [(ngModel)]="noClassType">
+          <mat-option value="specialActivity">🎈 Annual Day / Event Function</mat-option>
+          <mat-option value="holiday">🏖️ Madrasa Holiday / Leave</mat-option>
+          <mat-option value="cancelled">🌧️ Cancelled / Rainy Day</mat-option>
+          <mat-option value="exam">📝 Examination Day</mat-option>
+        </mat-select>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline" class="w-100">
+        <mat-label>Reason / Title</mat-label>
+        <input matInput [(ngModel)]="noClassReason" placeholder="e.g. Annual Day Celebration, Rain Holiday, Eid..." />
+      </mat-form-field>
+
+      <div class="ex-notice-box">
+        <mat-icon>info</mat-icon>
+        <span>Marking this day exempts staff from taking attendance and evaluation in Compliance Monitor.</span>
+      </div>
+    </div>
+
+    <!-- Mode 2: Existing Exception Already Set -->
+    <div class="modal-body" *ngIf="todayException">
+      <div class="existing-ex-box">
+        <mat-icon class="ex-box-ic">event_busy</mat-icon>
+        <div class="ex-box-info">
+          <h4>{{ todayException['reason'] || 'No Class Scheduled' }}</h4>
+          <p>{{ todayException['type'] === 'specialActivity' ? 'Annual Day / Function' : (todayException['type'] | titlecase) }} &bull; {{ selectedDateDisplay || selectedDateStr }}</p>
+          <span class="ex-creator" *ngIf="todayException['createdByName']">Marked by {{ todayException['createdByName'] }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button mat-button mat-dialog-close>Close</button>
+      <button *ngIf="!todayException" mat-raised-button color="primary" (click)="saveNoClassException()" [disabled]="isSavingException">
+        {{ isSavingException ? 'Saving...' : 'Confirm No Class' }}
+      </button>
+      <button *ngIf="todayException" mat-stroked-button color="warn" (click)="removeTodayException()" [disabled]="isSavingException">
+        <mat-icon>delete</mat-icon> Resume Normal Class
+      </button>
+    </div>
+  </div>
+</ng-template>

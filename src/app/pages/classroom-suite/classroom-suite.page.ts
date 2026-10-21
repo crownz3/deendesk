@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, TemplateRef, ViewChild } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, combineLatest, of, Subject, firstValueFrom } from 'rxjs';
@@ -245,10 +245,32 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   };
   selectedTimetableDay = '';
 
-  // Audit Status
+  // Audit Status - Attendance
   isAttendanceRecorded = false;
   recordedByName = '';
   recordedAtText = '';
+
+  // Audit Status - Progress Evaluation
+  isEvaluationRecorded = false;
+  evaluatedByName = '';
+  evaluatedAtText = '';
+  evaluationRecordedCount = 0;
+
+  // No-Class / Holiday / Annual Day Exception State
+  @ViewChild('noClassDialog') noClassDialogRef!: TemplateRef<any>;
+  todayException: EntityRecord | null = null;
+  noClassType = 'specialActivity';
+  noClassReason = 'Annual Day Function';
+  isSavingException = false;
+
+  get selectedDateDisplay(): string {
+    if (!this.selectedDateObj) return this.selectedDateStr;
+    try {
+      return this.selectedDateObj.toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+    } catch {
+      return this.selectedDateStr;
+    }
+  }
 
   // Tab State & Auto-Detected Progress Mode
   activeTab: 'attendance' | 'overview' | 'progress' | 'timetable' = 'attendance';
@@ -445,6 +467,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     this.initWeekState();
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       let changed = false;
+      let dateOrWeekChanged = false;
+
       if (params['madrasaId'] && this.selectedMadrasaId !== params['madrasaId']) {
         this.selectedMadrasaId = params['madrasaId'];
         changed = true;
@@ -454,21 +478,76 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         changed = true;
       }
       if (params['classId']) this.selectedClassId = params['classId'];
-      if (params['date']) {
-        const dStr = String(params['date']);
-        const parts = dStr.split('-');
-        if (parts.length === 3) {
-          const parsedDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-          if (!isNaN(parsedDate.getTime()) && this.selectedDateStr !== dStr) {
-            this.selectedDateObj = parsedDate;
-            this.selectedDateStr = dStr;
+
+      if (params['tab'] && ['attendance', 'overview', 'progress', 'timetable'].includes(params['tab'])) {
+        this.activeTab = params['tab'] as any;
+      }
+
+      if (params['mode'] || params['cadence']) {
+        const mode = String(params['mode'] || params['cadence']).toLowerCase();
+        if (mode === 'weekly' || mode === 'week') {
+          if (this.evalCadence !== 'weekly') {
+            this.evalCadence = 'weekly';
+            changed = true;
+          }
+        } else if (mode === 'daily' || mode === 'day') {
+          if (this.evalCadence !== 'daily') {
+            this.evalCadence = 'daily';
             changed = true;
           }
         }
       }
 
+      let weekTargetDate: Date | null = null;
+      if (params['weekStart']) {
+        const parts = String(params['weekStart']).split('-');
+        if (parts.length === 3) {
+          const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          if (!isNaN(d.getTime())) {
+            weekTargetDate = d;
+          }
+        }
+      }
+
+      if (params['date']) {
+        const dStr = String(params['date']);
+        const parts = dStr.split('-');
+        if (parts.length === 3) {
+          const parsedDate = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+          if (!isNaN(parsedDate.getTime())) {
+            if (this.selectedDateStr !== dStr) {
+              this.selectedDateObj = parsedDate;
+              this.selectedDateStr = dStr;
+              changed = true;
+              dateOrWeekChanged = true;
+            }
+            if (!weekTargetDate) {
+              weekTargetDate = parsedDate;
+            }
+          }
+        }
+      }
+
+      if (weekTargetDate) {
+        this.initWeekState(weekTargetDate);
+        if (params['weekYear'] && params['weekNumber']) {
+          const y = Number(params['weekYear']);
+          const wn = Number(params['weekNumber']);
+          if (!isNaN(y) && !isNaN(wn)) {
+            this.selectedWeekYear = y;
+            this.selectedWeekNumber = wn;
+          }
+        }
+        dateOrWeekChanged = true;
+      }
+
       if (changed && this.classGroups.length > 0) {
+        const prevGroupId = this.selectedGroupId;
         this.filterGroupsForActiveScope();
+        if (dateOrWeekChanged && this.selectedGroupId === prevGroupId && this.rosterLoadedOnce) {
+          this.loadTimetablePeriods();
+          this.loadRosterAndAttendance(true);
+        }
       }
     });
 
@@ -1207,6 +1286,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       this.selectedDateStr = newDateStr;
       this.roster = [];
     }
+    this.initWeekState(dateVal);
     this.loadTimetablePeriods();
     this.loadRosterAndAttendance(true);
     if (this.activeTab === 'overview') {
@@ -1579,15 +1659,85 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         this.recordedAtText = '';
       }
 
+      // Check if this date has a Class Exception (Holiday, Annual Day, Event)
+      try {
+        const allExceptions = await this.repo.getAllOnce<EntityRecord>('classPlanExceptions', this.currentUser);
+        this.todayException = allExceptions.find(e => 
+          (String(e['groupId']) === this.selectedGroupId || String(e['classPlanId']) === this.selectedGroupId || String(e['madrasaId']) === this.selectedMadrasaId) &&
+          (e['date'] === this.selectedDateStr || e['dateStr'] === this.selectedDateStr)
+        ) || null;
+      } catch (exErr) {
+        this.todayException = null;
+      }
+
       // 3. Fetch Daily Progress Records & Student Target Records
       const progressMap = new Map<string, any>();
-      const progressPromises = groupStudents.map(async st => {
+      const groupStudentIdSet = new Set(groupStudents.map(s => String(s.id)));
+
+      try {
+        const allCachedDailyProgress = await this.repo.getAllOnce<EntityRecord>('studentDailyProgress', this.currentUser);
+        allCachedDailyProgress.forEach(p => {
+          const stId = String(p['studentId'] || '');
+          if (stId && groupStudentIdSet.has(stId)) {
+            let pDate = p['date'] || p['dateStr'] || p['selectedDate'] || p['dateKey'];
+            if (!pDate && p['createdAt']) {
+              const c = p['createdAt'] as any;
+              if (typeof c?.toDate === 'function') pDate = c.toDate().toISOString().slice(0, 10);
+              else if (typeof c === 'string') pDate = c.slice(0, 10);
+            }
+            if (pDate === this.selectedDateStr || String(p.id).includes(this.selectedDateStr)) {
+              progressMap.set(stId, p);
+            }
+          }
+        });
+      } catch (cacheErr) {
+        console.warn('Could not query cached studentDailyProgress records:', cacheErr);
+      }
+
+      // For any student not found in cache, fall back to direct doc lookup
+      const missingStudents = groupStudents.filter(st => st.id && !progressMap.has(st.id));
+      const progressPromises = missingStudents.map(async st => {
         if (st.id) {
           try {
             const pDocRef = doc(firestore, 'studentDailyProgress', `${st.id}_${this.selectedDateStr}`);
             const pSnap = await getDoc(pDocRef);
             if (pSnap && pSnap.exists()) {
               return { id: st.id, data: pSnap.data() };
+            }
+
+            // Fallback: Check if weekly evaluation was recorded for this student for this week
+            const wDocRef = doc(firestore, 'studentWeeklyProgress', `${st.id}_week_${this.selectedWeekYear}_${this.selectedWeekNumber}`);
+            const wSnap = await getDoc(wDocRef);
+            if (wSnap && wSnap.exists()) {
+              const wData = wSnap.data();
+              const h = wData['hifz'] || {};
+              const d = wData['dawr'] || {};
+              const m = wData['maktab'] || {};
+              return {
+                id: st.id,
+                data: {
+                  ...wData,
+                  hifzProgress: {
+                    sabaqSurahName: h.sabaqEndSurah || h.sabaqStartSurah || '',
+                    sabaqFromAyah: h.sabaqStartAyah,
+                    sabaqToAyah: h.sabaqEndAyah,
+                    sabaqJuzNo: h.sabaqStartJuz,
+                    sabaqMistakes: h.weeklyMistakes || 0,
+                    rating: h.rating || 5,
+                    evalUnitMode: h.evalUnitMode
+                  },
+                  dawrProgress: {
+                    roundNo: d.roundNo || (d.weeklyJuzCount ? 1 : 1),
+                    portionJuz: d.weeklyJuzCount ? `${d.weeklyJuzCount} Juz` : 'Revision',
+                    rating: d.rating || 5
+                  },
+                  maktabProgress: {
+                    subjectName: m.subject || '',
+                    pageNo: m.startPage || null,
+                    mistakesCount: m.mistakes || 0
+                  }
+                }
+              };
             }
           } catch (pErr) {
             console.warn(`Could not fetch daily progress for student ${st.id}:`, pErr);
@@ -1702,46 +1852,46 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           targetDawrDailyJuz: targets.dawrDailyJuz || '',
           targetIncompleteReason: targets.incompleteReason || '',
           targetIncompleteNotes: targets.incompleteNotes || '',
-          sabaqSurah: (existing && existing.sabaqSurah !== undefined) ? existing.sabaqSurah : (hifz.sabaqSurahName || targets.sabaqSurah || ''),
-          sabaqFromAyah: (existing && existing.sabaqFromAyah !== undefined) ? existing.sabaqFromAyah : (hifz.sabaqFromAyah || targets.sabaqFromAyah || null),
-          sabaqToAyah: (existing && existing.sabaqToAyah !== undefined) ? existing.sabaqToAyah : (hifz.sabaqToAyah || targets.sabaqToAyah || null),
-          sabaqMistakes: (existing && existing.sabaqMistakes !== undefined) ? existing.sabaqMistakes : (hifz.sabaqMistakes || 0),
-          sabaqJuz: (existing && existing.sabaqJuz !== undefined) ? existing.sabaqJuz : (hifz.sabaqJuzNo || null),
+          sabaqSurah: (existing && existing.sabaqSurah !== undefined) ? existing.sabaqSurah : (hifz.sabaqSurahName || prog?.sabaqSurah || targets.sabaqSurah || ''),
+          sabaqFromAyah: (existing && existing.sabaqFromAyah !== undefined) ? existing.sabaqFromAyah : (hifz.sabaqFromAyah || prog?.sabaqAyahFrom || targets.sabaqFromAyah || null),
+          sabaqToAyah: (existing && existing.sabaqToAyah !== undefined) ? existing.sabaqToAyah : (hifz.sabaqToAyah || prog?.sabaqAyahTo || targets.sabaqToAyah || null),
+          sabaqMistakes: (existing && existing.sabaqMistakes !== undefined) ? existing.sabaqMistakes : (hifz.sabaqMistakes || prog?.sabaqMistakes || 0),
+          sabaqJuz: (existing && existing.sabaqJuz !== undefined) ? existing.sabaqJuz : (hifz.sabaqJuzNo || prog?.sabaqJuz || null),
           sabaqJuzPortion: (existing && existing.sabaqJuzPortion !== undefined) ? existing.sabaqJuzPortion : (hifz.sabaqJuzPortion || 'Full Juz'),
-          sabqiSurah: (existing && existing.sabqiSurah !== undefined) ? existing.sabqiSurah : (hifz.sabqiSurahName || ''),
+          sabqiSurah: (existing && existing.sabqiSurah !== undefined) ? existing.sabqiSurah : (hifz.sabqiSurahName || prog?.sabqiJuz || ''),
           sabqiFromAyah: (existing && existing.sabqiFromAyah !== undefined) ? existing.sabqiFromAyah : (hifz.sabqiFromAyah || null),
           sabqiToAyah: (existing && existing.sabqiToAyah !== undefined) ? existing.sabqiToAyah : (hifz.sabqiToAyah || null),
-          sabqiJuz: (existing && existing.sabqiJuz !== undefined) ? existing.sabqiJuz : (hifz.sabqiJuzNo || null),
+          sabqiJuz: (existing && existing.sabqiJuz !== undefined) ? existing.sabqiJuz : (hifz.sabqiJuzNo || (prog?.sabqiJuz ? Number(prog.sabqiJuz) : null) || null),
           sabqiJuzPortion: (existing && existing.sabqiJuzPortion !== undefined) ? existing.sabqiJuzPortion : (hifz.sabqiJuzPortion || 'Full Juz'),
-          sabqiMistakes: (existing && existing.sabqiMistakes !== undefined) ? existing.sabqiMistakes : (hifz.sabqiMistakes || 0),
-          manzilSurah: (existing && existing.manzilSurah !== undefined) ? existing.manzilSurah : (hifz.manzilSurahName || ''),
+          sabqiMistakes: (existing && existing.sabqiMistakes !== undefined) ? existing.sabqiMistakes : (hifz.sabqiMistakes || prog?.sabqiMistakes || 0),
+          manzilSurah: (existing && existing.manzilSurah !== undefined) ? existing.manzilSurah : (hifz.manzilSurahName || prog?.manzilJuz || ''),
           manzilFromAyah: (existing && existing.manzilFromAyah !== undefined) ? existing.manzilFromAyah : (hifz.manzilFromAyah || null),
           manzilToAyah: (existing && existing.manzilToAyah !== undefined) ? existing.manzilToAyah : (hifz.manzilToAyah || null),
-          manzilJuz: (existing && existing.manzilJuz !== undefined) ? existing.manzilJuz : (hifz.manzilJuzNo || null),
+          manzilJuz: (existing && existing.manzilJuz !== undefined) ? existing.manzilJuz : (hifz.manzilJuzNo || (prog?.manzilJuz ? Number(prog.manzilJuz) : null) || null),
           manzilJuzPortion: (existing && existing.manzilJuzPortion !== undefined) ? existing.manzilJuzPortion : (hifz.manzilJuzPortion || 'Full Juz'),
-          manzilMistakes: (existing && existing.manzilMistakes !== undefined) ? existing.manzilMistakes : (hifz.manzilMistakes || 0),
-          hifzRating: (existing && existing.hifzRating !== undefined) ? existing.hifzRating : (hifz.rating || 5),
-          dawrRoundNo: (existing && existing.dawrRoundNo !== undefined) ? existing.dawrRoundNo : (dawr.roundNo || null),
-          dawrPortionJuz: (existing && existing.dawrPortionJuz !== undefined) ? existing.dawrPortionJuz : (dawr.portionJuz || null),
+          manzilMistakes: (existing && existing.manzilMistakes !== undefined) ? existing.manzilMistakes : (hifz.manzilMistakes || prog?.manzilMistakes || 0),
+          hifzRating: (existing && existing.hifzRating !== undefined) ? existing.hifzRating : (hifz.rating || prog?.starRating || 5),
+          dawrRoundNo: (existing && existing.dawrRoundNo !== undefined) ? existing.dawrRoundNo : (dawr.roundNo || prog?.daurRoundNumber || prog?.dawrRoundNumber || null),
+          dawrPortionJuz: (existing && existing.dawrPortionJuz !== undefined) ? existing.dawrPortionJuz : (dawr.portionJuz || (prog?.daurJuzFrom ? `Juz ${prog?.daurJuzFrom}` : null)),
           dawrFromAyah: (existing && existing.dawrFromAyah !== undefined) ? existing.dawrFromAyah : (dawr.fromAyah || null),
           dawrToAyah: (existing && existing.dawrToAyah !== undefined) ? existing.dawrToAyah : (dawr.toAyah || null),
-          dawrMistakes: (existing && existing.dawrMistakes !== undefined) ? existing.dawrMistakes : (dawr.dawrMistakes !== undefined ? dawr.dawrMistakes : null),
+          dawrMistakes: (existing && existing.dawrMistakes !== undefined) ? existing.dawrMistakes : (dawr.dawrMistakes !== undefined ? dawr.dawrMistakes : (prog?.daurMistakes || null)),
           dawrManzilMistakes: (existing && existing.dawrManzilMistakes !== undefined) ? existing.dawrManzilMistakes : (dawr.manzilMistakes !== undefined ? dawr.manzilMistakes : null),
-          dawrRating: (existing && existing.dawrRating !== undefined) ? existing.dawrRating : (dawr.rating || 5),
+          dawrRating: (existing && existing.dawrRating !== undefined) ? existing.dawrRating : (dawr.rating || prog?.starRating || 5),
           maktabStageMode: (existing && existing.maktabStageMode !== undefined)
             ? existing.maktabStageMode
-            : (prog?.maktabStageMode || (maktab.stage === 'Tilawatul Quran' || prog?.quranReading || (maktab.subjectName && maktab.subjectName.startsWith('Quran:')) ? 'tilawatul_quran' : 'miftah')),
-          maktabSubject: (existing && existing.maktabSubject !== undefined) ? existing.maktabSubject : (maktab.subjectName || ''),
-          maktabPage: (existing && existing.maktabPage !== undefined) ? existing.maktabPage : (maktab.pageNo || targets.maktabPage || null),
-          maktabLineNo: (existing && existing.maktabLineNo !== undefined) ? existing.maktabLineNo : (maktab.lineNo || targets.maktabLineNo || null),
-          maktabMistakes: (existing && existing.maktabMistakes !== undefined) ? existing.maktabMistakes : (maktab.mistakesCount || 0),
-          maktabRemarks: (existing && existing.maktabRemarks !== undefined) ? existing.maktabRemarks : (maktab.remarks || ''),
-          tilawatSurah: (existing && existing.tilawatSurah !== undefined) ? existing.tilawatSurah : (prog?.quranReading?.surahName || maktab.surahName || ''),
-          tilawatFromAyah: (existing && existing.tilawatFromAyah !== undefined) ? existing.tilawatFromAyah : (prog?.quranReading?.fromAyah || maktab.fromAyah || null),
-          tilawatToAyah: (existing && existing.tilawatToAyah !== undefined) ? existing.tilawatToAyah : (prog?.quranReading?.toAyah || maktab.toAyah || null),
-          tilawatJuz: (existing && existing.tilawatJuz !== undefined) ? existing.tilawatJuz : (prog?.quranReading?.juzNo || maktab.juzNo || null),
-          tilawatFromPage: (existing && existing.tilawatFromPage !== undefined) ? existing.tilawatFromPage : (prog?.quranReading?.fromPage || maktab.fromPage || null),
-          tilawatToPage: (existing && existing.tilawatToPage !== undefined) ? existing.tilawatToPage : (prog?.quranReading?.toPage || maktab.toPage || null),
+            : (prog?.maktabStageMode || (maktab.stage === 'Tilawatul Quran' || prog?.quranReading || (maktab.subjectName && maktab.subjectName.startsWith('Quran:')) || (prog?.maktabSubject && prog?.maktabSubject.startsWith('Quran:')) ? 'tilawatul_quran' : 'miftah')),
+          maktabSubject: (existing && existing.maktabSubject !== undefined) ? existing.maktabSubject : (maktab.subjectName || prog?.maktabSubject || prog?.subjectName || ''),
+          maktabPage: (existing && existing.maktabPage !== undefined) ? existing.maktabPage : (maktab.pageNo || prog?.maktabPageNo || targets.maktabPage || null),
+          maktabLineNo: (existing && existing.maktabLineNo !== undefined) ? existing.maktabLineNo : (maktab.lineNo || prog?.maktabLessonNo || targets.maktabLineNo || null),
+          maktabMistakes: (existing && existing.maktabMistakes !== undefined) ? existing.maktabMistakes : (maktab.mistakesCount || prog?.overallMistakes || prog?.mistakesCount || 0),
+          maktabRemarks: (existing && existing.maktabRemarks !== undefined) ? existing.maktabRemarks : (maktab.remarks || prog?.remarks || ''),
+          tilawatSurah: (existing && existing.tilawatSurah !== undefined) ? existing.tilawatSurah : (prog?.quranReading?.surahName || maktab.surahName || prog?.tilawatSurah || ''),
+          tilawatFromAyah: (existing && existing.tilawatFromAyah !== undefined) ? existing.tilawatFromAyah : (prog?.quranReading?.fromAyah || maktab.fromAyah || prog?.tilawatFromAyah || null),
+          tilawatToAyah: (existing && existing.tilawatToAyah !== undefined) ? existing.tilawatToAyah : (prog?.quranReading?.toAyah || maktab.toAyah || prog?.tilawatToAyah || null),
+          tilawatJuz: (existing && existing.tilawatJuz !== undefined) ? existing.tilawatJuz : (prog?.quranReading?.juzNo || maktab.juzNo || prog?.tilawatJuz || null),
+          tilawatFromPage: (existing && existing.tilawatFromPage !== undefined) ? existing.tilawatFromPage : (prog?.quranReading?.fromPage || maktab.fromPage || prog?.tilawatFromPage || null),
+          tilawatToPage: (existing && existing.tilawatToPage !== undefined) ? existing.tilawatToPage : (prog?.quranReading?.toPage || maktab.toPage || prog?.tilawatToPage || null),
           quranReading: (existing && existing.quranReading !== undefined) ? existing.quranReading : (prog?.quranReading || maktab.quranReading || null),
           maktabSubjectsList: (existing && existing.maktabSubjectsList !== undefined) ? existing.maktabSubjectsList : (prog?.maktabSubjectsList || [])
         };
@@ -1749,6 +1899,44 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
       if (this.evalCadence === 'weekly') {
         await this.loadWeeklyProgressData();
+      }
+
+      // Update Evaluation Audit Status
+      const evaluatedItems = this.roster.filter(r => this.getStudentProgressStatus(r).isEvaluated);
+      this.evaluationRecordedCount = evaluatedItems.length;
+      this.isEvaluationRecorded = this.evaluationRecordedCount > 0;
+
+      if (this.isEvaluationRecorded) {
+        let evalName = '';
+        let evalDate: any = null;
+        for (const prog of progressMap.values()) {
+          if (prog) {
+            const name = prog['evaluatedByName'] || prog['recordedByName'] || prog['teacherName'] || prog['enteredByName'];
+            if (name && !evalName) evalName = name;
+            const timeVal = prog['recordedAt'] || prog['evaluatedAt'] || prog['takenAt'] || prog['createdAt'] || prog['timestamp'];
+            if (timeVal && !evalDate) evalDate = timeVal;
+          }
+        }
+        this.evaluatedByName = evalName || this.recordedByName || '';
+        if (evalDate) {
+          try {
+            const d = typeof evalDate?.toDate === 'function' ? evalDate.toDate() : new Date(evalDate);
+            if (!isNaN(d.getTime())) {
+              const dStr = d.toLocaleDateString();
+              const tStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              this.evaluatedAtText = `on ${dStr} at ${tStr}`;
+            } else {
+              this.evaluatedAtText = this.selectedDateStr ? `on ${this.selectedDateStr}` : '';
+            }
+          } catch {
+            this.evaluatedAtText = this.selectedDateStr ? `on ${this.selectedDateStr}` : '';
+          }
+        } else {
+          this.evaluatedAtText = this.selectedDateStr ? `on ${this.selectedDateStr}` : '';
+        }
+      } else {
+        this.evaluatedByName = '';
+        this.evaluatedAtText = '';
       }
 
       this.recalculateSummary();
@@ -2232,6 +2420,69 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     return null;
   }
 
+  openNoClassDialog(): void {
+    if (!this.noClassDialogRef) return;
+    if (!this.todayException) {
+      this.noClassType = 'specialActivity';
+      this.noClassReason = 'Annual Day Function';
+    }
+    this.dialog.open(this.noClassDialogRef, { width: '440px', panelClass: 'custom-no-class-dialog' });
+  }
+
+  async saveNoClassException(): Promise<void> {
+    if (!this.currentUser || !this.selectedGroupId) return;
+    this.isSavingException = true;
+    try {
+      const payload = {
+        madrasaId: this.selectedMadrasaId || '',
+        classPlanId: this.selectedGroupId || '',
+        groupId: this.selectedGroupId || '',
+        classId: this.selectedClassId || '',
+        date: this.selectedDateStr,
+        type: this.noClassType,
+        reason: (this.noClassReason || '').trim() || (this.noClassType === 'specialActivity' ? 'Annual Day Function' : 'Holiday'),
+        affectsAttendance: true,
+        enableAttendance: false,
+        createdByName: this.currentUser?.displayName || this.currentUser?.email || '',
+        createdAt: Timestamp.now()
+      };
+
+      const docId = `ex_${this.selectedGroupId}_${this.selectedDateStr}`;
+      const firestore = getDeenDeskFirestore();
+      await setDoc(doc(firestore, 'classPlanExceptions', docId), { ...payload, id: docId }, { merge: true });
+      this.repo.clearCache('classPlanExceptions');
+
+      this.todayException = { ...payload, id: docId } as any;
+      this.dialog.closeAll();
+      this.snackBar.open(`Marked as ${payload.reason} (No Class)!`, 'Close', { duration: 3500 });
+    } catch (err: any) {
+      console.error('Error saving class exception:', err);
+      this.snackBar.open('Failed to save exception', 'Close', { duration: 3000 });
+    } finally {
+      this.isSavingException = false;
+    }
+  }
+
+  async removeTodayException(): Promise<void> {
+    if (!this.todayException || !this.currentUser) return;
+    this.isSavingException = true;
+    try {
+      const firestore = getDeenDeskFirestore();
+      if (this.todayException.id) {
+        await deleteDoc(doc(firestore, 'classPlanExceptions', String(this.todayException.id)));
+      }
+      this.repo.clearCache('classPlanExceptions');
+      this.todayException = null;
+      this.dialog.closeAll();
+      this.snackBar.open('Exception removed. Normal class resumed.', 'Close', { duration: 3000 });
+    } catch (err: any) {
+      console.error('Error removing class exception:', err);
+      this.snackBar.open('Failed to remove exception', 'Close', { duration: 3000 });
+    } finally {
+      this.isSavingException = false;
+    }
+  }
+
   async openConfigureDawrRounds(): Promise<void> {
     if (!(this.isOrgAdmin || this.isSuperAdmin) || !this.currentUser?.organizationId) return;
     
@@ -2284,13 +2535,14 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
   getStudentProgressStatus(item: StudentSuiteRosterItem): { isEvaluated: boolean; label: string; details: string; rating: number; mistakes?: number | null } {
     if (this.studentTypeMode === 'maktab') {
-      const isTilawat = item.maktabStageMode === 'tilawatul_quran' || item.quranReading || (item.maktabSubject && item.maktabSubject.startsWith('Quran:')) || !!item.tilawatSurah;
-      if (isTilawat) {
-        const qr = item.quranReading || {};
-        const surah = item.tilawatSurah || qr.surahName || (item.maktabSubject ? item.maktabSubject.replace('Quran: ', '') : '');
+      const qr = item.quranReading || {};
+      const surah = item.tilawatSurah || qr.surahName || (item.maktabSubject && item.maktabSubject.startsWith('Quran:') ? item.maktabSubject.replace('Quran: ', '') : '');
+      const juz = item.tilawatJuz || qr.juzNo;
+      const hasTilawatContent = !!surah || !!juz || !!(qr.surahName || qr.juzNo);
+
+      if (hasTilawatContent) {
         const fromA = item.tilawatFromAyah || qr.fromAyah || 1;
         const toA = item.tilawatToAyah || qr.toAyah || 1;
-        const juz = item.tilawatJuz || qr.juzNo;
         const text = surah ? `Surah ${surah} (Ayah ${fromA}–${toA})` : (juz ? `Juz ${juz}` : 'Quran Reading');
         return {
           isEvaluated: true,
@@ -2310,7 +2562,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           mistakes: item.maktabMistakes
         };
       }
-      if (item.weeklyMaktabSubject || item.maktabSubject) {
+      if (item.weeklyMaktabSubject || (item.maktabSubject && !item.maktabSubject.startsWith('Quran:'))) {
         const name = item.weeklyMaktabSubject || item.maktabSubject;
         const startPg = item.weeklyMaktabStartPage || 1;
         const endPg = item.weeklyMaktabEndPage || item.maktabPage || 1;
@@ -2318,6 +2570,24 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           isEvaluated: true,
           label: name,
           details: `Pg ${startPg}–${endPg}${item.maktabLineNo ? ', Line ' + item.maktabLineNo : ''}`,
+          rating: item.weeklyRating || 5,
+          mistakes: item.maktabMistakes
+        };
+      }
+      if (item.maktabPage !== null && item.maktabPage !== undefined && item.maktabPage > 0) {
+        return {
+          isEvaluated: true,
+          label: 'Maktab Lesson',
+          details: `Page ${item.maktabPage}`,
+          rating: item.weeklyRating || 5,
+          mistakes: item.maktabMistakes
+        };
+      }
+      if (item.maktabRemarks && item.maktabRemarks.trim() && item.maktabRemarks.trim().toLowerCase() !== 'saved') {
+        return {
+          isEvaluated: true,
+          label: 'Evaluation Recorded',
+          details: item.maktabRemarks.trim(),
           rating: item.weeklyRating || 5,
           mistakes: item.maktabMistakes
         };
@@ -2378,6 +2648,28 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           mistakes: item.weeklyMistakes || item.sabaqMistakes
         };
       }
+    }
+
+    // Cross-mode fallback: check if progress exists under a different curriculum branch
+    if (item.sabaqSurah || item.weeklySabaqEndSurah) {
+      const sName = item.weeklySabaqEndSurah || item.sabaqSurah;
+      return {
+        isEvaluated: true,
+        label: sName || 'Hifz Sabaq',
+        details: `Surah ${sName}`,
+        rating: item.weeklyRating || item.hifzRating || 5,
+        mistakes: item.sabaqMistakes
+      };
+    }
+    if (item.maktabSubject || item.weeklyMaktabSubject) {
+      const mName = item.weeklyMaktabSubject || item.maktabSubject;
+      return {
+        isEvaluated: true,
+        label: mName || 'Maktab Subject',
+        details: mName || 'Subject evaluated',
+        rating: item.weeklyRating || 5,
+        mistakes: item.maktabMistakes
+      };
     }
 
     return {
@@ -2648,6 +2940,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       this.isSavingProgress = true;
       this.loader.show();
       await this.executeSaveProgress();
+      this.isEvaluationRecorded = true;
+      const now = new Date();
+      this.evaluatedAtText = `on ${now.toLocaleDateString()} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      this.evaluationRecordedCount = this.getEvaluatedCount();
 
       this.lastProgressSaveSnapshot = {
         type: 'daily',
@@ -2677,11 +2973,13 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     try {
       this.isSavingAll = true;
       this.loader.show();
-      await Promise.all([
-        this.executeSaveAttendance(),
-        this.executeSaveProgress()
-      ]);
-      this.snackBar.open('All data (Attendance & Daily Progress) saved successfully!', 'Dismiss', { duration: 3500 });
+      const hasAnyEvaluated = this.roster.some(r => this.getStudentProgressStatus(r).isEvaluated);
+      const tasks: Promise<any>[] = [this.executeSaveAttendance()];
+      if (hasAnyEvaluated) {
+        tasks.push(this.executeSaveProgress());
+      }
+      await Promise.all(tasks);
+      this.snackBar.open(hasAnyEvaluated ? 'All data (Attendance & Daily Progress) saved successfully!' : 'Attendance saved successfully!', 'Dismiss', { duration: 3500 });
     } catch (err: any) {
       console.error('Error saving attendance and progress:', err);
       this.snackBar.open(`Failed to save classroom suite data: ${err?.message || 'Permissions issue'}`, 'Close', { duration: 5000 });
@@ -2745,6 +3043,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const setDocPromises = this.roster.map(async item => {
       if (item.student.id) {
         const pDocRef = doc(firestore, 'studentDailyProgress', `${item.student.id}_${this.selectedDateStr}`);
+        const evalStatus = this.getStudentProgressStatus(item);
         const progressPayload = {
           id: `${item.student.id}_${this.selectedDateStr}`,
           studentId: item.student.id,
@@ -2754,6 +3053,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           groupId: this.selectedGroupId,
           date: this.selectedDateStr,
           studentType: this.studentTypeMode,
+          isEvaluated: evalStatus.isEvaluated,
+          evaluationStatus: evalStatus.isEvaluated ? 'completed' : 'pending',
           recordedByUid: this.currentUser?.uid || '',
           recordedByName: this.currentUser?.displayName || this.currentUser?.email || '',
           recordedAt: Timestamp.now(),
@@ -2915,6 +3216,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const d = new Date(this.selectedWeekStartStr);
     d.setDate(d.getDate() - 7);
     this.initWeekState(d);
+    this.selectedDateObj = new Date(d);
+    this.selectedDateStr = this.formatDateStr(d);
     this.loadWeeklyProgressData();
   }
 
@@ -2922,11 +3225,16 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const d = new Date(this.selectedWeekStartStr);
     d.setDate(d.getDate() + 7);
     this.initWeekState(d);
+    this.selectedDateObj = new Date(d);
+    this.selectedDateStr = this.formatDateStr(d);
     this.loadWeeklyProgressData();
   }
 
   goToCurrentWeek(): void {
-    this.initWeekState(new Date());
+    const now = new Date();
+    this.initWeekState(now);
+    this.selectedDateObj = now;
+    this.selectedDateStr = this.formatDateStr(now);
     this.loadWeeklyProgressData();
   }
 
@@ -3003,46 +3311,63 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             item.weeklyMaktabStartPage = m.startPage !== undefined ? m.startPage : null;
             item.weeklyMaktabEndPage = m.endPage !== undefined ? m.endPage : null;
           } else {
-            // DO NOT auto-fill dummy values - keep empty by default!
-            item.weeklySabaqStartSurah = '';
-            item.weeklySabaqStartAyah = null;
-            item.weeklySabaqEndSurah = '';
-            item.weeklySabaqEndAyah = null;
-            item.weeklySabaqStartJuz = null;
-            item.weeklySabaqStartPortion = 'Full Juz';
-            item.weeklySabaqEndJuz = null;
-            item.weeklySabaqEndPortion = 'Full Juz';
-            item.weeklySabaqStartPage = null;
-            item.weeklySabaqEndPage = null;
+            // Fallback: If no weekly doc, check if daily progress was loaded for this student during the session
+            if (item.sabaqSurah || item.sabaqJuz || item.dawrPortionJuz || item.dawrRoundNo || item.maktabSubject || item.tilawatSurah) {
+              item.weeklySabaqEndSurah = item.sabaqSurah || '';
+              item.weeklySabaqStartAyah = item.sabaqFromAyah;
+              item.weeklySabaqEndAyah = item.sabaqToAyah;
+              item.weeklySabaqStartJuz = item.sabaqJuz;
+              item.weeklySabaqEndJuz = item.sabaqJuz;
+              item.weeklySabqiRange = item.sabqiSurah || (item.sabqiJuz ? `Juz ${item.sabqiJuz}` : '');
+              item.weeklyManzilRange = item.manzilSurah || (item.manzilJuz ? `Juz ${item.manzilJuz}` : '');
+              item.weeklyMistakes = item.sabaqMistakes || 0;
+              item.weeklyRating = item.hifzRating || 5;
+              item.weeklyDawrRounds = item.dawrRoundNo || (item.dawrPortionJuz ? 1 : null);
+              item.weeklyDawrJuzCount = item.dawrPortionJuz ? 1 : null;
+              item.weeklyMaktabSubject = item.maktabSubject || '';
+              item.weeklyMaktabStartPage = item.maktabPage || null;
+              item.weeklyMaktabEndPage = item.maktabPage || null;
+            } else {
+              item.weeklySabaqStartSurah = '';
+              item.weeklySabaqStartAyah = null;
+              item.weeklySabaqEndSurah = '';
+              item.weeklySabaqEndAyah = null;
+              item.weeklySabaqStartJuz = null;
+              item.weeklySabaqStartPortion = 'Full Juz';
+              item.weeklySabaqEndJuz = null;
+              item.weeklySabaqEndPortion = 'Full Juz';
+              item.weeklySabaqStartPage = null;
+              item.weeklySabaqEndPage = null;
 
-            item.weeklySabqiStartSurah = '';
-            item.weeklySabqiStartAyah = null;
-            item.weeklySabqiEndSurah = '';
-            item.weeklySabqiEndAyah = null;
-            item.weeklySabqiStartJuz = null;
-            item.weeklySabqiStartPortion = 'Full Juz';
-            item.weeklySabqiEndJuz = null;
-            item.weeklySabqiEndPortion = 'Full Juz';
-            item.weeklySabqiStartPage = null;
-            item.weeklySabqiEndPage = null;
-            item.weeklySabqiRange = '';
+              item.weeklySabqiStartSurah = '';
+              item.weeklySabqiStartAyah = null;
+              item.weeklySabqiEndSurah = '';
+              item.weeklySabqiEndAyah = null;
+              item.weeklySabqiStartJuz = null;
+              item.weeklySabqiStartPortion = 'Full Juz';
+              item.weeklySabqiEndJuz = null;
+              item.weeklySabqiEndPortion = 'Full Juz';
+              item.weeklySabqiStartPage = null;
+              item.weeklySabqiEndPage = null;
+              item.weeklySabqiRange = '';
 
-            item.weeklyManzilStartSurah = '';
-            item.weeklyManzilStartAyah = null;
-            item.weeklyManzilEndSurah = '';
-            item.weeklyManzilEndAyah = null;
-            item.weeklyManzilStartJuz = null;
-            item.weeklyManzilStartPortion = 'Full Juz';
-            item.weeklyManzilEndJuz = null;
-            item.weeklyManzilEndPortion = 'Full Juz';
-            item.weeklyManzilRange = '';
+              item.weeklyManzilStartSurah = '';
+              item.weeklyManzilStartAyah = null;
+              item.weeklyManzilEndSurah = '';
+              item.weeklyManzilEndAyah = null;
+              item.weeklyManzilStartJuz = null;
+              item.weeklyManzilStartPortion = 'Full Juz';
+              item.weeklyManzilEndJuz = null;
+              item.weeklyManzilEndPortion = 'Full Juz';
+              item.weeklyManzilRange = '';
 
-            item.weeklyMistakes = null;
-            item.weeklyRating = 5;
-            item.weeklyNotes = '';
+              item.weeklyMistakes = null;
+              item.weeklyRating = 5;
+              item.weeklyNotes = '';
 
-            item.weeklyDawrRounds = null;
-            item.weeklyDawrJuzCount = null;
+              item.weeklyDawrRounds = null;
+              item.weeklyDawrJuzCount = null;
+            }
 
             item.weeklyMaktabSubject = '';
             item.weeklyMaktabStartPage = null;

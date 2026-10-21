@@ -18,17 +18,58 @@
 <ion-content class="compliance-content">
   <div class="page-wrapper">
 
-    <!-- ── Date & Controls Bar ─────────────────────────────────────── -->
+    <!-- ── Scope Switcher & Date Controls Bar ─────────────────────────────────────── -->
     <div class="controls-bar">
       <div class="date-section">
-        <div class="date-label">Audit Date &amp; Scope</div>
-        <div class="date-picker-wrap">
-          <!-- Previous day -->
+        <div class="scope-header-row">
+          <div class="date-label">Audit Scope</div>
+          <div class="scope-mode-tabs">
+            <button class="scope-tab-btn" [class.active]="scopeMode === 'week'" (click)="setScopeMode('week')">
+              <ion-icon name="calendar-number-outline"></ion-icon> Specific Week
+            </button>
+            <button class="scope-tab-btn" [class.active]="scopeMode === 'day'" (click)="setScopeMode('day')">
+              <ion-icon name="today-outline"></ion-icon> Single Day
+            </button>
+            <button class="scope-tab-btn" [class.active]="scopeMode === 'range'" (click)="setScopeMode('range')">
+              <ion-icon name="options-outline"></ion-icon> Date Range
+            </button>
+          </div>
+        </div>
+
+        <!-- Mode 1: Specific Week Picker -->
+        <div class="date-picker-wrap" *ngIf="scopeMode === 'week'">
+          <button class="nav-arrow-btn" (click)="previousWeek()" title="Previous week" id="prev-week-btn">
+            <ion-icon name="chevron-back-outline"></ion-icon>
+          </button>
+
+          <mat-form-field appearance="outline" class="date-field">
+            <mat-label>Jump to Week</mat-label>
+            <input matInput [matDatepicker]="weekPicker" [value]="selectedWeekStart"
+              (dateChange)="onWeekDateChange($event.value)" readonly>
+            <mat-datepicker-toggle matSuffix [for]="weekPicker"></mat-datepicker-toggle>
+            <mat-datepicker #weekPicker></mat-datepicker>
+          </mat-form-field>
+
+          <button class="nav-arrow-btn" (click)="nextWeek()" [disabled]="isCurrentWeek" title="Next week" id="next-week-btn">
+            <ion-icon name="chevron-forward-outline"></ion-icon>
+          </button>
+
+          <div class="quick-date-pills">
+            <button class="date-pill-btn" (click)="goToCurrentWeek()" [class.active]="isCurrentWeek" id="go-current-week-btn">
+              <ion-icon name="time-outline"></ion-icon> This Week
+            </button>
+            <button class="date-pill-btn" (click)="goToLastWeek()" id="go-last-week-btn">
+              Last Week
+            </button>
+          </div>
+        </div>
+
+        <!-- Mode 2: Single Day Picker -->
+        <div class="date-picker-wrap" *ngIf="scopeMode === 'day'">
           <button class="nav-arrow-btn" (click)="previousDay()" title="Previous day" id="prev-day-btn">
             <ion-icon name="chevron-back-outline"></ion-icon>
           </button>
 
-          <!-- Angular Material Datepicker -->
           <mat-form-field appearance="outline" class="date-field">
             <mat-label>Select Date</mat-label>
             <input matInput [matDatepicker]="picker" [value]="selectedDate"
@@ -37,26 +78,55 @@
             <mat-datepicker #picker></mat-datepicker>
           </mat-form-field>
 
-          <!-- Next day -->
           <button class="nav-arrow-btn" (click)="nextDay()" [disabled]="isToday" title="Next day" id="next-day-btn">
             <ion-icon name="chevron-forward-outline"></ion-icon>
           </button>
 
-          <!-- Quick shortcuts -->
           <div class="quick-date-pills">
             <button class="date-pill-btn" (click)="goToToday()" [class.active]="isToday" id="go-today-btn">
-              <ion-icon name="today-outline"></ion-icon>
-              Today
+              <ion-icon name="today-outline"></ion-icon> Today
             </button>
             <button class="date-pill-btn" (click)="goToYesterday()" [class.active]="selectedDateStr === yesterdayStr" id="go-yesterday-btn">
               Yesterday
             </button>
           </div>
         </div>
+
+        <!-- Mode 3: Custom Date Range Picker -->
+        <div class="date-picker-wrap range-wrap" *ngIf="scopeMode === 'range'">
+          <mat-form-field appearance="outline" class="date-field range-field">
+            <mat-label>From Date</mat-label>
+            <input matInput [matDatepicker]="rangeStartPicker" [value]="rangeStartDate"
+              (dateChange)="onRangeStartChange($event.value)" [max]="today" readonly>
+            <mat-datepicker-toggle matSuffix [for]="rangeStartPicker"></mat-datepicker-toggle>
+            <mat-datepicker #rangeStartPicker></mat-datepicker>
+          </mat-form-field>
+
+          <span class="range-sep">–</span>
+
+          <mat-form-field appearance="outline" class="date-field range-field">
+            <mat-label>To Date</mat-label>
+            <input matInput [matDatepicker]="rangeEndPicker" [value]="rangeEndDate"
+              (dateChange)="onRangeEndChange($event.value)" [max]="today" readonly>
+            <mat-datepicker-toggle matSuffix [for]="rangeEndPicker"></mat-datepicker-toggle>
+            <mat-datepicker #rangeEndPicker></mat-datepicker>
+          </mat-form-field>
+
+          <div class="quick-date-pills">
+            <button class="date-pill-btn" (click)="setQuickRange('last7')">Last 7 Days</button>
+            <button class="date-pill-btn" (click)="setQuickRange('last14')">Last 14 Days</button>
+            <button class="date-pill-btn" (click)="setQuickRange('thisMonth')">This Month</button>
+          </div>
+        </div>
+
+        <!-- Dynamic Scope Display Badge -->
         <div class="selected-date-display">
           <ion-icon name="calendar-outline"></ion-icon>
-          <span>{{ formattedDate }}</span>
-          <span class="today-badge" *ngIf="isToday">Today</span>
+          <span *ngIf="scopeMode === 'week'">{{ selectedWeekDisplayText }}</span>
+          <span *ngIf="scopeMode === 'day'">{{ formattedDate }}</span>
+          <span *ngIf="scopeMode === 'range'">Date Range: {{ rangeDisplayText }}</span>
+          <span class="today-badge" *ngIf="scopeMode === 'week' && isCurrentWeek">Current Week</span>
+          <span class="today-badge" *ngIf="scopeMode === 'day' && isToday">Today</span>
         </div>
       </div>
 
@@ -73,10 +143,10 @@
 
         <!-- Export Menu -->
         <div class="export-dropdown-wrap" *ngIf="hasLoaded && allRows.length > 0">
-          <button class="export-btn primary" id="export-all-btn" (click)="exportReport('all')">
+          <button class="export-btn primary" id="export-all-btn" (click)="exportReport('all')" title="Export full report including staff contact info">
             <ion-icon name="download-outline"></ion-icon> Export All CSV
           </button>
-          <button class="export-btn warning" id="export-noncompliant-btn" (click)="exportReport('non-compliant')" title="Export all groups with any missing item">
+          <button class="export-btn warning" id="export-noncompliant-btn" (click)="exportReport('non-compliant')" title="Export all groups with missing items and staff phone numbers">
             <ion-icon name="warning-outline"></ion-icon> Non-Compliant CSV
           </button>
         </div>
@@ -168,12 +238,24 @@
         </button>
       </div>
 
-      <!-- Madrasa selector filter -->
+      <!-- Madrasa selector filter with searchable autocomplete -->
       <div class="madrasa-filter-wrap" *ngIf="allMadrasas.length > 1">
-        <select class="madrasa-select" [ngModel]="madrasaFilter" (ngModelChange)="onMadrasaChange($event)" id="madrasa-filter-select">
-          <option value="">All Madrasas ({{ allMadrasas.length }})</option>
-          <option *ngFor="let m of allMadrasas; trackBy: trackByMadrasaOption" [value]="m.id">{{ m.name }}</option>
-        </select>
+        <mat-form-field appearance="outline" class="madrasa-autocomplete-field" subscriptSizing="dynamic">
+          <input type="text" matInput [(ngModel)]="madrasaSearchText"
+            (input)="filterMadrasasSearch()" (focus)="filterMadrasasSearch()" (click)="filterMadrasasSearch()"
+            [matAutocomplete]="autoComplianceMadrasa" placeholder="All Madrasas ({{ allMadrasas.length }})..." id="madrasa-filter-autocomplete" />
+          <mat-icon matPrefix class="madrasa-prefix-ic">account_balance</mat-icon>
+          <button mat-icon-button matSuffix type="button" *ngIf="madrasaSearchText || madrasaFilter"
+            (click)="clearMadrasaFilter()" title="Clear Madrasa Filter">
+            <mat-icon>close</mat-icon>
+          </button>
+          <mat-autocomplete #autoComplianceMadrasa="matAutocomplete" [displayWith]="displayMadrasaFn"
+            (optionSelected)="onMadrasaOptionSelected($event.option.value)">
+            <mat-option *ngFor="let m of filteredMadrasas" [value]="m">
+              {{ m.name }}
+            </mat-option>
+          </mat-autocomplete>
+        </mat-form-field>
       </div>
 
       <!-- Shift selector filter -->
@@ -334,6 +416,27 @@
                       <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
                       <span>{{ row.assignedStaffName }}</span>
                     </div>
+
+                    <!-- Staff Mobile Phone & Universal WhatsApp Reminder (No API Needed) -->
+                    <div class="staff-contact-bar" *ngIf="row.assignedStaffPhone">
+                      <a [href]="'tel:' + row.assignedStaffPhone" class="staff-phone-pill" (click)="$event.stopPropagation()" title="Call {{ row.assignedStaffName }}">
+                        <ion-icon name="call-outline"></ion-icon>
+                        <span>{{ row.assignedStaffPhone }}</span>
+                      </a>
+                      <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)" title="Copy phone number">
+                        <ion-icon name="copy-outline"></ion-icon>
+                      </button>
+                      <a *ngIf="row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered'"
+                        [href]="getWhatsAppUrl(row)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="whatsapp-remind-pill"
+                        (click)="$event.stopPropagation()"
+                        title="Chat on WhatsApp (Free universal wa.me deep link with prefilled reminder)">
+                        <ion-icon name="logo-whatsapp"></ion-icon>
+                        <span>Remind</span>
+                      </a>
+                    </div>
                   </td>
 
                   <td class="td-timetable">
@@ -349,7 +452,10 @@
                       [class.chip-danger]="row.attendanceStatus === 'not-entered'">
                       <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
                       <div class="chip-content">
-                        <span class="chip-main">{{ row.attendanceStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                        <span class="chip-main">
+                          {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Not Entered' }}
+                          <span class="chip-period" *ngIf="row.periodSummaryText">({{ row.periodSummaryText }})</span>
+                        </span>
                         <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered' && row.attendanceTakenBy">
                           by {{ row.attendanceTakenBy }}
                           <span *ngIf="row.attendanceTakenAt"> · {{ row.attendanceTakenAt }}</span>
@@ -392,9 +498,19 @@
                   </td>
 
                   <td class="td-action" (click)="$event.stopPropagation()">
-                    <button class="action-suite-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
-                      <ion-icon name="open-outline"></ion-icon>
-                    </button>
+                    <div class="action-btn-group">
+                      <button class="action-suite-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
+                        <ion-icon name="open-outline"></ion-icon>
+                      </button>
+                      <a *ngIf="row.assignedStaffPhone && (row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered')"
+                        [href]="getWhatsAppUrl(row)"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="action-whatsapp-btn"
+                        title="Send WhatsApp Reminder">
+                        <ion-icon name="logo-whatsapp"></ion-icon>
+                      </a>
+                    </div>
                   </td>
                 </tr>
 
@@ -403,9 +519,9 @@
                   <td colspan="9" class="expanded-drawer-cell">
                     <div class="drawer-content">
                       <div class="drawer-col">
-                        <div class="drawer-header"><ion-icon name="time-outline"></ion-icon> Today's Timetable Schedule</div>
+                        <div class="drawer-header"><ion-icon name="time-outline"></ion-icon> Timetable Schedule</div>
                         <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">
-                          No timetable periods scheduled for this group on {{ formattedDate }}.
+                          No timetable periods scheduled for this group.
                         </div>
                         <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
                           <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
@@ -420,12 +536,13 @@
                         <div class="drawer-header"><ion-icon name="checkbox-outline"></ion-icon> Attendance Details</div>
                         <div class="drawer-detail-text" *ngIf="row.attendanceStatus === 'entered'">
                           <strong>Status:</strong> Completed<br>
+                          <span *ngIf="row.periodSummaryText"><strong>Summary:</strong> {{ row.periodSummaryText }}<br></span>
                           <span *ngIf="row.attendanceTakenBy"><strong>Recorded by:</strong> {{ row.attendanceTakenBy }}<br></span>
                           <span *ngIf="row.attendanceTakenAt"><strong>Recorded at:</strong> {{ row.attendanceTakenAt }}<br></span>
                           <strong>Present:</strong> {{ row.presentCount }} | <strong>Absent:</strong> {{ row.absentCount }} (Total: {{ row.totalStudents }})
                         </div>
                         <div class="drawer-detail-text text-danger" *ngIf="row.attendanceStatus === 'not-entered'">
-                          Attendance has <strong>not been recorded</strong> for this group today.
+                          Attendance has <strong>not been recorded</strong> for this audit period.
                         </div>
                       </div>
 
@@ -437,7 +554,24 @@
                           <span *ngIf="row.evaluationEnteredAt"><strong>Recorded at:</strong> {{ row.evaluationEnteredAt }}<br></span>
                         </div>
                         <div class="drawer-detail-text text-purple" *ngIf="row.evaluationStatus === 'not-entered'">
-                          Daily student progress evaluations have <strong>not been submitted</strong> today.
+                          Student progress evaluations have <strong>not been submitted</strong> for this audit period.
+                        </div>
+                      </div>
+
+                      <div class="drawer-col drawer-contact" *ngIf="row.assignedStaffPhone || row.assignedStaffEmail">
+                        <div class="drawer-header"><ion-icon name="person-circle-outline"></ion-icon> Teacher Contact</div>
+                        <div class="drawer-detail-text">
+                          <strong>{{ row.assignedStaffName }}</strong><br>
+                          <span *ngIf="row.assignedStaffPhone">
+                            <ion-icon name="call-outline"></ion-icon> {{ row.assignedStaffPhone }}
+                            <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)">Copy</button><br>
+                          </span>
+                          <span *ngIf="row.assignedStaffEmail"><ion-icon name="mail-outline"></ion-icon> {{ row.assignedStaffEmail }}<br></span>
+                          <div *ngIf="row.assignedStaffPhone && (row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered')" style="margin-top: 8px;">
+                            <a [href]="getWhatsAppUrl(row)" target="_blank" rel="noopener noreferrer" class="open-whatsapp-cta">
+                              <ion-icon name="logo-whatsapp"></ion-icon> Send WhatsApp Reminder
+                            </a>
+                          </div>
                         </div>
                       </div>
 
@@ -477,11 +611,30 @@
               </button>
             </div>
 
-            <!-- Assigned Staff -->
-            <div class="mobile-staff-row" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
-              <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
-              <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
-              <span>{{ row.assignedStaffName }}</span>
+            <!-- Assigned Staff & Contact -->
+            <div class="mobile-staff-section">
+              <div class="mobile-staff-row" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
+                <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
+                <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
+                <span>{{ row.assignedStaffName }}</span>
+              </div>
+              <div class="mobile-contact-bar" *ngIf="row.assignedStaffPhone">
+                <a [href]="'tel:' + row.assignedStaffPhone" class="staff-phone-pill" (click)="$event.stopPropagation()">
+                  <ion-icon name="call-outline"></ion-icon> {{ row.assignedStaffPhone }}
+                </a>
+                <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)" title="Copy phone">
+                  <ion-icon name="copy-outline"></ion-icon>
+                </button>
+                <a *ngIf="row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered'"
+                  [href]="getWhatsAppUrl(row)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="whatsapp-remind-pill"
+                  (click)="$event.stopPropagation()"
+                  title="Send WhatsApp Reminder">
+                  <ion-icon name="logo-whatsapp"></ion-icon> Remind
+                </a>
+              </div>
             </div>
 
             <!-- 3 Badges Row -->
@@ -500,7 +653,10 @@
                 [class.chip-danger]="row.attendanceStatus === 'not-entered'">
                 <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
                 <div class="chip-content">
-                  <span class="chip-main">Att: {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
+                  <span class="chip-main">
+                    Att: {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Missing' }}
+                    <span class="chip-period" *ngIf="row.periodSummaryText">({{ row.periodSummaryText }})</span>
+                  </span>
                   <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered'">
                     {{ row.presentCount }}P / {{ row.absentCount }}A
                   </span>
@@ -537,7 +693,7 @@
             <div class="mobile-drawer" *ngIf="expandedRowId === row.groupId">
               <div class="drawer-sec">
                 <div class="drawer-sec-title"><ion-icon name="time-outline"></ion-icon> Timetable Schedule</div>
-                <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">No scheduled periods for {{ isToday ? 'today' : selectedDayFullName }}.</div>
+                <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">No scheduled periods for this group.</div>
                 <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
                   <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
                     <span class="slot-title">{{ s.title }}</span>
@@ -551,11 +707,12 @@
                 <div class="drawer-sec-title"><ion-icon name="checkbox-outline"></ion-icon> Attendance Audit</div>
                 <div *ngIf="row.attendanceStatus === 'entered'" class="drawer-sec-text">
                   <strong>Recorded by:</strong> {{ row.attendanceTakenBy || 'Teacher' }}<br>
+                  <span *ngIf="row.periodSummaryText"><strong>Summary:</strong> {{ row.periodSummaryText }}<br></span>
                   <span *ngIf="row.attendanceTakenAt"><strong>Time:</strong> {{ row.attendanceTakenAt }}<br></span>
                   <strong>Roster:</strong> {{ row.presentCount }} Present, {{ row.absentCount }} Absent
                 </div>
                 <div *ngIf="row.attendanceStatus === 'not-entered'" class="drawer-sec-text text-danger">
-                  ⚠️ Attendance not recorded for this date.
+                  ⚠️ Attendance not recorded for this audit period.
                 </div>
               </div>
 
@@ -567,7 +724,24 @@
                   <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)
                 </div>
                 <div *ngIf="row.evaluationStatus === 'not-entered'" class="drawer-sec-text text-purple">
-                  ⚠️ Daily student progress evaluation not submitted for this date.
+                  ⚠️ Student progress evaluation not submitted for this audit period.
+                </div>
+              </div>
+
+              <div class="drawer-sec" *ngIf="row.assignedStaffPhone || row.assignedStaffEmail">
+                <div class="drawer-sec-title"><ion-icon name="person-circle-outline"></ion-icon> Teacher Contact</div>
+                <div class="drawer-sec-text">
+                  <strong>{{ row.assignedStaffName }}</strong><br>
+                  <span *ngIf="row.assignedStaffPhone">
+                    <ion-icon name="call-outline"></ion-icon> {{ row.assignedStaffPhone }}
+                    <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)">Copy</button><br>
+                  </span>
+                  <span *ngIf="row.assignedStaffEmail"><ion-icon name="mail-outline"></ion-icon> {{ row.assignedStaffEmail }}<br></span>
+                  <div *ngIf="row.assignedStaffPhone && (row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered')" style="margin-top: 8px;">
+                    <a [href]="getWhatsAppUrl(row)" target="_blank" rel="noopener noreferrer" class="open-whatsapp-cta">
+                      <ion-icon name="logo-whatsapp"></ion-icon> Send WhatsApp Reminder
+                    </a>
+                  </div>
                 </div>
               </div>
 
@@ -631,6 +805,27 @@
                     <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
                     <span>{{ row.assignedStaffName }}</span>
                   </div>
+
+                  <!-- Staff Mobile Phone & Universal WhatsApp Reminder -->
+                  <div class="staff-contact-bar" *ngIf="row.assignedStaffPhone">
+                    <a [href]="'tel:' + row.assignedStaffPhone" class="staff-phone-pill" (click)="$event.stopPropagation()" title="Call {{ row.assignedStaffName }}">
+                      <ion-icon name="call-outline"></ion-icon>
+                      <span>{{ row.assignedStaffPhone }}</span>
+                    </a>
+                    <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)" title="Copy phone number">
+                      <ion-icon name="copy-outline"></ion-icon>
+                    </button>
+                    <a *ngIf="row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered'"
+                      [href]="getWhatsAppUrl(row)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="whatsapp-remind-pill"
+                      (click)="$event.stopPropagation()"
+                      title="Chat on WhatsApp (Free universal wa.me deep link with prefilled reminder)">
+                      <ion-icon name="logo-whatsapp"></ion-icon>
+                      <span>Remind</span>
+                    </a>
+                  </div>
                 </td>
 
                 <td class="td-timetable">
@@ -646,7 +841,10 @@
                     [class.chip-danger]="row.attendanceStatus === 'not-entered'">
                     <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
                     <div class="chip-content">
-                      <span class="chip-main">{{ row.attendanceStatus === 'entered' ? 'Entered' : 'Not Entered' }}</span>
+                      <span class="chip-main">
+                        {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Not Entered' }}
+                        <span class="chip-period" *ngIf="row.periodSummaryText">({{ row.periodSummaryText }})</span>
+                      </span>
                       <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered' && row.attendanceTakenBy">
                         by {{ row.attendanceTakenBy }}<span *ngIf="row.attendanceTakenAt"> · {{ row.attendanceTakenAt }}</span>
                       </span>
@@ -685,9 +883,19 @@
                 </td>
 
                 <td class="td-action" (click)="$event.stopPropagation()">
-                  <button class="action-suite-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
-                    <ion-icon name="open-outline"></ion-icon>
-                  </button>
+                  <div class="action-btn-group">
+                    <button class="action-suite-btn" (click)="openClassroomSuite(row)" title="Open in Classroom Suite">
+                      <ion-icon name="open-outline"></ion-icon>
+                    </button>
+                    <a *ngIf="row.assignedStaffPhone && (row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered')"
+                      [href]="getWhatsAppUrl(row)"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="action-whatsapp-btn"
+                      title="Send WhatsApp Reminder">
+                      <ion-icon name="logo-whatsapp"></ion-icon>
+                    </a>
+                  </div>
                 </td>
               </tr>
 
@@ -696,9 +904,9 @@
                 <td colspan="10" class="expanded-drawer-cell">
                   <div class="drawer-content">
                     <div class="drawer-col">
-                      <div class="drawer-header"><ion-icon name="time-outline"></ion-icon> Today's Timetable Schedule</div>
+                      <div class="drawer-header"><ion-icon name="time-outline"></ion-icon> Timetable Schedule</div>
                       <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">
-                        No timetable periods scheduled for this class group on {{ formattedDate }}.
+                        No timetable periods scheduled for this class group.
                       </div>
                       <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
                         <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
@@ -713,12 +921,13 @@
                       <div class="drawer-header"><ion-icon name="checkbox-outline"></ion-icon> Attendance Details</div>
                       <div class="drawer-detail-text" *ngIf="row.attendanceStatus === 'entered'">
                         <strong>Status:</strong> Completed<br>
+                        <span *ngIf="row.periodSummaryText"><strong>Summary:</strong> {{ row.periodSummaryText }}<br></span>
                         <span *ngIf="row.attendanceTakenBy"><strong>Recorded by:</strong> {{ row.attendanceTakenBy }}<br></span>
                         <span *ngIf="row.attendanceTakenAt"><strong>Recorded at:</strong> {{ row.attendanceTakenAt }}<br></span>
                         <strong>Present:</strong> {{ row.presentCount }} | <strong>Absent:</strong> {{ row.absentCount }} (Total: {{ row.totalStudents }})
                       </div>
                       <div class="drawer-detail-text text-danger" *ngIf="row.attendanceStatus === 'not-entered'">
-                        Attendance has <strong>not been recorded</strong> for this group for this date.
+                        Attendance has <strong>not been recorded</strong> for this audit period.
                       </div>
                     </div>
 
@@ -730,7 +939,24 @@
                         <span *ngIf="row.evaluationEnteredAt"><strong>Recorded at:</strong> {{ row.evaluationEnteredAt }}<br></span>
                       </div>
                       <div class="drawer-detail-text text-purple" *ngIf="row.evaluationStatus === 'not-entered'">
-                        Daily student progress evaluations have <strong>not been submitted</strong> for this date.
+                        Student progress evaluations have <strong>not been submitted</strong> for this audit period.
+                      </div>
+                    </div>
+
+                    <div class="drawer-col drawer-contact" *ngIf="row.assignedStaffPhone || row.assignedStaffEmail">
+                      <div class="drawer-header"><ion-icon name="person-circle-outline"></ion-icon> Teacher Contact</div>
+                      <div class="drawer-detail-text">
+                        <strong>{{ row.assignedStaffName }}</strong><br>
+                        <span *ngIf="row.assignedStaffPhone">
+                          <ion-icon name="call-outline"></ion-icon> {{ row.assignedStaffPhone }}
+                          <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)">Copy</button><br>
+                        </span>
+                        <span *ngIf="row.assignedStaffEmail"><ion-icon name="mail-outline"></ion-icon> {{ row.assignedStaffEmail }}<br></span>
+                        <div *ngIf="row.assignedStaffPhone && (row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered')" style="margin-top: 8px;">
+                          <a [href]="getWhatsAppUrl(row)" target="_blank" rel="noopener noreferrer" class="open-whatsapp-cta">
+                            <ion-icon name="logo-whatsapp"></ion-icon> Send WhatsApp Reminder
+                          </a>
+                        </div>
                       </div>
                     </div>
 
@@ -771,11 +997,30 @@
             </button>
           </div>
 
-          <!-- Assigned Staff -->
-          <div class="mobile-staff-row" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
-            <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
-            <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
-            <span>{{ row.assignedStaffName }}</span>
+          <!-- Assigned Staff & Contact -->
+          <div class="mobile-staff-section">
+            <div class="mobile-staff-row" [class.unassigned]="row.assignedStaffName === 'Unassigned'">
+              <ion-icon name="person-outline" *ngIf="row.assignedStaffName !== 'Unassigned'"></ion-icon>
+              <ion-icon name="person-remove-outline" *ngIf="row.assignedStaffName === 'Unassigned'" class="unassigned-icon"></ion-icon>
+              <span>{{ row.assignedStaffName }}</span>
+            </div>
+            <div class="mobile-contact-bar" *ngIf="row.assignedStaffPhone">
+              <a [href]="'tel:' + row.assignedStaffPhone" class="staff-phone-pill" (click)="$event.stopPropagation()">
+                <ion-icon name="call-outline"></ion-icon> {{ row.assignedStaffPhone }}
+              </a>
+              <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)">
+                <ion-icon name="copy-outline"></ion-icon>
+              </button>
+              <a *ngIf="row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered'"
+                [href]="getWhatsAppUrl(row)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="whatsapp-remind-pill"
+                (click)="$event.stopPropagation()"
+                title="Send WhatsApp Reminder">
+                <ion-icon name="logo-whatsapp"></ion-icon> Remind
+              </a>
+            </div>
           </div>
 
           <!-- 3 Badges Row -->
@@ -792,7 +1037,10 @@
               [class.chip-danger]="row.attendanceStatus === 'not-entered'">
               <ion-icon [name]="row.attendanceStatus === 'entered' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
               <div class="chip-content">
-                <span class="chip-main">Att: {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Missing' }}</span>
+                <span class="chip-main">
+                  Att: {{ row.attendanceStatus === 'entered' ? 'Entered' : 'Missing' }}
+                  <span class="chip-period" *ngIf="row.periodSummaryText">({{ row.periodSummaryText }})</span>
+                </span>
                 <span class="chip-sub" *ngIf="row.attendanceStatus === 'entered'">
                   {{ row.presentCount }}P / {{ row.absentCount }}A
                 </span>
@@ -828,7 +1076,7 @@
           <div class="mobile-drawer" *ngIf="expandedRowId === row.groupId">
             <div class="drawer-sec">
               <div class="drawer-sec-title"><ion-icon name="time-outline"></ion-icon> Timetable Schedule</div>
-              <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">No scheduled periods for {{ isToday ? 'today' : selectedDayFullName }}.</div>
+              <div *ngIf="row.timetableSlots.length === 0" class="drawer-empty-hint">No scheduled periods for this group.</div>
               <div class="slots-list" *ngIf="row.timetableSlots.length > 0">
                 <div class="slot-item" *ngFor="let s of row.timetableSlots; trackBy: trackBySlot">
                   <span class="slot-title">{{ s.title }}</span>
@@ -842,11 +1090,12 @@
               <div class="drawer-sec-title"><ion-icon name="checkbox-outline"></ion-icon> Attendance Audit</div>
               <div *ngIf="row.attendanceStatus === 'entered'" class="drawer-sec-text">
                 <strong>Recorded by:</strong> {{ row.attendanceTakenBy || 'Teacher' }}<br>
+                <span *ngIf="row.periodSummaryText"><strong>Summary:</strong> {{ row.periodSummaryText }}<br></span>
                 <span *ngIf="row.attendanceTakenAt"><strong>Time:</strong> {{ row.attendanceTakenAt }}<br></span>
                 <strong>Roster:</strong> {{ row.presentCount }} Present, {{ row.absentCount }} Absent
               </div>
               <div *ngIf="row.attendanceStatus === 'not-entered'" class="drawer-sec-text text-danger">
-                ⚠️ Attendance not recorded for this date.
+                ⚠️ Attendance not recorded for this audit period.
               </div>
             </div>
 
@@ -858,7 +1107,24 @@
                 <strong>Evaluations:</strong> {{ row.evaluationCount }} student record(s)
               </div>
               <div *ngIf="row.evaluationStatus === 'not-entered'" class="drawer-sec-text text-purple">
-                ⚠️ Daily student progress evaluation not submitted for this date.
+                ⚠️ Student progress evaluation not submitted for this audit period.
+              </div>
+            </div>
+
+            <div class="drawer-sec" *ngIf="row.assignedStaffPhone || row.assignedStaffEmail">
+              <div class="drawer-sec-title"><ion-icon name="person-circle-outline"></ion-icon> Teacher Contact</div>
+              <div class="drawer-sec-text">
+                <strong>{{ row.assignedStaffName }}</strong><br>
+                <span *ngIf="row.assignedStaffPhone">
+                  <ion-icon name="call-outline"></ion-icon> {{ row.assignedStaffPhone }}
+                  <button class="copy-phone-mini-btn" (click)="copyPhone(row.assignedStaffPhone, $event)">Copy</button><br>
+                </span>
+                <span *ngIf="row.assignedStaffEmail"><ion-icon name="mail-outline"></ion-icon> {{ row.assignedStaffEmail }}<br></span>
+                <div *ngIf="row.assignedStaffPhone && (row.attendanceStatus === 'not-entered' || row.evaluationStatus === 'not-entered')" style="margin-top: 8px;">
+                  <a [href]="getWhatsAppUrl(row)" target="_blank" rel="noopener noreferrer" class="open-whatsapp-cta">
+                    <ion-icon name="logo-whatsapp"></ion-icon> Send WhatsApp Reminder
+                  </a>
+                </div>
               </div>
             </div>
 

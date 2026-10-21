@@ -544,6 +544,18 @@
 }
 
 /* Audit Banner */
+.audit-banner-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+
+  .audit-banner {
+    flex: 1 1 320px;
+    margin-bottom: 0;
+  }
+}
+
 .audit-banner {
   border-radius: 10px;
   padding: 10px 14px;
@@ -582,6 +594,218 @@
       min-width: 0;
       word-break: break-word;
     }
+  }
+}
+
+/* Holiday Exception Banner */
+.holiday-exception-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: linear-gradient(135deg, #ede9fe 0%, #f5f3ff 100%);
+  border: 1px solid #c4b5fd;
+  border-radius: 12px;
+  padding: 12px 18px;
+  margin-bottom: 14px;
+
+  .ex-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .ex-icon {
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
+      color: #7c3aed;
+    }
+
+    .ex-text {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .ex-title {
+        font-size: 0.96rem;
+        color: #4c1d95;
+
+        strong {
+          font-weight: 700;
+        }
+      }
+
+      .ex-sub {
+        font-size: 0.8rem;
+        color: #6d28d9;
+      }
+    }
+  }
+
+  .btn-cancel-ex {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #ffffff;
+    border: 1px solid #ddd6fe;
+    color: #6d28d9;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      background: #f5f3ff;
+      border-color: #7c3aed;
+    }
+  }
+}
+
+/* Quick No-Class Action Link */
+.no-class-bar-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -6px;
+  margin-bottom: 12px;
+
+  .btn-no-class-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: #6366f1;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      background: #eef2ff;
+      text-decoration: underline;
+    }
+  }
+}
+
+/* No Class Modal */
+.no-class-modal {
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 12px;
+
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+
+    .modal-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+  }
+
+  .modal-desc {
+    font-size: 0.88rem;
+    color: #475569;
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
+
+  .w-100 {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .ex-notice-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: #f1f5f9;
+    border-left: 3px solid #6366f1;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 0.82rem;
+    color: #475569;
+    margin-top: 8px;
+    margin-bottom: 16px;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #6366f1;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+  }
+
+  .existing-ex-box {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #faf5ff;
+    border: 1px solid #e9d5ff;
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 16px;
+
+    .ex-box-ic {
+      font-size: 32px;
+      width: 32px;
+      height: 32px;
+      color: #7c3aed;
+    }
+
+    .ex-box-info {
+      h4 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #4c1d95;
+      }
+
+      p {
+        margin: 4px 0 0 0;
+        font-size: 0.85rem;
+        color: #6d28d9;
+      }
+
+      .ex-creator {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.78rem;
+        color: #8b5cf6;
+      }
+    }
+  }
+
+  .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 12px;
   }
 }
 
