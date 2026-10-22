@@ -44,24 +44,106 @@
     </div>
 
     <!-- ======================================================== -->
+    <!-- SESSION NO LESSON TOGGLE BANNER                          -->
+    <!-- ======================================================== -->
+    <div class="session-no-lesson-strip" [class.active-no-lesson]="noLesson">
+      <div class="strip-header-row">
+        <div class="strip-info">
+          <mat-icon class="strip-icon">{{ noLesson ? 'event_busy' : 'fact_check' }}</mat-icon>
+          <div class="strip-text">
+            <strong class="strip-title">{{ noLesson ? 'Student Has No Lesson for this Period' : 'Lesson Evaluation Mode' }}</strong>
+            <span class="strip-desc" *ngIf="noLesson">Lesson coordinates bypassed. Evaluation status will be recorded as Completed.</span>
+            <span class="strip-desc" *ngIf="!noLesson">Click "No Lesson Today" if student was absent, sick, or did not prepare lessons.</span>
+          </div>
+        </div>
+        <div class="strip-actions-group">
+          <!-- Button when No Lesson is NOT active -->
+          <button type="button" class="btn-session-no-lesson" *ngIf="!noLesson" (click)="toggleNoLesson()" title="Mark entire session as No Lesson">
+            <mat-icon class="btn-ic">do_not_disturb_on</mat-icon>
+            <span>No Lesson Today</span>
+          </button>
+
+          <!-- Action buttons when No Lesson IS active -->
+          <div class="active-no-lesson-actions" *ngIf="noLesson">
+            <span class="badge-no-lesson-pill">
+              <mat-icon class="pill-ic">check_circle</mat-icon>
+              <span>No Lesson Active</span>
+            </span>
+            <button type="button" class="btn-undo-session-no-lesson" (click)="undoNoLesson()" title="Cancel No Lesson and return to lesson input">
+              <mat-icon class="btn-ic">undo</mat-icon>
+              <span>Cancel / Undo No Lesson</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick 1-Tap Reason Chips when session No Lesson is toggled -->
+      <div class="no-lesson-reasons-panel" *ngIf="noLesson">
+        <div class="reason-panel-header-row">
+          <label class="reason-panel-lbl">Select Reason for No Lesson:</label>
+          <button type="button" class="btn-cancel-link" (click)="undoNoLesson()" title="Cancel No Lesson and return to lesson input">
+            <mat-icon class="link-ic">cancel</mat-icon>
+            <span>Cancel No Lesson</span>
+          </button>
+        </div>
+        <div class="reason-chips-grid">
+          <button type="button" class="reason-chip-btn" *ngFor="let r of commonSessionReasons"
+            [class.selected]="noLessonReason === r" (click)="setNoLessonReason(r)">
+            {{ r }}
+          </button>
+        </div>
+        <div class="custom-reason-row" *ngIf="noLessonReason === 'Other'">
+          <input type="text" class="custom-reason-input" [(ngModel)]="noLessonCustomReason" placeholder="Enter reason (e.g. medical leave, family event)..." />
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
     <!-- MAKTAB MULTI-STAGE EVALUATION SECTION                    -->
     <!-- ======================================================== -->
-    <div class="eval-section maktab-section" *ngIf="studentTypeMode === 'maktab'">
+    <div class="eval-section maktab-section" *ngIf="!noLesson && studentTypeMode === 'maktab'">
       <div class="section-title-row">
         <div class="title-group">
           <h3 class="section-heading">Maktab Student Evaluation</h3>
           <p class="section-subtext">Evaluate student by stage: Miftah (Curriculum Subjects) or Tilawatul Quran (Quran Reading).</p>
         </div>
-        <div class="section-actions-right" *ngIf="maktabStageMode === 'miftah'">
-          <button type="button" class="add-subject-btn" (click)="addMaktabSubject()">
+        <div class="section-actions-right">
+          <button type="button" class="btn-card-no-lesson" [class.toggled]="maktabNoLesson" (click)="toggleMaktabNoLesson()" title="Toggle if no Maktab lesson was recited today">
+            <mat-icon class="toggle-ic">{{ maktabNoLesson ? 'undo' : 'remove_circle_outline' }}</mat-icon>
+            <span>{{ maktabNoLesson ? 'Undo No Maktab' : 'No Lesson' }}</span>
+          </button>
+          <button type="button" class="add-subject-btn" (click)="addMaktabSubject()" *ngIf="!maktabNoLesson && maktabStageMode === 'miftah'">
             <mat-icon class="btn-ic">add</mat-icon>
             <span>Add Subject</span>
           </button>
         </div>
       </div>
 
+      <!-- Maktab No-Lesson Panel if toggled -->
+      <div class="card-no-lesson-panel" *ngIf="maktabNoLesson">
+        <div class="no-lesson-alert-badge">
+          <div class="alert-left">
+            <mat-icon class="alert-ic">info_outline</mat-icon>
+            <span>No Maktab Lesson Recited for this Period</span>
+          </div>
+          <button type="button" class="btn-cancel-card-no-lesson" (click)="undoMaktabNoLesson()" title="Cancel and enter Maktab lessons">
+            <mat-icon class="sm-ic">undo</mat-icon>
+            <span>Cancel / Undo</span>
+          </button>
+        </div>
+        <div class="reason-chips-grid compact">
+          <button type="button" class="reason-chip-btn" *ngFor="let r of commonMaktabReasons"
+            [class.selected]="maktabNoLessonReason === r" (click)="setMaktabNoLessonReason(r)">
+            {{ r }}
+          </button>
+        </div>
+        <div class="custom-reason-row" *ngIf="maktabNoLessonReason === 'Other'">
+          <input type="text" class="custom-reason-input" [(ngModel)]="maktabCustomReason" placeholder="Enter reason..." />
+        </div>
+      </div>
+
       <!-- MAKTAB STAGE SELECTOR TABS -->
-      <div class="maktab-stage-selector-bar">
+      <div class="maktab-stage-selector-bar" *ngIf="!maktabNoLesson">
         <button type="button" class="stage-tab-btn" [class.active]="maktabStageMode === 'miftah'" (click)="setMaktabStageMode('miftah')">
           <mat-icon class="tab-ic">auto_stories</mat-icon>
           <div class="tab-content">
@@ -79,7 +161,7 @@
       </div>
 
       <!-- STAGE 1: MIFTAH CURRICULUM SUBJECTS -->
-      <div class="subjects-card-list" *ngIf="maktabStageMode === 'miftah'">
+      <div class="subjects-card-list" *ngIf="!maktabNoLesson && maktabStageMode === 'miftah'">
         <div class="subject-item-card" *ngFor="let item of maktabSubjects; let idx = index">
           <div class="item-card-header">
             <span class="sub-num-pill">#{{ idx + 1 }}</span>
@@ -130,7 +212,7 @@
       </div>
 
       <!-- STAGE 2: TILAWATUL QURAN (QURAN READING) -->
-      <div class="tilawat-quran-card" *ngIf="maktabStageMode === 'tilawatul_quran'">
+      <div class="tilawat-quran-card" *ngIf="!maktabNoLesson && maktabStageMode === 'tilawatul_quran'">
         <div class="tilawat-card-header">
           <div class="tilawat-badge-row">
             <span class="tilawat-pill">📖 Quran Reading Progress</span>
@@ -200,25 +282,52 @@
     <!-- ======================================================== -->
     <!-- HIFZ & DAWR EVALUATION SECTION                           -->
     <!-- ======================================================== -->
-    <div class="eval-section hifz-section" *ngIf="studentTypeMode === 'hifz' || studentTypeMode === 'dawr'">
+    <div class="eval-section hifz-section" *ngIf="!noLesson && (studentTypeMode === 'hifz' || studentTypeMode === 'dawr')">
       <!-- 1. NEW LESSON (SABAQ) CARD -->
-      <div class="lesson-eval-card sabaq-card">
+      <div class="lesson-eval-card sabaq-card" [class.no-lesson-card]="sabaqNoLesson">
         <div class="card-top-bar">
           <div class="card-title-group">
             <span class="card-name">New Lesson</span>
-            <div class="revision-mode-toggles">
+            <button type="button" class="btn-card-no-lesson" [class.toggled]="sabaqNoLesson" (click)="toggleSabaqNoLesson()" title="Toggle if no new lesson was taken">
+              <mat-icon class="toggle-ic">{{ sabaqNoLesson ? 'undo' : 'remove_circle_outline' }}</mat-icon>
+              <span>{{ sabaqNoLesson ? 'Undo No Sabaq' : 'No Lesson' }}</span>
+            </button>
+            <div class="revision-mode-toggles" *ngIf="!sabaqNoLesson">
               <button type="button" class="rev-unit-btn" [class.active]="sabaqEvalUnitMode === 'portion'" (click)="sabaqEvalUnitMode = 'portion'">Portion-wise</button>
               <button type="button" class="rev-unit-btn" [class.active]="sabaqEvalUnitMode === 'surah'" (click)="sabaqEvalUnitMode = 'surah'">Surah-wise</button>
               <button type="button" class="rev-unit-btn" [class.active]="sabaqEvalUnitMode === 'page'" (click)="sabaqEvalUnitMode = 'page'">Page-wise</button>
             </div>
           </div>
-          <div class="card-mistakes-box">
+          <div class="card-mistakes-box" *ngIf="!sabaqNoLesson">
             <span class="mist-label">Mistakes:</span>
             <input type="number" class="mist-input" [(ngModel)]="sabaqMistakes" placeholder="0" min="0" />
           </div>
         </div>
 
-        <div class="card-inputs-area">
+        <!-- No Sabaq Reason Panel -->
+        <div class="card-no-lesson-panel" *ngIf="sabaqNoLesson">
+          <div class="no-lesson-alert-badge">
+            <div class="alert-left">
+              <mat-icon class="alert-ic">info_outline</mat-icon>
+              <span>No New Lesson Taken for this Period</span>
+            </div>
+            <button type="button" class="btn-cancel-card-no-lesson" (click)="undoSabaqNoLesson()" title="Cancel and enter Sabaq">
+              <mat-icon class="sm-ic">undo</mat-icon>
+              <span>Cancel / Undo</span>
+            </button>
+          </div>
+          <div class="reason-chips-grid compact">
+            <button type="button" class="reason-chip-btn" *ngFor="let r of commonSabaqReasons"
+              [class.selected]="sabaqNoLessonReason === r" (click)="setSabaqNoLessonReason(r)">
+              {{ r }}
+            </button>
+          </div>
+          <div class="custom-reason-row" *ngIf="sabaqNoLessonReason === 'Other'">
+            <input type="text" class="custom-reason-input" [(ngModel)]="sabaqCustomReason" placeholder="Enter reason (e.g. sick, backlog revision)..." />
+          </div>
+        </div>
+
+        <div class="card-inputs-area" *ngIf="!sabaqNoLesson">
           <!-- 1. Portion-wise New Lesson -->
           <div class="dawr-revision-container" *ngIf="sabaqEvalUnitMode === 'portion'">
             <!-- FROM Starting Point -->
@@ -345,23 +454,50 @@
       </div>
 
       <!-- 2. OLD LESSON (SABQI) CARD -->
-      <div class="lesson-eval-card sabqi-card">
+      <div class="lesson-eval-card sabqi-card" [class.no-lesson-card]="sabqiNoLesson">
         <div class="card-top-bar">
           <div class="card-title-group">
             <span class="card-name">Old Lesson</span>
-            <div class="revision-mode-toggles">
+            <button type="button" class="btn-card-no-lesson" [class.toggled]="sabqiNoLesson" (click)="toggleSabqiNoLesson()" title="Toggle if no old lesson was taken">
+              <mat-icon class="toggle-ic">{{ sabqiNoLesson ? 'undo' : 'remove_circle_outline' }}</mat-icon>
+              <span>{{ sabqiNoLesson ? 'Undo No Sabqi' : 'No Lesson' }}</span>
+            </button>
+            <div class="revision-mode-toggles" *ngIf="!sabqiNoLesson">
               <button type="button" class="rev-unit-btn" [class.active]="sabqiEvalUnitMode === 'portion'" (click)="sabqiEvalUnitMode = 'portion'">Portion-wise</button>
               <button type="button" class="rev-unit-btn" [class.active]="sabqiEvalUnitMode === 'surah'" (click)="sabqiEvalUnitMode = 'surah'">Surah-wise</button>
               <button type="button" class="rev-unit-btn" [class.active]="sabqiEvalUnitMode === 'page'" (click)="sabqiEvalUnitMode = 'page'">Page-wise</button>
             </div>
           </div>
-          <div class="card-mistakes-box">
+          <div class="card-mistakes-box" *ngIf="!sabqiNoLesson">
             <span class="mist-label">Mistakes:</span>
             <input type="number" class="mist-input" [(ngModel)]="sabqiMistakes" placeholder="0" min="0" />
           </div>
         </div>
 
-        <div class="card-inputs-area">
+        <!-- No Sabqi Reason Panel -->
+        <div class="card-no-lesson-panel" *ngIf="sabqiNoLesson">
+          <div class="no-lesson-alert-badge">
+            <div class="alert-left">
+              <mat-icon class="alert-ic">info_outline</mat-icon>
+              <span>No Old Lesson Taken for this Period</span>
+            </div>
+            <button type="button" class="btn-cancel-card-no-lesson" (click)="undoSabqiNoLesson()" title="Cancel and enter Sabqi">
+              <mat-icon class="sm-ic">undo</mat-icon>
+              <span>Cancel / Undo</span>
+            </button>
+          </div>
+          <div class="reason-chips-grid compact">
+            <button type="button" class="reason-chip-btn" *ngFor="let r of commonSabqiReasons"
+              [class.selected]="sabqiNoLessonReason === r" (click)="setSabqiNoLessonReason(r)">
+              {{ r }}
+            </button>
+          </div>
+          <div class="custom-reason-row" *ngIf="sabqiNoLessonReason === 'Other'">
+            <input type="text" class="custom-reason-input" [(ngModel)]="sabqiCustomReason" placeholder="Enter reason (e.g. absent, focus on sabaq)..." />
+          </div>
+        </div>
+
+        <div class="card-inputs-area" *ngIf="!sabqiNoLesson">
           <!-- 1. Portion-wise Old Lesson -->
           <div class="dawr-revision-container" *ngIf="sabqiEvalUnitMode === 'portion'">
             <!-- FROM Starting Point -->
@@ -488,23 +624,50 @@
       </div>
 
       <!-- 3. RECENT LESSON / DAWR (MANZIL) CARD -->
-      <div class="lesson-eval-card manzil-card">
+      <div class="lesson-eval-card manzil-card" [class.no-lesson-card]="manzilNoLesson">
         <div class="card-top-bar">
           <div class="card-title-group">
             <span class="card-name">Revision of Memorized Quran</span>
-            <div class="revision-mode-toggles">
+            <button type="button" class="btn-card-no-lesson" [class.toggled]="manzilNoLesson" (click)="toggleManzilNoLesson()" title="Toggle if no revision was taken">
+              <mat-icon class="toggle-ic">{{ manzilNoLesson ? 'undo' : 'remove_circle_outline' }}</mat-icon>
+              <span>{{ manzilNoLesson ? 'Undo No Manzil' : 'No Lesson' }}</span>
+            </button>
+            <div class="revision-mode-toggles" *ngIf="!manzilNoLesson">
               <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'portion'" (click)="manzilEvalUnitMode = 'portion'">Portion-wise</button>
               <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'surah'" (click)="manzilEvalUnitMode = 'surah'">Surah-wise</button>
               <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'page'" (click)="manzilEvalUnitMode = 'page'">Page-wise</button>
             </div>
           </div>
-          <div class="card-mistakes-box">
+          <div class="card-mistakes-box" *ngIf="!manzilNoLesson">
             <span class="mist-label">Mistakes:</span>
             <input type="number" class="mist-input" [(ngModel)]="manzilMistakes" placeholder="0" min="0" />
           </div>
         </div>
 
-        <div class="card-inputs-area">
+        <!-- No Manzil Reason Panel -->
+        <div class="card-no-lesson-panel" *ngIf="manzilNoLesson">
+          <div class="no-lesson-alert-badge">
+            <div class="alert-left">
+              <mat-icon class="alert-ic">info_outline</mat-icon>
+              <span>No Quran Revision Taken for this Period</span>
+            </div>
+            <button type="button" class="btn-cancel-card-no-lesson" (click)="undoManzilNoLesson()" title="Cancel and enter Manzil">
+              <mat-icon class="sm-ic">undo</mat-icon>
+              <span>Cancel / Undo</span>
+            </button>
+          </div>
+          <div class="reason-chips-grid compact">
+            <button type="button" class="reason-chip-btn" *ngFor="let r of commonManzilReasons"
+              [class.selected]="manzilNoLessonReason === r" (click)="setManzilNoLessonReason(r)">
+              {{ r }}
+            </button>
+          </div>
+          <div class="custom-reason-row" *ngIf="manzilNoLessonReason === 'Other'">
+            <input type="text" class="custom-reason-input" [(ngModel)]="manzilCustomReason" placeholder="Enter reason (e.g. absent, focus on sabaq)..." />
+          </div>
+        </div>
+
+        <div class="card-inputs-area" *ngIf="!manzilNoLesson">
           <!-- 1. Portion-wise Revision (Juz + Quarter / Half / Full Juz) -->
           <div class="dawr-revision-container" *ngIf="manzilEvalUnitMode === 'portion'">
             <!-- FROM Starting Point -->

@@ -174,6 +174,126 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   performanceGrade: string = 'Mumtaz (Excellent)';
   remarks: string = '';
 
+  // Session-wide "No Lesson" toggle & reasons
+  noLesson: boolean = false;
+  noLessonReason: string = 'Not Prepared / Unmemorized';
+  noLessonCustomReason: string = '';
+  commonSessionReasons: string[] = [
+    'Not Prepared / Unmemorized',
+    'Absent',
+    'Sick / Medical',
+    'Revision Focus',
+    'Exam / Test Prep',
+    'Teacher Excused',
+    'Other'
+  ];
+
+  // Per-Lesson No Lesson toggles
+  sabaqNoLesson: boolean = false;
+  sabaqNoLessonReason: string = 'Not Prepared';
+  sabaqCustomReason: string = '';
+  commonSabaqReasons: string[] = ['Not Prepared', 'Revision Day', 'Absent', 'Teacher Excused', 'Other'];
+
+  sabqiNoLesson: boolean = false;
+  sabqiNoLessonReason: string = 'Not Assigned';
+  sabqiCustomReason: string = '';
+  commonSabqiReasons: string[] = ['Not Assigned', 'Not Prepared', 'Revision Focus', 'Absent', 'Other'];
+
+  manzilNoLesson: boolean = false;
+  manzilNoLessonReason: string = 'Revision Focus';
+  manzilCustomReason: string = '';
+  commonManzilReasons: string[] = ['Revision Focus', 'Not Assigned', 'Not Prepared', 'Absent', 'Other'];
+
+  maktabNoLesson: boolean = false;
+  maktabNoLessonReason: string = 'Not Prepared';
+  maktabCustomReason: string = '';
+  commonMaktabReasons: string[] = ['Not Prepared', 'Absent', 'Writing / Activities Only', 'Exam Prep', 'Other'];
+
+  toggleNoLesson(): void {
+    this.noLesson = !this.noLesson;
+    if (this.noLesson && !this.noLessonReason) {
+      this.noLessonReason = 'Not Prepared / Unmemorized';
+    }
+  }
+
+  setNoLessonReason(r: string): void {
+    this.noLessonReason = r;
+  }
+
+  toggleSabaqNoLesson(): void {
+    this.sabaqNoLesson = !this.sabaqNoLesson;
+    if (this.sabaqNoLesson && !this.sabaqNoLessonReason) {
+      this.sabaqNoLessonReason = 'Not Prepared';
+    }
+  }
+
+  setSabaqNoLessonReason(r: string): void {
+    this.sabaqNoLessonReason = r;
+  }
+
+  toggleSabqiNoLesson(): void {
+    this.sabqiNoLesson = !this.sabqiNoLesson;
+    if (this.sabqiNoLesson && !this.sabqiNoLessonReason) {
+      this.sabqiNoLessonReason = 'Not Assigned';
+    }
+  }
+
+  setSabqiNoLessonReason(r: string): void {
+    this.sabqiNoLessonReason = r;
+  }
+
+  toggleManzilNoLesson(): void {
+    this.manzilNoLesson = !this.manzilNoLesson;
+    if (this.manzilNoLesson && !this.manzilNoLessonReason) {
+      this.manzilNoLessonReason = 'Revision Focus';
+    }
+  }
+
+  setManzilNoLessonReason(r: string): void {
+    this.manzilNoLessonReason = r;
+  }
+
+  toggleMaktabNoLesson(): void {
+    this.maktabNoLesson = !this.maktabNoLesson;
+    if (this.maktabNoLesson && !this.maktabNoLessonReason) {
+      this.maktabNoLessonReason = 'Not Prepared';
+    }
+  }
+
+  setMaktabNoLessonReason(r: string): void {
+    this.maktabNoLessonReason = r;
+  }
+
+  undoNoLesson(): void {
+    this.noLesson = false;
+    this.noLessonReason = '';
+    this.noLessonCustomReason = '';
+  }
+
+  undoSabaqNoLesson(): void {
+    this.sabaqNoLesson = false;
+    this.sabaqNoLessonReason = '';
+    this.sabaqCustomReason = '';
+  }
+
+  undoSabqiNoLesson(): void {
+    this.sabqiNoLesson = false;
+    this.sabqiNoLessonReason = '';
+    this.sabqiCustomReason = '';
+  }
+
+  undoManzilNoLesson(): void {
+    this.manzilNoLesson = false;
+    this.manzilNoLessonReason = '';
+    this.manzilCustomReason = '';
+  }
+
+  undoMaktabNoLesson(): void {
+    this.maktabNoLesson = false;
+    this.maktabNoLessonReason = '';
+    this.maktabCustomReason = '';
+  }
+
   // Role permissions & Organization Subject Configuration
   isOrgAdmin = false;
   isSuperAdmin = false;
@@ -285,7 +405,18 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       overallMistakes: this.overallMistakes,
       starRating: this.starRating,
       performanceGrade: this.performanceGrade,
-      remarks: this.remarks
+      remarks: this.remarks,
+      noLesson: this.noLesson,
+      noLessonReason: this.noLessonReason,
+      noLessonCustomReason: this.noLessonCustomReason,
+      sabaqNoLesson: this.sabaqNoLesson,
+      sabaqNoLessonReason: this.sabaqNoLessonReason,
+      sabqiNoLesson: this.sabqiNoLesson,
+      sabqiNoLessonReason: this.sabqiNoLessonReason,
+      manzilNoLesson: this.manzilNoLesson,
+      manzilNoLessonReason: this.manzilNoLessonReason,
+      maktabNoLesson: this.maktabNoLesson,
+      maktabNoLessonReason: this.maktabNoLessonReason
     });
   }
 
@@ -410,6 +541,18 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     this.starRating = item.weeklyRating || item.hifzRating || 5;
     this.overallMistakes = item.weeklyMistakes || item.sabaqMistakes || 0;
     this.remarks = item.weeklyNotes || item.maktabRemarks || '';
+
+    this.noLesson = !!item.noLesson;
+    this.noLessonReason = item.noLessonReason || 'Not Prepared / Unmemorized';
+    this.sabaqNoLesson = !!item.sabaqNoLesson;
+    this.sabaqNoLessonReason = item.sabaqNoLessonReason || 'Not Prepared';
+    this.sabqiNoLesson = !!item.sabqiNoLesson;
+    this.sabqiNoLessonReason = item.sabqiNoLessonReason || 'Not Assigned';
+    this.manzilNoLesson = !!item.manzilNoLesson;
+    this.manzilNoLessonReason = item.manzilNoLessonReason || 'Revision Focus';
+    this.maktabNoLesson = !!item.maktabNoLesson;
+    this.maktabNoLessonReason = item.maktabNoLessonReason || 'Not Prepared';
+
     this.updateGradeFromRating();
   }
 
@@ -777,16 +920,20 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   }
 
   async saveEvaluation(): Promise<void> {
-    if (this.studentTypeMode !== 'maktab') {
-      const sabaqErr = this.validateSabaqAyahs();
-      if (sabaqErr) {
-        this.snackBar.open(sabaqErr, 'Fix Ayah', { duration: 4000 });
-        return;
+    if (!this.noLesson && this.studentTypeMode !== 'maktab') {
+      if (!this.sabaqNoLesson) {
+        const sabaqErr = this.validateSabaqAyahs();
+        if (sabaqErr) {
+          this.snackBar.open(sabaqErr, 'Fix Ayah', { duration: 4000 });
+          return;
+        }
       }
-      const sabqiErr = this.validateSabqiAyahs();
-      if (sabqiErr) {
-        this.snackBar.open(sabqiErr, 'Fix Ayah', { duration: 4000 });
-        return;
+      if (!this.sabqiNoLesson) {
+        const sabqiErr = this.validateSabqiAyahs();
+        if (sabqiErr) {
+          this.snackBar.open(sabqiErr, 'Fix Ayah', { duration: 4000 });
+          return;
+        }
       }
     }
 
@@ -803,12 +950,32 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       const weekYear = this.data.selectedWeekYear;
       const weekNo = this.data.selectedWeekNumber;
 
+      const finalNoLessonReason = this.noLessonReason === 'Other' && this.noLessonCustomReason
+        ? this.noLessonCustomReason
+        : (this.noLessonReason || 'Not Prepared / Unmemorized');
+      const finalSabaqReason = this.sabaqNoLessonReason === 'Other' && this.sabaqCustomReason
+        ? this.sabaqCustomReason
+        : (this.sabaqNoLessonReason || 'Not Prepared');
+      const finalSabqiReason = this.sabqiNoLessonReason === 'Other' && this.sabqiCustomReason
+        ? this.sabqiCustomReason
+        : (this.sabqiNoLessonReason || 'Not Assigned');
+      const finalManzilReason = this.manzilNoLessonReason === 'Other' && this.manzilCustomReason
+        ? this.manzilCustomReason
+        : (this.manzilNoLessonReason || 'Revision Focus');
+      const finalMaktabReason = this.maktabNoLessonReason === 'Other' && this.maktabCustomReason
+        ? this.maktabCustomReason
+        : (this.maktabNoLessonReason || 'Not Prepared');
+
       // 1. Prepare clean primary representations for backward compatibility
       const primaryMaktab = this.maktabSubjects[0] || null;
 
       // Pre-calculate formatted Hifz ranges for reuse in dailyPayload and weeklyPayload
       let formattedSabaqRange = '';
-      if (this.sabaqEvalUnitMode === 'surah') {
+      if (this.noLesson) {
+        formattedSabaqRange = `No Lesson (${finalNoLessonReason})`;
+      } else if (this.sabaqNoLesson) {
+        formattedSabaqRange = `No New Lesson (${finalSabaqReason})`;
+      } else if (this.sabaqEvalUnitMode === 'surah') {
         formattedSabaqRange = this.sabaqEndSurah ? `${this.sabaqEndSurah} (${this.sabaqStartAyah || 1}–${this.sabaqEndAyah || 10})` : '';
       } else if (this.sabaqEvalUnitMode === 'page') {
         formattedSabaqRange = (this.sabaqStartJuz || this.sabaqJuz) ? `Juz ${this.sabaqStartJuz || this.sabaqJuz} (Pg ${this.sabaqStartPage || 1}–${this.sabaqEndPage || 20})` : '';
@@ -817,7 +984,11 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       }
 
       let formattedSabqiRange = '';
-      if (this.sabqiEvalUnitMode === 'surah') {
+      if (this.noLesson) {
+        formattedSabqiRange = '';
+      } else if (this.sabqiNoLesson) {
+        formattedSabqiRange = `No Old Lesson (${finalSabqiReason})`;
+      } else if (this.sabqiEvalUnitMode === 'surah') {
         formattedSabqiRange = this.sabqiEndSurah ? `${this.sabqiEndSurah} (${this.sabqiStartAyah || 1}–${this.sabqiEndAyah || 10})` : '';
       } else if (this.sabqiEvalUnitMode === 'page') {
         formattedSabqiRange = (this.sabqiStartJuz || this.sabqiJuz) ? `Juz ${this.sabqiStartJuz || this.sabqiJuz} (Pg ${this.sabqiStartPage || 1}–${this.sabqiEndPage || 20})` : '';
@@ -826,7 +997,11 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       }
 
       let formattedManzilRange = '';
-      if (this.manzilEvalUnitMode === 'surah') {
+      if (this.noLesson) {
+        formattedManzilRange = '';
+      } else if (this.manzilNoLesson) {
+        formattedManzilRange = `No Revision (${finalManzilReason})`;
+      } else if (this.manzilEvalUnitMode === 'surah') {
         formattedManzilRange = this.manzilStartSurah ? `${this.manzilStartSurah} (${this.manzilStartAyah || 1}–${this.manzilEndAyah || 10})` : '';
       } else if (this.manzilEvalUnitMode === 'page') {
         formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (Pg ${this.manzilStartPage || 1}–${this.manzilEndPage || 20})` : '';
@@ -847,6 +1022,18 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         groupId: groupId,
         date: dateStr,
         studentType: this.studentTypeMode,
+        isEvaluated: true,
+        evaluationStatus: 'completed',
+        noLesson: this.noLesson,
+        noLessonReason: this.noLesson ? finalNoLessonReason : '',
+        sabaqNoLesson: this.sabaqNoLesson,
+        sabaqNoLessonReason: this.sabaqNoLesson ? finalSabaqReason : '',
+        sabqiNoLesson: this.sabqiNoLesson,
+        sabqiNoLessonReason: this.sabqiNoLesson ? finalSabqiReason : '',
+        manzilNoLesson: this.manzilNoLesson,
+        manzilNoLessonReason: this.manzilNoLesson ? finalManzilReason : '',
+        maktabNoLesson: this.maktabNoLesson,
+        maktabNoLessonReason: this.maktabNoLesson ? finalMaktabReason : '',
         evaluatedByUid: this.data.currentUser?.uid || '',
         evaluatedByName: this.data.currentUser?.displayName || this.data.currentUser?.email || '',
         recordedAt: Timestamp.now(),
@@ -1006,6 +1193,18 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           recordedByUid: this.data.currentUser?.uid || '',
           recordedByName: this.data.currentUser?.displayName || '',
           recordedAt: Timestamp.now(),
+          isEvaluated: true,
+          evaluationStatus: 'completed',
+          noLesson: this.noLesson,
+          noLessonReason: this.noLesson ? finalNoLessonReason : '',
+          sabaqNoLesson: this.sabaqNoLesson,
+          sabaqNoLessonReason: this.sabaqNoLesson ? finalSabaqReason : '',
+          sabqiNoLesson: this.sabqiNoLesson,
+          sabqiNoLessonReason: this.sabqiNoLesson ? finalSabqiReason : '',
+          manzilNoLesson: this.manzilNoLesson,
+          manzilNoLessonReason: this.manzilNoLesson ? finalManzilReason : '',
+          maktabNoLesson: this.maktabNoLesson,
+          maktabNoLessonReason: this.maktabNoLesson ? finalMaktabReason : '',
           starRating: this.starRating,
           grade: this.performanceGrade,
           notes: this.remarks
@@ -1259,7 +1458,19 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         manzilEndPage: this.manzilEndPage,
         starRating: this.starRating,
         overallMistakes: this.overallMistakes,
-        remarks: this.remarks
+        remarks: this.remarks,
+        noLesson: this.noLesson,
+        noLessonReason: this.noLesson ? finalNoLessonReason : '',
+        sabaqNoLesson: this.sabaqNoLesson,
+        sabaqNoLessonReason: this.sabaqNoLesson ? finalSabaqReason : '',
+        sabqiNoLesson: this.sabqiNoLesson,
+        sabqiNoLessonReason: this.sabqiNoLesson ? finalSabqiReason : '',
+        manzilNoLesson: this.manzilNoLesson,
+        manzilNoLessonReason: this.manzilNoLesson ? finalManzilReason : '',
+        maktabNoLesson: this.maktabNoLesson,
+        maktabNoLessonReason: this.maktabNoLesson ? finalMaktabReason : '',
+        isEvaluated: true,
+        evaluationStatus: 'completed'
       });
     } catch (err: any) {
       console.error('Error saving student progress evaluation:', err);

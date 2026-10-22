@@ -807,13 +807,14 @@
           <div class="roster-cards-grid" *ngIf="filteredRoster.length > 0">
             <div class="student-eval-card" 
                  *ngFor="let item of filteredRoster; let i = index; trackBy: trackByStudentId"
-                 [class.card-evaluated]="getStudentProgressStatus(item).isEvaluated"
+                 [class.card-evaluated]="getStudentProgressStatus(item).isEvaluated && !item.noLesson"
+                 [class.card-no-lesson]="item.noLesson"
                  [class.card-pending]="!getStudentProgressStatus(item).isEvaluated">
 
               <!-- Card Header Row -->
               <div class="card-header-bar">
                 <div class="card-user-info clickable-student-header" (click)="$event.stopPropagation(); openStudentCompleteHistoryModal(item.student)" title="Click to view complete student history & logs">
-                  <div class="st-avatar" [class.avatar-eval]="getStudentProgressStatus(item).isEvaluated">
+                  <div class="st-avatar" [class.avatar-eval]="getStudentProgressStatus(item).isEvaluated" [class.avatar-no-lesson]="item.noLesson">
                     {{ (item.student['fullName'] || item.student['name'] || 'S').charAt(0).toUpperCase() }}
                   </div>
                   <div class="st-meta">
@@ -839,9 +840,12 @@
                 </div>
 
                 <!-- Status Badge -->
-                <div class="card-status-pill" [class.status-evaluated]="getStudentProgressStatus(item).isEvaluated" [class.status-pending]="!getStudentProgressStatus(item).isEvaluated">
-                  <mat-icon class="status-ic">{{ getStudentProgressStatus(item).isEvaluated ? 'check_circle' : 'pending' }}</mat-icon>
-                  <span>{{ getStudentProgressStatus(item).isEvaluated ? 'Evaluated' : 'Pending' }}</span>
+                <div class="card-status-pill" 
+                     [class.status-evaluated]="getStudentProgressStatus(item).isEvaluated && !item.noLesson" 
+                     [class.status-no-lesson]="item.noLesson"
+                     [class.status-pending]="!getStudentProgressStatus(item).isEvaluated">
+                  <mat-icon class="status-ic">{{ item.noLesson ? 'event_busy' : (getStudentProgressStatus(item).isEvaluated ? 'check_circle' : 'pending') }}</mat-icon>
+                  <span>{{ item.noLesson ? 'No Lesson' : (getStudentProgressStatus(item).isEvaluated ? 'Evaluated' : 'Pending') }}</span>
                 </div>
               </div>
 
@@ -858,9 +862,9 @@
                 <div class="eval-recorded-view" *ngIf="getStudentProgressStatus(item).isEvaluated">
                   <div class="lesson-summary-box">
                     <div class="summary-headline">
-                      <mat-icon class="headline-ic">menu_book</mat-icon>
+                      <mat-icon class="headline-ic">{{ item.noLesson ? 'event_busy' : 'menu_book' }}</mat-icon>
                       <span class="headline-title">{{ getStudentProgressStatus(item).label }}</span>
-                      <span class="badge-mode">{{ studentTypeMode | uppercase }}</span>
+                      <span class="badge-mode">{{ evalCadence | uppercase }} • {{ studentTypeMode | uppercase }}</span>
                     </div>
                     <div class="summary-details">
                       {{ getStudentProgressStatus(item).details }}
@@ -886,8 +890,8 @@
                   <div class="pending-prompt-content">
                     <mat-icon class="prompt-ic">assignment_add</mat-icon>
                     <div class="prompt-text">
-                      <strong>Not evaluated yet</strong>
-                      <span>Tap anywhere or click "Evaluate" to record {{ studentTypeMode === 'maktab' ? 'subjects' : 'Surah / Juz' }} progress</span>
+                      <strong>Not evaluated for this {{ evalCadence === 'weekly' ? 'week' : 'day' }}</strong>
+                      <span>Tap anywhere or click "Edit" to record {{ studentTypeMode === 'maktab' ? 'subjects' : 'Surah / Juz' }} progress</span>
                     </div>
                   </div>
                 </div>
