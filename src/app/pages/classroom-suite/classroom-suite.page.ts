@@ -445,7 +445,9 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   get filteredRoster(): StudentSuiteRosterItem[] {
     let list = this.roster;
     if (this.studentTypeMode === 'dawr') {
-      list = list.filter(item => this.isStudentInDawrStage(item.student));
+      const dawrList = list.filter(item => this.isStudentInDawrStage(item.student) || !!item.dawrRoundNo || !!item.weeklyDawrRounds);
+      // Fallback: If no student matches explicit dawr stage string, don't blank out the entire roster
+      list = dawrList.length > 0 ? dawrList : list;
     } else if (this.studentTypeMode === 'hifz') {
       const hasAnyDawr = this.roster.some(item => this.isStudentInDawrStage(item.student));
       if (hasAnyDawr) {
@@ -1320,6 +1322,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     if (this.selectedDateStr !== newDateStr) {
       this.selectedDateStr = newDateStr;
       this.roster = [];
+      this.isEvaluationRecorded = false;
+      this.evaluationRecordedCount = 0;
+      this.evaluatedByName = '';
+      this.evaluatedAtText = '';
     }
     this.initWeekState(dateVal);
     this.loadTimetablePeriods();
@@ -1709,18 +1715,33 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       const progressMap = new Map<string, any>();
       const groupStudentIdSet = new Set(groupStudents.map(s => String(s.id)));
 
+      const extractLocalDateStr = (val: any): string => {
+        if (!val) return '';
+        if (typeof val === 'string') {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        const d = typeof val?.toDate === 'function' ? val.toDate() : (val instanceof Date ? val : null);
+        if (d && !isNaN(d.getTime())) {
+          return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        }
+        return '';
+      };
+
       try {
         const allCachedDailyProgress = await this.repo.getAllOnce<EntityRecord>('studentDailyProgress', this.currentUser);
         allCachedDailyProgress.forEach(p => {
           const stId = String(p['studentId'] || '');
           if (stId && groupStudentIdSet.has(stId)) {
             let pDate = p['date'] || p['dateStr'] || p['selectedDate'] || p['dateKey'];
-            if (!pDate && p['createdAt']) {
-              const c = p['createdAt'] as any;
-              if (typeof c?.toDate === 'function') pDate = c.toDate().toISOString().slice(0, 10);
-              else if (typeof c === 'string') pDate = c.slice(0, 10);
+            if (pDate) {
+              pDate = extractLocalDateStr(pDate);
+            } else if (p['createdAt']) {
+              pDate = extractLocalDateStr(p['createdAt']);
             }
-            if (pDate === this.selectedDateStr || String(p.id).includes(this.selectedDateStr)) {
+            const docIdEndsWithDate = String(p.id || '').endsWith(`_${this.selectedDateStr}`);
+            if (pDate === this.selectedDateStr || docIdEndsWithDate) {
               progressMap.set(stId, p);
             }
           }
@@ -1958,8 +1979,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         await this.loadWeeklyProgressData();
       }
 
-      // Update Evaluation Audit Status
-      const evaluatedItems = this.roster.filter(r => this.getStudentProgressStatus(r).isEvaluated);
+      // Update Evaluation Audit Status based on visible filtered roster
+      const evaluatedItems = this.filteredRoster.filter(r => this.getStudentProgressStatus(r).isEvaluated);
       this.evaluationRecordedCount = evaluatedItems.length;
       this.isEvaluationRecorded = this.evaluationRecordedCount > 0;
 
@@ -2007,6 +2028,33 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       if (shouldShowLoader) {
         this.loader.hide();
       }
+    }
+  }
+
+  async clearDateEvaluationsForGroup(): Promise<void> {
+    if (!this.selectedGroupId || !this.currentUser) return;
+    const confirmed = window.confirm(
+      `Are you sure you want to delete all saved student evaluations for ${this.selectedDateDisplay}?\n\nThis will remove accidental submissions for this specific date.`
+    );
+    if (!confirmed) return;
+
+    try {
+      this.loader.show();
+      const firestore = getDeenDeskFirestore();
+      const promises = this.roster.map(async item => {
+        if (!item.student.id) return;
+        const dailyDocRef = doc(firestore, 'studentDailyProgress', `${item.student.id}_${this.selectedDateStr}`);
+        await deleteDoc(dailyDocRef);
+      });
+      await Promise.all(promises);
+      this.repo.clearCache('studentDailyProgress');
+      this.snackBar.open(`Evaluations for ${this.selectedDateDisplay} cleared.`, 'OK', { duration: 3000 });
+      await this.loadRosterAndAttendance(true);
+    } catch (err) {
+      console.error('Error clearing date evaluations:', err);
+      this.snackBar.open('Could not clear date evaluations.', 'Dismiss', { duration: 4000 });
+    } finally {
+      this.loader.hide();
     }
   }
 
@@ -2886,7 +2934,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       }
     });
 
-    dialogRef.afterClosed().subscribe(res => {
+    dialogRef.afterClosed().subscribe(async res => {
+      if (res?.deleted) {
+        this.repo.clearCache('studentDailyProgress');
+        await this.loadRosterAndAttendance(true);
+        return;
+      }
       if (res && res.saved) {
         if (res.updatedProgress) {
           item.student['progress'] = res.updatedProgress;

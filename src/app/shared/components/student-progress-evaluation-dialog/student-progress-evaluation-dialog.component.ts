@@ -1,10 +1,16 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { doc, getDoc, setDoc, getDocs, collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { getDeenDeskFirestore } from '../../../core/services/firebase-app';
 import { ALL_QURAN_SURAHS, ALL_QURAN_JUZ, QuranJuzItem, getSurahAyahCount } from '../../../core/constants/defaults';
 import { EntityRecord } from '../../../core/services/repository.service';
+
+export interface RevisionPortionSegment {
+  id: string;
+  juzNo: number;
+  portion: string;
+}
 
 export interface MaktabSubjectEntry {
   subject: string;
@@ -19,7 +25,7 @@ export interface MaktabSubjectEntry {
 export interface HifzExtraLessonEntry {
   id: string;
   lessonType: 'sabaq' | 'sabqi' | 'manzil' | 'dawr';
-  evalMode: 'portion' | 'surah' | 'page' | 'juz';
+  evalMode: 'portion' | 'split' | 'surah' | 'page' | 'juz';
   entryMethod?: 'ayah' | 'page';
   surahName?: string;
   startSurah?: string;
@@ -35,6 +41,7 @@ export interface HifzExtraLessonEntry {
   fromPage?: number | null;
   toPage?: number | null;
   mistakes?: number;
+  splitSegments?: RevisionPortionSegment[];
 }
 
 export interface StudentProgressEvaluationDialogData {
@@ -160,6 +167,16 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   manzilEndJuz: number | null = null;
   manzilEndPortion = 'Full Juz';
   manzilMistakes: number | null = null;
+
+  // Direction: 'forward' (Seedha) vs 'reverse' (Ulta)
+  manzilDirection: 'forward' | 'reverse' = 'forward';
+
+  // Dawr Repetition / Cycle Multiplier (e.g. 1x, 2x, 3x for competition drill)
+  dawrRepetitionCount: number = 1;
+
+  // Split / Non-Contiguous Portions
+  manzilSplitMode: boolean = false;
+  revisionSegments: RevisionPortionSegment[] = [];
 
   // Dawr specific
   dawrRoundNo: number = 1;
@@ -292,6 +309,88 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     this.maktabNoLesson = false;
     this.maktabNoLessonReason = '';
     this.maktabCustomReason = '';
+  }
+
+  // Revision Direction Toggle & Auto-detection
+  toggleManzilDirection(): void {
+    this.manzilDirection = this.manzilDirection === 'forward' ? 'reverse' : 'forward';
+  }
+
+  onManzilJuzChange(): void {
+    if (this.manzilStartJuz && this.manzilEndJuz) {
+      if (this.manzilStartJuz > this.manzilEndJuz) {
+        this.manzilDirection = 'reverse';
+      } else if (this.manzilStartJuz < this.manzilEndJuz) {
+        this.manzilDirection = 'forward';
+      }
+    }
+  }
+
+  // Multi-Cycle Repetition Counter
+  incDawrRepetition(): void {
+    if (this.dawrRepetitionCount < 10) {
+      this.dawrRepetitionCount++;
+    }
+  }
+
+  decDawrRepetition(): void {
+    if (this.dawrRepetitionCount > 1) {
+      this.dawrRepetitionCount--;
+    }
+  }
+
+  // Split / Non-Contiguous Revision Segments
+  toggleManzilSplitMode(): void {
+    this.manzilSplitMode = !this.manzilSplitMode;
+    if (this.manzilSplitMode && this.revisionSegments.length === 0) {
+      const sJuz = this.manzilStartJuz || 1;
+      const eJuz = this.manzilEndJuz && this.manzilEndJuz !== sJuz ? this.manzilEndJuz : (sJuz >= 30 ? 1 : sJuz + 1);
+      this.revisionSegments = [
+        { id: 'seg_1', juzNo: sJuz, portion: this.manzilStartPortion || 'Full Juz' },
+        { id: 'seg_2', juzNo: eJuz, portion: this.manzilEndPortion || 'Full Juz' }
+      ];
+    }
+  }
+
+  addRevisionSegment(): void {
+    const lastJuz = this.revisionSegments.length > 0 ? this.revisionSegments[this.revisionSegments.length - 1].juzNo : 1;
+    this.revisionSegments.push({
+      id: 'seg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      juzNo: lastJuz >= 30 ? 1 : lastJuz + 1,
+      portion: 'Full Juz'
+    });
+  }
+
+  removeRevisionSegment(idx: number): void {
+    if (this.revisionSegments.length > 1) {
+      this.revisionSegments.splice(idx, 1);
+    }
+  }
+
+  // Delete Accidental Evaluation for this student on this date
+  async deleteEvaluationForDate(): Promise<void> {
+    const studentId = String(this.student.id || this.student['uid'] || '');
+    const dateStr = this.data.selectedDateStr;
+    const studentName = this.student['fullName'] || this.student['name'] || 'this student';
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete the evaluation recorded for ${studentName} on ${dateStr}?\n\nThis will remove accidental evaluations for this student on this date.`
+    );
+    if (!confirmed) return;
+
+    this.isSaving = true;
+    try {
+      const firestore = getDeenDeskFirestore();
+      const dailyDocRef = doc(firestore, 'studentDailyProgress', `${studentId}_${dateStr}`);
+      await deleteDoc(dailyDocRef);
+      this.snackBar.open(`Evaluation for ${dateStr} deleted.`, 'OK', { duration: 3000 });
+      this.dialogRef.close({ deleted: true, studentId, dateStr });
+    } catch (err) {
+      console.error('Error deleting evaluation:', err);
+      this.snackBar.open('Could not delete evaluation.', 'Dismiss', { duration: 4000 });
+    } finally {
+      this.isSaving = false;
+    }
   }
 
   // Role permissions & Organization Subject Configuration
@@ -521,13 +620,19 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       if (Array.isArray(item.hifzLessonsList) && item.hifzLessonsList.length > 0) {
         this.extraLessonsList = JSON.parse(JSON.stringify(item.hifzLessonsList)).map((extra: any) => ({
           ...extra,
-          evalMode: extra.evalMode || (extra.startPortion ? 'portion' : (extra.fromPage ? 'page' : 'surah')),
+          evalMode: extra.evalMode || (extra.splitSegments?.length ? 'split' : (extra.startPortion ? 'portion' : (extra.fromPage ? 'page' : 'surah'))),
           startPortion: extra.startPortion || 'Full Juz',
           endPortion: extra.endPortion || 'Full Juz',
           startJuz: extra.startJuz || extra.juzNo || 1,
           endJuz: extra.endJuz || extra.juzNo || 1,
           startSurah: extra.startSurah || extra.surahName || '',
-          endSurah: extra.endSurah || extra.surahName || ''
+          endSurah: extra.endSurah || extra.surahName || '',
+          splitSegments: Array.isArray(extra.splitSegments) && extra.splitSegments.length > 0
+            ? extra.splitSegments
+            : [
+                { id: 'seg_1', juzNo: extra.startJuz || 1, portion: extra.startPortion || 'Quarter Juz' },
+                { id: 'seg_2', juzNo: extra.endJuz || (extra.startJuz || 1), portion: extra.endPortion || 'Quarter Juz' }
+              ]
         }));
       }
 
@@ -786,8 +891,30 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       endPortion: 'Full Juz',
       fromPage: 1,
       toPage: 5,
-      mistakes: 0
+      mistakes: 0,
+      splitSegments: [
+        { id: 'seg_1', juzNo: 1, portion: 'Quarter Juz' },
+        { id: 'seg_2', juzNo: 2, portion: 'Quarter Juz' }
+      ]
     });
+  }
+
+  addExtraLessonSegment(extra: HifzExtraLessonEntry): void {
+    if (!extra.splitSegments) {
+      extra.splitSegments = [];
+    }
+    const lastJuz = extra.splitSegments.length > 0 ? extra.splitSegments[extra.splitSegments.length - 1].juzNo : 1;
+    extra.splitSegments.push({
+      id: 'seg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      juzNo: lastJuz,
+      portion: 'Quarter Juz'
+    });
+  }
+
+  removeExtraLessonSegment(extra: HifzExtraLessonEntry, idx: number): void {
+    if (extra.splitSegments && extra.splitSegments.length > 1) {
+      extra.splitSegments.splice(idx, 1);
+    }
   }
 
   removeExtraLesson(idx: number): void {
@@ -1001,12 +1128,19 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         formattedManzilRange = '';
       } else if (this.manzilNoLesson) {
         formattedManzilRange = `No Revision (${finalManzilReason})`;
+      } else if (this.manzilSplitMode && this.revisionSegments.length > 0) {
+        formattedManzilRange = this.revisionSegments.map(s => s.portion === 'Full Juz' ? `Juz ${s.juzNo}` : `Juz ${s.juzNo} (${s.portion})`).join(' + ');
       } else if (this.manzilEvalUnitMode === 'surah') {
         formattedManzilRange = this.manzilStartSurah ? `${this.manzilStartSurah} (${this.manzilStartAyah || 1}–${this.manzilEndAyah || 10})` : '';
       } else if (this.manzilEvalUnitMode === 'page') {
         formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (Pg ${this.manzilStartPage || 1}–${this.manzilEndPage || 20})` : '';
       } else {
-        formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'}${this.manzilEndJuz && this.manzilEndJuz !== this.manzilStartJuz ? ' to Juz ' + this.manzilEndJuz + ' (' + (this.manzilEndPortion || 'Full Juz') + ')' : ''})` : '';
+        const dirLabel = this.manzilDirection === 'reverse' ? ' (Ulta)' : '';
+        formattedManzilRange = this.manzilStartJuz ? `Juz ${this.manzilStartJuz} (${this.manzilStartPortion || 'Full Juz'}${this.manzilEndJuz && this.manzilEndJuz !== this.manzilStartJuz ? ' to Juz ' + this.manzilEndJuz + ' (' + (this.manzilEndPortion || 'Full Juz') + ')' : ''})${dirLabel}` : '';
+      }
+
+      if (this.dawrRepetitionCount > 1 && formattedManzilRange && !this.manzilNoLesson && !this.noLesson) {
+        formattedManzilRange += ` [${this.dawrRepetitionCount}x Cycles]`;
       }
 
       // 2. Build Daily Progress Record
@@ -1149,12 +1283,21 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           rating: this.starRating
         };
 
+        dailyPayload.manzilDirection = this.manzilDirection;
+        dailyPayload.dawrRepetitionCount = this.dawrRepetitionCount;
+        dailyPayload.isSplitRevision = this.manzilSplitMode;
+        dailyPayload.revisionSegments = this.manzilSplitMode ? this.revisionSegments : [];
+
         if (this.studentTypeMode === 'dawr') {
           dailyPayload.dawrRoundNo = this.dawrRoundNo || 1;
           dailyPayload.dawrPortionJuz = formattedManzilRange || (this.manzilStartJuz ? `Juz ${this.manzilStartJuz}` : 'Juz 1');
           dailyPayload.dawrMistakes = this.manzilMistakes || 0;
           dailyPayload.dawrProgress = {
             roundNo: this.dawrRoundNo || 1,
+            repetitionCount: this.dawrRepetitionCount || 1,
+            direction: this.manzilDirection,
+            isSplitRevision: this.manzilSplitMode,
+            revisionSegments: this.manzilSplitMode ? this.revisionSegments : [],
             evalUnitMode: this.manzilEvalUnitMode,
             startJuz: this.manzilStartJuz || 1,
             startPortion: this.manzilStartPortion || 'Full Juz',
@@ -1296,11 +1439,16 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           if (this.studentTypeMode === 'dawr') {
             weeklyPayload.dawr = {
               roundNo: this.dawrRoundNo || 1,
+              repetitionCount: this.dawrRepetitionCount || 1,
+              direction: this.manzilDirection,
+              isSplitRevision: this.manzilSplitMode,
+              revisionSegments: this.manzilSplitMode ? this.revisionSegments : [],
               startJuz: this.manzilStartJuz || 1,
               startPortion: this.manzilStartPortion || 'Full Juz',
               endJuz: this.manzilEndJuz || 1,
               endPortion: this.manzilEndPortion || 'Full Juz',
-              weeklyJuzCount: 1,
+              weeklyJuzCount: this.dawrWeeklyJuzCount,
+              portionJuz: formattedManzilRange,
               rating: this.starRating,
               notes: this.remarks
             };

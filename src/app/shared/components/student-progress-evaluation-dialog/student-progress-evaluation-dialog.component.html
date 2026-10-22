@@ -633,12 +633,23 @@
               <span>{{ manzilNoLesson ? 'Undo No Manzil' : 'No Lesson' }}</span>
             </button>
             <div class="revision-mode-toggles" *ngIf="!manzilNoLesson">
-              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'portion'" (click)="manzilEvalUnitMode = 'portion'">Portion-wise</button>
-              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'surah'" (click)="manzilEvalUnitMode = 'surah'">Surah-wise</button>
-              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'page'" (click)="manzilEvalUnitMode = 'page'">Page-wise</button>
+              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'portion' && !manzilSplitMode" (click)="manzilEvalUnitMode = 'portion'; manzilSplitMode = false">Portion-wise</button>
+              <button type="button" class="rev-unit-btn" [class.active]="manzilSplitMode" (click)="toggleManzilSplitMode()">Split Portions</button>
+              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'surah' && !manzilSplitMode" (click)="manzilEvalUnitMode = 'surah'; manzilSplitMode = false">Surah-wise</button>
+              <button type="button" class="rev-unit-btn" [class.active]="manzilEvalUnitMode === 'page' && !manzilSplitMode" (click)="manzilEvalUnitMode = 'page'; manzilSplitMode = false">Page-wise</button>
             </div>
           </div>
           <div class="card-mistakes-box" *ngIf="!manzilNoLesson">
+            <!-- Repetition / Multi-Cycle Counter -->
+            <div class="cycle-counter-mini" title="Competition / Revision Repetition Multiplier">
+              <span class="cycle-lbl">Cycles:</span>
+              <div class="cycle-stepper">
+                <button type="button" class="btn-step" (click)="decDawrRepetition()">-</button>
+                <span class="step-num">{{ dawrRepetitionCount }}x</span>
+                <button type="button" class="btn-step" (click)="incDawrRepetition()">+</button>
+              </div>
+            </div>
+
             <span class="mist-label">Mistakes:</span>
             <input type="number" class="mist-input" [(ngModel)]="manzilMistakes" placeholder="0" min="0" />
           </div>
@@ -668,8 +679,41 @@
         </div>
 
         <div class="card-inputs-area" *ngIf="!manzilNoLesson">
+          <!-- Split / Non-Contiguous Revision Container -->
+          <div class="split-revision-container" *ngIf="manzilSplitMode">
+            <div class="split-header-row">
+              <span class="split-title">Disconnected / Split Portions:</span>
+              <button type="button" class="btn-add-segment" (click)="addRevisionSegment()">
+                <mat-icon class="sm-ic">add_circle</mat-icon> Add Portion
+              </button>
+            </div>
+            <div class="segments-list">
+              <div class="segment-row-card" *ngFor="let seg of revisionSegments; let i = index">
+                <span class="seg-idx">#{{ i + 1 }}</span>
+                <div class="field-wrap">
+                  <label class="field-micro-tag">Juz</label>
+                  <mat-select class="modern-dawr-select" [(ngModel)]="seg.juzNo" placeholder="Select Juz">
+                    <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                      <span class="juz-num-pill">{{ j.number }}</span>
+                      <span class="juz-name-text">{{ j.displayName }}</span>
+                    </mat-option>
+                  </mat-select>
+                </div>
+                <div class="field-wrap">
+                  <label class="field-micro-tag">Portion</label>
+                  <mat-select class="modern-dawr-select portion-sel" [(ngModel)]="seg.portion" placeholder="Portion">
+                    <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                  </mat-select>
+                </div>
+                <button type="button" class="btn-remove-segment" *ngIf="revisionSegments.length > 1" (click)="removeRevisionSegment(i)" title="Remove this portion">
+                  <mat-icon>delete_outline</mat-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- 1. Portion-wise Revision (Juz + Quarter / Half / Full Juz) -->
-          <div class="dawr-revision-container" *ngIf="manzilEvalUnitMode === 'portion'">
+          <div class="dawr-revision-container" *ngIf="manzilEvalUnitMode === 'portion' && !manzilSplitMode">
             <!-- FROM Starting Point -->
             <div class="dawr-endpoint-card from-card">
               <div class="endpoint-badge-row">
@@ -679,7 +723,7 @@
               <div class="endpoint-fields-grid">
                 <div class="field-wrap">
                   <label class="field-micro-tag">Juz / Para</label>
-                  <mat-select class="modern-dawr-select" [(ngModel)]="manzilStartJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                  <mat-select class="modern-dawr-select" [(ngModel)]="manzilStartJuz" (selectionChange)="onManzilJuzChange()" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
                     <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
                       <span class="juz-num-pill">{{ j.number }}</span>
                       <span class="juz-name-text">{{ j.displayName }}</span>
@@ -695,10 +739,13 @@
               </div>
             </div>
 
-            <!-- Flow Indicator Arrow -->
-            <div class="dawr-arrow-node">
-              <span class="arrow-glyph">→</span>
-            </div>
+            <!-- Flow Indicator Arrow with Direction Toggle -->
+            <button type="button" class="dawr-arrow-node-btn" (click)="toggleManzilDirection()" 
+                    [class.is-reverse]="manzilDirection === 'reverse'"
+                    [title]="manzilDirection === 'reverse' ? 'Reverse Dour (Ulta Dour: High to Low Juz). Click to change to Seedha' : 'Forward Dour (Seedha Dour: Low to High Juz). Click to change to Ulta'">
+              <span class="arrow-glyph">{{ manzilDirection === 'reverse' ? '←' : '→' }}</span>
+              <span class="dir-text">{{ manzilDirection === 'reverse' ? 'Ulta' : 'Seedha' }}</span>
+            </button>
 
             <!-- TO Ending Point -->
             <div class="dawr-endpoint-card to-card">
@@ -709,7 +756,7 @@
               <div class="endpoint-fields-grid">
                 <div class="field-wrap">
                   <label class="field-micro-tag">Juz / Para</label>
-                  <mat-select class="modern-dawr-select" [(ngModel)]="manzilEndJuz" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
+                  <mat-select class="modern-dawr-select" [(ngModel)]="manzilEndJuz" (selectionChange)="onManzilJuzChange()" placeholder="Select Juz" panelClass="quran-juz-mat-panel">
                     <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
                       <span class="juz-num-pill">{{ j.number }}</span>
                       <span class="juz-name-text">{{ j.displayName }}</span>
@@ -801,6 +848,7 @@
               </div>
               <div class="revision-mode-toggles">
                 <button type="button" class="rev-unit-btn" [class.active]="extra.evalMode === 'portion'" (click)="extra.evalMode = 'portion'">Portion-wise</button>
+                <button type="button" class="rev-unit-btn" [class.active]="extra.evalMode === 'split'" (click)="extra.evalMode = 'split'">Split Portions</button>
                 <button type="button" class="rev-unit-btn" [class.active]="extra.evalMode === 'surah'" (click)="extra.evalMode = 'surah'">Surah-wise</button>
                 <button type="button" class="rev-unit-btn" [class.active]="extra.evalMode === 'page'" (click)="extra.evalMode = 'page'">Page-wise</button>
               </div>
@@ -815,6 +863,39 @@
           </div>
 
           <div class="card-inputs-area extra-inputs-area">
+            <!-- Split / Non-Contiguous Portions Container for Extra Lesson -->
+            <div class="split-revision-container" *ngIf="extra.evalMode === 'split'">
+              <div class="split-header-row">
+                <span class="split-title">Disconnected / Split Portions:</span>
+                <button type="button" class="btn-add-segment" (click)="addExtraLessonSegment(extra)">
+                  <mat-icon class="sm-ic">add_circle</mat-icon> Add Portion
+                </button>
+              </div>
+              <div class="segments-list">
+                <div class="segment-row-card" *ngFor="let seg of (extra.splitSegments || []); let sIdx = index">
+                  <span class="seg-idx">#{{ sIdx + 1 }}</span>
+                  <div class="field-wrap">
+                    <label class="field-micro-tag">Juz</label>
+                    <mat-select class="modern-dawr-select" [(ngModel)]="seg.juzNo" placeholder="Select Juz">
+                      <mat-option *ngFor="let j of allQuranJuzList" [value]="j.number">
+                        <span class="juz-num-pill">{{ j.number }}</span>
+                        <span class="juz-name-text">{{ j.displayName }}</span>
+                      </mat-option>
+                    </mat-select>
+                  </div>
+                  <div class="field-wrap">
+                    <label class="field-micro-tag">Portion</label>
+                    <mat-select class="modern-dawr-select portion-sel" [(ngModel)]="seg.portion" placeholder="Portion">
+                      <mat-option *ngFor="let opt of juzPortionOptions" [value]="opt">{{ opt }}</mat-option>
+                    </mat-select>
+                  </div>
+                  <button type="button" class="btn-remove-segment" *ngIf="(extra.splitSegments?.length || 0) > 1" (click)="removeExtraLessonSegment(extra, sIdx)" title="Remove this portion">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- 1. Portion-wise Extra Lesson -->
             <div class="dawr-revision-container" *ngIf="extra.evalMode === 'portion'">
               <!-- FROM Starting Point -->
@@ -979,10 +1060,15 @@
 
   <!-- DIALOG FOOTER -->
   <div class="dialog-actions-footer">
-    <button type="button" class="btn-cancel" (click)="cancel()">Cancel</button>
-    <button type="button" class="btn-save" (click)="saveEvaluation()" [disabled]="isSaving">
-      <span *ngIf="!isSaving">Save Evaluation Progress</span>
-      <span *ngIf="isSaving">Saving...</span>
+    <button type="button" class="btn-delete-eval" (click)="deleteEvaluationForDate()" [disabled]="isSaving" title="Delete evaluation for this student on this date">
+      <mat-icon>delete_outline</mat-icon> Delete Evaluation
     </button>
+    <div class="footer-right-actions">
+      <button type="button" class="btn-cancel" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn-save" (click)="saveEvaluation()" [disabled]="isSaving">
+        <span *ngIf="!isSaving">Save Evaluation Progress</span>
+        <span *ngIf="isSaving">Saving...</span>
+      </button>
+    </div>
   </div>
 </div>

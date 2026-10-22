@@ -206,11 +206,14 @@
     <div class="audit-banner" [class.recorded]="isEvaluationRecorded" [class.pending]="!isEvaluationRecorded">
       <div class="audit-info" *ngIf="isEvaluationRecorded">
         <mat-icon color="primary">fact_check</mat-icon>
-        <span>Evaluation Recorded for <strong>{{ evaluationRecordedCount }} of {{ roster.length }} students</strong><span *ngIf="evaluatedByName"> by <strong>{{ evaluatedByName }}</strong></span><span *ngIf="evaluatedAtText"> {{ evaluatedAtText }}</span></span>
+        <span>Evaluation Recorded for <strong>{{ evaluationRecordedCount }} of {{ filteredRoster.length }} students</strong><span *ngIf="evaluatedByName"> by <strong>{{ evaluatedByName }}</strong></span><span *ngIf="evaluatedAtText"> {{ evaluatedAtText }}</span></span>
+        <button type="button" class="btn-clear-date-eval" (click)="clearDateEvaluationsForGroup()" title="Delete accidental evaluations for this date">
+          <mat-icon>delete_outline</mat-icon> Clear for this Date
+        </button>
       </div>
       <div class="audit-info" *ngIf="!isEvaluationRecorded">
         <mat-icon color="warn">pending</mat-icon>
-        <span>Progress Evaluation Pending for this session (0 of {{ roster.length }} evaluated)</span>
+        <span>Progress Evaluation Pending for this session (0 of {{ filteredRoster.length }} evaluated)</span>
       </div>
     </div>
   </div>
