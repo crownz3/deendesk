@@ -376,10 +376,16 @@
                   <span class="event-date"><ion-icon name="calendar-outline"></ion-icon> {{ ev.date }}</span>
                 </div>
 
-                <div class="stage-transition-row" *ngIf="ev.fromStage !== '-' || ev.toStage !== '-'">
-                  <span class="stage-pill from">{{ ev.fromStage }}</span>
-                  <ion-icon name="arrow-forward" class="arrow-ic"></ion-icon>
-                  <span class="stage-pill to">{{ ev.toStage }}</span>
+                <div class="stage-transition-row" *ngIf="(ev.fromStage && ev.fromStage !== '-') || (ev.toStage && ev.toStage !== '-')">
+                  <div class="route-badge from-badge" *ngIf="ev.fromStage && ev.fromStage !== '-'">
+                    <span class="route-tag">FROM</span>
+                    <span class="stage-pill from">{{ ev.fromStage }}</span>
+                  </div>
+                  <ion-icon name="arrow-forward" class="arrow-ic" *ngIf="(ev.fromStage && ev.fromStage !== '-') && (ev.toStage && ev.toStage !== '-')"></ion-icon>
+                  <div class="route-badge to-badge" *ngIf="ev.toStage && ev.toStage !== '-'">
+                    <span class="route-tag">TO</span>
+                    <span class="stage-pill to">{{ ev.toStage }}</span>
+                  </div>
                 </div>
 
                 <p class="event-notes" *ngIf="ev.notes">"{{ ev.notes }}"</p>

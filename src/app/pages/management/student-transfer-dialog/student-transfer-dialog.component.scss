@@ -57,6 +57,23 @@ mat-dialog-content {
     li {
       font-size: 0.9rem;
       color: var(--text-color, #333);
+
+      .staff-subtext {
+        margin-top: 4px;
+        font-size: 0.82rem;
+        color: #0284c7;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        .inline-staff-ic {
+          font-size: 14px;
+          width: 14px;
+          height: 14px;
+          line-height: 14px;
+        }
+      }
     }
   }
 }
@@ -68,6 +85,22 @@ mat-dialog-content {
 
   mat-form-field {
     width: 100%;
+
+    mat-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #0284c7;
+      font-weight: 500;
+      font-size: 0.8rem;
+
+      .hint-icon {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+      }
+    }
   }
 
   .dropdown-arrow-icon {
@@ -92,6 +125,54 @@ mat-dialog-content {
       width: 18px;
       height: 18px;
       line-height: 18px;
+    }
+  }
+}
+
+::ng-deep .mat-mdc-option.group-option-item,
+.group-option-item {
+  height: auto !important;
+  min-height: 52px !important;
+  padding: 8px 16px !important;
+  line-height: normal !important;
+
+  .group-option-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    width: 100%;
+    padding: 2px 0;
+
+    .group-name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #1e293b;
+      line-height: 1.25;
+    }
+
+    .group-staff-subtext {
+      font-size: 0.78rem;
+      color: #0284c7;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 500;
+      line-height: 1.2;
+
+      .opt-staff-ic {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+        line-height: 14px;
+        color: #0ea5e9;
+      }
+
+      &.unassigned {
+        color: #94a3b8;
+        font-style: italic;
+        font-weight: 400;
+      }
     }
   }
 }

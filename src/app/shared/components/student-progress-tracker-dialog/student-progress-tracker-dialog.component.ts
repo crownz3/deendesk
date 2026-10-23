@@ -2,8 +2,10 @@ import { Component, Inject, OnInit, AfterViewInit, OnDestroy, ElementRef, ViewCh
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Chart, registerables } from 'chart.js';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
+import { firstValueFrom } from 'rxjs';
 import { DEFAULT_STAGES_BY_COURSE_TYPE, getSurahAyahCount } from '../../../core/constants/defaults';
-import { EntityRecord } from '../../../core/services/repository.service';
+import { EntityRecord, RepositoryService } from '../../../core/services/repository.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { getDeenDeskFirestore } from '../../../core/services/firebase-app';
 
 Chart.register(...registerables);
@@ -104,7 +106,9 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
 
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: StudentProgressTrackerDialogData,
-    public dialogRef: MatDialogRef<StudentProgressTrackerDialogComponent>
+    public dialogRef: MatDialogRef<StudentProgressTrackerDialogComponent>,
+    private repo: RepositoryService,
+    private auth: AuthService
   ) {
     this.student = data.student || {};
   }
@@ -120,64 +124,192 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
 
   private async loadRealStudentData(): Promise<void> {
     this.isLoading = true;
-    const stId = String(this.student.id || this.student['uid'] || '').trim();
-    if (!stId) {
+    const candidateStudentIds = Array.from(new Set([
+      this.student.id,
+      this.student['uid'],
+      this.student['userId'],
+      this.student['studentId'],
+      this.student['entityId'],
+      this.student['docId'],
+      this.student['rollNumber'],
+      this.student['admissionNo']
+    ].filter(Boolean).map(x => String(x).trim())));
+
+    if (candidateStudentIds.length === 0) {
       this.isLoading = false;
       return;
     }
 
     try {
       const db = getDeenDeskFirestore();
+      const profile = await firstValueFrom(this.auth.profile$).catch(() => null);
+
+      // Fetch metadata & attendance via RepositoryService (cached, deduplicated)
+      const [allAttendance, classes, groups, madrasas] = await Promise.all([
+        this.repo.getAllOnce<EntityRecord>('attendance', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('classes', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('classGroups', profile).catch(() => []),
+        this.repo.getAllOnce<EntityRecord>('madrasas', profile).catch(() => []),
+      ]);
 
       // 1. Fetch Student Daily Progress records
-      const pRef = collection(db, 'studentDailyProgress');
-      const pQuery = query(pRef, where('studentId', '==', stId), limit(100));
-      const pSnap = await getDocs(pQuery);
-
       const progressDocs: any[] = [];
-      pSnap.forEach(d => progressDocs.push(d.data()));
+      for (const cid of candidateStudentIds.slice(0, 3)) {
+        try {
+          const pRef = collection(db, 'studentDailyProgress');
+          const pQuery = query(pRef, where('studentId', '==', cid), limit(100));
+          const pSnap = await getDocs(pQuery);
+          pSnap.forEach(d => progressDocs.push(d.data()));
+          if (progressDocs.length > 0) break;
+        } catch {}
+      }
 
       // 2. Fetch Student Weekly Progress records
-      const wpRef = collection(db, 'studentWeeklyProgress');
-      const wpQuery = query(wpRef, where('studentId', '==', stId), limit(100));
-      const wpSnap = await getDocs(wpQuery);
       const weeklyDocs: any[] = [];
-      wpSnap.forEach(d => weeklyDocs.push(d.data()));
+      for (const cid of candidateStudentIds.slice(0, 3)) {
+        try {
+          const wpRef = collection(db, 'studentWeeklyProgress');
+          const wpQuery = query(wpRef, where('studentId', '==', cid), limit(100));
+          const wpSnap = await getDocs(wpQuery);
+          wpSnap.forEach(d => weeklyDocs.push(d.data()));
+          if (weeklyDocs.length > 0) break;
+        } catch {}
+      }
       weeklyDocs.sort((a, b) => (b.weekStartDate || '').localeCompare(a.weekStartDate || ''));
       this.weeklyLogs = weeklyDocs;
 
-      // 3. Fetch Attendance collection
-      const aRef = collection(db, 'attendance');
-      const aQuery = query(aRef, limit(100));
-      const aSnap = await getDocs(aQuery);
-
+      // 3. Process Attendance collection across all groups & past placements
       const attDocs: { date: string; status: string; note?: string; recordedBy?: string }[] = [];
-      aSnap.forEach(docSnap => {
-        const data = docSnap.data();
-        if (data['records'] && data['records'][stId]) {
-          const rec = data['records'][stId];
-          attDocs.push({
-            date: data['date'] || '',
-            status: rec['status'] || 'present',
-            note: rec['note'] || '',
-            recordedBy: data['takenByName'] || ''
-          });
-        }
-      });
+      const seenDates = new Set<string>();
 
-      // 4. Fetch Promotion, Demotion & Transfer History
-      const promRef = collection(db, 'promotionHistory');
-      const promQuery = query(promRef, where('studentId', '==', stId), limit(50));
-      const promSnap = await getDocs(promQuery);
+      const checkAttendanceList = (list: EntityRecord[]) => {
+        list.forEach(attDoc => {
+          let rec: any = null;
+          const recs = attDoc['records'] || attDoc['attendanceMap'];
+          if (recs && typeof recs === 'object') {
+            for (const cid of candidateStudentIds) {
+              if (recs[cid]) {
+                rec = recs[cid];
+                break;
+              }
+            }
+            if (!rec) {
+              const cidLowerSet = new Set(candidateStudentIds.map(x => x.toLowerCase()));
+              for (const [key, val] of Object.entries(recs)) {
+                if (cidLowerSet.has(key.toLowerCase().trim())) {
+                  rec = val;
+                  break;
+                }
+              }
+            }
+          }
+          if (!rec && Array.isArray(attDoc['students'])) {
+            const cidLowerSet = new Set(candidateStudentIds.map(x => x.toLowerCase()));
+            const match = attDoc['students'].find((s: any) =>
+              cidLowerSet.has(String(s.studentId || s.id || s.uid || '').trim().toLowerCase())
+            );
+            if (match) rec = match;
+          }
+
+          if (rec && (rec.status || typeof rec === 'string')) {
+            const createdAtVal = attDoc['createdAt'] as any;
+            let dateVal = (attDoc['date'] || attDoc['selectedDate'] || attDoc['dateStr'] || '') as string;
+            if (!dateVal && attDoc['takenAt']) {
+              const tVal = attDoc['takenAt'] as any;
+              if (typeof tVal?.toDate === 'function') {
+                dateVal = tVal.toDate().toISOString().slice(0, 10);
+              } else if (typeof tVal === 'string') {
+                dateVal = tVal.slice(0, 10);
+              }
+            }
+            if (!dateVal && createdAtVal) {
+              if (typeof createdAtVal?.toDate === 'function') {
+                dateVal = createdAtVal.toDate().toISOString().slice(0, 10);
+              } else if (typeof createdAtVal === 'string') {
+                dateVal = createdAtVal.slice(0, 10);
+              }
+            }
+
+            const uniqueKey = `${dateVal}_${attDoc['timetableEntryId'] || attDoc['periodTitle'] || attDoc['periodName'] || attDoc.id}`;
+            if (!seenDates.has(uniqueKey)) {
+              seenDates.add(uniqueKey);
+              const rawSt = typeof rec === 'string' ? rec : (rec.status || 'present');
+              attDocs.push({
+                date: dateVal,
+                status: rawSt,
+                note: typeof rec === 'object' ? (rec.note || rec.remarks || '') : '',
+                recordedBy: attDoc['takenByName'] || attDoc['recordedByName'] || attDoc['createdByName'] || ''
+              });
+            }
+          }
+        });
+      };
+
+      checkAttendanceList(allAttendance);
+
+      // Bounded fallback query if allAttendance was empty or missing this student's records
+      if (attDocs.length === 0) {
+        try {
+          const directList: EntityRecord[] = [];
+          const orgId = profile?.organizationId;
+          const constraints: any[] = [limit(250)];
+          if (orgId) {
+            constraints.unshift(where('organizationId', '==', orgId));
+          }
+          const aSnap = await getDocs(query(collection(db, 'attendance'), ...constraints));
+          aSnap.forEach(d => directList.push({ id: d.id, ...d.data() }));
+
+          const stGroupId = this.student['groupId'] || this.student['classGroupId'];
+          if (stGroupId) {
+            try {
+              const gSnap = await getDocs(query(collection(db, 'attendance'), where('groupId', '==', stGroupId), limit(150)));
+              gSnap.forEach(d => {
+                if (!directList.some(x => x.id === d.id)) directList.push({ id: d.id, ...d.data() });
+              });
+            } catch { /* fallback ignored */ }
+          }
+
+          checkAttendanceList(directList);
+        } catch (err) {
+          console.warn('Fallback attendance query error:', err);
+        }
+      }
+
+      // 4. Fetch Promotion, Demotion History
       const promDocs: any[] = [];
-      promSnap.forEach(d => promDocs.push(d.data()));
+      for (const cid of candidateStudentIds.slice(0, 3)) {
+        try {
+          const promRef = collection(db, 'promotionHistory');
+          const promQuery = query(promRef, where('studentId', '==', cid), limit(50));
+          const promSnap = await getDocs(promQuery);
+          promSnap.forEach(d => promDocs.push(d.data()));
+          if (promDocs.length > 0) break;
+        } catch {}
+      }
 
       // 5. Fetch Lifecycle History
-      const lifeRef = collection(db, 'userLifecycleHistory');
-      const lifeQuery = query(lifeRef, where('userId', '==', stId), limit(50));
-      const lifeSnap = await getDocs(lifeQuery);
       const lifeDocs: any[] = [];
-      lifeSnap.forEach(d => lifeDocs.push(d.data()));
+      for (const cid of candidateStudentIds.slice(0, 3)) {
+        try {
+          const lifeRef = collection(db, 'userLifecycleHistory');
+          const lifeQuery = query(lifeRef, where('userId', '==', cid), limit(50));
+          const lifeSnap = await getDocs(lifeQuery);
+          lifeSnap.forEach(d => lifeDocs.push(d.data()));
+          if (lifeDocs.length > 0) break;
+        } catch {}
+      }
+
+      // 6. Fetch Student Transfers
+      const transferDocs: any[] = [];
+      for (const cid of candidateStudentIds.slice(0, 3)) {
+        try {
+          const tRef = collection(db, 'studentTransfers');
+          const tQuery = query(tRef, where('studentId', '==', cid), limit(50));
+          const tSnap = await getDocs(tQuery);
+          tSnap.forEach(d => transferDocs.push(d.data()));
+          if (transferDocs.length > 0) break;
+        } catch {}
+      }
 
       // Sort by date descending
       attDocs.sort((a, b) => b.date.localeCompare(a.date));
@@ -189,8 +321,8 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
       // Process Progress
       this.processProgress(progressDocs);
 
-      // Process Trajectory (Promotions, Demotions & Transfers)
-      this.processTrajectoryEvents(promDocs, lifeDocs);
+      // Process Trajectory (Promotions, Demotions, Transfers & Lifecycle)
+      this.processTrajectoryEvents(promDocs, lifeDocs, transferDocs, classes, groups, madrasas);
 
     } catch (err) {
       console.error('Error fetching student progress data:', err);
@@ -309,6 +441,40 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
   private initCharts(): void {
     this.destroyCharts();
 
+    let labels = ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'];
+    let chartValues = [96, 92, 98, 94, 95, 97];
+
+    if (this.attendanceSummary.records.length > 0) {
+      const monthMap = new Map<string, { present: number; total: number }>();
+      this.attendanceSummary.records.forEach(r => {
+        if (!r.date) return;
+        const mKey = r.date.slice(0, 7);
+        if (!monthMap.has(mKey)) {
+          monthMap.set(mKey, { present: 0, total: 0 });
+        }
+        const st = (r.status || '').toLowerCase();
+        const m = monthMap.get(mKey)!;
+        m.total++;
+        if (['present', 'p'].includes(st)) m.present += 1;
+        else if (['late', 'l'].includes(st)) m.present += 0.5;
+      });
+
+      const sortedKeys = Array.from(monthMap.keys()).sort();
+      if (sortedKeys.length > 0) {
+        labels = sortedKeys.map(k => {
+          const parts = k.split('-');
+          const d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+          return d.toLocaleDateString('en-US', { month: 'short' });
+        });
+        chartValues = sortedKeys.map(k => {
+          const m = monthMap.get(k)!;
+          return m.total > 0 ? Math.round((m.present / m.total) * 100) : 100;
+        });
+      }
+    }
+
+    const minY = Math.max(0, Math.min(...chartValues) - 10);
+
     // 1. Attendance Line Chart
     if (this.attendanceCanvas && this.attendanceCanvas.nativeElement) {
       const ctx = this.attendanceCanvas.nativeElement.getContext('2d');
@@ -316,10 +482,10 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
         this.attendanceChart = new Chart(ctx, {
           type: 'line',
           data: {
-            labels: ['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'],
+            labels,
             datasets: [{
               label: 'Monthly Attendance %',
-              data: [96, 92, 98, 94, 95, 97],
+              data: chartValues,
               borderColor: '#0284c7',
               backgroundColor: 'rgba(2, 132, 199, 0.15)',
               borderWidth: 3,
@@ -343,7 +509,7 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
             },
             scales: {
               y: {
-                min: 80,
+                min: minY,
                 max: 100,
                 ticks: {
                   callback: (val) => `${val}%`
@@ -609,7 +775,14 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
     this.overallProgressPercent = Math.round(totalPerc / this.courseDetails.length);
   }
 
-  private processTrajectoryEvents(promDocs: any[], lifeDocs: any[]): void {
+  private processTrajectoryEvents(
+    promDocs: any[],
+    lifeDocs: any[],
+    transferDocs: any[] = [],
+    classes: any[] = [],
+    groups: any[] = [],
+    madrasas: any[] = []
+  ): void {
     const events: TrajectoryEvent[] = [];
 
     const toIsoDate = (val: any): string => {
@@ -621,6 +794,45 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
       return '';
     };
 
+    const resolveName = (id: any, list: any[], fallback = ''): string => {
+      if (!id) return fallback;
+      const match = list.find((item: any) => item.id === id);
+      return match?.name || match?.title || fallback || String(id);
+    };
+
+    // 1. Process Dedicated Student Transfers Collection
+    transferDocs.forEach(t => {
+      const prevM = t.previousMadrasaName || resolveName(t.previousMadrasaId, madrasas);
+      const prevC = t.previousClassName || resolveName(t.previousClassId, classes);
+      const prevG = t.previousGroupName || resolveName(t.previousGroupId, groups);
+
+      const newM = t.newMadrasaName || resolveName(t.newMadrasaId, madrasas);
+      const newC = t.newClassName || resolveName(t.newClassId, classes);
+      const newG = t.newGroupName || resolveName(t.newGroupId, groups);
+
+      let fromText = t.fromStage || '';
+      if (!fromText && (prevC || prevG || prevM)) {
+        fromText = `${prevM ? prevM + ' • ' : ''}${prevC || 'Class'}${prevG ? ' (' + prevG + ')' : ''}`;
+      }
+
+      let toText = t.toStage || '';
+      if (!toText && (newC || newG || newM)) {
+        toText = `${newM ? newM + ' • ' : ''}${newC || 'Class'}${newG ? ' (' + newG + ')' : ''}`;
+      }
+
+      const dStr = t.actionDate || toIsoDate(t.createdAt) || '';
+      events.push({
+        date: dStr,
+        type: 'transfer',
+        title: `Transferred: ${fromText ? fromText + ' → ' : ''}${toText || 'New Assignment'}`,
+        fromStage: fromText || 'Previous Placement',
+        toStage: toText || 'New Placement',
+        conductedBy: t.createdBy || t.performedBy || 'Administration',
+        notes: t.reason || `Student transferred from ${fromText || 'Previous Group'} to ${toText || 'New Group'}.`
+      });
+    });
+
+    // 2. Process Promotions History
     promDocs.forEach(p => {
       const act = String(p.action || p.actionType || 'promotion').toLowerCase();
       let type: 'promotion' | 'demotion' | 'transfer' | 'stage_update' | 'enrollment' = 'promotion';
@@ -636,17 +848,21 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
         title = `Promoted to ${p.newStage || 'Next Stage'}`;
       }
 
+      const fromText = p.previousStage || p.fromStage || p.previousClassName || resolveName(p.previousClassId, classes) || '-';
+      const toText = p.newStage || p.toStage || p.newClassName || resolveName(p.newClassId, classes) || '-';
+
       events.push({
         date: p.actionDate || toIsoDate(p.createdAt) || '',
         type,
         title,
-        fromStage: p.previousStage || p.fromStage || p.previousClassId || '-',
-        toStage: p.newStage || p.toStage || p.newClassId || '-',
+        fromStage: fromText,
+        toStage: toText,
         conductedBy: p.performedBy || p.createdBy || p.performedByEmail || 'Administration',
         notes: p.reason || 'No specific notes recorded.'
       });
     });
 
+    // 3. Process Lifecycle History
     lifeDocs.forEach(l => {
       const act = String(l.actionType || l.lifecycleAction || '').toLowerCase();
       let type: 'promotion' | 'demotion' | 'transfer' | 'stage_update' | 'enrollment' = 'stage_update';
@@ -658,14 +874,50 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
       const dStr = toIsoDate(l.createdAt) || l.actionDate || '';
       const exists = events.some(e => e.date === dStr && e.type === type);
       if (!exists) {
+        const prevM = l.previousMadrasaName || resolveName(l.previousMadrasaId, madrasas);
+        const prevC = l.previousClassName || resolveName(l.previousClassId, classes);
+        const prevG = l.previousGroupName || resolveName(l.previousGroupId, groups);
+
+        const newM = l.newMadrasaName || resolveName(l.newMadrasaId, madrasas);
+        const newC = l.newClassName || resolveName(l.newClassId, classes);
+        const newG = l.newGroupName || resolveName(l.newGroupId, groups);
+
+        let fromText = l.fromStage || '';
+        if (!fromText && (prevC || prevG || prevM)) {
+          fromText = `${prevM ? prevM + ' • ' : ''}${prevC || 'Class'}${prevG ? ' (' + prevG + ')' : ''}`;
+        }
+
+        let toText = l.toStage || '';
+        if (!toText && (newC || newG || newM)) {
+          toText = `${newM ? newM + ' • ' : ''}${newC || 'Class'}${newG ? ' (' + newG + ')' : ''}`;
+        }
+
+        // If still empty, parse parentheses from reason string
+        if (!toText && l.reason) {
+          const match = String(l.reason).match(/\(([^)]+)\)/);
+          if (match) toText = match[1].trim();
+        }
+
+        if (type === 'transfer') {
+          if (!fromText) {
+            fromText = this.student['className'] ? `${this.student['madrasaName'] ? this.student['madrasaName'] + ' • ' : ''}${this.student['className']}` : 'Previous Placement';
+          }
+          if (!toText) toText = 'New Placement';
+        }
+
+        let notesText = l.reason || '';
+        if (type === 'transfer' && fromText && toText && (!notesText || notesText.includes('Edit Student form'))) {
+          notesText = `Transferred from ${fromText} to ${toText}.`;
+        }
+
         events.push({
           date: dStr,
           type,
-          title: l.lifecycleAction || l.actionType || 'Lifecycle Event',
-          fromStage: l.fromStage || '-',
-          toStage: l.toStage || '-',
+          title: type === 'transfer' ? `Transferred: ${fromText} → ${toText}` : (l.lifecycleAction || l.actionType || 'Lifecycle Event'),
+          fromStage: fromText || l.fromStage || '-',
+          toStage: toText || l.toStage || '-',
           conductedBy: l.performedBy || l.userName || 'Administration',
-          notes: l.reason || ''
+          notes: notesText
         });
       }
     });

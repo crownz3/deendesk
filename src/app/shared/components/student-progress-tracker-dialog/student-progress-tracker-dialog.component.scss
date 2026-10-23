@@ -536,23 +536,51 @@
 
         .stage-transition-row {
           display: inline-flex;
+          flex-wrap: wrap;
           align-items: center;
-          gap: 6px;
-          margin: 2px 0;
+          gap: 8px;
+          margin: 4px 0 6px;
+
+          .route-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f8fafc;
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+
+            .route-tag {
+              font-size: 0.65rem;
+              font-weight: 800;
+              letter-spacing: 0.5px;
+              padding: 1px 5px;
+              border-radius: 4px;
+            }
+
+            &.from-badge {
+              background: #f8fafc;
+              border-color: #cbd5e1;
+              .route-tag { background: #64748b; color: #ffffff; }
+              .stage-pill.from { color: #334155; font-weight: 600; }
+            }
+
+            &.to-badge {
+              background: #f0fdf4;
+              border-color: #86efac;
+              .route-tag { background: #16a34a; color: #ffffff; }
+              .stage-pill.to { color: #15803d; font-weight: 700; }
+            }
+          }
 
           .stage-pill {
-            padding: 2px 8px;
-            border-radius: 5px;
-            font-size: 0.74rem;
-            font-weight: 700;
-
-            &.from { background: #f1f5f9; color: #64748b; }
-            &.to { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+            font-size: 0.76rem;
+            line-height: 1.2;
           }
 
           .arrow-ic {
-            font-size: 13px;
-            color: #94a3b8;
+            font-size: 15px;
+            color: #0284c7;
           }
         }
 

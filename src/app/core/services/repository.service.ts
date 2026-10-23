@@ -997,7 +997,7 @@ export class RepositoryService {
             // For other collections (students, classGroups, courses, classPlans), 
             // rely on the specific Firestore queries made by the frontend (and Firestore rules)
             // instead of hardcoded user arrays, since we no longer sync those arrays.
-            if (['events', 'students', 'classGroups', 'courses', 'classes', 'classPlans', 'subjects', 'timetableEntries', 'issues', 'issueCategories'].includes(collectionName)) {
+            if (['attendance', 'events', 'students', 'classGroups', 'courses', 'classes', 'classPlans', 'subjects', 'timetableEntries', 'issues', 'issueCategories'].includes(collectionName)) {
                 return true; 
             }
         }
@@ -1194,7 +1194,7 @@ export class RepositoryService {
           gChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('groupId', 'in', chunk)]));
         }
 
-        if (groups.length === 0) return [[where('organizationId', '==', orgId), where('groupId', 'in', ['___none___'])]];
+        if (groups.length === 0) return [[where('organizationId', '==', orgId)]];
         return groups;
       }
 
@@ -1244,6 +1244,14 @@ export class RepositoryService {
       }
 
       if (collectionName === 'attendance') {
+        const allowedMadrasas = Array.isArray(user.madrasaIds) && user.madrasaIds.length > 0 
+          ? user.madrasaIds 
+          : (user.madrasaId ? [user.madrasaId] : []);
+        if (allowedMadrasas.length > 0) {
+          const mChunks = this.chunkArray(allowedMadrasas, 9);
+          mChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('madrasaId', 'in', chunk)]));
+        }
+
         const classIds = Array.isArray(user.classIds) ? user.classIds : [];
         const teachingClassIds = Array.isArray(user.teachingClassIds) ? user.teachingClassIds : [];
         const allClassIds = [...new Set([...classIds, ...teachingClassIds])];
@@ -1260,7 +1268,7 @@ export class RepositoryService {
           gChunks.forEach(chunk => groups.push([where('organizationId', '==', orgId), where('groupId', 'in', chunk)]));
         }
 
-        if (groups.length === 0) return [[where('organizationId', '==', orgId), where('groupId', 'in', ['___none___'])]];
+        if (groups.length === 0) return [[where('organizationId', '==', orgId)]];
         return groups;
       }
 

@@ -27,7 +27,12 @@
         <li><strong>Madrasa:</strong> {{ getMadrasaName(firstStudent?.['madrasaId']) }}</li>
         <li><strong>Course:</strong> {{ getCourseName(firstStudent?.['courseId']) }}</li>
         <li><strong>Class:</strong> {{ getClassName(firstStudent?.['classId']) }}</li>
-        <li><strong>Group:</strong> {{ getGroupName(firstStudent?.['groupId']) }}</li>
+        <li>
+          <strong>Group:</strong> {{ getGroupName(firstStudent?.['groupId']) }}
+          <div class="staff-subtext" *ngIf="getGroupAssignedStaffName(firstStudent?.['groupId'])">
+            <mat-icon class="inline-staff-ic">person</mat-icon> Teacher: {{ getGroupAssignedStaffName(firstStudent?.['groupId']) }}
+          </div>
+        </li>
       </ul>
     </div>
 
@@ -174,13 +179,24 @@
         <mat-autocomplete #autoGroup="matAutocomplete"
                           [displayWith]="displayEntityName"
                           (optionSelected)="onGroupOptionSelected($event.option.value)">
-          <mat-option *ngFor="let g of filteredGroups" [value]="g">
-            {{ g['name'] || g['title'] }}
+          <mat-option *ngFor="let g of filteredGroups" [value]="g" class="group-option-item">
+            <div class="group-option-content">
+              <span class="group-name">{{ g['name'] || g['title'] }}</span>
+              <span class="group-staff-subtext" *ngIf="getGroupAssignedStaffName(g)">
+                <mat-icon class="opt-staff-ic">person</mat-icon> {{ getGroupAssignedStaffName(g) }}
+              </span>
+              <span class="group-staff-subtext unassigned" *ngIf="!getGroupAssignedStaffName(g)">
+                No staff assigned
+              </span>
+            </div>
           </mat-option>
           <mat-option *ngIf="filteredGroups.length === 0" disabled>
             No matching group found
           </mat-option>
         </mat-autocomplete>
+        <mat-hint *ngIf="newGroupId && getGroupAssignedStaffName(newGroupId)">
+          <mat-icon class="hint-icon">person</mat-icon> Assigned: {{ getGroupAssignedStaffName(newGroupId) }}
+        </mat-hint>
       </mat-form-field>
 
       <mat-form-field appearance="outline">

@@ -536,6 +536,11 @@ export class PromoteDemoteDialogComponent implements OnInit {
 
         const updatePayload: any = {
           stage: this.newStage,
+          movementStatus: this.action === 'promotion' ? 'Promoted' : 'Demoted',
+          movementType: this.action === 'promotion' ? 'PROMOTION' : 'DEMOTION',
+          movementTag: this.action === 'promotion' ? 'Promoted' : 'Demoted',
+          lastMovementDate: actionDate,
+          updatedAt: new Date().toISOString()
         };
 
         if (this.isCrossCourseSwitch && this.targetCourseId) {

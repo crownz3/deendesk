@@ -4408,6 +4408,18 @@ export class ManagementPage {
                 );
 
                 if (isAcademicChange) {
+                  if (newGroupId !== undefined) {
+                    processedPayload['classGroupId'] = newGroupId;
+                    processedPayload['assignedGroupId'] = newGroupId;
+                    processedPayload['groupIds'] = newGroupId ? [newGroupId] : [];
+                    processedPayload['classGroupIds'] = newGroupId ? [newGroupId] : [];
+                    processedPayload['assignedGroupIds'] = newGroupId ? [newGroupId] : [];
+                  }
+                  processedPayload['movementStatus'] = 'Transferred';
+                  processedPayload['movementType'] = 'TRANSFER';
+                  processedPayload['movementTag'] = 'Transferred';
+                  processedPayload['lastTransferDate'] = new Date().toISOString().substring(0, 10);
+
                   const studentId = String(initial.id || initial['uid'] || initial['userId']);
                   const sName = String(processedPayload['name'] || initial['name'] || initial['displayName'] || 'Student');
 
@@ -4417,9 +4429,16 @@ export class ManagementPage {
                     this.repo.getAllOnce('madrasas', profile).catch(() => []),
                   ]);
 
+                  const oldClassName = classes.find((c: any) => c.id === oldClassId)?.['name'] || initial['className'] || '';
+                  const oldGroupName = groups.find((g: any) => g.id === oldGroupId)?.['name'] || initial['groupName'] || '';
+                  const oldMadrasaName = madrasas.find((m: any) => m.id === oldMadrasaId)?.['name'] || initial['madrasaName'] || '';
+
                   const newClassName = classes.find((c: any) => c.id === newClassId)?.['name'] || processedPayload['className'] || '';
                   const newGroupName = groups.find((g: any) => g.id === newGroupId)?.['name'] || processedPayload['groupName'] || '';
                   const newMadrasaName = madrasas.find((m: any) => m.id === newMadrasaId)?.['name'] || processedPayload['madrasaName'] || '';
+
+                  const fromText = `${oldMadrasaName ? oldMadrasaName + ' • ' : ''}${oldClassName || 'Class'}${oldGroupName ? ' (' + oldGroupName + ')' : ''}`;
+                  const toText = `${newMadrasaName ? newMadrasaName + ' • ' : ''}${newClassName || 'Class'}${newGroupName ? ' (' + newGroupName + ')' : ''}`;
 
                   await this.repo.create('userLifecycleHistory', {
                     userId: studentId,
@@ -4427,15 +4446,23 @@ export class ManagementPage {
                     personType: 'student',
                     lifecycleAction: 'Transferred',
                     actionType: 'Transfer',
-                    reason: `Academic placement updated via Edit Student form (${newClassName}${newGroupName ? ' - ' + newGroupName : ''}${newMadrasaName ? ' in ' + newMadrasaName : ''})`,
+                    reason: `Transferred from ${fromText} to ${toText} via Edit Student form`,
+                    fromStage: fromText,
+                    toStage: toText,
                     previousMadrasaId: oldMadrasaId || '',
+                    previousMadrasaName: oldMadrasaName,
                     newMadrasaId: newMadrasaId || '',
+                    newMadrasaName: newMadrasaName,
                     previousCourseId: oldCourseId || '',
                     newCourseId: newCourseId || '',
                     previousClassId: oldClassId || '',
+                    previousClassName: oldClassName,
                     newClassId: newClassId || '',
+                    newClassName: newClassName,
                     previousGroupId: oldGroupId || '',
+                    previousGroupName: oldGroupName,
                     newGroupId: newGroupId || '',
+                    newGroupName: newGroupName,
                     effectiveDate: new Date().toISOString(),
                     effectiveDateMs: Date.now(),
                     performedBy: profile?.displayName || profile?.email || 'System',
@@ -4449,20 +4476,35 @@ export class ManagementPage {
                     studentId: studentId,
                     studentName: sName,
                     previousMadrasaId: oldMadrasaId || undefined,
+                    previousMadrasaName: oldMadrasaName || undefined,
                     previousCourseId: oldCourseId || undefined,
                     previousClassId: oldClassId || undefined,
+                    previousClassName: oldClassName || undefined,
                     previousGroupId: oldGroupId || undefined,
+                    previousGroupName: oldGroupName || undefined,
                     newMadrasaId: newMadrasaId || undefined,
+                    newMadrasaName: newMadrasaName || undefined,
                     newCourseId: newCourseId || undefined,
                     newClassId: newClassId || undefined,
+                    newClassName: newClassName || undefined,
                     newGroupId: newGroupId || undefined,
-                    reason: `Academic placement updated via Edit Student form`,
+                    newGroupName: newGroupName || undefined,
+                    fromStage: fromText,
+                    toStage: toText,
+                    reason: `Transferred from ${fromText} to ${toText}`,
                     actionDate: new Date().toISOString().substring(0, 10),
+                    actionType: 'Transfer',
+                    movementType: 'TRANSFER',
+                    movementStatus: 'Transferred',
                     organizationId: profile?.organizationId || initial['organizationId'] || undefined,
                     madrasaId: newMadrasaId || oldMadrasaId || undefined,
+                    createdAt: new Date().toISOString(),
+                    createdBy: profile?.displayName || profile?.email || 'System'
                   }, profile).catch(e => console.warn('Failed to log studentTransfers for edit academic change:', e));
 
                   this.repo.clearCache('userLifecycleHistory');
+                  this.repo.clearCache('studentTransfers');
+                  this.repo.clearCache('classGroups');
                 }
 
                 // Also shadow sync to users/{uid} document
@@ -4476,6 +4518,7 @@ export class ManagementPage {
 
                 this.repo.clearCache('students');
                 this.repo.clearCache('users');
+                this.repo.clearCache('classGroups');
               }
             }
 

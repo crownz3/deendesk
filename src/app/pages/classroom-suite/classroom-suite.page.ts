@@ -4,7 +4,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { BehaviorSubject, combineLatest, of, Subject, firstValueFrom } from 'rxjs';
 import { catchError, distinctUntilChanged, filter, map, switchMap, takeUntil } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
-import { doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, Timestamp, limit } from 'firebase/firestore';
 import { AppUser, AttendanceStatus, TimetableEntry } from '../../core/models/domain.model';
 import { AuthService } from '../../core/services/auth.service';
 import { EntityRecord, RepositoryService } from '../../core/services/repository.service';
@@ -1147,11 +1147,26 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     this.syncSearchTexts();
   }
 
+  displayGroupOptionName = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    return val['name'] || val['title'] || '';
+  };
+
+  displayMadrasaOptionName = (val: any): string => {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    return val['name'] || val['title'] || '';
+  };
+
   filterMadrasas(): void {
     const selectedMad = this.madrasas.find(m => m.id === this.selectedMadrasaId);
     const selectedMadName = selectedMad ? (selectedMad['name'] || selectedMad['title'] || '').toLowerCase().trim() : '';
 
-    const q = (this.madrasaSearchText || '').toLowerCase().trim();
+    const rawM = typeof this.madrasaSearchText === 'string'
+      ? this.madrasaSearchText
+      : (this.madrasaSearchText ? (this.madrasaSearchText['name'] || this.madrasaSearchText['title'] || '') : '');
+    const q = String(rawM || '').toLowerCase().trim();
     const sourceList = (!this.isSuperAdmin && !this.isOrgAdmin && this.filteredMadrasasForUser.length > 0)
       ? this.filteredMadrasasForUser
       : this.madrasas;
@@ -1177,7 +1192,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const selectedGrp = this.availableClassGroupsForUser.find(g => g.id === this.selectedGroupId);
     const selectedName = selectedGrp ? (selectedGrp['name'] || selectedGrp['title'] || '').toLowerCase().trim() : '';
 
-    const q = (this.groupSearchText || '').toLowerCase().trim();
+    const rawG = typeof this.groupSearchText === 'string'
+      ? this.groupSearchText
+      : (this.groupSearchText ? (this.groupSearchText['name'] || this.groupSearchText['title'] || '') : '');
+    const q = String(rawG || '').toLowerCase().trim();
 
     if (!q || q === selectedName) {
       this.filteredClassGroups = [...this.availableClassGroupsForUser];
@@ -1192,10 +1210,11 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
   onGroupOptionSelected(g: EntityRecord): void {
     if (!g) return;
-    if (this.selectedGroupId !== g.id) {
-      this.selectedGroupId = g.id || '';
+    const gId = g.id || '';
+    this.groupSearchText = g['name'] || g['title'] || '';
+    if (this.selectedGroupId !== gId) {
+      this.selectedGroupId = gId;
       this.roster = [];
-      this.groupSearchText = g['name'] || g['title'] || '';
       this.onGroupChanged(true);
     }
   }
@@ -1649,6 +1668,17 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
   }
 
   openStudentAttendanceHistoryModal(item: StudentSuiteRosterItem): void {
+    let records = (item.attendanceHistoryRecords || []).slice();
+    if (records.length === 0 && (item.status || this.isAttendanceRecorded)) {
+      const rawSt = String(item.status || 'present').toLowerCase();
+      records = [{
+        date: this.selectedDateStr,
+        status: (['present', 'absent', 'late', 'leave'].includes(rawSt) ? rawSt : 'present') as any,
+        note: item.note || '',
+        periodName: this.selectedPeriodTitle || 'Full Day Attendance',
+        recordedByName: this.recordedByName || 'Authorized Teacher'
+      }];
+    }
     this.dialog.open(StudentAttendanceHistoryDialogComponent, {
       width: '780px',
       maxWidth: '95vw',
@@ -1658,7 +1688,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         admissionNo: item.student['admissionNo'] || '',
         parentPhone: this.getParentPhone(item.student),
         groupName: this.getSelectedGroupName() || 'Class Group',
-        records: item.attendanceHistoryRecords || []
+        records
       }
     });
   }
@@ -1710,65 +1740,129 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       return false;
     };
 
-    const studentMap = new Map<string, EntityRecord>();
+    const unifiedList: EntityRecord[] = [];
+    const tokenToIndex = new Map<string, number>();
+
+    const getTokensForRecord = (rec: any): string[] => {
+      const tokens: string[] = [];
+      const add = (v: any) => {
+        if (!v) return;
+        const s = String(v).trim().toLowerCase();
+        if (s && s !== 'n/a' && s !== 'undefined' && s !== 'null') tokens.push(s);
+      };
+      add(rec.id);
+      add(rec['uid']);
+      add(rec['userId']);
+      add(rec['studentId']);
+      add(rec['entityId']);
+      add(rec['docId']);
+      add(rec['admissionNo']);
+      add(rec['admissionNumber']);
+      add(rec['rollNo']);
+      add(rec['rollNumber']);
+      if (rec['email'] && !rec['email'].includes('@example.com') && rec['email'] !== 'n/a') {
+        add(rec['email']);
+      }
+      return Array.from(new Set(tokens));
+    };
+
+    const mergeRecords = (existing: EntityRecord, incoming: EntityRecord): EntityRecord => {
+      // Prioritize explicit academic assignment fields
+      const incomingGId = this.extractId(incoming['groupId'] || incoming['classGroupId'] || incoming['assignedGroupId']);
+      const existingGId = this.extractId(existing['groupId'] || existing['classGroupId'] || existing['assignedGroupId']);
+
+      const primaryGroupId = incomingGId || existingGId || '';
+      const primaryGroupName = (incomingGId ? incoming['groupName'] : '') || (existingGId ? existing['groupName'] : '') || incoming['groupName'] || existing['groupName'] || '';
+
+      const primaryClassId = this.extractId(incoming['classId']) || this.extractId(existing['classId']) || '';
+      const primaryClassName = incoming['className'] || existing['className'] || '';
+      const primaryCourseId = this.extractId(incoming['courseId']) || this.extractId(existing['courseId']) || '';
+      const primaryCourseName = incoming['courseName'] || existing['courseName'] || '';
+      const primaryMadrasaId = this.extractId(incoming['madrasaId']) || this.extractId(existing['madrasaId']) || '';
+      const primaryMadrasaName = incoming['madrasaName'] || existing['madrasaName'] || '';
+
+      return {
+        ...existing,
+        ...incoming,
+        id: existing.id || incoming.id,
+        uid: existing['uid'] || incoming['uid'] || incoming.id || existing.id,
+        userId: existing['userId'] || incoming['userId'] || incoming.id || existing.id,
+        studentId: existing['studentId'] || incoming['studentId'] || existing.id || incoming.id,
+        name: existing['name'] || incoming['name'] || existing['displayName'] || incoming['displayName'] || existing['fullName'] || incoming['fullName'] || '',
+        fullName: existing['fullName'] || incoming['fullName'] || existing['name'] || incoming['name'] || '',
+        displayName: existing['displayName'] || incoming['displayName'] || existing['name'] || incoming['name'] || '',
+        email: existing['email'] || incoming['email'] || '',
+        groupId: primaryGroupId,
+        classGroupId: primaryGroupId,
+        assignedGroupId: primaryGroupId,
+        groupName: primaryGroupName,
+        classId: primaryClassId,
+        className: primaryClassName,
+        courseId: primaryCourseId,
+        courseName: primaryCourseName,
+        madrasaId: primaryMadrasaId,
+        madrasaName: primaryMadrasaName,
+        organizationId: incoming['organizationId'] || existing['organizationId'] || '',
+        status: incoming['status'] || existing['status'] || 'active',
+        progress: incoming['progress'] || existing['progress'] || undefined,
+        stage: incoming['stage'] || existing['stage'] || undefined,
+        rollNumber: incoming['rollNumber'] || existing['rollNumber'] || incoming['rollNo'] || existing['rollNo'] || undefined
+      };
+    };
 
     (directStudents || []).forEach(st => {
-      const docId = this.extractId(st.id);
-      const uidStr = this.extractId(st['uid'] || st['userId'] || st['studentId']);
-      const emailStr = String(st['email'] || '').trim().toLowerCase();
+      const tokens = getTokensForRecord(st);
       const nameStr = String(st['displayName'] || st['fullName'] || st['name'] || '').trim().toLowerCase();
-      const key = docId || uidStr || (emailStr && emailStr !== 'n/a' ? emailStr : '') || nameStr;
-      if (key) {
-        studentMap.set(key, { ...st });
-      }
-    });
 
-    (userStudents || []).filter(isStudentUser).forEach(u => {
-      const docId = this.extractId(u.id);
-      const uidStr = this.extractId(u['uid'] || u['userId'] || u['studentId']);
-      const emailStr = String(u['email'] || '').trim().toLowerCase();
-      const nameStr = String(u['displayName'] || u['fullName'] || u['name'] || '').trim().toLowerCase();
-
-      const matchKey = [docId, uidStr, (emailStr && emailStr !== 'n/a' ? emailStr : ''), nameStr].find(k => k && studentMap.has(k));
-      if (matchKey) {
-        const s = studentMap.get(matchKey)!;
-        studentMap.set(matchKey, {
-          ...u,
-          ...s,
-          id: s.id || u.id || uidStr,
-          uid: s['uid'] || u['uid'] || u.id || s.id,
-          name: s['name'] || s['displayName'] || s['fullName'] || u['name'] || u['displayName'] || u['fullName'] || '',
-          fullName: s['fullName'] || s['displayName'] || s['name'] || u['fullName'] || u['displayName'] || u['name'] || '',
-          displayName: s['displayName'] || s['fullName'] || s['name'] || u['displayName'] || u['fullName'] || u['name'] || '',
-          email: s['email'] || u['email'] || '',
-          groupId: s['groupId'] || s['classGroupId'] || u['groupId'] || u['classGroupId'] || '',
-          classGroupId: s['classGroupId'] || s['groupId'] || u['classGroupId'] || u['groupId'] || '',
-          classId: s['classId'] || u['classId'] || '',
-          courseId: s['courseId'] || u['courseId'] || '',
-          madrasaId: s['madrasaId'] || u['madrasaId'] || '',
-          organizationId: s['organizationId'] || u['organizationId'] || '',
-        });
+      let existingIdx = tokens.map(t => tokenToIndex.get(t)).find(idx => idx !== undefined);
+      if (existingIdx !== undefined) {
+        unifiedList[existingIdx] = mergeRecords(unifiedList[existingIdx], st);
+        tokens.forEach(t => tokenToIndex.set(t, existingIdx!));
       } else {
-        const primaryKey = docId || uidStr || emailStr || nameStr;
-        if (primaryKey) {
-          studentMap.set(primaryKey, {
-            ...u,
-            id: docId || uidStr,
-            name: u['name'] || u['displayName'] || u['fullName'] || '',
-            fullName: u['fullName'] || u['displayName'] || u['name'] || '',
-            displayName: u['displayName'] || u['fullName'] || u['name'] || ''
-          });
+        const newIdx = unifiedList.length;
+        unifiedList.push({ ...st });
+        tokens.forEach(t => tokenToIndex.set(t, newIdx));
+        if (nameStr && nameStr.length > 2) {
+          tokenToIndex.set(`name_${nameStr}`, newIdx);
         }
       }
     });
 
-    return Array.from(studentMap.values());
+    (userStudents || []).filter(isStudentUser).forEach(u => {
+      const tokens = getTokensForRecord(u);
+      const nameStr = String(u['displayName'] || u['fullName'] || u['name'] || '').trim().toLowerCase();
+
+      let existingIdx = tokens.map(t => tokenToIndex.get(t)).find(idx => idx !== undefined);
+      if (existingIdx === undefined && nameStr && nameStr.length > 2 && tokenToIndex.has(`name_${nameStr}`)) {
+        existingIdx = tokenToIndex.get(`name_${nameStr}`);
+      }
+
+      if (existingIdx !== undefined) {
+        unifiedList[existingIdx] = mergeRecords(unifiedList[existingIdx], u);
+        tokens.forEach(t => tokenToIndex.set(t, existingIdx!));
+      } else {
+        const newIdx = unifiedList.length;
+        unifiedList.push({
+          ...u,
+          id: u.id || u['uid'],
+          name: u['name'] || u['displayName'] || u['fullName'] || '',
+          fullName: u['fullName'] || u['displayName'] || u['name'] || '',
+          displayName: u['displayName'] || u['fullName'] || u['name'] || ''
+        });
+        tokens.forEach(t => tokenToIndex.set(t, newIdx));
+        if (nameStr && nameStr.length > 2) {
+          tokenToIndex.set(`name_${nameStr}`, newIdx);
+        }
+      }
+    });
+
+    return unifiedList;
   }
 
   private getStudentsForGroup(allStudents: EntityRecord[], group: EntityRecord): EntityRecord[] {
     if (!group) return [];
 
-    const grpIdStr = this.extractId(group.id || group['docId']);
+    const grpIdStr = this.extractId(group.id || group['docId'] || group['groupId']);
     const targetMadrasaId = this.extractId(group['madrasaId']);
     const targetClassId = this.extractId(group['classId']);
 
@@ -1803,7 +1897,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       ? this.classGroups.filter(g => this.extractId(g['classId']) === targetClassId).length 
       : 0;
 
-    // Check if group doc has embedded student objects
+    // Check if group doc has embedded student objects (only add if not present anywhere in allStudents)
     const embeddedStudents = [
       ...(Array.isArray(group['students']) ? group['students'] : []),
       ...(Array.isArray(group['assignedStudents']) ? group['assignedStudents'] : [])
@@ -1843,6 +1937,23 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         return false;
       }
 
+      // Check student's explicit primary group assignment
+      const sDirectGroupId = this.extractId(s['groupId']);
+      const sClassGroupId = this.extractId(s['classGroupId']);
+      const sAssignedGroupId = this.extractId(s['assignedGroupId']);
+      const sPrimaryGroupId = sDirectGroupId || sClassGroupId || sAssignedGroupId;
+
+      // CASE 1: Student has an explicit primary group assigned
+      if (sPrimaryGroupId) {
+        if (targetGroupIds.has(sPrimaryGroupId)) {
+          return true; // Student explicitly belongs to THIS group
+        }
+        // Student explicitly belongs to ANOTHER group (e.g. transferred to Group B).
+        // They must NOT be included in this group (Group A), even if this group's doc has stale rosterTokens.
+        return false;
+      }
+
+      // CASE 2: Student has NO explicit primary group assigned on their record. Fallback heuristics:
       // 1. Direct group roster matching (group.assignedStudentIds, group.students, etc.)
       const sIdentities = [
         s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
@@ -1852,33 +1963,16 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         return true;
       }
 
-      // 2. Group ID matching from student's own fields
-      const sGrpTokens = new Set<string>();
-      const addToken = (v: any) => {
-        if (Array.isArray(v)) {
-          v.forEach(item => { const id = this.extractId(item); if (id) sGrpTokens.add(id); });
-        } else {
-          const id = this.extractId(v); if (id) sGrpTokens.add(id);
-        }
-      };
-
-      addToken(s['groupId']);
-      addToken(s['classGroupId']);
-      addToken(s['assignedGroupId']);
-      addToken(s['group']);
-      addToken(s['sectionId']);
-      addToken(s['section']);
-      addToken(s['classPlanId']);
-      addToken(s['classPlan']);
-      addToken(s['planId']);
-      addToken(s['groupIds']);
-      addToken(s['classGroupIds']);
-      addToken(s['assignedGroupIds']);
-      addToken(s['groups']);
-      addToken(s['sections']);
+      // 2. Check if student has multi-group array (groupIds, classGroupIds)
+      const sArrayTokens = new Set<string>();
+      [
+        ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
+        ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : []),
+        ...(Array.isArray(s['assignedGroupIds']) ? s['assignedGroupIds'] : [])
+      ].forEach(item => { const id = this.extractId(item); if (id) sArrayTokens.add(id); });
 
       for (const tId of targetGroupIds) {
-        if (sGrpTokens.has(tId)) return true;
+        if (sArrayTokens.has(tId)) return true;
       }
 
       // 3. Match by group name / code (e.g., student has groupName="Section A")
@@ -1895,7 +1989,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       }
 
       // 4. Default / sole section fallback: student has classId but no groupId assigned
-      if (targetClassId && sClassId === targetClassId && sGrpTokens.size === 0) {
+      if (targetClassId && sClassId === targetClassId) {
         if (isDefaultGroup || siblingGroupsCount <= 1) {
           return true;
         }
@@ -2102,10 +2196,50 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       // Fetch overall attendance list to compute attendance history stats for each student
       let allAttendanceList: EntityRecord[] = [];
       try {
-        allAttendanceList = await this.repo.getAllOnce<EntityRecord>('attendance', this.currentUser);
+        allAttendanceList = await this.repo.getAllOnce<EntityRecord>('attendance', this.currentUser, { forceRefresh: true });
       } catch (attHistoryErr) {
         console.warn('Could not fetch overall attendance history:', attHistoryErr);
       }
+
+      // If today's active attendance session exists, ensure it is in allAttendanceList
+      if (snap && snap.exists()) {
+        const todayDoc = { id: snap.id, ...snap.data() };
+        if (!allAttendanceList.some(a => a.id === todayDoc.id)) {
+          allAttendanceList.push(todayDoc);
+        }
+      }
+
+      // Direct bounded query for group attendance from Firestore to guarantee complete history
+      if (this.selectedGroupId) {
+        try {
+          const qGroupAtt = query(
+            collection(firestore, 'attendance'),
+            where('groupId', '==', this.selectedGroupId),
+            limit(200)
+          );
+          const gAttSnap = await getDocs(qGroupAtt);
+          gAttSnap.forEach(d => {
+            if (!allAttendanceList.some(a => a.id === d.id)) {
+              allAttendanceList.push({ id: d.id, ...d.data() });
+            }
+          });
+        } catch (gErr) {
+          try {
+            const qPlanAtt = query(
+              collection(firestore, 'attendance'),
+              where('classPlanId', '==', this.selectedGroupId),
+              limit(200)
+            );
+            const pAttSnap = await getDocs(qPlanAtt);
+            pAttSnap.forEach(d => {
+              if (!allAttendanceList.some(a => a.id === d.id)) {
+                allAttendanceList.push({ id: d.id, ...d.data() });
+              }
+            });
+          } catch { /* fallback ignored */ }
+        }
+      }
+
       const groupAttendanceDocs = allAttendanceList.filter(a => 
         a['groupId'] === this.selectedGroupId || a['classPlanId'] === this.selectedGroupId
       );
@@ -2126,8 +2260,42 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       // 4. Build Roster Items
       this.roster = groupStudents.map(student => {
         const stId = student.id || '';
-        const saved = stId ? savedAttendanceMap[stId] : undefined;
-        const prog = stId ? progressMap.get(stId) : undefined;
+        const candidateStudentIds = Array.from(new Set([
+          stId,
+          student['uid'],
+          student['userId'],
+          student['studentId'],
+          student['entityId'],
+          student['docId'],
+          student['rollNumber'],
+          student['admissionNo']
+        ].filter(Boolean).map(x => String(x).trim())));
+
+        let saved: { status: AttendanceStatus; note?: string } | undefined = undefined;
+        for (const cid of candidateStudentIds) {
+          if (savedAttendanceMap[cid]) {
+            saved = savedAttendanceMap[cid];
+            break;
+          }
+        }
+        if (!saved) {
+          const cidLowerSet = new Set(candidateStudentIds.map(x => x.toLowerCase()));
+          for (const [k, v] of Object.entries(savedAttendanceMap)) {
+            if (cidLowerSet.has(k.toLowerCase().trim())) {
+              saved = v;
+              break;
+            }
+          }
+        }
+
+        let prog: any = undefined;
+        for (const cid of candidateStudentIds) {
+          if (progressMap.has(cid)) {
+            prog = progressMap.get(cid);
+            break;
+          }
+        }
+
         const hifz = prog?.hifzProgress || {};
         const dawr = prog?.dawrProgress || {};
         const maktab = prog?.maktabProgress || {};
@@ -2149,19 +2317,87 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           else if (typeof gid === 'string' && gid.length > 2 && isNaN(Number(gid))) studentGroupNames.add(gid);
         });
 
+        const getStudentRecordFromAttDoc = (attDoc: EntityRecord): { status: string; note: string } | null => {
+          const recs = attDoc['records'] || attDoc['attendanceMap'];
+          if (recs && typeof recs === 'object') {
+            for (const cid of candidateStudentIds) {
+              const r = recs[cid];
+              if (r && (r.status || typeof r === 'string')) {
+                return {
+                  status: typeof r === 'string' ? r : (r.status || 'present'),
+                  note: typeof r === 'object' ? (r.note || r.remarks || '') : ''
+                };
+              }
+            }
+            const cidLowerSet = new Set(candidateStudentIds.map(x => x.toLowerCase()));
+            for (const [key, val] of Object.entries(recs)) {
+              if (cidLowerSet.has(key.toLowerCase().trim())) {
+                const r = val as any;
+                if (r && (r.status || typeof r === 'string')) {
+                  return {
+                    status: typeof r === 'string' ? r : (r.status || 'present'),
+                    note: typeof r === 'object' ? (r.note || r.remarks || '') : ''
+                  };
+                }
+              }
+            }
+          }
+          if (Array.isArray(attDoc['students'])) {
+            const cidLowerSet = new Set(candidateStudentIds.map(x => x.toLowerCase()));
+            const match = attDoc['students'].find((s: any) => {
+              const sid = String(s.studentId || s.id || s.uid || '').trim().toLowerCase();
+              return cidLowerSet.has(sid);
+            });
+            if (match && (match.status || typeof match === 'string')) {
+              return {
+                status: typeof match === 'string' ? match : (match.status || 'present'),
+                note: typeof match === 'object' ? (match.note || match.remarks || '') : ''
+              };
+            }
+          }
+          return null;
+        };
+
+        const candidateAttDocs: EntityRecord[] = [];
+        const seenDocIds = new Set<string>();
+
+        // Include current group docs first
+        groupAttendanceDocs.forEach(d => {
+          if (d.id && !seenDocIds.has(d.id)) {
+            seenDocIds.add(d.id);
+            candidateAttDocs.push(d);
+          }
+        });
+
+        // Also check all attendance history docs where this student has entries (retaining transferred records)
+        allAttendanceList.forEach(d => {
+          if (d.id && !seenDocIds.has(d.id)) {
+            if (getStudentRecordFromAttDoc(d)) {
+              seenDocIds.add(d.id);
+              candidateAttDocs.push(d);
+            }
+          }
+        });
+
         const historyRecords: StudentAttendanceHistoryRecord[] = [];
         let totalMarked = 0;
         let presentCount = 0;
-        groupAttendanceDocs.forEach(attDoc => {
-          const recs = attDoc['records'] || {};
-          const stRec = recs[stId];
+        const seenSessionKeys = new Set<string>();
+
+        candidateAttDocs.forEach(attDoc => {
+          const stRec = getStudentRecordFromAttDoc(attDoc);
           if (stRec && stRec.status) {
-            totalMarked++;
-            if (stRec.status === 'present' || stRec.status === 'late') {
-              presentCount++;
-            }
+            const rawSt = String(stRec.status).toLowerCase();
             const createdAtVal = attDoc['createdAt'] as any;
             let dateVal = (attDoc['date'] || attDoc['selectedDate'] || attDoc['dateStr'] || '') as string;
+            if (!dateVal && attDoc['takenAt']) {
+              const tVal = attDoc['takenAt'] as any;
+              if (typeof tVal?.toDate === 'function') {
+                dateVal = tVal.toDate().toISOString().slice(0, 10);
+              } else if (typeof tVal === 'string') {
+                dateVal = tVal.slice(0, 10);
+              }
+            }
             if (!dateVal && createdAtVal) {
               if (typeof createdAtVal?.toDate === 'function') {
                 dateVal = createdAtVal.toDate().toISOString().slice(0, 10);
@@ -2169,16 +2405,45 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
                 dateVal = createdAtVal.slice(0, 10);
               }
             }
+            if (!dateVal) {
+              dateVal = this.selectedDateStr;
+            }
 
-            historyRecords.push({
-              date: dateVal,
-              status: stRec.status as any,
-              note: stRec.note || stRec.remarks || '',
-              periodName: attDoc['periodName'] || attDoc['periodTitle'] || attDoc['sessionName'] || '',
-              recordedByName: attDoc['recordedByName'] || attDoc['createdByName'] || ''
-            });
+            const sessionKey = `${dateVal}_${attDoc['timetableEntryId'] || attDoc['periodTitle'] || attDoc['periodName'] || attDoc.id}`;
+            if (!seenSessionKeys.has(sessionKey)) {
+              seenSessionKeys.add(sessionKey);
+              totalMarked++;
+              if (['present', 'p', 'late', 'l'].includes(rawSt)) {
+                presentCount++;
+              }
+
+              historyRecords.push({
+                date: dateVal,
+                status: (['present', 'absent', 'late', 'leave'].includes(rawSt) ? rawSt : 'present') as any,
+                note: stRec.note || '',
+                periodName: attDoc['periodName'] || attDoc['periodTitle'] || attDoc['sessionName'] || '',
+                recordedByName: attDoc['recordedByName'] || attDoc['takenByName'] || attDoc['createdByName'] || ''
+              });
+            }
           }
         });
+
+        // If historyRecords is empty but today's attendance has been recorded or saved for this student
+        if (historyRecords.length === 0 && (saved || (this.isAttendanceRecorded && (savedAttendanceMap[stId] || savedAttendanceMap[student['uid']])))) {
+          const fallbackSaved = saved || savedAttendanceMap[stId] || savedAttendanceMap[student['uid']];
+          const rawSt = String(fallbackSaved?.status || 'present').toLowerCase();
+          historyRecords.push({
+            date: this.selectedDateStr,
+            status: (['present', 'absent', 'late', 'leave'].includes(rawSt) ? rawSt : 'present') as any,
+            note: fallbackSaved?.note || '',
+            periodName: this.selectedPeriodTitle || 'Full Day Attendance',
+            recordedByName: this.recordedByName || 'Authorized Teacher'
+          });
+          totalMarked = 1;
+          if (['present', 'late', 'p', 'l'].includes(rawSt)) {
+            presentCount = 1;
+          }
+        }
 
         historyRecords.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 

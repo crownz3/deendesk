@@ -22,6 +22,7 @@
           <mat-icon>close</mat-icon>
         </button>
         <mat-autocomplete #autoMadrasa="matAutocomplete"
+          [displayWith]="displayMadrasaOptionName"
           (optionSelected)="onMadrasaOptionSelected($event.option.value)">
           <mat-option *ngFor="let m of filteredMadrasas" [value]="m">
             {{ m['name'] || m['title'] }}
@@ -40,7 +41,9 @@
           (click)="groupSearchText = ''; filterClassGroupsSearch()" matTooltip="Clear Search">
           <mat-icon>close</mat-icon>
         </button>
-        <mat-autocomplete #autoGroup="matAutocomplete" (optionSelected)="onGroupOptionSelected($event.option.value)">
+        <mat-autocomplete #autoGroup="matAutocomplete"
+          [displayWith]="displayGroupOptionName"
+          (optionSelected)="onGroupOptionSelected($event.option.value)">
           <mat-option *ngFor="let g of filteredClassGroups" [value]="g">
             {{ g['name'] || g['title'] }} <span *ngIf="g['className']">({{ g['className'] }})</span>
           </mat-option>

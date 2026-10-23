@@ -458,12 +458,22 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         patch = {
           groupId: targetGroup.id,
           groupName: targetGroup.name || targetGroup.title || '',
+          classGroupId: targetGroup.id,
+          assignedGroupId: targetGroup.id,
+          groupIds: [targetGroup.id],
+          classGroupIds: [targetGroup.id],
+          assignedGroupIds: [targetGroup.id],
           classId: targetGroup.classId || targetGroup.parentClassId || null,
           className: targetGroup.className || targetGroup.parentClassName || null,
           courseId: targetGroup.courseId || targetGroup.parentCourseId || null,
           courseName: targetGroup.courseName || targetGroup.parentCourseName || null,
           madrasaId: targetGroup.madrasaId || null,
           madrasaName: targetGroup.madrasaName || null,
+          movementStatus: 'Transferred',
+          movementType: 'TRANSFER',
+          movementTag: 'Transferred',
+          lastTransferDate: new Date().toISOString().substring(0, 10),
+          updatedAt: new Date().toISOString(),
         };
       } else {
         patch = {
@@ -471,10 +481,20 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
           className: targetGroup.name || targetGroup.title || '',
           groupId: null,
           groupName: null,
+          classGroupId: null,
+          assignedGroupId: null,
+          groupIds: [],
+          classGroupIds: [],
+          assignedGroupIds: [],
           courseId: targetGroup.courseId || targetGroup.parentCourseId || null,
           courseName: targetGroup.courseName || targetGroup.parentCourseName || null,
           madrasaId: targetGroup.madrasaId || null,
           madrasaName: targetGroup.madrasaName || null,
+          movementStatus: 'Transferred',
+          movementType: 'TRANSFER',
+          movementTag: 'Transferred',
+          lastTransferDate: new Date().toISOString().substring(0, 10),
+          updatedAt: new Date().toISOString(),
         };
       }
 
@@ -535,6 +555,8 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
 
       this.repo.clearCache('students');
       this.repo.clearCache('users');
+      this.repo.clearCache('classGroups');
+      this.repo.clearCache('studentTransfers');
       this.repo.clearCache('userLifecycleHistory');
 
       // Remove from selected list (they are now assigned elsewhere)
