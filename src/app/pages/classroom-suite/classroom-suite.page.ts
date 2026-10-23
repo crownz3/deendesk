@@ -455,14 +455,15 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
   get filteredRoster(): StudentSuiteRosterItem[] {
     let list = this.roster;
-    if (this.studentTypeMode === 'dawr') {
-      const dawrList = list.filter(item => this.isStudentInDawrStage(item.student) || !!item.dawrRoundNo || !!item.weeklyDawrRounds);
-      // Fallback: If no student matches explicit dawr stage string, don't blank out the entire roster
-      list = dawrList.length > 0 ? dawrList : list;
-    } else if (this.studentTypeMode === 'hifz') {
-      const hasAnyDawr = this.roster.some(item => this.isStudentInDawrStage(item.student));
-      if (hasAnyDawr) {
-        list = list.filter(item => !this.isStudentInDawrStage(item.student));
+
+    // Stage-based segregation (Dawr vs Hifz) only applies when on progress evaluation tab, NEVER on Attendance Register
+    if (this.activeTab === 'progress') {
+      if (this.studentTypeMode === 'dawr') {
+        const dawrList = list.filter(item => this.isStudentInDawrStage(item.student) || !!item.dawrRoundNo || !!item.weeklyDawrRounds);
+        list = dawrList.length > 0 ? dawrList : list;
+      } else if (this.studentTypeMode === 'hifz') {
+        const nonDawrList = list.filter(item => !this.isStudentInDawrStage(item.student));
+        list = nonDawrList.length > 0 ? nonDawrList : list;
       }
     }
 
@@ -471,9 +472,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     }
     const q = this.searchQuery.trim().toLowerCase();
     return list.filter(item => {
-      const name = (item.student['fullName'] || item.student['name'] || '').toLowerCase();
-      const phone = (item.student['parentPhone'] || item.student['phone'] || '').toLowerCase();
-      const id = (item.student['admissionNo'] || item.student['id'] || '').toLowerCase();
+      if (!item || !item.student) return false;
+      const name = (item.student['fullName'] || item.student['name'] || item.student['displayName'] || '').toLowerCase();
+      const phone = (this.getParentPhone(item.student) || item.student['parentPhone'] || item.student['phone'] || '').toLowerCase();
+      const id = (item.student['admissionNo'] || item.student['id'] || item.student['rollNumber'] || '').toLowerCase();
       return name.includes(q) || phone.includes(q) || id.includes(q);
     });
   }
@@ -873,6 +875,49 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         assignedGIds.add(gId);
       }
     });
+
+    // Also check if user is assigned to parent class of the group
+    const directClassIds = new Set<string>([
+      u.classId, u.assignedClassId,
+      ...(Array.isArray(u.classIds) ? u.classIds : []),
+      ...(Array.isArray(u.assignedClassIds) ? u.assignedClassIds : []),
+      ...(matchingStaffDoc ? [
+        matchingStaffDoc['classId'], matchingStaffDoc['assignedClassId'],
+        ...(Array.isArray(matchingStaffDoc['classIds']) ? matchingStaffDoc['classIds'] : []),
+        ...(Array.isArray(matchingStaffDoc['assignedClassIds']) ? matchingStaffDoc['assignedClassIds'] : [])
+      ] : [])
+    ].filter(Boolean).map(v => String(v).trim()));
+
+    this.classes.forEach(c => {
+      if (!c.id) return;
+      const cId = String(c.id);
+      const classStaffIds = [
+        c['teacherId'], c['staffId'], c['ustadhId'], c['inchargeId'], c['assignedStaffId'],
+        ...(Array.isArray(c['teacherIds']) ? c['teacherIds'] : []),
+        ...(Array.isArray(c['assignedStaffIds']) ? c['assignedStaffIds'] : []),
+        ...(Array.isArray(c['staffIds']) ? c['staffIds'] : []),
+        ...(Array.isArray(c['teachers']) ? c['teachers'] : []),
+        ...(Array.isArray(c['staff']) ? c['staff'] : []),
+      ].filter(Boolean).map(v => String(v).trim());
+
+      const classStaffNames = [
+        c['teacherName'], c['staffName'], c['ustadhName'],
+        ...(Array.isArray(c['teacherNames']) ? c['teacherNames'] : []),
+        ...(Array.isArray(c['staffNames']) ? c['staffNames'] : [])
+      ].filter(Boolean).map((n: any) => String(n).trim().toLowerCase());
+
+      if (classStaffIds.some(id => profileIds.has(id)) || classStaffNames.some(name => userNames.has(name))) {
+        directClassIds.add(cId);
+      }
+    });
+
+    if (directClassIds.size > 0) {
+      this.classGroups.forEach(g => {
+        if (g.id && g['classId'] && directClassIds.has(String(g['classId']))) {
+          assignedGIds.add(String(g.id));
+        }
+      });
+    }
 
     this.userAssignedGroupIds = assignedGIds;
 
@@ -1618,6 +1663,264 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     });
   }
 
+  private extractId(val: any): string {
+    if (!val) return '';
+    if (typeof val === 'string') return val.trim();
+    if (typeof val === 'object' && val.id) return String(val.id).trim();
+    return String(val).trim();
+  }
+
+  private extractAllStrings(val: any): string[] {
+    if (!val) return [];
+    if (typeof val === 'string') return [val.trim().toLowerCase()];
+    if (typeof val === 'number') return [String(val).toLowerCase()];
+    if (Array.isArray(val)) {
+      return val.flatMap(item => this.extractAllStrings(item));
+    }
+    if (typeof val === 'object') {
+      const tokens: string[] = [];
+      if (val.id) tokens.push(String(val.id).trim().toLowerCase());
+      if (val.uid) tokens.push(String(val.uid).trim().toLowerCase());
+      if (val.userId) tokens.push(String(val.userId).trim().toLowerCase());
+      if (val.entityId) tokens.push(String(val.entityId).trim().toLowerCase());
+      if (val.docId) tokens.push(String(val.docId).trim().toLowerCase());
+      if (val.studentId) tokens.push(String(val.studentId).trim().toLowerCase());
+      if (val.email) tokens.push(String(val.email).trim().toLowerCase());
+      if (val.name) tokens.push(String(val.name).trim().toLowerCase());
+      if (val.displayName) tokens.push(String(val.displayName).trim().toLowerCase());
+      return tokens;
+    }
+    return [];
+  }
+
+  private async fetchUnifiedStudentsList(): Promise<EntityRecord[]> {
+    if (!this.currentUser) return [];
+
+    const [directStudents, userStudents] = await Promise.all([
+      this.repo.getAllOnce<EntityRecord>('students', this.currentUser).catch(() => []),
+      this.repo.getAllOnce<EntityRecord>('users', this.currentUser, { roles: ['student'] }).catch(() => [])
+    ]);
+
+    const isStudentUser = (u: any): boolean => {
+      const role = String(u['role'] || '').toLowerCase();
+      const roles = Array.isArray(u['roles']) ? u['roles'].map((x: any) => String(x).toLowerCase()) : [];
+      if (role === 'student' || roles.includes('student') || u['entityType'] === 'student') return true;
+      if (u['admissionNo'] || u['admissionNumber'] || u['rollNo'] || u['rollNumber']) return true;
+      if ((u['classGroupId'] || u['groupId'] || u['classId']) && !['teacher', 'staff', 'admin', 'superadmin', 'parent'].includes(role)) return true;
+      return false;
+    };
+
+    const studentMap = new Map<string, EntityRecord>();
+
+    (directStudents || []).forEach(st => {
+      const docId = this.extractId(st.id);
+      const uidStr = this.extractId(st['uid'] || st['userId'] || st['studentId']);
+      const emailStr = String(st['email'] || '').trim().toLowerCase();
+      const nameStr = String(st['displayName'] || st['fullName'] || st['name'] || '').trim().toLowerCase();
+      const key = docId || uidStr || (emailStr && emailStr !== 'n/a' ? emailStr : '') || nameStr;
+      if (key) {
+        studentMap.set(key, { ...st });
+      }
+    });
+
+    (userStudents || []).filter(isStudentUser).forEach(u => {
+      const docId = this.extractId(u.id);
+      const uidStr = this.extractId(u['uid'] || u['userId'] || u['studentId']);
+      const emailStr = String(u['email'] || '').trim().toLowerCase();
+      const nameStr = String(u['displayName'] || u['fullName'] || u['name'] || '').trim().toLowerCase();
+
+      const matchKey = [docId, uidStr, (emailStr && emailStr !== 'n/a' ? emailStr : ''), nameStr].find(k => k && studentMap.has(k));
+      if (matchKey) {
+        const s = studentMap.get(matchKey)!;
+        studentMap.set(matchKey, {
+          ...u,
+          ...s,
+          id: s.id || u.id || uidStr,
+          uid: s['uid'] || u['uid'] || u.id || s.id,
+          name: s['name'] || s['displayName'] || s['fullName'] || u['name'] || u['displayName'] || u['fullName'] || '',
+          fullName: s['fullName'] || s['displayName'] || s['name'] || u['fullName'] || u['displayName'] || u['name'] || '',
+          displayName: s['displayName'] || s['fullName'] || s['name'] || u['displayName'] || u['fullName'] || u['name'] || '',
+          email: s['email'] || u['email'] || '',
+          groupId: s['groupId'] || s['classGroupId'] || u['groupId'] || u['classGroupId'] || '',
+          classGroupId: s['classGroupId'] || s['groupId'] || u['classGroupId'] || u['groupId'] || '',
+          classId: s['classId'] || u['classId'] || '',
+          courseId: s['courseId'] || u['courseId'] || '',
+          madrasaId: s['madrasaId'] || u['madrasaId'] || '',
+          organizationId: s['organizationId'] || u['organizationId'] || '',
+        });
+      } else {
+        const primaryKey = docId || uidStr || emailStr || nameStr;
+        if (primaryKey) {
+          studentMap.set(primaryKey, {
+            ...u,
+            id: docId || uidStr,
+            name: u['name'] || u['displayName'] || u['fullName'] || '',
+            fullName: u['fullName'] || u['displayName'] || u['name'] || '',
+            displayName: u['displayName'] || u['fullName'] || u['name'] || ''
+          });
+        }
+      }
+    });
+
+    return Array.from(studentMap.values());
+  }
+
+  private getStudentsForGroup(allStudents: EntityRecord[], group: EntityRecord): EntityRecord[] {
+    if (!group) return [];
+
+    const grpIdStr = this.extractId(group.id || group['docId']);
+    const targetMadrasaId = this.extractId(group['madrasaId']);
+    const targetClassId = this.extractId(group['classId']);
+
+    // Extract all student IDs assigned to this group from the group document itself
+    const rosterTokens = new Set<string>([
+      ...this.extractAllStrings(group['assignedStudentIds']),
+      ...this.extractAllStrings(group['assignedStudents']),
+      ...this.extractAllStrings(group['studentIds']),
+      ...this.extractAllStrings(group['students']),
+      ...this.extractAllStrings(group['assignedStudentId']),
+      ...this.extractAllStrings(group['studentId']),
+    ]);
+
+    const targetGroupIds = new Set<string>([
+      grpIdStr,
+      this.extractId(group['docId']),
+      this.extractId(group['groupId']),
+      String(group.id || '').trim()
+    ].filter(Boolean));
+
+    const grpNames = new Set<string>([
+      String(group['name'] || '').trim().toLowerCase(),
+      String(group['title'] || '').trim().toLowerCase(),
+      String(group['code'] || '').trim().toLowerCase(),
+    ].filter(Boolean));
+
+    const isDefaultGroup = group['isDefault'] === true ||
+      String(group['name'] || '').toLowerCase().includes('default') ||
+      String(group['name'] || '').toLowerCase() === 'section a';
+
+    const siblingGroupsCount = targetClassId 
+      ? this.classGroups.filter(g => this.extractId(g['classId']) === targetClassId).length 
+      : 0;
+
+    // Check if group doc has embedded student objects
+    const embeddedStudents = [
+      ...(Array.isArray(group['students']) ? group['students'] : []),
+      ...(Array.isArray(group['assignedStudents']) ? group['assignedStudents'] : [])
+    ].filter(s => typeof s === 'object' && s !== null && (s.id || s.name || s.fullName || s.displayName));
+
+    const workingStudents = [...allStudents];
+    embeddedStudents.forEach(emb => {
+      const embId = this.extractId(emb.id || emb.uid || emb.userId);
+      const embName = String(emb.name || emb.fullName || emb.displayName || '').trim().toLowerCase();
+      const alreadyPresent = workingStudents.some(s => {
+        const sId = this.extractId(s.id || s['uid']);
+        const sName = String(s['name'] || s['fullName'] || s['displayName'] || '').trim().toLowerCase();
+        return (embId && sId === embId) || (embName && sName === embName);
+      });
+      if (!alreadyPresent) {
+        workingStudents.push({
+          ...emb,
+          id: embId || `emb_${Date.now()}_${Math.random()}`,
+          name: emb.name || emb.fullName || emb.displayName || 'Student',
+          fullName: emb.fullName || emb.name || emb.displayName || 'Student',
+          groupId: grpIdStr,
+          classId: targetClassId,
+          madrasaId: targetMadrasaId
+        });
+      }
+    });
+
+    return workingStudents.filter(s => {
+      // Status filter: ignore inactive, disabled, suspended, archived, deleted, left, graduated
+      const status = String(s['status'] || s['state'] || s['academicStatus'] || '').toLowerCase();
+      if (['inactive', 'disabled', 'suspended', 'archived', 'deleted', 'left', 'graduated'].includes(status)) return false;
+      if (s['isArchived'] === true || s['isDeleted'] === true || s['inactive'] === true) return false;
+
+      // Madrasa check if both specified
+      const sMadrasaId = this.extractId(s['madrasaId'] || s['assignedMadrasaId']);
+      if (targetMadrasaId && sMadrasaId && targetMadrasaId !== sMadrasaId) {
+        return false;
+      }
+
+      // 1. Direct group roster matching (group.assignedStudentIds, group.students, etc.)
+      const sIdentities = [
+        s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+      ].filter(Boolean).map(v => String(v).trim().toLowerCase());
+
+      if (sIdentities.some(id => rosterTokens.has(id))) {
+        return true;
+      }
+
+      // 2. Group ID matching from student's own fields
+      const sGrpTokens = new Set<string>();
+      const addToken = (v: any) => {
+        if (Array.isArray(v)) {
+          v.forEach(item => { const id = this.extractId(item); if (id) sGrpTokens.add(id); });
+        } else {
+          const id = this.extractId(v); if (id) sGrpTokens.add(id);
+        }
+      };
+
+      addToken(s['groupId']);
+      addToken(s['classGroupId']);
+      addToken(s['assignedGroupId']);
+      addToken(s['group']);
+      addToken(s['sectionId']);
+      addToken(s['section']);
+      addToken(s['classPlanId']);
+      addToken(s['classPlan']);
+      addToken(s['planId']);
+      addToken(s['groupIds']);
+      addToken(s['classGroupIds']);
+      addToken(s['assignedGroupIds']);
+      addToken(s['groups']);
+      addToken(s['sections']);
+
+      for (const tId of targetGroupIds) {
+        if (sGrpTokens.has(tId)) return true;
+      }
+
+      // 3. Match by group name / code (e.g., student has groupName="Section A")
+      const sClassId = this.extractId(s['classId'] || s['assignedClassId']);
+      const sameClass = !targetClassId || !sClassId || sClassId === targetClassId;
+
+      const sGrpNames = [
+        String(s['groupName'] || '').trim().toLowerCase(),
+        String(s['sectionName'] || '').trim().toLowerCase(),
+      ].filter(Boolean);
+
+      if (sameClass && grpNames.size > 0 && sGrpNames.some(sn => grpNames.has(sn))) {
+        return true;
+      }
+
+      // 4. Default / sole section fallback: student has classId but no groupId assigned
+      if (targetClassId && sClassId === targetClassId && sGrpTokens.size === 0) {
+        if (isDefaultGroup || siblingGroupsCount <= 1) {
+          return true;
+        }
+      }
+
+      // 5. Staff teacher matching: if current user is teacher assigned to this group AND student has matching teacherId
+      if (this.currentUser && (this.isStaff || (this.currentUser.role as string) === 'teacher' || (this.currentUser.role as string) === 'staff')) {
+        const staffTokens = new Set([
+          this.currentUser.uid, this.currentUser.id, (this.currentUser as any).entityId, (this.currentUser as any).staffId
+        ].filter(Boolean).map(v => String(v).trim().toLowerCase()));
+
+        const sTeacherIds = this.extractAllStrings([
+          s['teacherId'], s['assignedStaffId'], s['staffId'], s['teacherUid'], s['assignedTeacherId'],
+          s['ustadhId'], s['teacher'], s['staff'], s['assignedStaff']
+        ]);
+
+        if (sTeacherIds.some(id => staffTokens.has(id)) && sameClass) {
+          return true;
+        }
+      }
+
+      return false;
+    });
+  }
+
   private async loadRosterAndAttendance(forceShowLoader = false): Promise<void> {
     if (!this.selectedGroupId || !this.currentUser) {
       this.roster = [];
@@ -1644,48 +1947,14 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         } catch { /* fallback to 3 */ }
       }
 
-      // 1. Fetch Students in Class Group (filtering out inactive/archived/deleted students and matching group tokens)
-      const studentsList = await this.repo.getAllOnce<EntityRecord>('students', this.currentUser);
-      const extractId = (val: any): string => {
-        if (!val) return '';
-        if (typeof val === 'string') return val;
-        if (typeof val === 'object' && val.id) return String(val.id);
-        return String(val);
+      // 1. Fetch Students in Class Group (unified across students & users collections with multi-token roster matching)
+      const allStudents = await this.fetchUnifiedStudentsList();
+      const currGroup = this.classGroups.find(g => g.id === this.selectedGroupId) || { 
+        id: this.selectedGroupId, 
+        madrasaId: this.selectedMadrasaId, 
+        classId: this.selectedClassId 
       };
-
-      const groupStudents = studentsList.filter(s => {
-        // Status filter: ignore inactive, disabled, suspended, archived, deleted, left, graduated
-        const status = String(s['status'] || s['state'] || s['academicStatus'] || '').toLowerCase();
-        if (['inactive', 'disabled', 'suspended', 'archived', 'deleted', 'left', 'graduated'].includes(status)) return false;
-        if (s['isArchived'] === true || s['isDeleted'] === true || s['inactive'] === true) return false;
-
-        // Group token matching
-        const tokens = new Set<string>();
-        const addToken = (v: any) => {
-          if (Array.isArray(v)) {
-            v.forEach(item => { const id = extractId(item); if (id) tokens.add(id); });
-          } else {
-            const id = extractId(v); if (id) tokens.add(id);
-          }
-        };
-
-        addToken(s['groupId']);
-        addToken(s['classGroupId']);
-        addToken(s['assignedGroupId']);
-        addToken(s['group']);
-        addToken(s['sectionId']);
-        addToken(s['section']);
-        addToken(s['classPlanId']);
-        addToken(s['classPlan']);
-        addToken(s['planId']);
-        addToken(s['groupIds']);
-        addToken(s['classGroupIds']);
-        addToken(s['assignedGroupIds']);
-        addToken(s['groups']);
-        addToken(s['sections']);
-
-        return tokens.has(this.selectedGroupId);
-      });
+      const groupStudents = this.getStudentsForGroup(allStudents, currGroup);
 
       // 2. Fetch Attendance Record Document for current Group + Date + Period
       const docId = `${this.selectedMadrasaId || 'default'}_${this.selectedGroupId}_${this.selectedDateStr}_${this.selectedPeriodId}`;
@@ -2153,7 +2422,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         return false;
       });
 
-      const studentsList = await this.repo.getAllOnce<EntityRecord>('students', this.currentUser);
+      const allStudents = await this.fetchUnifiedStudentsList();
 
       let targetGroups: EntityRecord[] = [];
       if (this.isSuperAdmin || this.isOrgAdmin) {
@@ -2186,19 +2455,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         const madrasaName = madrasaMap.get(grpMadrasaId) || grp['madrasaName'] || 'Madrasa';
         const className = classMap.get(grp['classId']) || grp['className'] || 'Class';
 
-        const groupStudents = studentsList.filter(s => {
-          const status = String(s['status'] || s['state'] || '').toLowerCase();
-          if (['inactive', 'disabled', 'archived', 'deleted', 'left'].includes(status)) return false;
-          if (s['isArchived'] === true || s['isDeleted'] === true) return false;
-
-          const gIds = [
-            s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'],
-            ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
-            ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : [])
-          ].filter(Boolean).map(String);
-
-          return gIds.includes(grpId);
-        });
+        const groupStudents = this.getStudentsForGroup(allStudents, grp);
 
         const totalStudents = groupStudents.length || Number(grp['studentCount'] || grp['totalStudents'] || 0);
 
@@ -2350,15 +2607,14 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       this.loader.show();
       const firestore = getDeenDeskFirestore();
 
-      const studentsList = await this.repo.getAllOnce<EntityRecord>('students', this.currentUser);
-      const groupStudents = studentsList.filter(s => {
-        const gIds = [
-          s['groupId'], s['classGroupId'], s['assignedGroupId'], s['group'], s['sectionId'],
-          ...(Array.isArray(s['groupIds']) ? s['groupIds'] : []),
-          ...(Array.isArray(s['classGroupIds']) ? s['classGroupIds'] : [])
-        ].filter(Boolean).map(String);
-        return gIds.includes(item.groupId);
-      });
+      const allStudents = await this.fetchUnifiedStudentsList();
+      const currGroup = this.classGroups.find(g => g.id === item.groupId) || { 
+        id: item.groupId, 
+        madrasaId: item.madrasaId, 
+        classId: item.classId,
+        name: item.groupName
+      };
+      const groupStudents = this.getStudentsForGroup(allStudents, currGroup);
 
       const docId = `${item.madrasaId || 'default'}_${item.groupId}_${this.selectedDateStr}_${this.selectedPeriodId}`;
       const attendanceDocRef = doc(firestore, 'attendance', docId);
