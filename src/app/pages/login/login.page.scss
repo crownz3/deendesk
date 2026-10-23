@@ -1,4 +1,5 @@
 .login-shell {
+  position: relative;
   user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -12,17 +13,55 @@
   }
 
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.88)),
-    url('/assets/shapes.svg');
-  background-size: cover;
+    radial-gradient(ellipse at 15% 15%, rgba(16, 185, 129, 0.08) 0%, transparent 45%),
+    radial-gradient(ellipse at 85% 85%, rgba(37, 99, 235, 0.09) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, rgba(248, 250, 252, 0.95) 0%, #f1f5f9 100%);
   display: grid;
   gap: 32px;
   grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 430px);
   min-height: 100%;
   padding: clamp(24px, 5vw, 72px);
+  overflow: hidden;
+}
+
+/* Ambient Ambient Glow Blobs */
+.ambient-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.7;
+}
+
+.glow-top-left {
+  top: -100px;
+  left: -80px;
+  width: 360px;
+  height: 360px;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.25), transparent 70%);
+}
+
+.glow-bottom-right {
+  bottom: -100px;
+  right: -80px;
+  width: 380px;
+  height: 380px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.22), transparent 70%);
+}
+
+.glow-center {
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.1), transparent 70%);
 }
 
 .brand-panel {
+  position: relative;
+  z-index: 2;
   align-content: center;
   color: #18352f;
   display: grid;
@@ -35,6 +74,47 @@
   flex-direction: column;
   align-items: flex-start;
   gap: 16px;
+}
+
+.brand-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+
+  .live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 6px #10b981;
+    animation: livePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+@keyframes livePulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
 }
 
 .brand-tagline {
@@ -175,14 +255,21 @@
 }
 
 .login-card {
+  position: relative;
+  z-index: 2;
   align-self: center;
-  background: var(--app-surface);
-  border: 1px solid #d7e3de;
-  border-radius: 8px;
-  box-shadow: 0 18px 60px rgba(31, 54, 48, 0.12);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow:
+    0 24px 64px -12px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(226, 232, 240, 0.8),
+    inset 0 1px 1px #ffffff;
   display: grid;
   gap: 16px;
-  padding: 28px;
+  padding: 32px 30px;
 }
 
 .last-account {
@@ -445,61 +532,169 @@ form {
 /* Fix Input Fields */
 .auth-field {
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+}
+
+.auth-input-icon {
+  color: #94a3b8;
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  vertical-align: middle;
+  transition: color 0.2s ease;
+}
+
+.auth-field:focus-within .auth-input-icon {
+  color: #2563eb;
 }
 
 ::ng-deep .auth-field .mat-mdc-text-field-wrapper {
-  background: var(--app-surface, #fff);
+  background: #f8fafc;
   border-radius: 14px;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.03);
+}
+
+::ng-deep .auth-field:hover .mat-mdc-text-field-wrapper {
+  background: #f1f5f9;
+}
+
+::ng-deep .auth-field.mat-focused .mat-mdc-text-field-wrapper {
+  background: #ffffff;
+  box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
 }
 
 ::ng-deep .auth-field .mat-mdc-form-field-flex {
-  min-height: 56px;
+  min-height: 52px;
+  align-items: center;
 }
 
 ::ng-deep .auth-field input {
-  font-size: 15px;
-  color: var(--app-text-main, #333);
+  font-size: 14.5px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.pass-toggle-btn {
+  color: #94a3b8;
+  transition: color 0.2s;
+
+  &:hover {
+    color: #475569;
+  }
 }
 
 .auth-actions {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 20px;
+  gap: 10px;
+  margin-top: 14px;
 }
 
-.auth-primary-button,
+.auth-primary-button {
+  width: 100%;
+  min-height: 48px;
+  height: 48px;
+  border-radius: 13px;
+  font-weight: 700;
+  font-size: 14.5px;
+  letter-spacing: 0.15px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  box-shadow:
+    0 4px 14px -2px rgba(37, 99, 235, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  .btn-inner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+
+    .btn-arrow {
+      font-size: 17px;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  }
+
+  &:hover:not([disabled]) {
+    transform: translateY(-1.5px);
+    box-shadow:
+      0 8px 22px -3px rgba(37, 99, 235, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
+
+    .btn-arrow {
+      transform: translateX(3px);
+    }
+  }
+
+  &:active:not([disabled]) {
+    transform: translateY(0.5px) scale(0.99);
+  }
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 0;
+
+  .divider-line {
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+  }
+
+  .divider-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+  }
+}
+
 .auth-google-button {
   width: 100%;
-  min-height: 52px;
-  border-radius: 14px;
-  font-weight: 700;
+  min-height: 46px;
+  height: 46px;
+  border-radius: 13px;
+  font-weight: 600;
+  font-size: 13.5px;
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   ::ng-deep .mdc-button__label {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 10px;
     line-height: 1;
     width: 100%;
   }
 
-  ion-icon {
-    font-size: 18px;
-    margin: 0;
-    display: inline-block;
-    vertical-align: middle;
-    line-height: 1;
+  .google-svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
   }
-}
 
-.auth-google-button {
-  border-radius: 999px;
-  border: 1px solid var(--app-border, #e0e0e0);
-  background: var(--app-surface, #fff);
-  color: var(--app-primary);
-  font-weight: 600;
+  &:hover:not([disabled]) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+  }
+
+  &:active:not([disabled]) {
+    transform: translateY(0.5px) scale(0.99);
+  }
 }
 
 .reset-actions {
@@ -676,16 +871,21 @@ form {
     width: 100%;
     margin: 0 auto;
     padding: clamp(14px, 2.5vh, 22px) clamp(16px, 4vw, 22px);
-    border-radius: 20px;
-    background: #ffffff;
-    border: 1px solid rgba(226, 232, 240, 0.95);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
     box-shadow:
-      0 12px 36px -8px rgba(15, 23, 42, 0.1),
-      0 4px 12px rgba(15, 23, 42, 0.04);
+      0 16px 36px -8px rgba(15, 23, 42, 0.08),
+      0 0 0 1px rgba(226, 232, 240, 0.8),
+      inset 0 1px 1px #ffffff;
     gap: 0;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    position: relative;
+    z-index: 2;
   }
 
   .auth-header {
@@ -709,6 +909,13 @@ form {
 
   .auth-field {
     margin-bottom: clamp(6px, 1.2vh, 10px);
+  }
+
+  .auth-input-icon {
+    font-size: 19px;
+    width: 19px;
+    height: 19px;
+    margin-right: 6px;
   }
 
   ::ng-deep .auth-field .mat-mdc-text-field-wrapper {
@@ -739,15 +946,29 @@ form {
     box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
   }
 
+  .auth-divider {
+    margin: 2px 0;
+    gap: 8px;
+
+    .divider-text {
+      font-size: 10px;
+    }
+  }
+
   .auth-google-button {
     min-height: 42px;
     height: 42px;
     border-radius: 12px;
     font-size: 13.5px;
-    border: 1px solid #e2e8f0;
+    border: 1.5px solid #e2e8f0;
     background: #ffffff;
     color: #1e293b;
     font-weight: 600;
+
+    .google-svg {
+      width: 17px;
+      height: 17px;
+    }
   }
 
   .reset-actions {
@@ -771,6 +992,13 @@ form {
 
     ::ng-deep .mdc-button__label {
       font-size: 11.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    ion-icon {
+      font-size: 13px;
     }
   }
 
