@@ -32,32 +32,155 @@
     </div>
 
     <form class="transfer-form">
+      <!-- New Madrasa -->
       <mat-form-field appearance="outline">
         <mat-label>New Madrasa</mat-label>
-        <mat-select [(ngModel)]="newMadrasaId" name="madrasa" (selectionChange)="onMadrasaChange()" required>
-          <mat-option *ngFor="let m of madrasas" [value]="m.id">{{ m['name'] }}</mat-option>
-        </mat-select>
+        <input type="text"
+               matInput
+               [(ngModel)]="madrasaSearchText"
+               name="madrasaSearch"
+               (input)="filterMadrasas()"
+               (focus)="filterMadrasas()"
+               (click)="filterMadrasas()"
+               (blur)="onMadrasaBlur()"
+               [matAutocomplete]="autoMadrasa"
+               placeholder="Search or select Madrasa..."
+               autocomplete="off"
+               required />
+        <button mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="madrasaSearchText"
+                (click)="clearMadrasa()"
+                title="Clear Madrasa"
+                tabindex="-1">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-icon matSuffix *ngIf="!madrasaSearchText" class="dropdown-arrow-icon">arrow_drop_down</mat-icon>
+        <mat-autocomplete #autoMadrasa="matAutocomplete"
+                          [displayWith]="displayEntityName"
+                          (optionSelected)="onMadrasaOptionSelected($event.option.value)">
+          <mat-option *ngFor="let m of filteredMadrasas" [value]="m">
+            {{ m['name'] || m['title'] }}
+          </mat-option>
+          <mat-option *ngIf="filteredMadrasas.length === 0" disabled>
+            No matching madrasa found
+          </mat-option>
+        </mat-autocomplete>
       </mat-form-field>
 
+      <!-- New Course -->
       <mat-form-field appearance="outline">
         <mat-label>New Course</mat-label>
-        <mat-select [(ngModel)]="newCourseId" name="course" (selectionChange)="onCourseChange()" [disabled]="!newMadrasaId" required>
-          <mat-option *ngFor="let c of availableCourses" [value]="c.id">{{ c['name'] }}</mat-option>
-        </mat-select>
+        <input type="text"
+               matInput
+               [(ngModel)]="courseSearchText"
+               name="courseSearch"
+               [disabled]="!newMadrasaId"
+               (input)="filterCourses()"
+               (focus)="filterCourses()"
+               (click)="filterCourses()"
+               (blur)="onCourseBlur()"
+               [matAutocomplete]="autoCourse"
+               placeholder="{{ !newMadrasaId ? 'Select a Madrasa first' : 'Search or select Course...' }}"
+               autocomplete="off"
+               required />
+        <button mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="courseSearchText && newMadrasaId"
+                (click)="clearCourse()"
+                title="Clear Course"
+                tabindex="-1">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-icon matSuffix *ngIf="!courseSearchText" class="dropdown-arrow-icon">arrow_drop_down</mat-icon>
+        <mat-autocomplete #autoCourse="matAutocomplete"
+                          [displayWith]="displayEntityName"
+                          (optionSelected)="onCourseOptionSelected($event.option.value)">
+          <mat-option *ngFor="let c of filteredCourses" [value]="c">
+            {{ c['name'] || c['title'] }}
+          </mat-option>
+          <mat-option *ngIf="filteredCourses.length === 0" disabled>
+            No matching course found
+          </mat-option>
+        </mat-autocomplete>
       </mat-form-field>
 
+      <!-- New Class -->
       <mat-form-field appearance="outline">
         <mat-label>New Class</mat-label>
-        <mat-select [(ngModel)]="newClassId" name="class" (selectionChange)="onClassChange()" [disabled]="!newCourseId" required>
-          <mat-option *ngFor="let c of availableClasses" [value]="c.id">{{ c['name'] }}</mat-option>
-        </mat-select>
+        <input type="text"
+               matInput
+               [(ngModel)]="classSearchText"
+               name="classSearch"
+               [disabled]="!newCourseId"
+               (input)="filterClasses()"
+               (focus)="filterClasses()"
+               (click)="filterClasses()"
+               (blur)="onClassBlur()"
+               [matAutocomplete]="autoClass"
+               placeholder="{{ !newCourseId ? 'Select a Course first' : 'Search or select Class...' }}"
+               autocomplete="off"
+               required />
+        <button mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="classSearchText && newCourseId"
+                (click)="clearClass()"
+                title="Clear Class"
+                tabindex="-1">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-icon matSuffix *ngIf="!classSearchText" class="dropdown-arrow-icon">arrow_drop_down</mat-icon>
+        <mat-autocomplete #autoClass="matAutocomplete"
+                          [displayWith]="displayEntityName"
+                          (optionSelected)="onClassOptionSelected($event.option.value)">
+          <mat-option *ngFor="let c of filteredClasses" [value]="c">
+            {{ c['name'] || c['title'] }}
+          </mat-option>
+          <mat-option *ngIf="filteredClasses.length === 0" disabled>
+            No matching class found
+          </mat-option>
+        </mat-autocomplete>
       </mat-form-field>
 
+      <!-- New Group -->
       <mat-form-field appearance="outline">
         <mat-label>New Group</mat-label>
-        <mat-select [(ngModel)]="newGroupId" name="group" [disabled]="!newClassId" required>
-          <mat-option *ngFor="let g of availableGroups" [value]="g.id">{{ g['name'] }}</mat-option>
-        </mat-select>
+        <input type="text"
+               matInput
+               [(ngModel)]="groupSearchText"
+               name="groupSearch"
+               [disabled]="!newClassId"
+               (input)="filterGroups()"
+               (focus)="filterGroups()"
+               (click)="filterGroups()"
+               (blur)="onGroupBlur()"
+               [matAutocomplete]="autoGroup"
+               placeholder="{{ !newClassId ? 'Select a Class first' : 'Search or select Group...' }}"
+               autocomplete="off"
+               required />
+        <button mat-icon-button
+                matSuffix
+                type="button"
+                *ngIf="groupSearchText && newClassId"
+                (click)="clearGroup()"
+                title="Clear Group"
+                tabindex="-1">
+          <mat-icon>close</mat-icon>
+        </button>
+        <mat-icon matSuffix *ngIf="!groupSearchText" class="dropdown-arrow-icon">arrow_drop_down</mat-icon>
+        <mat-autocomplete #autoGroup="matAutocomplete"
+                          [displayWith]="displayEntityName"
+                          (optionSelected)="onGroupOptionSelected($event.option.value)">
+          <mat-option *ngFor="let g of filteredGroups" [value]="g">
+            {{ g['name'] || g['title'] }}
+          </mat-option>
+          <mat-option *ngIf="filteredGroups.length === 0" disabled>
+            No matching group found
+          </mat-option>
+        </mat-autocomplete>
       </mat-form-field>
 
       <mat-form-field appearance="outline">

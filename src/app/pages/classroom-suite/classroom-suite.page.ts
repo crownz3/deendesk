@@ -81,6 +81,8 @@ export interface StudentSuiteRosterItem {
   // Hifz Progress Fields
   evalUnitMode?: 'surah' | 'juz' | 'page';
   sabaqSurah: string;
+  sabaqStartSurah?: string;
+  sabaqEndSurah?: string;
   sabaqFromAyah: number | null;
   sabaqToAyah: number | null;
   sabaqMistakes: number | null;
@@ -95,6 +97,8 @@ export interface StudentSuiteRosterItem {
   sabaqEndPage?: number | null;
 
   sabqiSurah?: string;
+  sabqiStartSurah?: string;
+  sabqiEndSurah?: string;
   sabqiFromAyah?: number | null;
   sabqiToAyah?: number | null;
   sabqiJuz: number | null;
@@ -109,6 +113,8 @@ export interface StudentSuiteRosterItem {
   sabqiEndPage?: number | null;
 
   manzilSurah?: string;
+  manzilStartSurah?: string;
+  manzilEndSurah?: string;
   manzilFromAyah?: number | null;
   manzilToAyah?: number | null;
   manzilJuz: number | null;
@@ -194,6 +200,11 @@ export interface StudentSuiteRosterItem {
   weeklyMaktabEndPage?: number | null;
   maktabSubjectsList?: any[];
   hifzLessonsList?: any[];
+  revisionSegments?: any[];
+  manzilSplitMode?: boolean;
+  dawrRepetitionCount?: number;
+  manzilDirection?: 'seedha' | 'reverse';
+  rawProgressRecord?: any;
   // UI-only transient state (not persisted)
   _hoverRating?: number;
 }
@@ -1836,6 +1847,13 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         if (r.student?.id) existingRosterMap.set(r.student.id, r);
       });
 
+      const parseJuzNum = (val: any): number | null => {
+        if (val === undefined || val === null || val === '') return null;
+        if (typeof val === 'number') return isNaN(val) ? null : val;
+        const m = String(val).match(/\d+/);
+        return m ? parseInt(m[0], 10) : null;
+      };
+
       // 4. Build Roster Items
       this.roster = groupStudents.map(student => {
         const stId = student.id || '';
@@ -1930,25 +1948,70 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           manzilNoLessonReason: (existing && existing.manzilNoLessonReason !== undefined) ? existing.manzilNoLessonReason : (prog?.manzilNoLessonReason || hifz?.manzilNoLessonReason || ''),
           maktabNoLesson: (existing && existing.maktabNoLesson !== undefined) ? existing.maktabNoLesson : !!(prog?.maktabNoLesson || maktab?.maktabNoLesson),
           maktabNoLessonReason: (existing && existing.maktabNoLessonReason !== undefined) ? existing.maktabNoLessonReason : (prog?.maktabNoLessonReason || maktab?.maktabNoLessonReason || ''),
+
+          // Hifz Sabaq
+          sabaqEvalUnitMode: (existing && existing.sabaqEvalUnitMode !== undefined)
+            ? existing.sabaqEvalUnitMode
+            : (prog?.sabaqEvalUnitMode || hifz.sabaqEvalUnitMode || (prog?.sabaqStartPortion ? 'portion' : ((prog?.sabaqStartPage !== undefined || hifz.sabaqStartPage !== undefined) ? 'page' : (hifz.sabaqSurahName || prog?.sabaqSurah ? 'surah' : (prog?.sabaqJuz || hifz.sabaqJuzNo ? 'page' : undefined))))),
           sabaqSurah: (existing && existing.sabaqSurah !== undefined) ? existing.sabaqSurah : (hifz.sabaqSurahName || prog?.sabaqSurah || ''),
+          sabaqStartSurah: (existing && existing.sabaqStartSurah !== undefined) ? existing.sabaqStartSurah : (prog?.sabaqStartSurah || hifz.sabaqStartSurah || hifz.sabaqSurahName || prog?.sabaqSurah || ''),
+          sabaqEndSurah: (existing && existing.sabaqEndSurah !== undefined) ? existing.sabaqEndSurah : (prog?.sabaqEndSurah || hifz.sabaqEndSurah || hifz.sabaqSurahName || prog?.sabaqSurah || ''),
           sabaqFromAyah: (existing && existing.sabaqFromAyah !== undefined) ? existing.sabaqFromAyah : (hifz.sabaqFromAyah || prog?.sabaqAyahFrom || null),
           sabaqToAyah: (existing && existing.sabaqToAyah !== undefined) ? existing.sabaqToAyah : (hifz.sabaqToAyah || prog?.sabaqAyahTo || null),
           sabaqMistakes: (existing && existing.sabaqMistakes !== undefined) ? existing.sabaqMistakes : (hifz.sabaqMistakes || prog?.sabaqMistakes || 0),
-          sabaqJuz: (existing && existing.sabaqJuz !== undefined) ? existing.sabaqJuz : (hifz.sabaqJuzNo || prog?.sabaqJuz || null),
-          sabaqJuzPortion: (existing && existing.sabaqJuzPortion !== undefined) ? existing.sabaqJuzPortion : (hifz.sabaqJuzPortion || ((hifz.sabaqJuzNo || prog?.sabaqJuz) ? 'Full Juz' : '')),
-          sabqiSurah: (existing && existing.sabqiSurah !== undefined) ? existing.sabqiSurah : (hifz.sabqiSurahName || ''),
-          sabqiFromAyah: (existing && existing.sabqiFromAyah !== undefined) ? existing.sabqiFromAyah : (hifz.sabqiFromAyah || null),
-          sabqiToAyah: (existing && existing.sabqiToAyah !== undefined) ? existing.sabqiToAyah : (hifz.sabqiToAyah || null),
-          sabqiJuz: (existing && existing.sabqiJuz !== undefined) ? existing.sabqiJuz : (hifz.sabqiJuzNo || (prog?.sabqiJuz ? Number(prog.sabqiJuz) : null) || null),
-          sabqiJuzPortion: (existing && existing.sabqiJuzPortion !== undefined) ? existing.sabqiJuzPortion : (hifz.sabqiJuzPortion || ((hifz.sabqiJuzNo || prog?.sabqiJuz) ? 'Full Juz' : '')),
+          sabaqJuz: (existing && existing.sabaqJuz !== undefined) ? existing.sabaqJuz : parseJuzNum(hifz.sabaqJuzNo || prog?.sabaqStartJuz || prog?.sabaqJuz),
+          sabaqStartJuz: (existing && existing.sabaqStartJuz !== undefined) ? existing.sabaqStartJuz : parseJuzNum(prog?.sabaqStartJuz || hifz.sabaqJuzNo || prog?.sabaqJuz),
+          sabaqEndJuz: (existing && existing.sabaqEndJuz !== undefined) ? existing.sabaqEndJuz : parseJuzNum(prog?.sabaqEndJuz || prog?.sabaqStartJuz || hifz.sabaqJuzNo || prog?.sabaqJuz),
+          sabaqStartPortion: (existing && existing.sabaqStartPortion !== undefined) ? existing.sabaqStartPortion : (prog?.sabaqStartPortion || hifz.sabaqStartPortion || ''),
+          sabaqEndPortion: (existing && existing.sabaqEndPortion !== undefined) ? existing.sabaqEndPortion : (prog?.sabaqEndPortion || hifz.sabaqEndPortion || ''),
+          sabaqStartPage: (existing && existing.sabaqStartPage !== undefined) ? existing.sabaqStartPage : (prog?.sabaqStartPage !== undefined ? prog.sabaqStartPage : (hifz.sabaqStartPage !== undefined ? hifz.sabaqStartPage : null)),
+          sabaqEndPage: (existing && existing.sabaqEndPage !== undefined) ? existing.sabaqEndPage : (prog?.sabaqEndPage !== undefined ? prog.sabaqEndPage : (hifz.sabaqEndPage !== undefined ? hifz.sabaqEndPage : null)),
+          sabaqJuzPortion: (existing && existing.sabaqJuzPortion !== undefined) ? existing.sabaqJuzPortion : (hifz.sabaqJuzPortion || prog?.sabaqStartPortion || ((hifz.sabaqJuzNo || prog?.sabaqJuz) ? 'Full Juz' : '')),
+
+          // Hifz Sabqi
+          sabqiEvalUnitMode: (existing && existing.sabqiEvalUnitMode !== undefined)
+            ? existing.sabqiEvalUnitMode
+            : (prog?.sabqiEvalUnitMode || hifz.sabqiEvalUnitMode || (prog?.sabqiStartPortion ? 'portion' : ((prog?.sabqiStartPage !== undefined || hifz.sabqiStartPage !== undefined) ? 'page' : (hifz.sabqiSurahName || prog?.sabqiSurah ? 'surah' : undefined)))),
+          sabqiSurah: (existing && existing.sabqiSurah !== undefined) ? existing.sabqiSurah : (hifz.sabqiSurahName || prog?.sabqiSurah || ''),
+          sabqiStartSurah: (existing && existing.sabqiStartSurah !== undefined) ? existing.sabqiStartSurah : (prog?.sabqiStartSurah || hifz.sabqiStartSurah || hifz.sabqiSurahName || prog?.sabqiSurah || ''),
+          sabqiEndSurah: (existing && existing.sabqiEndSurah !== undefined) ? existing.sabqiEndSurah : (prog?.sabqiEndSurah || hifz.sabqiEndSurah || hifz.sabqiSurahName || prog?.sabqiSurah || ''),
+          sabqiFromAyah: (existing && existing.sabqiFromAyah !== undefined) ? existing.sabqiFromAyah : (hifz.sabqiFromAyah || prog?.sabqiAyahFrom || null),
+          sabqiToAyah: (existing && existing.sabqiToAyah !== undefined) ? existing.sabqiToAyah : (hifz.sabqiToAyah || prog?.sabqiAyahTo || null),
+          sabqiJuz: (existing && existing.sabqiJuz !== undefined) ? existing.sabqiJuz : parseJuzNum(hifz.sabqiJuzNo || prog?.sabqiStartJuz || prog?.sabqiJuz),
+          sabqiStartJuz: (existing && existing.sabqiStartJuz !== undefined) ? existing.sabqiStartJuz : parseJuzNum(prog?.sabqiStartJuz || hifz.sabqiJuzNo || prog?.sabqiJuz),
+          sabqiEndJuz: (existing && existing.sabqiEndJuz !== undefined) ? existing.sabqiEndJuz : parseJuzNum(prog?.sabqiEndJuz || prog?.sabqiStartJuz || hifz.sabqiJuzNo || prog?.sabqiJuz),
+          sabqiStartPortion: (existing && existing.sabqiStartPortion !== undefined) ? existing.sabqiStartPortion : (prog?.sabqiStartPortion || hifz.sabqiStartPortion || ''),
+          sabqiEndPortion: (existing && existing.sabqiEndPortion !== undefined) ? existing.sabqiEndPortion : (prog?.sabqiEndPortion || hifz.sabqiEndPortion || ''),
+          sabqiStartPage: (existing && existing.sabqiStartPage !== undefined) ? existing.sabqiStartPage : (prog?.sabqiStartPage !== undefined ? prog.sabqiStartPage : (hifz.sabqiStartPage !== undefined ? hifz.sabqiStartPage : null)),
+          sabqiEndPage: (existing && existing.sabqiEndPage !== undefined) ? existing.sabqiEndPage : (prog?.sabqiEndPage !== undefined ? prog.sabqiEndPage : (hifz.sabqiEndPage !== undefined ? hifz.sabqiEndPage : null)),
+          sabqiJuzPortion: (existing && existing.sabqiJuzPortion !== undefined) ? existing.sabqiJuzPortion : (hifz.sabqiJuzPortion || prog?.sabqiStartPortion || ((hifz.sabqiJuzNo || prog?.sabqiJuz) ? 'Full Juz' : '')),
           sabqiMistakes: (existing && existing.sabqiMistakes !== undefined) ? existing.sabqiMistakes : (hifz.sabqiMistakes || prog?.sabqiMistakes || 0),
-          manzilSurah: (existing && existing.manzilSurah !== undefined) ? existing.manzilSurah : (hifz.manzilSurahName || ''),
-          manzilFromAyah: (existing && existing.manzilFromAyah !== undefined) ? existing.manzilFromAyah : (hifz.manzilFromAyah || null),
-          manzilToAyah: (existing && existing.manzilToAyah !== undefined) ? existing.manzilToAyah : (hifz.manzilToAyah || null),
-          manzilJuz: (existing && existing.manzilJuz !== undefined) ? existing.manzilJuz : (hifz.manzilJuzNo || (prog?.manzilJuz ? Number(prog.manzilJuz) : null) || null),
-          manzilJuzPortion: (existing && existing.manzilJuzPortion !== undefined) ? existing.manzilJuzPortion : (hifz.manzilJuzPortion || ((hifz.manzilJuzNo || prog?.manzilJuz) ? 'Full Juz' : '')),
+
+          // Hifz Manzil
+          manzilEvalUnitMode: (existing && existing.manzilEvalUnitMode !== undefined)
+            ? existing.manzilEvalUnitMode
+            : (prog?.manzilEvalUnitMode || hifz.manzilEvalUnitMode || (prog?.manzilStartPortion ? 'portion' : ((prog?.manzilStartPage !== undefined || hifz.manzilStartPage !== undefined) ? 'page' : (hifz.manzilSurahName || prog?.manzilSurah ? 'surah' : 'portion')))),
+          manzilSurah: (existing && existing.manzilSurah !== undefined) ? existing.manzilSurah : (hifz.manzilSurahName || prog?.manzilSurah || ''),
+          manzilStartSurah: (existing && existing.manzilStartSurah !== undefined) ? existing.manzilStartSurah : (prog?.manzilStartSurah || hifz.manzilStartSurah || hifz.manzilSurahName || prog?.manzilSurah || ''),
+          manzilEndSurah: (existing && existing.manzilEndSurah !== undefined) ? existing.manzilEndSurah : (prog?.manzilEndSurah || hifz.manzilEndSurah || hifz.manzilSurahName || prog?.manzilSurah || ''),
+          manzilFromAyah: (existing && existing.manzilFromAyah !== undefined) ? existing.manzilFromAyah : (hifz.manzilFromAyah || prog?.manzilAyahFrom || null),
+          manzilToAyah: (existing && existing.manzilToAyah !== undefined) ? existing.manzilToAyah : (hifz.manzilToAyah || prog?.manzilAyahTo || null),
+          manzilJuz: (existing && existing.manzilJuz !== undefined) ? existing.manzilJuz : parseJuzNum(hifz.manzilJuzNo || prog?.manzilStartJuz || prog?.manzilJuz),
+          manzilStartJuz: (existing && existing.manzilStartJuz !== undefined) ? existing.manzilStartJuz : parseJuzNum(prog?.manzilStartJuz || hifz.manzilJuzNo || prog?.manzilJuz),
+          manzilEndJuz: (existing && existing.manzilEndJuz !== undefined) ? existing.manzilEndJuz : parseJuzNum(prog?.manzilEndJuz || prog?.manzilStartJuz || hifz.manzilJuzNo || prog?.manzilJuz),
+          manzilStartPortion: (existing && existing.manzilStartPortion !== undefined) ? existing.manzilStartPortion : (prog?.manzilStartPortion || hifz.manzilStartPortion || ''),
+          manzilEndPortion: (existing && existing.manzilEndPortion !== undefined) ? existing.manzilEndPortion : (prog?.manzilEndPortion || hifz.manzilEndPortion || ''),
+          manzilStartPage: (existing && existing.manzilStartPage !== undefined) ? existing.manzilStartPage : (prog?.manzilStartPage !== undefined ? prog.manzilStartPage : (hifz.manzilStartPage !== undefined ? hifz.manzilStartPage : null)),
+          manzilEndPage: (existing && existing.manzilEndPage !== undefined) ? existing.manzilEndPage : (prog?.manzilEndPage !== undefined ? prog.manzilEndPage : (hifz.manzilEndPage !== undefined ? hifz.manzilEndPage : null)),
+          manzilJuzPortion: (existing && existing.manzilJuzPortion !== undefined) ? existing.manzilJuzPortion : (hifz.manzilJuzPortion || prog?.manzilStartPortion || ((hifz.manzilJuzNo || prog?.manzilJuz) ? 'Full Juz' : '')),
           manzilMistakes: (existing && existing.manzilMistakes !== undefined) ? existing.manzilMistakes : (hifz.manzilMistakes || prog?.manzilMistakes || 0),
           hifzRating: (existing && existing.hifzRating !== undefined) ? existing.hifzRating : (hifz.rating || prog?.starRating || 5),
+          hifzLessonsList: (existing && existing.hifzLessonsList !== undefined) ? existing.hifzLessonsList : (prog?.hifzLessonsList || []),
+          revisionSegments: (existing && existing.revisionSegments !== undefined) ? existing.revisionSegments : (prog?.revisionSegments || []),
+          manzilSplitMode: (existing && existing.manzilSplitMode !== undefined) ? existing.manzilSplitMode : (prog?.isSplitRevision || false),
+          dawrRepetitionCount: (existing && existing.dawrRepetitionCount !== undefined) ? existing.dawrRepetitionCount : (prog?.dawrRepetitionCount || 1),
+          manzilDirection: (existing && existing.manzilDirection !== undefined) ? existing.manzilDirection : (prog?.manzilDirection || 'seedha'),
+
           dawrRoundNo: (existing && existing.dawrRoundNo !== undefined) ? existing.dawrRoundNo : (dawr.roundNo || prog?.daurRoundNumber || prog?.dawrRoundNumber || null),
           dawrPortionJuz: (existing && existing.dawrPortionJuz !== undefined) ? existing.dawrPortionJuz : (dawr.portionJuz || (prog?.daurJuzFrom ? `Juz ${prog?.daurJuzFrom}` : null)),
           dawrFromAyah: (existing && existing.dawrFromAyah !== undefined) ? existing.dawrFromAyah : (dawr.fromAyah || null),
@@ -1971,7 +2034,11 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           tilawatFromPage: (existing && existing.tilawatFromPage !== undefined) ? existing.tilawatFromPage : (prog?.quranReading?.fromPage || maktab.fromPage || prog?.tilawatFromPage || null),
           tilawatToPage: (existing && existing.tilawatToPage !== undefined) ? existing.tilawatToPage : (prog?.quranReading?.toPage || maktab.toPage || prog?.tilawatToPage || null),
           quranReading: (existing && existing.quranReading !== undefined) ? existing.quranReading : (prog?.quranReading || maktab.quranReading || null),
-          maktabSubjectsList: (existing && existing.maktabSubjectsList !== undefined) ? existing.maktabSubjectsList : (prog?.maktabSubjectsList || [])
+          maktabSubjectsList: (existing && existing.maktabSubjectsList !== undefined) ? existing.maktabSubjectsList : (prog?.maktabSubjectsList || []),
+          weeklyRating: (existing && existing.weeklyRating !== undefined) ? existing.weeklyRating : (prog?.starRating || hifz.rating || 5),
+          weeklyMistakes: (existing && existing.weeklyMistakes !== undefined) ? existing.weeklyMistakes : (prog?.overallMistakes !== undefined ? prog.overallMistakes : (hifz.sabaqMistakes || 0)),
+          weeklyNotes: (existing && existing.weeklyNotes !== undefined) ? existing.weeklyNotes : (prog?.remarks || ''),
+          rawProgressRecord: prog || null
         };
       });
 
@@ -2793,12 +2860,16 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         let sabaqText = '';
         if (item.sabaqNoLesson) {
           sabaqText = `No New Lesson (${item.sabaqNoLessonReason || 'Not Prepared'})`;
+        } else if (item.sabaqEvalUnitMode === 'page' || (item.sabaqStartPage !== null && item.sabaqStartPage !== undefined && item.sabaqStartPage > 0)) {
+          sabaqText = `Juz ${sabaqJuz || 1} (Pg ${item.sabaqStartPage || item.weeklySabaqStartPage || 1}–${item.sabaqEndPage || item.weeklySabaqEndPage || 1})`;
+        } else if (item.sabaqEvalUnitMode === 'surah' || (sabaq && !sabaqPortion && !item.sabaqEvalUnitMode)) {
+          sabaqText = `${sabaq} (${item.weeklySabaqStartAyah || item.sabaqFromAyah || 1}–${item.weeklySabaqEndAyah || item.sabaqToAyah || 1})`;
         } else if (sabaqPortion && sabaqJuz) {
           sabaqText = `Juz ${sabaqJuz} (${sabaqPortion})`;
-        } else if (sabaq) {
-          sabaqText = `${sabaq} (${item.weeklySabaqStartAyah || item.sabaqFromAyah || 1}–${item.weeklySabaqEndAyah || item.sabaqToAyah || 1})`;
         } else if (sabaqJuz) {
           sabaqText = `Juz ${sabaqJuz} (Pg ${item.weeklySabaqStartPage || item.sabaqStartPage || 1}–${item.weeklySabaqEndPage || item.sabaqEndPage || 1})`;
+        } else if (sabaq) {
+          sabaqText = `${sabaq} (${item.weeklySabaqStartAyah || item.sabaqFromAyah || 1}–${item.weeklySabaqEndAyah || item.sabaqToAyah || 1})`;
         }
 
         let sabqiFinalText = '';
@@ -2930,7 +3001,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         currentUser: this.currentUser,
         isOrgAdmin: this.isOrgAdmin,
         isSuperAdmin: this.isSuperAdmin,
-        currentRosterItem: item
+        currentRosterItem: item,
+        rawProgressRecord: item.rawProgressRecord || null
       }
     });
 
@@ -2941,6 +3013,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         return;
       }
       if (res && res.saved) {
+        item.rawProgressRecord = res.dailyPayload || res;
         if (res.updatedProgress) {
           item.student['progress'] = res.updatedProgress;
         }
@@ -3057,6 +3130,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             item.dawrRating = res.starRating || 5;
           }
 
+          item.revisionSegments = res.revisionSegments || [];
+          item.manzilSplitMode = res.manzilSplitMode || false;
+          item.dawrRepetitionCount = res.dawrRepetitionCount || 1;
+          item.manzilDirection = res.manzilDirection || 'seedha';
           item.hifzLessonsList = res.hifzLessonsList;
         }
 

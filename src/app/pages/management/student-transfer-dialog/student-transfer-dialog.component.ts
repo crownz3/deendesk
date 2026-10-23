@@ -28,6 +28,18 @@ export class StudentTransferDialogComponent implements OnInit {
   classes: EntityRecord[] = [];
   groups: EntityRecord[] = [];
 
+  // Filtered lists for autocomplete
+  filteredMadrasas: EntityRecord[] = [];
+  filteredCourses: EntityRecord[] = [];
+  filteredClasses: EntityRecord[] = [];
+  filteredGroups: EntityRecord[] = [];
+
+  // Search input texts
+  madrasaSearchText = '';
+  courseSearchText = '';
+  classSearchText = '';
+  groupSearchText = '';
+
   newMadrasaId = '';
   newCourseId = '';
   newClassId = '';
@@ -71,12 +83,53 @@ export class StudentTransferDialogComponent implements OnInit {
       this.courses = courses.filter((c: any) => c['status'] === 'active');
       this.classes = classes.filter((c: any) => c['status'] === 'active');
       this.groups = groups.filter((g: any) => g['status'] === 'active');
+
+      this.syncSearchTexts();
     } catch (e) {
       console.error(e);
       this.snackBar.open('Failed to load data', 'Close', { duration: 3000 });
     } finally {
       this.loading = false;
     }
+  }
+
+  syncSearchTexts(): void {
+    const m = this.madrasas.find(x => x.id === this.newMadrasaId);
+    if (m) {
+      this.madrasaSearchText = m['name'] || m['title'] || '';
+    } else {
+      this.newMadrasaId = '';
+      this.madrasaSearchText = '';
+    }
+
+    const c = this.availableCourses.find(x => x.id === this.newCourseId);
+    if (c) {
+      this.courseSearchText = c['name'] || c['title'] || '';
+    } else {
+      this.newCourseId = '';
+      this.courseSearchText = '';
+    }
+
+    const cl = this.availableClasses.find(x => x.id === this.newClassId);
+    if (cl) {
+      this.classSearchText = cl['name'] || cl['title'] || '';
+    } else {
+      this.newClassId = '';
+      this.classSearchText = '';
+    }
+
+    const g = this.availableGroups.find(x => x.id === this.newGroupId);
+    if (g) {
+      this.groupSearchText = g['name'] || g['title'] || '';
+    } else {
+      this.newGroupId = '';
+      this.groupSearchText = '';
+    }
+
+    this.filterMadrasas();
+    this.filterCourses();
+    this.filterClasses();
+    this.filterGroups();
   }
 
   get availableCourses() {
@@ -92,19 +145,214 @@ export class StudentTransferDialogComponent implements OnInit {
     return this.groups.filter(g => g['classId'] === this.newClassId);
   }
 
+  filterMadrasas(): void {
+    const selected = this.madrasas.find(m => m.id === this.newMadrasaId);
+    const selectedName = selected ? (selected['name'] || selected['title'] || '').toLowerCase().trim() : '';
+    const q = (this.madrasaSearchText || '').toLowerCase().trim();
+
+    if (!q || q === selectedName) {
+      this.filteredMadrasas = [...this.madrasas];
+    } else {
+      this.filteredMadrasas = this.madrasas.filter(m => {
+        const name = (m['name'] || m['title'] || '').toLowerCase();
+        return name.includes(q);
+      });
+    }
+  }
+
+  filterCourses(): void {
+    const list = this.availableCourses;
+    const selected = list.find(c => c.id === this.newCourseId);
+    const selectedName = selected ? (selected['name'] || selected['title'] || '').toLowerCase().trim() : '';
+    const q = (this.courseSearchText || '').toLowerCase().trim();
+
+    if (!q || q === selectedName) {
+      this.filteredCourses = [...list];
+    } else {
+      this.filteredCourses = list.filter(c => {
+        const name = (c['name'] || c['title'] || '').toLowerCase();
+        return name.includes(q);
+      });
+    }
+  }
+
+  filterClasses(): void {
+    const list = this.availableClasses;
+    const selected = list.find(c => c.id === this.newClassId);
+    const selectedName = selected ? (selected['name'] || selected['title'] || '').toLowerCase().trim() : '';
+    const q = (this.classSearchText || '').toLowerCase().trim();
+
+    if (!q || q === selectedName) {
+      this.filteredClasses = [...list];
+    } else {
+      this.filteredClasses = list.filter(c => {
+        const name = (c['name'] || c['title'] || '').toLowerCase();
+        return name.includes(q);
+      });
+    }
+  }
+
+  filterGroups(): void {
+    const list = this.availableGroups;
+    const selected = list.find(g => g.id === this.newGroupId);
+    const selectedName = selected ? (selected['name'] || selected['title'] || '').toLowerCase().trim() : '';
+    const q = (this.groupSearchText || '').toLowerCase().trim();
+
+    if (!q || q === selectedName) {
+      this.filteredGroups = [...list];
+    } else {
+      this.filteredGroups = list.filter(g => {
+        const name = (g['name'] || g['title'] || '').toLowerCase();
+        return name.includes(q);
+      });
+    }
+  }
+
+  onMadrasaOptionSelected(m: EntityRecord): void {
+    if (!m) return;
+    this.newMadrasaId = m.id || '';
+    this.madrasaSearchText = m['name'] || m['title'] || '';
+    this.onMadrasaChange();
+  }
+
+  onCourseOptionSelected(c: EntityRecord): void {
+    if (!c) return;
+    this.newCourseId = c.id || '';
+    this.courseSearchText = c['name'] || c['title'] || '';
+    this.onCourseChange();
+  }
+
+  onClassOptionSelected(c: EntityRecord): void {
+    if (!c) return;
+    this.newClassId = c.id || '';
+    this.classSearchText = c['name'] || c['title'] || '';
+    this.onClassChange();
+  }
+
+  onGroupOptionSelected(g: EntityRecord): void {
+    if (!g) return;
+    this.newGroupId = g.id || '';
+    this.groupSearchText = g['name'] || g['title'] || '';
+  }
+
+  onMadrasaBlur(): void {
+    setTimeout(() => {
+      const trimmed = (this.madrasaSearchText || '').trim().toLowerCase();
+      const exactMatch = this.madrasas.find(m => (m['name'] || m['title'] || '').trim().toLowerCase() === trimmed);
+      if (exactMatch) {
+        if (this.newMadrasaId !== exactMatch.id) {
+          this.onMadrasaOptionSelected(exactMatch);
+        }
+      } else {
+        const current = this.madrasas.find(m => m.id === this.newMadrasaId);
+        this.madrasaSearchText = current ? (current['name'] || current['title'] || '') : '';
+      }
+    }, 200);
+  }
+
+  onCourseBlur(): void {
+    setTimeout(() => {
+      const trimmed = (this.courseSearchText || '').trim().toLowerCase();
+      const exactMatch = this.availableCourses.find(c => (c['name'] || c['title'] || '').trim().toLowerCase() === trimmed);
+      if (exactMatch) {
+        if (this.newCourseId !== exactMatch.id) {
+          this.onCourseOptionSelected(exactMatch);
+        }
+      } else {
+        const current = this.availableCourses.find(c => c.id === this.newCourseId);
+        this.courseSearchText = current ? (current['name'] || current['title'] || '') : '';
+      }
+    }, 200);
+  }
+
+  onClassBlur(): void {
+    setTimeout(() => {
+      const trimmed = (this.classSearchText || '').trim().toLowerCase();
+      const exactMatch = this.availableClasses.find(c => (c['name'] || c['title'] || '').trim().toLowerCase() === trimmed);
+      if (exactMatch) {
+        if (this.newClassId !== exactMatch.id) {
+          this.onClassOptionSelected(exactMatch);
+        }
+      } else {
+        const current = this.availableClasses.find(c => c.id === this.newClassId);
+        this.classSearchText = current ? (current['name'] || current['title'] || '') : '';
+      }
+    }, 200);
+  }
+
+  onGroupBlur(): void {
+    setTimeout(() => {
+      const trimmed = (this.groupSearchText || '').trim().toLowerCase();
+      const exactMatch = this.availableGroups.find(g => (g['name'] || g['title'] || '').trim().toLowerCase() === trimmed);
+      if (exactMatch) {
+        if (this.newGroupId !== exactMatch.id) {
+          this.onGroupOptionSelected(exactMatch);
+        }
+      } else {
+        const current = this.availableGroups.find(g => g.id === this.newGroupId);
+        this.groupSearchText = current ? (current['name'] || current['title'] || '') : '';
+      }
+    }, 200);
+  }
+
+  clearMadrasa(): void {
+    this.newMadrasaId = '';
+    this.madrasaSearchText = '';
+    this.onMadrasaChange();
+    this.filterMadrasas();
+  }
+
+  clearCourse(): void {
+    this.newCourseId = '';
+    this.courseSearchText = '';
+    this.onCourseChange();
+    this.filterCourses();
+  }
+
+  clearClass(): void {
+    this.newClassId = '';
+    this.classSearchText = '';
+    this.onClassChange();
+    this.filterClasses();
+  }
+
+  clearGroup(): void {
+    this.newGroupId = '';
+    this.groupSearchText = '';
+    this.filterGroups();
+  }
+
+  displayEntityName = (item: any): string => {
+    if (!item) return '';
+    if (typeof item === 'string') return item;
+    return item['name'] || item['title'] || '';
+  };
+
   onMadrasaChange() {
     this.newCourseId = '';
+    this.courseSearchText = '';
     this.newClassId = '';
+    this.classSearchText = '';
     this.newGroupId = '';
+    this.groupSearchText = '';
+    this.filterCourses();
+    this.filterClasses();
+    this.filterGroups();
   }
 
   onCourseChange() {
     this.newClassId = '';
+    this.classSearchText = '';
     this.newGroupId = '';
+    this.groupSearchText = '';
+    this.filterClasses();
+    this.filterGroups();
   }
 
   onClassChange() {
     this.newGroupId = '';
+    this.groupSearchText = '';
+    this.filterGroups();
   }
 
   close() {

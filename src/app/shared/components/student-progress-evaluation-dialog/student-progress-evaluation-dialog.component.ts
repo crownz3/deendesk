@@ -60,6 +60,7 @@ export interface StudentProgressEvaluationDialogData {
   isOrgAdmin?: boolean;
   isSuperAdmin?: boolean;
   currentRosterItem?: any;
+  rawProgressRecord?: any;
 }
 
 @Component({
@@ -424,8 +425,242 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
 
     await this.loadOrgConfiguredSubjects();
     this.initFromExistingRoster();
+    await this.loadCurrentEvaluation();
     await this.fetchStudentHistoricalProgress();
     this.captureInitialSnapshot();
+  }
+
+  async loadCurrentEvaluation(): Promise<void> {
+    let currentRec = this.data.rawProgressRecord || this.data.currentRosterItem?.rawProgressRecord;
+    const stId = String(this.student?.id || this.student?.['uid'] || '');
+    if (!currentRec && stId) {
+      try {
+        const firestore = getDeenDeskFirestore();
+        if (this.evalCadence === 'weekly') {
+          const wRef = doc(firestore, 'studentWeeklyProgress', `${stId}_week_${this.data.selectedWeekYear}_${this.data.selectedWeekNumber}`);
+          const snap = await getDoc(wRef);
+          if (snap.exists()) {
+            currentRec = snap.data();
+          }
+        } else {
+          const dRef = doc(firestore, 'studentDailyProgress', `${stId}_${this.data.selectedDateStr}`);
+          const snap = await getDoc(dRef);
+          if (snap.exists()) {
+            currentRec = snap.data();
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch current progress record:', err);
+      }
+    }
+
+    if (currentRec) {
+      this.applyProgressRecord(currentRec);
+    }
+  }
+
+  applyProgressRecord(rec: any): void {
+    if (!rec) return;
+
+    const parseJuz = (val: any): number | null => {
+      if (val === undefined || val === null || val === '') return null;
+      if (typeof val === 'number') return isNaN(val) ? null : val;
+      const m = String(val).match(/\d+/);
+      return m ? parseInt(m[0], 10) : null;
+    };
+
+    this.noLesson = !!rec.noLesson;
+    this.noLessonReason = rec.noLessonReason || this.noLessonReason || 'Not Prepared / Unmemorized';
+    this.sabaqNoLesson = !!rec.sabaqNoLesson;
+    this.sabaqNoLessonReason = rec.sabaqNoLessonReason || this.sabaqNoLessonReason || 'Not Prepared';
+    this.sabqiNoLesson = !!rec.sabqiNoLesson;
+    this.sabqiNoLessonReason = rec.sabqiNoLessonReason || this.sabqiNoLessonReason || 'Not Assigned';
+    this.manzilNoLesson = !!rec.manzilNoLesson;
+    this.manzilNoLessonReason = rec.manzilNoLessonReason || this.manzilNoLessonReason || 'Revision Focus';
+    this.maktabNoLesson = !!rec.maktabNoLesson;
+    this.maktabNoLessonReason = rec.maktabNoLessonReason || this.maktabNoLessonReason || 'Not Prepared';
+
+    if (rec.starRating !== undefined && rec.starRating !== null) this.starRating = rec.starRating;
+    else if (rec.hifz?.rating !== undefined && rec.hifz?.rating !== null) this.starRating = rec.hifz.rating;
+    else if (rec.hifzProgress?.rating !== undefined && rec.hifzProgress?.rating !== null) this.starRating = rec.hifzProgress.rating;
+
+    if (rec.overallMistakes !== undefined && rec.overallMistakes !== null) this.overallMistakes = rec.overallMistakes;
+    else if (rec.sabaqMistakes !== undefined && rec.sabaqMistakes !== null) this.overallMistakes = rec.sabaqMistakes;
+    else if (rec.hifz?.weeklyMistakes !== undefined && rec.hifz?.weeklyMistakes !== null) this.overallMistakes = rec.hifz.weeklyMistakes;
+
+    this.remarks = rec.remarks || rec.notes || rec.hifz?.notes || this.remarks;
+    if (rec.grade) this.performanceGrade = rec.grade;
+
+    if (this.studentTypeMode === 'maktab') {
+      const m = rec.maktabProgress || rec.maktab || rec;
+      if (rec.maktabStageMode) {
+        this.maktabStageMode = rec.maktabStageMode;
+      } else if (m.stage === 'Tilawatul Quran' || rec.quranReading || (rec.maktabSubject && rec.maktabSubject.startsWith('Quran:'))) {
+        this.maktabStageMode = 'tilawatul_quran';
+      }
+
+      if (this.maktabStageMode === 'tilawatul_quran') {
+        const qr = rec.quranReading || m;
+        this.tilawatSurah = qr.surahName || (rec.maktabSubject ? rec.maktabSubject.replace('Quran: ', '') : this.tilawatSurah);
+        this.tilawatFromAyah = qr.fromAyah ?? this.tilawatFromAyah;
+        this.tilawatToAyah = qr.toAyah ?? this.tilawatToAyah;
+        this.tilawatJuz = parseJuz(qr.juzNo) ?? this.tilawatJuz;
+        this.tilawatFromPage = qr.fromPage ?? this.tilawatFromPage;
+        this.tilawatToPage = qr.toPage ?? this.tilawatToPage;
+        this.tilawatEvalMode = qr.evalMode || (this.tilawatJuz ? 'juz' : 'surah');
+      } else {
+        if (Array.isArray(rec.maktabSubjectsList) && rec.maktabSubjectsList.length > 0) {
+          this.maktabSubjects = JSON.parse(JSON.stringify(rec.maktabSubjectsList));
+        } else if (m.subjectName || rec.maktabSubject) {
+          this.maktabSubjects = [{
+            subject: m.subjectName || rec.maktabSubject,
+            stage: '',
+            startPage: m.startPage || 1,
+            endPage: m.pageNo || m.endPage || rec.maktabPageNo || 1,
+            lineNo: m.lineNo || rec.maktabLessonNo || 1,
+            notes: ''
+          }];
+        }
+      }
+    } else {
+      // Hifz / Dawr
+      const h = rec.hifz || rec.hifzProgress || {};
+      const d = rec.dawr || rec.dawrProgress || {};
+
+      // 1. Sabaq
+      this.sabaqStartSurah = rec.sabaqStartSurah || h.sabaqStartSurah || h.sabaqSurahName || rec.sabaqSurah || '';
+      this.sabaqStartAyah = rec.sabaqStartAyah ?? rec.sabaqAyahFrom ?? h.sabaqStartAyah ?? h.sabaqFromAyah ?? null;
+      this.sabaqEndSurah = rec.sabaqEndSurah || h.sabaqEndSurah || h.sabaqSurahName || rec.sabaqSurah || '';
+      this.sabaqEndAyah = rec.sabaqEndAyah ?? rec.sabaqAyahTo ?? h.sabaqEndAyah ?? h.sabaqToAyah ?? null;
+
+      const sJuz = parseJuz(rec.sabaqStartJuz || h.sabaqStartJuz || h.sabaqJuzNo || rec.sabaqJuz);
+      if (sJuz !== null) {
+        this.sabaqStartJuz = sJuz;
+        this.sabaqEndJuz = parseJuz(rec.sabaqEndJuz || h.sabaqEndJuz || h.sabaqJuzNo || rec.sabaqJuz || sJuz);
+        this.sabaqJuz = sJuz;
+      }
+
+      this.sabaqStartPortion = rec.sabaqStartPortion || h.sabaqStartPortion || (this.sabaqStartJuz ? 'Full Juz' : this.sabaqStartPortion);
+      this.sabaqEndPortion = rec.sabaqEndPortion || h.sabaqEndPortion || (this.sabaqEndJuz ? 'Full Juz' : this.sabaqEndPortion);
+
+      if (rec.sabaqStartPage !== undefined && rec.sabaqStartPage !== null) this.sabaqStartPage = rec.sabaqStartPage;
+      else if (h.sabaqStartPage !== undefined && h.sabaqStartPage !== null) this.sabaqStartPage = h.sabaqStartPage;
+
+      if (rec.sabaqEndPage !== undefined && rec.sabaqEndPage !== null) this.sabaqEndPage = rec.sabaqEndPage;
+      else if (h.sabaqEndPage !== undefined && h.sabaqEndPage !== null) this.sabaqEndPage = h.sabaqEndPage;
+
+      if (rec.sabaqMistakes !== undefined && rec.sabaqMistakes !== null) this.sabaqMistakes = rec.sabaqMistakes;
+      else if (h.sabaqMistakes !== undefined && h.sabaqMistakes !== null) this.sabaqMistakes = h.sabaqMistakes;
+
+      const sabaqMode = rec.sabaqEvalUnitMode || h.sabaqEvalUnitMode;
+      if (sabaqMode) {
+        this.sabaqEvalUnitMode = sabaqMode;
+      } else if (this.sabaqStartPage !== null && this.sabaqStartPage !== undefined) {
+        this.sabaqEvalUnitMode = 'page';
+      } else if (this.sabaqStartPortion && this.sabaqStartPortion !== 'Full Juz') {
+        this.sabaqEvalUnitMode = 'portion';
+      } else if (this.sabaqStartSurah || this.sabaqEndSurah) {
+        this.sabaqEvalUnitMode = 'surah';
+      } else if (this.sabaqStartJuz) {
+        this.sabaqEvalUnitMode = (this.sabaqStartPage !== null) ? 'page' : 'portion';
+      }
+
+      // 2. Sabqi
+      this.sabqiStartSurah = rec.sabqiStartSurah || h.sabqiStartSurah || h.sabqiSurahName || rec.sabqiSurah || '';
+      this.sabqiStartAyah = rec.sabqiStartAyah ?? rec.sabqiAyahFrom ?? h.sabqiStartAyah ?? h.sabqiFromAyah ?? null;
+      this.sabqiEndSurah = rec.sabqiEndSurah || h.sabqiEndSurah || h.sabqiSurahName || rec.sabqiSurah || '';
+      this.sabqiEndAyah = rec.sabqiEndAyah ?? rec.sabqiAyahTo ?? h.sabqiEndAyah ?? h.sabqiToAyah ?? null;
+
+      const sabqJuz = parseJuz(rec.sabqiStartJuz || h.sabqiStartJuz || h.sabqiJuzNo || rec.sabqiJuz);
+      if (sabqJuz !== null) {
+        this.sabqiStartJuz = sabqJuz;
+        this.sabqiEndJuz = parseJuz(rec.sabqiEndJuz || h.sabqiEndJuz || h.sabqiJuzNo || rec.sabqiJuz || sabqJuz);
+        this.sabqiJuz = sabqJuz;
+      }
+
+      this.sabqiStartPortion = rec.sabqiStartPortion || h.sabqiStartPortion || (this.sabqiStartJuz ? 'Full Juz' : this.sabqiStartPortion);
+      this.sabqiEndPortion = rec.sabqiEndPortion || h.sabqiEndPortion || (this.sabqiEndJuz ? 'Full Juz' : this.sabqiEndPortion);
+
+      if (rec.sabqiStartPage !== undefined && rec.sabqiStartPage !== null) this.sabqiStartPage = rec.sabqiStartPage;
+      else if (h.sabqiStartPage !== undefined && h.sabqiStartPage !== null) this.sabqiStartPage = h.sabqiStartPage;
+
+      if (rec.sabqiEndPage !== undefined && rec.sabqiEndPage !== null) this.sabqiEndPage = rec.sabqiEndPage;
+      else if (h.sabqiEndPage !== undefined && h.sabqiEndPage !== null) this.sabqiEndPage = h.sabqiEndPage;
+
+      if (rec.sabqiMistakes !== undefined && rec.sabqiMistakes !== null) this.sabqiMistakes = rec.sabqiMistakes;
+      else if (h.sabqiMistakes !== undefined && h.sabqiMistakes !== null) this.sabqiMistakes = h.sabqiMistakes;
+
+      const sabqiMode = rec.sabqiEvalUnitMode || h.sabqiEvalUnitMode;
+      if (sabqiMode) {
+        this.sabqiEvalUnitMode = sabqiMode;
+      } else if (this.sabqiStartPage !== null && this.sabqiStartPage !== undefined) {
+        this.sabqiEvalUnitMode = 'page';
+      } else if (this.sabqiStartPortion && this.sabqiStartPortion !== 'Full Juz') {
+        this.sabqiEvalUnitMode = 'portion';
+      } else if (this.sabqiStartSurah || this.sabqiEndSurah) {
+        this.sabqiEvalUnitMode = 'surah';
+      } else if (this.sabqiStartJuz) {
+        this.sabqiEvalUnitMode = (this.sabqiStartPage !== null) ? 'page' : 'portion';
+      }
+
+      // 3. Manzil / Revision
+      this.manzilStartSurah = rec.manzilStartSurah || h.manzilStartSurah || h.manzilSurahName || rec.manzilSurah || '';
+      this.manzilStartAyah = rec.manzilStartAyah ?? rec.manzilAyahFrom ?? h.manzilStartAyah ?? h.manzilFromAyah ?? null;
+      this.manzilEndSurah = rec.manzilEndSurah || h.manzilEndSurah || h.manzilSurahName || rec.manzilSurah || '';
+      this.manzilEndAyah = rec.manzilEndAyah ?? rec.manzilAyahTo ?? h.manzilEndAyah ?? h.manzilToAyah ?? null;
+
+      const mJuz = parseJuz(rec.manzilStartJuz || h.manzilStartJuz || h.manzilJuzNo || rec.manzilJuz);
+      if (mJuz !== null) {
+        this.manzilStartJuz = mJuz;
+        this.manzilEndJuz = parseJuz(rec.manzilEndJuz || h.manzilEndJuz || h.manzilJuzNo || rec.manzilJuz || mJuz);
+      }
+
+      this.manzilStartPortion = rec.manzilStartPortion || h.manzilStartPortion || (this.manzilStartJuz ? 'Full Juz' : this.manzilStartPortion);
+      this.manzilEndPortion = rec.manzilEndPortion || h.manzilEndPortion || (this.manzilEndJuz ? 'Full Juz' : this.manzilEndPortion);
+
+      if (rec.manzilStartPage !== undefined && rec.manzilStartPage !== null) this.manzilStartPage = rec.manzilStartPage;
+      else if (h.manzilStartPage !== undefined && h.manzilStartPage !== null) this.manzilStartPage = h.manzilStartPage;
+
+      if (rec.manzilEndPage !== undefined && rec.manzilEndPage !== null) this.manzilEndPage = rec.manzilEndPage;
+      else if (h.manzilEndPage !== undefined && h.manzilEndPage !== null) this.manzilEndPage = h.manzilEndPage;
+
+      if (rec.manzilMistakes !== undefined && rec.manzilMistakes !== null) this.manzilMistakes = rec.manzilMistakes;
+      else if (h.manzilMistakes !== undefined && h.manzilMistakes !== null) this.manzilMistakes = h.manzilMistakes;
+
+      const manzilMode = rec.manzilEvalUnitMode || h.manzilEvalUnitMode;
+      if (manzilMode) {
+        this.manzilEvalUnitMode = manzilMode;
+      } else if (this.manzilStartPage !== null && this.manzilStartPage !== undefined) {
+        this.manzilEvalUnitMode = 'page';
+      } else if (this.manzilStartPortion || this.manzilStartJuz) {
+        this.manzilEvalUnitMode = 'portion';
+      } else if (this.manzilStartSurah || this.manzilEndSurah) {
+        this.manzilEvalUnitMode = 'surah';
+      }
+
+      this.manzilDirection = rec.manzilDirection || d.direction || this.manzilDirection;
+      this.manzilSplitMode = !!(rec.isSplitRevision || d.isSplitRevision);
+      if (Array.isArray(rec.revisionSegments) && rec.revisionSegments.length > 0) {
+        this.revisionSegments = rec.revisionSegments;
+      } else if (Array.isArray(d.revisionSegments) && d.revisionSegments.length > 0) {
+        this.revisionSegments = d.revisionSegments;
+      }
+      this.dawrRepetitionCount = rec.dawrRepetitionCount || d.repetitionCount || this.dawrRepetitionCount;
+      this.dawrRoundNo = rec.dawrRoundNo || d.roundNo || this.dawrRoundNo;
+      this.dawrWeeklyJuzCount = rec.dawrWeeklyJuzCount || d.weeklyJuzCount || this.dawrWeeklyJuzCount;
+
+      if (Array.isArray(rec.hifzLessonsList) && rec.hifzLessonsList.length > 0) {
+        this.extraLessonsList = JSON.parse(JSON.stringify(rec.hifzLessonsList));
+      }
+
+      if (this.sabaqStartPage || this.sabaqJuz || this.sabaqStartJuz) {
+        this.hifzEvalUnitMode = 'juz';
+      } else {
+        this.hifzEvalUnitMode = 'surah';
+      }
+    }
+
+    this.updateGradeFromRating();
   }
 
   async loadOrgConfiguredSubjects(): Promise<void> {
@@ -575,44 +810,93 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       }
     } else {
       // Hifz / Dawr
-      this.sabaqEvalUnitMode = item.sabaqEvalUnitMode || (item.sabaqStartPortion ? 'portion' : ((item.sabaqStartPage || item.weeklySabaqStartPage) ? 'page' : 'surah'));
-      this.sabaqStartSurah = item.weeklySabaqStartSurah || item.sabaqSurah || '';
-      this.sabaqStartAyah = item.weeklySabaqStartAyah || item.sabaqFromAyah || null;
-      this.sabaqEndSurah = item.weeklySabaqEndSurah || item.sabaqSurah || '';
-      this.sabaqEndAyah = item.weeklySabaqEndAyah || item.sabaqToAyah || null;
-      this.sabaqStartJuz = item.sabaqStartJuz || item.weeklySabaqStartJuz || item.sabaqJuzNo || null;
-      this.sabaqStartPortion = item.sabaqStartPortion || item.weeklySabaqStartPortion || 'Full Juz';
-      this.sabaqEndJuz = item.sabaqEndJuz || item.weeklySabaqEndJuz || item.sabaqJuzNo || this.sabaqStartJuz;
-      this.sabaqEndPortion = item.sabaqEndPortion || item.weeklySabaqEndPortion || 'Full Juz';
+      const parseJuz = (val: any): number | null => {
+        if (val === undefined || val === null || val === '') return null;
+        if (typeof val === 'number') return isNaN(val) ? null : val;
+        const m = String(val).match(/\d+/);
+        return m ? parseInt(m[0], 10) : null;
+      };
+
+      // 1. Sabaq
+      this.sabaqStartSurah = item.sabaqStartSurah || item.weeklySabaqStartSurah || item.sabaqSurah || '';
+      this.sabaqStartAyah = item.sabaqStartAyah ?? item.weeklySabaqStartAyah ?? item.sabaqFromAyah ?? null;
+      this.sabaqEndSurah = item.sabaqEndSurah || item.weeklySabaqEndSurah || item.sabaqSurah || '';
+      this.sabaqEndAyah = item.sabaqEndAyah ?? item.weeklySabaqEndAyah ?? item.sabaqToAyah ?? null;
+      this.sabaqStartJuz = parseJuz(item.sabaqStartJuz || item.weeklySabaqStartJuz || item.sabaqJuz || item.sabaqJuzNo);
+      this.sabaqEndJuz = parseJuz(item.sabaqEndJuz || item.weeklySabaqEndJuz || item.sabaqJuz || item.sabaqJuzNo || this.sabaqStartJuz);
       this.sabaqJuz = this.sabaqStartJuz;
-      this.sabaqStartPage = item.weeklySabaqStartPage || item.sabaqStartPage || null;
-      this.sabaqEndPage = item.weeklySabaqEndPage || item.sabaqEndPage || null;
-      this.sabaqMistakes = item.sabaqMistakes || null;
+      this.sabaqStartPortion = item.sabaqStartPortion || item.weeklySabaqStartPortion || (this.sabaqStartJuz ? 'Full Juz' : '');
+      this.sabaqEndPortion = item.sabaqEndPortion || item.weeklySabaqEndPortion || (this.sabaqEndJuz ? 'Full Juz' : '');
+      this.sabaqStartPage = item.sabaqStartPage ?? item.weeklySabaqStartPage ?? null;
+      this.sabaqEndPage = item.sabaqEndPage ?? item.weeklySabaqEndPage ?? null;
+      this.sabaqMistakes = item.sabaqMistakes ?? null;
 
-      this.sabqiEvalUnitMode = item.sabqiEvalUnitMode || (item.sabqiStartPortion ? 'portion' : ((item.sabqiStartPage || item.weeklySabqiStartPage) ? 'page' : 'surah'));
-      this.sabqiStartSurah = item.weeklySabqiStartSurah || item.sabqiSurah || '';
-      this.sabqiStartAyah = item.weeklySabqiStartAyah || item.sabqiFromAyah || null;
-      this.sabqiEndSurah = item.weeklySabqiEndSurah || item.sabqiSurah || '';
-      this.sabqiEndAyah = item.weeklySabqiEndAyah || item.sabqiToAyah || null;
-      this.sabqiStartJuz = item.sabqiStartJuz || item.weeklySabqiStartJuz || item.sabqiJuz || null;
-      this.sabqiStartPortion = item.sabqiStartPortion || item.weeklySabqiStartPortion || 'Full Juz';
-      this.sabqiEndJuz = item.sabqiEndJuz || item.weeklySabqiEndJuz || item.sabqiJuz || this.sabqiStartJuz;
-      this.sabqiEndPortion = item.sabqiEndPortion || item.weeklySabqiEndPortion || 'Full Juz';
+      if (item.sabaqEvalUnitMode) {
+        this.sabaqEvalUnitMode = item.sabaqEvalUnitMode;
+      } else if (this.sabaqStartPage !== null && this.sabaqStartPage !== undefined) {
+        this.sabaqEvalUnitMode = 'page';
+      } else if (this.sabaqStartPortion && this.sabaqStartPortion !== 'Full Juz') {
+        this.sabaqEvalUnitMode = 'portion';
+      } else if (this.sabaqStartSurah || this.sabaqEndSurah) {
+        this.sabaqEvalUnitMode = 'surah';
+      } else if (this.sabaqStartJuz) {
+        this.sabaqEvalUnitMode = (this.sabaqStartPage !== null) ? 'page' : 'portion';
+      } else {
+        this.sabaqEvalUnitMode = 'surah';
+      }
+
+      // 2. Sabqi
+      this.sabqiStartSurah = item.sabqiStartSurah || item.weeklySabqiStartSurah || item.sabqiSurah || '';
+      this.sabqiStartAyah = item.sabqiStartAyah ?? item.weeklySabqiStartAyah ?? item.sabqiFromAyah ?? null;
+      this.sabqiEndSurah = item.sabqiEndSurah || item.weeklySabqiEndSurah || item.sabqiSurah || '';
+      this.sabqiEndAyah = item.sabqiEndAyah ?? item.weeklySabqiEndAyah ?? item.sabqiToAyah ?? null;
+      this.sabqiStartJuz = parseJuz(item.sabqiStartJuz || item.weeklySabqiStartJuz || item.sabqiJuz || item.sabqiJuzNo);
+      this.sabqiEndJuz = parseJuz(item.sabqiEndJuz || item.weeklySabqiEndJuz || item.sabqiJuz || item.sabqiJuzNo || this.sabqiStartJuz);
       this.sabqiJuz = this.sabqiStartJuz;
-      this.sabqiStartPage = item.weeklySabqiStartPage || item.sabqiStartPage || null;
-      this.sabqiEndPage = item.weeklySabqiEndPage || item.sabqiEndPage || null;
-      this.sabqiMistakes = item.sabqiMistakes || null;
+      this.sabqiStartPortion = item.sabqiStartPortion || item.weeklySabqiStartPortion || (this.sabqiStartJuz ? 'Full Juz' : '');
+      this.sabqiEndPortion = item.sabqiEndPortion || item.weeklySabqiEndPortion || (this.sabqiEndJuz ? 'Full Juz' : '');
+      this.sabqiStartPage = item.sabqiStartPage ?? item.weeklySabqiStartPage ?? null;
+      this.sabqiEndPage = item.sabqiEndPage ?? item.weeklySabqiEndPage ?? null;
+      this.sabqiMistakes = item.sabqiMistakes ?? null;
 
-      this.manzilEvalUnitMode = item.manzilEvalUnitMode || (item.weeklyManzilStartPortion ? 'portion' : 'portion');
-      this.manzilStartSurah = item.weeklyManzilStartSurah || item.manzilSurah || '';
-      this.manzilStartAyah = item.weeklyManzilStartAyah || item.manzilFromAyah || null;
-      this.manzilEndSurah = item.weeklyManzilEndSurah || item.manzilSurah || '';
-      this.manzilEndAyah = item.weeklyManzilEndAyah || item.manzilToAyah || null;
-      this.manzilStartJuz = item.weeklyManzilStartJuz || item.manzilJuz || null;
-      this.manzilStartPortion = item.weeklyManzilStartPortion || item.manzilJuzPortion || 'Full Juz';
-      this.manzilEndJuz = item.weeklyManzilEndJuz || item.manzilJuz || null;
-      this.manzilEndPortion = item.weeklyManzilEndPortion || 'Full Juz';
-      this.manzilMistakes = item.manzilMistakes || null;
+      if (item.sabqiEvalUnitMode) {
+        this.sabqiEvalUnitMode = item.sabqiEvalUnitMode;
+      } else if (this.sabqiStartPage !== null && this.sabqiStartPage !== undefined) {
+        this.sabqiEvalUnitMode = 'page';
+      } else if (this.sabqiStartPortion && this.sabqiStartPortion !== 'Full Juz') {
+        this.sabqiEvalUnitMode = 'portion';
+      } else if (this.sabqiStartSurah || this.sabqiEndSurah) {
+        this.sabqiEvalUnitMode = 'surah';
+      } else if (this.sabqiStartJuz) {
+        this.sabqiEvalUnitMode = (this.sabqiStartPage !== null) ? 'page' : 'portion';
+      } else {
+        this.sabqiEvalUnitMode = 'surah';
+      }
+
+      // 3. Manzil / Revision
+      this.manzilStartSurah = item.manzilStartSurah || item.weeklyManzilStartSurah || item.manzilSurah || '';
+      this.manzilStartAyah = item.manzilStartAyah ?? item.weeklyManzilStartAyah ?? item.manzilFromAyah ?? null;
+      this.manzilEndSurah = item.manzilEndSurah || item.weeklyManzilEndSurah || item.manzilSurah || '';
+      this.manzilEndAyah = item.manzilEndAyah ?? item.weeklyManzilEndAyah ?? item.manzilToAyah ?? null;
+      this.manzilStartJuz = parseJuz(item.manzilStartJuz || item.weeklyManzilStartJuz || item.manzilJuz || item.manzilJuzNo);
+      this.manzilEndJuz = parseJuz(item.manzilEndJuz || item.weeklyManzilEndJuz || item.manzilJuz || item.manzilJuzNo || this.manzilStartJuz);
+      this.manzilStartPortion = item.manzilStartPortion || item.weeklyManzilStartPortion || item.manzilJuzPortion || (this.manzilStartJuz ? 'Full Juz' : '');
+      this.manzilEndPortion = item.manzilEndPortion || item.weeklyManzilEndPortion || (this.manzilEndJuz ? 'Full Juz' : '');
+      this.manzilStartPage = item.manzilStartPage ?? item.weeklyManzilStartPage ?? null;
+      this.manzilEndPage = item.manzilEndPage ?? item.weeklyManzilEndPage ?? null;
+      this.manzilMistakes = item.manzilMistakes ?? null;
+
+      if (item.manzilEvalUnitMode) {
+        this.manzilEvalUnitMode = item.manzilEvalUnitMode;
+      } else if (this.manzilStartPage !== null && this.manzilStartPage !== undefined) {
+        this.manzilEvalUnitMode = 'page';
+      } else if (this.manzilStartPortion || this.manzilStartJuz) {
+        this.manzilEvalUnitMode = 'portion';
+      } else if (this.manzilStartSurah || this.manzilEndSurah) {
+        this.manzilEvalUnitMode = 'surah';
+      } else {
+        this.manzilEvalUnitMode = 'portion';
+      }
 
       this.dawrRoundNo = item.weeklyDawrRounds || item.dawrRoundNo || 1;
       this.dawrWeeklyJuzCount = item.weeklyDawrJuzCount || 5;
@@ -636,7 +920,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         }));
       }
 
-      if (this.sabaqStartPage || this.sabaqJuz) {
+      if (this.sabaqStartPage || this.sabaqJuz || this.sabaqStartJuz) {
         this.hifzEvalUnitMode = 'juz';
       } else {
         this.hifzEvalUnitMode = 'surah';
@@ -1237,28 +1521,36 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         dailyPayload.sabaqEndPortion = this.sabaqEndPortion;
         dailyPayload.sabaqStartJuz = this.sabaqStartJuz || this.sabaqJuz;
         dailyPayload.sabaqEndJuz = this.sabaqEndJuz || this.sabaqJuz;
+        dailyPayload.sabaqStartPage = this.sabaqStartPage;
+        dailyPayload.sabaqEndPage = this.sabaqEndPage;
         dailyPayload.sabaqRange = formattedSabaqRange;
 
         dailyPayload.sabqiSurah = this.sabqiEndSurah;
         dailyPayload.sabqiAyahFrom = this.sabqiStartAyah;
         dailyPayload.sabqiAyahTo = this.sabqiEndAyah;
-        dailyPayload.sabqiJuz = (this.sabqiStartJuz || this.sabqiJuz) ? `Juz ${this.sabqiStartJuz || this.sabqiJuz}` : '';
+        dailyPayload.sabqiJuz = this.sabqiStartJuz || this.sabqiJuz || null;
         dailyPayload.sabqiMistakes = this.sabqiMistakes || 0;
         dailyPayload.sabqiEvalUnitMode = this.sabqiEvalUnitMode;
         dailyPayload.sabqiStartPortion = this.sabqiStartPortion;
         dailyPayload.sabqiEndPortion = this.sabqiEndPortion;
         dailyPayload.sabqiStartJuz = this.sabqiStartJuz || this.sabqiJuz;
         dailyPayload.sabqiEndJuz = this.sabqiEndJuz || this.sabqiJuz;
+        dailyPayload.sabqiStartPage = this.sabqiStartPage;
+        dailyPayload.sabqiEndPage = this.sabqiEndPage;
         dailyPayload.sabqiRange = formattedSabqiRange;
 
         dailyPayload.manzilSurah = this.manzilEndSurah;
         dailyPayload.manzilAyahFrom = this.manzilStartAyah;
         dailyPayload.manzilAyahTo = this.manzilEndAyah;
-        dailyPayload.manzilJuz = this.manzilStartJuz ? `Juz ${this.manzilStartJuz}` : '';
+        dailyPayload.manzilJuz = this.manzilStartJuz || null;
         dailyPayload.manzilMistakes = this.manzilMistakes || 0;
         dailyPayload.hifzLessonsList = this.extraLessonsList;
         dailyPayload.manzilRange = formattedManzilRange;
         dailyPayload.manzilEvalUnitMode = this.manzilEvalUnitMode;
+        dailyPayload.manzilStartPortion = this.manzilStartPortion;
+        dailyPayload.manzilEndPortion = this.manzilEndPortion;
+        dailyPayload.manzilStartJuz = this.manzilStartJuz;
+        dailyPayload.manzilEndJuz = this.manzilEndJuz;
         dailyPayload.manzilStartPage = this.manzilStartPage;
         dailyPayload.manzilEndPage = this.manzilEndPage;
 
@@ -1269,6 +1561,8 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           sabaqFromAyah: this.sabaqStartAyah,
           sabaqToAyah: this.sabaqEndAyah,
           sabaqJuzNo: this.sabaqStartJuz || this.sabaqJuz,
+          sabaqStartJuz: this.sabaqStartJuz || this.sabaqJuz,
+          sabaqEndJuz: this.sabaqEndJuz || this.sabaqJuz,
           sabaqStartPage: this.sabaqStartPage,
           sabaqEndPage: this.sabaqEndPage,
           sabaqStartPortion: this.sabaqStartPortion,
@@ -1276,8 +1570,28 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           sabaqRange: formattedSabaqRange,
           sabaqMistakes: this.sabaqMistakes || 0,
           sabqiEvalUnitMode: this.sabqiEvalUnitMode,
+          sabqiSurahName: this.sabqiEndSurah || this.sabqiStartSurah,
+          sabqiFromAyah: this.sabqiStartAyah,
+          sabqiToAyah: this.sabqiEndAyah,
+          sabqiJuzNo: this.sabqiStartJuz || this.sabqiJuz,
+          sabqiStartJuz: this.sabqiStartJuz || this.sabqiJuz,
+          sabqiEndJuz: this.sabqiEndJuz || this.sabqiJuz,
+          sabqiStartPage: this.sabqiStartPage,
+          sabqiEndPage: this.sabqiEndPage,
+          sabqiStartPortion: this.sabqiStartPortion,
+          sabqiEndPortion: this.sabqiEndPortion,
           sabqiRange: formattedSabqiRange,
           sabqiMistakes: this.sabqiMistakes || 0,
+          manzilSurahName: this.manzilEndSurah || this.manzilStartSurah,
+          manzilFromAyah: this.manzilStartAyah,
+          manzilToAyah: this.manzilEndAyah,
+          manzilJuzNo: this.manzilStartJuz,
+          manzilStartJuz: this.manzilStartJuz,
+          manzilEndJuz: this.manzilEndJuz,
+          manzilStartPortion: this.manzilStartPortion,
+          manzilEndPortion: this.manzilEndPortion,
+          manzilStartPage: this.manzilStartPage,
+          manzilEndPage: this.manzilEndPage,
           manzilRange: formattedManzilRange,
           manzilEvalUnitMode: this.manzilEvalUnitMode,
           rating: this.starRating
@@ -1604,6 +1918,10 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         manzilEndPortion: this.manzilEndPortion,
         manzilStartPage: this.manzilStartPage,
         manzilEndPage: this.manzilEndPage,
+        revisionSegments: this.manzilSplitMode ? this.revisionSegments : [],
+        manzilSplitMode: this.manzilSplitMode,
+        dawrRepetitionCount: this.dawrRepetitionCount,
+        manzilDirection: this.manzilDirection,
         starRating: this.starRating,
         overallMistakes: this.overallMistakes,
         remarks: this.remarks,
