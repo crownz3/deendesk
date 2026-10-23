@@ -27,14 +27,17 @@
       ></div>
     </div>
     <section class="brand-panel">
-      <div class="logo-glow-wrapper">
-        <div class="logo-badge-frame">
-          <img src="assets/images/deendesk-logo.png" alt="Deen Desk Logo" class="login-logo-img" />
-          <div class="shimmer-sweep"></div>
+      <div class="brand-top-row">
+        <div class="logo-glow-wrapper">
+          <div class="logo-badge-frame">
+            <img src="assets/images/deendesk-logo.png" alt="Deen Desk Logo" class="login-logo-img" />
+            <div class="shimmer-sweep"></div>
+          </div>
         </div>
-      </div>
-      <div class="brand-header">
-        <h1 class="app-brand-name">Deen Desk</h1>
+        <div class="brand-header">
+          <h1 class="app-brand-name">Deen Desk</h1>
+          <p class="brand-tagline">Islamic Institutional Management</p>
+        </div>
       </div>
       <p class="brand-copy">
         Next-generation operating system for Islamic Institutions & Organizations. Unify Multi-Madrasa administration, Exams & Results, Competitions & Prizes, Announcements, Quran & Hifz Progress, Hostels, Alumni, Staff & Student Lifecycles.
@@ -50,12 +53,6 @@
         <span>⏱️ Study Time Supervision</span>
         <span>📊 Analytics & Reports</span>
         <span>🔒 Enterprise Role RBAC</span>
-      </div>
-      <div style="margin-top: 24px; text-align: center;">
-        <a href="assets/pricing.html" target="_blank" style="color: #10b981; font-weight: 700; text-decoration: none; font-size: 15px; display: inline-flex; align-items: center; gap: 6px; padding: 10px 20px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 100px;">
-          <span>✨ View Public Pricing & Feature Brochure</span>
-          <span>→</span>
-        </a>
       </div>
     </section>
 
@@ -176,11 +173,16 @@
             </form>
 
             <div class="reset-actions">
-              <button mat-button type="button" class="reset-button" (click)="resetPassword()">
-                Forgot password
-              </button>
-              
-              <div class="custom-email-reset">
+              <div class="reset-links-row">
+                <button mat-button type="button" class="reset-button" (click)="resetPassword()">
+                  Forgot password?
+                </button>
+                <button mat-button type="button" class="custom-reset-toggle-btn" (click)="showCustomReset = !showCustomReset">
+                  <span>{{ showCustomReset ? 'Hide admin request' : 'Need admin reset?' }}</span>
+                </button>
+              </div>
+
+              <div class="custom-email-reset" *ngIf="showCustomReset">
                 <p class="reset-info">Your account uses an internal/custom email. If you cannot receive reset email, send a request to your admin.</p>
                 <button mat-stroked-button color="warn" type="button" class="request-reset-button" (click)="requestPasswordReset()" [disabled]="loading">
                   Send Request

@@ -30,6 +30,17 @@
   max-width: 680px;
 }
 
+.brand-top-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.brand-tagline {
+  display: none;
+}
+
 .logo-glow-wrapper {
   position: relative;
   width: 92px;
@@ -495,23 +506,44 @@ form {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  gap: 16px;
   margin-top: 16px;
   border-top: 1px solid var(--border-light, #f0f0f0);
   padding-top: 16px;
 }
 
+.reset-links-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
 .reset-button {
   align-self: center;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.custom-reset-toggle-btn {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+
+  &:hover {
+    color: #1e293b;
+  }
 }
 
 .custom-email-reset {
   background: rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.05);
   border: 1px solid rgba(var(--ion-color-danger-rgb, 235, 68, 90), 0.2);
   border-radius: var(--radius-md, 8px);
-  padding: 16px;
+  padding: 14px;
   text-align: center;
   width: 100%;
+  animation: fadeIn 0.2s ease-out;
 }
 
 .reset-info {
@@ -538,12 +570,278 @@ form {
 }
 
 @media (max-width: 860px) {
+  :host {
+    display: block;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  ion-content {
+    --overflow: hidden !important;
+    overflow: hidden !important;
+  }
+
   .login-shell {
-    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 100dvh;
+    padding: clamp(10px, 2.5vh, 24px) 16px;
+    gap: clamp(8px, 2vh, 16px);
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+
+  .brand-panel {
+    text-align: center;
+    align-items: center;
+    justify-items: center;
+    gap: 0;
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+    flex-shrink: 0;
+  }
+
+  .brand-top-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+  }
+
+  .logo-glow-wrapper {
+    width: 40px;
+    height: 40px;
+    margin: 0;
+
+    .logo-badge-frame {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      padding: 1.5px;
+      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.18);
+
+      .login-logo-img {
+        border-radius: 10px;
+      }
+
+      .shimmer-sweep {
+        display: none;
+      }
+    }
+  }
+
+  .brand-header {
+    margin-top: 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .app-brand-name {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    line-height: 1.1;
+    margin: 0;
+    color: #0f172a;
+  }
+
+  .brand-tagline {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #2563eb;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    margin: 2px 0 0;
+    line-height: 1;
+  }
+
+  .brand-copy {
+    display: none;
   }
 
   .login-metrics {
     display: none;
+  }
+
+  .login-card {
+    max-width: 400px;
+    width: 100%;
+    margin: 0 auto;
+    padding: clamp(14px, 2.5vh, 22px) clamp(16px, 4vw, 22px);
+    border-radius: 20px;
+    background: #ffffff;
+    border: 1px solid rgba(226, 232, 240, 0.95);
+    box-shadow:
+      0 12px 36px -8px rgba(15, 23, 42, 0.1),
+      0 4px 12px rgba(15, 23, 42, 0.04);
+    gap: 0;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .auth-header {
+    margin-bottom: clamp(8px, 1.8vh, 14px);
+    text-align: center;
+
+    h2 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.3px;
+      margin: 0 0 2px;
+    }
+
+    p {
+      font-size: 0.78rem;
+      color: #64748b;
+      margin: 0;
+    }
+  }
+
+  .auth-field {
+    margin-bottom: clamp(6px, 1.2vh, 10px);
+  }
+
+  ::ng-deep .auth-field .mat-mdc-text-field-wrapper {
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+
+  ::ng-deep .auth-field .mat-mdc-form-field-flex {
+    min-height: 48px;
+  }
+
+  ::ng-deep .auth-field input {
+    font-size: 14px;
+  }
+
+  .auth-actions {
+    gap: 8px;
+    margin-top: clamp(6px, 1.4vh, 12px);
+  }
+
+  .auth-primary-button {
+    min-height: 44px;
+    height: 44px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28);
+  }
+
+  .auth-google-button {
+    min-height: 42px;
+    height: 42px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #1e293b;
+    font-weight: 600;
+  }
+
+  .reset-actions {
+    gap: 4px;
+    margin-top: clamp(8px, 1.5vh, 12px);
+    padding-top: clamp(6px, 1.2vh, 10px);
+    border-top: 1px solid #f1f5f9;
+  }
+
+  .reset-links-row {
+    gap: 8px;
+    justify-content: space-between;
+  }
+
+  .reset-button,
+  .custom-reset-toggle-btn {
+    font-size: 11.5px;
+    min-height: 28px;
+    padding: 0 4px;
+    line-height: 1;
+
+    ::ng-deep .mdc-button__label {
+      font-size: 11.5px;
+    }
+  }
+
+  .custom-email-reset {
+    padding: 10px 12px;
+    margin-top: 6px;
+    border-radius: 10px;
+
+    .reset-info {
+      font-size: 0.72rem;
+      margin: 0 0 6px;
+      line-height: 1.35;
+    }
+
+    .request-reset-button {
+      min-height: 32px;
+      height: 32px;
+      font-size: 11.5px;
+    }
+  }
+
+  .active-session-card {
+    padding: 16px 14px;
+    margin-bottom: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .login-shell {
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .logo-glow-wrapper {
+    width: 36px;
+    height: 36px;
+
+    .logo-badge-frame {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+
+      .login-logo-img {
+        border-radius: 9px;
+      }
+    }
+  }
+
+  .app-brand-name {
+    font-size: 20px;
+  }
+
+  .brand-tagline {
+    font-size: 9px;
+  }
+
+  .login-card {
+    padding: 16px 14px 12px;
+    border-radius: 16px;
+  }
+
+  .auth-header {
+    margin-bottom: 8px;
+
+    h2 {
+      font-size: 1.15rem;
+    }
+
+    p {
+      font-size: 0.75rem;
+    }
   }
 }
 

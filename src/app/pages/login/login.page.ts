@@ -37,6 +37,7 @@ export class LoginPage implements OnInit {
   });
   loading = false;
   hidePassword = true;
+  showCustomReset = false;
   lastProfile: { displayName: string; email: string; role: string } | null = null;
 
   isDragging = false;
