@@ -240,42 +240,76 @@ export interface StudentAttendanceHistoryDialogData {
 
     /* ---- Stats Row ---- */
     .hist-stats-row {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 6px;
       padding: 10px 14px;
       background: #f8fafc;
       border-bottom: 1px solid #e2e8f0;
       flex-shrink: 0;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
+
+      @media (max-width: 460px) {
+        gap: 4px;
+        padding: 8px 10px;
+      }
 
       .stat-chip {
         display: flex;
         flex-direction: column;
         align-items: center;
-        padding: 6px 12px;
+        justify-content: center;
+        text-align: center;
+        padding: 8px 4px;
         border-radius: 10px;
         border: 1px solid #e2e8f0;
         background: #fff;
-        min-width: 54px;
-        flex-shrink: 0;
+        min-width: 0;
+        min-height: 62px;
+        box-sizing: border-box;
 
         .sc-num {
-          font-size: 1.1rem;
+          font-size: 1.15rem;
           font-weight: 700;
-          line-height: 1.2;
+          line-height: 1.1;
         }
 
         .sc-lbl {
           font-size: 0.65rem;
+          font-weight: 600;
           color: #64748b;
+          margin-top: 2px;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+        }
+
+        .sc-sub {
+          font-size: 0.56rem;
+          color: #94a3b8;
           margin-top: 1px;
+          line-height: 1.1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          max-width: 100%;
+          display: block;
         }
 
         &.total   { .sc-num { color: #0f172a; } }
-        &.present { background: #f0fdf4; border-color: #86efac; .sc-num { color: #16a34a; } }
+        &.present { 
+          background: #f0fdf4; 
+          border-color: #86efac; 
+          .sc-num { color: #16a34a; }
+          .sc-sub { color: #15803d; }
+        }
         &.absent  { background: #fef2f2; border-color: #fca5a5; .sc-num { color: #dc2626; } }
-        &.late    { background: #fffbeb; border-color: #fcd34d; .sc-num { color: #d97706; } }
+        &.late    { 
+          background: #fffbeb; 
+          border-color: #fcd34d; 
+          .sc-num { color: #d97706; }
+          .sc-sub { color: #b45309; }
+        }
         &.leave   { background: #eff6ff; border-color: #93c5fd; .sc-num { color: #2563eb; } }
       }
     }
@@ -288,21 +322,24 @@ export interface StudentAttendanceHistoryDialogData {
       background: #fff;
       border-bottom: 2px solid #e2e8f0;
       flex-shrink: 0;
-      padding: 0 6px;
+      padding: 0 8px;
       gap: 2px;
       scrollbar-width: none;
       &::-webkit-scrollbar { display: none; }
 
       .ftab {
+        flex: 1;
+        min-width: fit-content;
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 5px;
-        padding: 10px 12px;
+        padding: 9px 8px;
         background: none;
         border: none;
         border-bottom: 3px solid transparent;
         margin-bottom: -2px;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         font-weight: 600;
         color: #64748b;
         cursor: pointer;
@@ -314,7 +351,7 @@ export interface StudentAttendanceHistoryDialogData {
           color: #475569;
           border-radius: 10px;
           padding: 1px 6px;
-          font-size: 0.7rem;
+          font-size: 0.68rem;
           font-weight: 700;
         }
 
@@ -482,27 +519,49 @@ export interface StudentAttendanceHistoryDialogData {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 10px;
       padding: 10px 16px;
       background: #fff;
       border-top: 1px solid #e2e8f0;
       flex-shrink: 0;
 
       .hist-rate {
-        font-size: 0.83rem;
+        font-size: 0.82rem;
         color: #475569;
-        strong { color: #16a34a; }
+        strong { color: #16a34a; font-weight: 700; }
+        .rate-note {
+          font-size: 0.72rem;
+          color: #94a3b8;
+          margin-left: 2px;
+        }
       }
 
       .hist-close-btn {
-        padding: 7px 18px;
+        padding: 7px 20px;
         border-radius: 8px;
         border: none;
         background: #1e293b;
         color: #fff;
         font-weight: 600;
-        font-size: 0.83rem;
+        font-size: 0.82rem;
         cursor: pointer;
+        transition: background 0.15s ease;
         &:hover { background: #334155; }
+      }
+
+      @media (max-width: 480px) {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        padding: 8px 12px;
+
+        .hist-rate {
+          text-align: center;
+        }
+        .hist-close-btn {
+          width: 100%;
+          padding: 8px;
+        }
       }
     }
   `]

@@ -1680,8 +1680,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       }];
     }
     this.dialog.open(StudentAttendanceHistoryDialogComponent, {
-      width: '780px',
-      maxWidth: '95vw',
+      width: '640px',
+      maxWidth: '96vw',
       panelClass: 'custom-attendance-history-panel',
       data: {
         studentName: item.student['fullName'] || item.student['name'] || 'Student',
