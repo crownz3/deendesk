@@ -2067,7 +2067,18 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         this.isAttendanceRecorded = true;
         this.recordedByName = data['takenByName'] || 'Authorized Teacher';
         this.recordedAtText = data['takenAt'] ? new Date(data['takenAt'].toDate ? data['takenAt'].toDate() : data['takenAt']).toLocaleString() : 'Saved';
-        savedAttendanceMap = data['records'] || {};
+        savedAttendanceMap = data['records'] || data['attendanceMap'] || {};
+        if (Array.isArray(data['students'])) {
+          data['students'].forEach((st: any) => {
+            const sid = String(st.studentId || st.id || st.uid || '').trim();
+            if (sid && !savedAttendanceMap[sid]) {
+              savedAttendanceMap[sid] = {
+                status: st.status || 'present',
+                note: st.note || st.remarks || ''
+              };
+            }
+          });
+        }
       } else {
         this.isAttendanceRecorded = false;
         this.recordedByName = '';
@@ -2428,14 +2439,16 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           }
         });
 
-        // If historyRecords is empty but today's attendance has been recorded or saved for this student
-        if (historyRecords.length === 0 && (saved || (this.isAttendanceRecorded && (savedAttendanceMap[stId] || savedAttendanceMap[student['uid']])))) {
-          const fallbackSaved = saved || savedAttendanceMap[stId] || savedAttendanceMap[student['uid']];
-          const rawSt = String(fallbackSaved?.status || 'present').toLowerCase();
+        const assignedStatus = (existing && existing.status !== undefined) ? existing.status : (saved ? saved.status : 'present');
+        const assignedNote = (existing && existing.note !== undefined) ? existing.note : (saved?.note || '');
+
+        // If historyRecords is empty but today's attendance has been recorded for this group or saved for this student
+        if (historyRecords.length === 0 && (saved || this.isAttendanceRecorded)) {
+          const rawSt = String(saved?.status || assignedStatus || 'present').toLowerCase();
           historyRecords.push({
             date: this.selectedDateStr,
             status: (['present', 'absent', 'late', 'leave'].includes(rawSt) ? rawSt : 'present') as any,
-            note: fallbackSaved?.note || '',
+            note: saved?.note || assignedNote || '',
             periodName: this.selectedPeriodTitle || 'Full Day Attendance',
             recordedByName: this.recordedByName || 'Authorized Teacher'
           });
@@ -3889,6 +3902,27 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     this.isAttendanceRecorded = true;
     this.recordedByName = this.currentUser?.displayName || this.currentUser?.email || '';
     this.recordedAtText = 'Just Now';
+
+    // Immediately update roster badges in-place
+    this.roster.forEach(item => {
+      const recs = item.attendanceHistoryRecords || [];
+      const hasToday = recs.some(r => r.date === this.selectedDateStr);
+      if (!hasToday) {
+        const rawSt = String(item.status || 'present').toLowerCase();
+        recs.unshift({
+          date: this.selectedDateStr,
+          status: (['present', 'absent', 'late', 'leave'].includes(rawSt) ? rawSt : 'present') as any,
+          note: item.note || '',
+          periodName: this.selectedPeriodTitle || 'Full Day Attendance',
+          recordedByName: this.recordedByName || 'Authorized Teacher'
+        });
+      }
+      item.attendanceHistoryRecords = recs;
+      const total = recs.length;
+      const present = recs.filter(r => ['present', 'late', 'p', 'l'].includes(String(r.status).toLowerCase())).length;
+      item.attendancePct = total > 0 ? Math.round((present / total) * 100) : 0;
+      item.attendanceHistoryText = total > 0 ? `${item.attendancePct}% Present (${present}/${total} Days)` : 'No Data';
+    });
   }
 
   private async executeSaveProgress(): Promise<void> {
