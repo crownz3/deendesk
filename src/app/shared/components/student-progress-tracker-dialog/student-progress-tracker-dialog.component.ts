@@ -252,7 +252,7 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
         try {
           const directList: EntityRecord[] = [];
           const orgId = profile?.organizationId;
-          const constraints: any[] = [limit(250)];
+          const constraints: any[] = [limit(500)];
           if (orgId) {
             constraints.unshift(where('organizationId', '==', orgId));
           }
@@ -262,7 +262,7 @@ export class StudentProgressTrackerDialogComponent implements OnInit, AfterViewI
           const stGroupId = this.student['groupId'] || this.student['classGroupId'];
           if (stGroupId) {
             try {
-              const gSnap = await getDocs(query(collection(db, 'attendance'), where('groupId', '==', stGroupId), limit(150)));
+              const gSnap = await getDocs(query(collection(db, 'attendance'), where('groupId', '==', stGroupId), limit(500)));
               gSnap.forEach(d => {
                 if (!directList.some(x => x.id === d.id)) directList.push({ id: d.id, ...d.data() });
               });

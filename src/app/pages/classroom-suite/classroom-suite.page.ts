@@ -2215,7 +2215,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
           const qGroupAtt = query(
             collection(firestore, 'attendance'),
             where('groupId', '==', this.selectedGroupId),
-            limit(200)
+            limit(500)
           );
           const gAttSnap = await getDocs(qGroupAtt);
           gAttSnap.forEach(d => {
@@ -2228,7 +2228,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             const qPlanAtt = query(
               collection(firestore, 'attendance'),
               where('classPlanId', '==', this.selectedGroupId),
-              limit(200)
+              limit(500)
             );
             const pAttSnap = await getDocs(qPlanAtt);
             pAttSnap.forEach(d => {
