@@ -4,7 +4,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { doc, getDoc, setDoc, deleteDoc, getDocs, collection, query, where, orderBy, limit, Timestamp } from 'firebase/firestore';
 import { getDeenDeskFirestore } from '../../../core/services/firebase-app';
 import { ALL_QURAN_SURAHS, ALL_QURAN_JUZ, QuranJuzItem, getSurahAyahCount } from '../../../core/constants/defaults';
-import { EntityRecord } from '../../../core/services/repository.service';
+import { EntityRecord, RepositoryService } from '../../../core/services/repository.service';
 
 export interface RevisionPortionSegment {
   id: string;
@@ -382,10 +382,17 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     this.isSaving = true;
     try {
       const firestore = getDeenDeskFirestore();
+      if (this.evalCadence === 'weekly') {
+        const weeklyDocId = `${studentId}_week_${this.data.selectedWeekYear}_${this.data.selectedWeekNumber}`;
+        const weeklyDocRef = doc(firestore, 'studentWeeklyProgress', weeklyDocId);
+        await deleteDoc(weeklyDocRef);
+        this.repo.clearCache('studentWeeklyProgress');
+      }
       const dailyDocRef = doc(firestore, 'studentDailyProgress', `${studentId}_${dateStr}`);
       await deleteDoc(dailyDocRef);
-      this.snackBar.open(`Evaluation for ${dateStr} deleted.`, 'OK', { duration: 3000 });
-      this.dialogRef.close({ deleted: true, studentId, dateStr });
+      this.repo.clearCache('studentDailyProgress');
+      this.snackBar.open(`Evaluation for ${this.evalCadence === 'weekly' ? 'Week ' + this.data.selectedWeekNumber : dateStr} deleted.`, 'OK', { duration: 3000 });
+      this.dialogRef.close({ deleted: true, studentId, dateStr, weekNumber: this.data.selectedWeekNumber });
     } catch (err) {
       console.error('Error deleting evaluation:', err);
       this.snackBar.open('Could not delete evaluation.', 'Dismiss', { duration: 4000 });
@@ -405,7 +412,8 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   constructor(
     @Inject(MAT_DIALOG_DATA) public data: StudentProgressEvaluationDialogData,
     public dialogRef: MatDialogRef<StudentProgressEvaluationDialogComponent>,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private repo: RepositoryService
   ) {
     this.student = data.student;
     this.studentTypeMode = data.studentTypeMode || 'hifz';
@@ -433,6 +441,22 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
   async loadCurrentEvaluation(): Promise<void> {
     let currentRec = this.data.rawProgressRecord || this.data.currentRosterItem?.rawProgressRecord;
     const stId = String(this.student?.id || this.student?.['uid'] || '');
+
+    // Strictly ensure currentRec matches the current cadence and week or date
+    if (this.evalCadence === 'weekly') {
+      const isMatchingWeek = currentRec &&
+        Number(currentRec.weekNumber) === Number(this.data.selectedWeekNumber) &&
+        (!currentRec.year || Number(currentRec.year) === Number(this.data.selectedWeekYear));
+      if (!isMatchingWeek) {
+        currentRec = null;
+      }
+    } else {
+      const isMatchingDate = currentRec && currentRec.date === this.data.selectedDateStr;
+      if (!isMatchingDate) {
+        currentRec = null;
+      }
+    }
+
     if (!currentRec && stId) {
       try {
         const firestore = getDeenDeskFirestore();
@@ -770,6 +794,84 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
     if (!item) {
       if (this.studentTypeMode === 'maktab') {
         this.addMaktabSubject('Noorani Qaida');
+      }
+      return;
+    }
+
+    if (this.evalCadence === 'weekly') {
+      if (this.studentTypeMode === 'maktab') {
+        if (item.maktabStageMode) {
+          this.maktabStageMode = item.maktabStageMode;
+        }
+        if (item.weeklyMaktabSubject) {
+          this.maktabSubjects = [{
+            subject: item.weeklyMaktabSubject,
+            stage: '',
+            startPage: item.weeklyMaktabStartPage || 1,
+            endPage: item.weeklyMaktabEndPage || item.weeklyMaktabStartPage || 1,
+            lineNo: 1,
+            notes: ''
+          }];
+        } else {
+          this.maktabSubjects = [{
+            subject: 'Noorani Qaida',
+            stage: '',
+            startPage: 1,
+            endPage: 1,
+            lineNo: 1,
+            notes: ''
+          }];
+        }
+      } else if (this.studentTypeMode === 'dawr') {
+        if (item.weeklyDawrRounds !== null && item.weeklyDawrRounds !== undefined) {
+          this.dawrRoundNo = item.weeklyDawrRounds;
+        }
+        if (item.weeklyDawrJuzCount !== null && item.weeklyDawrJuzCount !== undefined) {
+          this.dawrWeeklyJuzCount = item.weeklyDawrJuzCount;
+        }
+      } else {
+        // Hifz
+        if (item.weeklySabaqStartSurah || item.weeklySabaqEndSurah || item.weeklySabaqStartJuz) {
+          this.sabaqStartSurah = item.weeklySabaqStartSurah || '';
+          this.sabaqStartAyah = item.weeklySabaqStartAyah ?? null;
+          this.sabaqEndSurah = item.weeklySabaqEndSurah || '';
+          this.sabaqEndAyah = item.weeklySabaqEndAyah ?? null;
+          this.sabaqStartJuz = item.weeklySabaqStartJuz ?? null;
+          this.sabaqEndJuz = item.weeklySabaqEndJuz ?? null;
+          this.sabaqJuz = this.sabaqStartJuz;
+          this.sabaqStartPortion = item.weeklySabaqStartPortion || '';
+          this.sabaqEndPortion = item.weeklySabaqEndPortion || '';
+          this.sabaqStartPage = item.weeklySabaqStartPage ?? null;
+          this.sabaqEndPage = item.weeklySabaqEndPage ?? null;
+        }
+        if (item.weeklySabqiStartSurah || item.weeklySabqiEndSurah || item.weeklySabqiStartJuz) {
+          this.sabqiStartSurah = item.weeklySabqiStartSurah || '';
+          this.sabqiStartAyah = item.weeklySabqiStartAyah ?? null;
+          this.sabqiEndSurah = item.weeklySabqiEndSurah || '';
+          this.sabqiEndAyah = item.weeklySabqiEndAyah ?? null;
+          this.sabqiStartJuz = item.weeklySabqiStartJuz ?? null;
+          this.sabqiEndJuz = item.weeklySabqiEndJuz ?? null;
+          this.sabqiJuz = this.sabqiStartJuz;
+          this.sabqiStartPortion = item.weeklySabqiStartPortion || '';
+          this.sabqiEndPortion = item.weeklySabqiEndPortion || '';
+          this.sabqiStartPage = item.weeklySabqiStartPage ?? null;
+          this.sabqiEndPage = item.weeklySabqiEndPage ?? null;
+        }
+        if (item.weeklyManzilStartSurah || item.weeklyManzilEndSurah || item.weeklyManzilStartJuz) {
+          this.manzilStartSurah = item.weeklyManzilStartSurah || '';
+          this.manzilStartAyah = item.weeklyManzilStartAyah ?? null;
+          this.manzilEndSurah = item.weeklyManzilEndSurah || '';
+          this.manzilEndAyah = item.weeklyManzilEndAyah ?? null;
+          this.manzilStartJuz = item.weeklyManzilStartJuz ?? null;
+          this.manzilEndJuz = item.weeklyManzilEndJuz ?? null;
+          this.manzilStartPortion = item.weeklyManzilStartPortion || '';
+          this.manzilEndPortion = item.weeklyManzilEndPortion || '';
+          this.manzilStartPage = item.weeklyManzilStartPage ?? null;
+          this.manzilEndPage = item.weeklyManzilEndPage ?? null;
+        }
+        this.overallMistakes = item.weeklyMistakes ?? 0;
+        this.starRating = item.weeklyRating ?? 5;
+        this.remarks = item.weeklyNotes || '';
       }
       return;
     }
@@ -1630,12 +1732,14 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
       }
 
       await setDoc(dailyDocRef, dailyPayload, { merge: true });
+      this.repo.clearCache('studentDailyProgress');
 
       // 3. If Weekly evaluation cadence or selected, also save to studentWeeklyProgress
+      let weeklyPayload: any = null;
       if (this.evalCadence === 'weekly') {
         const weeklyDocId = `${studentId}_week_${weekYear}_${weekNo}`;
         const weeklyDocRef = doc(firestore, 'studentWeeklyProgress', weeklyDocId);
-        const weeklyPayload: any = {
+        weeklyPayload = {
           id: weeklyDocId,
           studentId: studentId,
           organizationId: orgId,
@@ -1770,6 +1874,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
         }
 
         await setDoc(weeklyDocRef, weeklyPayload, { merge: true });
+        this.repo.clearCache('studentWeeklyProgress');
       }
 
       // Auto-update student baseline progress in users collection
@@ -1872,6 +1977,7 @@ export class StudentProgressEvaluationDialogComponent implements OnInit {
           ...(this.evalCadence === 'weekly' ? [`studentWeeklyProgress/${studentId}_week_${weekYear}_${weekNo}`] : [])
         ],
         dailyPayload,
+        weeklyPayload,
         maktabStageMode: this.maktabStageMode,
         quranReading: dailyPayload.quranReading || null,
         tilawatSurah: this.tilawatSurah,
