@@ -527,6 +527,13 @@ export class AttendancePage implements OnInit, OnDestroy {
     ].filter(Boolean).map(s => s.trim())));
 
     return vm.students.filter((student) => {
+      if (selectedPlan.madrasaId) {
+        const sMadrasaId = String(student['madrasaId'] || student['assignedMadrasaId'] || '').trim();
+        if (sMadrasaId && sMadrasaId !== String(selectedPlan.madrasaId).trim()) {
+          return false;
+        }
+      }
+
       const sClassId = String(student['classId'] || '').trim();
       const sClassIds = Array.isArray(student['classIds']) ? student['classIds'].map(String) : [];
       const matchesClass = sClassId === targetClassId || sClassIds.includes(targetClassId);

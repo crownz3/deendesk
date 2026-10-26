@@ -4,6 +4,8 @@ import { EntityRecord, RepositoryService } from '../../../core/services/reposito
 import { AuthService } from '../../../core/services/auth.service';
 import { firstValueFrom } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { getDeenDeskFirestore } from '../../../core/services/firebase-app';
+import { doc, getDoc, getDocs, collection, query, where, limit } from 'firebase/firestore';
 
 export interface StudentTransferData {
   student?: EntityRecord;
@@ -97,8 +99,16 @@ export class StudentTransferDialogComponent implements OnInit {
     }
   }
 
+  private extractId(val: any): string {
+    if (!val) return '';
+    if (typeof val === 'string') return val.trim();
+    if (typeof val === 'object') return String(val.id || val.uid || val.docId || val.userId || '').trim();
+    return String(val).trim();
+  }
+
   syncSearchTexts(): void {
-    const m = this.madrasas.find(x => x.id === this.newMadrasaId);
+    const targetMId = this.extractId(this.newMadrasaId);
+    const m = this.madrasas.find(x => this.extractId(x.id) === targetMId);
     if (m) {
       this.madrasaSearchText = m['name'] || m['title'] || '';
     } else {
@@ -106,7 +116,8 @@ export class StudentTransferDialogComponent implements OnInit {
       this.madrasaSearchText = '';
     }
 
-    const c = this.availableCourses.find(x => x.id === this.newCourseId);
+    const targetCId = this.extractId(this.newCourseId);
+    const c = this.availableCourses.find(x => this.extractId(x.id) === targetCId);
     if (c) {
       this.courseSearchText = c['name'] || c['title'] || '';
     } else {
@@ -114,7 +125,8 @@ export class StudentTransferDialogComponent implements OnInit {
       this.courseSearchText = '';
     }
 
-    const cl = this.availableClasses.find(x => x.id === this.newClassId);
+    const targetClId = this.extractId(this.newClassId);
+    const cl = this.availableClasses.find(x => this.extractId(x.id) === targetClId);
     if (cl) {
       this.classSearchText = cl['name'] || cl['title'] || '';
     } else {
@@ -122,7 +134,8 @@ export class StudentTransferDialogComponent implements OnInit {
       this.classSearchText = '';
     }
 
-    const g = this.availableGroups.find(x => x.id === this.newGroupId);
+    const targetGId = this.extractId(this.newGroupId);
+    const g = this.availableGroups.find(x => this.extractId(x.id) === targetGId);
     if (g) {
       this.groupSearchText = g['name'] || g['title'] || '';
     } else {
@@ -136,17 +149,176 @@ export class StudentTransferDialogComponent implements OnInit {
     this.filterGroups();
   }
 
-  get availableCourses() {
-    if (!this.newMadrasaId) return this.courses;
-    return this.courses.filter(c => !c['madrasaId'] || c['madrasaId'] === this.newMadrasaId);
+  classBelongsToMadrasa(cls: EntityRecord, targetMId: string): boolean {
+    if (!targetMId || !cls) return false;
+    const clsMId = this.extractId(cls['madrasaId'] || cls['parentMadrasaId'] || cls['madrasa']);
+    if (clsMId && clsMId === targetMId) return true;
+    const clsMIds = Array.isArray(cls['madrasaIds'])
+      ? cls['madrasaIds'].map((x: any) => this.extractId(x)).filter(Boolean)
+      : [];
+    return clsMIds.includes(targetMId);
   }
 
-  get availableClasses() {
-    return this.classes.filter(c => c['courseId'] === this.newCourseId);
+  groupBelongsToMadrasa(grp: EntityRecord, targetMId: string): boolean {
+    if (!targetMId || !grp) return false;
+    const grpMId = this.extractId(grp['madrasaId'] || grp['parentMadrasaId'] || grp['madrasa']);
+    if (grpMId && grpMId === targetMId) return true;
+    const grpMIds = Array.isArray(grp['madrasaIds'])
+      ? grp['madrasaIds'].map((x: any) => this.extractId(x)).filter(Boolean)
+      : [];
+    if (grpMIds.includes(targetMId)) return true;
+
+    // Fall back to parent class's madrasa
+    const parentClassId = this.extractId(grp['classId'] || grp['class']);
+    if (parentClassId) {
+      const parentClass = this.classes.find(c => this.extractId(c.id) === parentClassId);
+      if (parentClass) {
+        return this.classBelongsToMadrasa(parentClass, targetMId);
+      }
+    }
+    return false;
   }
 
-  get availableGroups() {
-    return this.groups.filter(g => g['classId'] === this.newClassId);
+  classBelongsToCourse(cls: EntityRecord, targetCId: string): boolean {
+    if (!targetCId || !cls) return false;
+    const clsCId = this.extractId(cls['courseId'] || cls['course']);
+    if (clsCId && clsCId === targetCId) return true;
+
+    if (Array.isArray(cls['courseIds'])) {
+      const ids = cls['courseIds'].map((x: any) => this.extractId(x)).filter(Boolean);
+      if (ids.includes(targetCId)) return true;
+    }
+
+    const courseObj = this.courses.find(c => this.extractId(c.id) === targetCId);
+    if (courseObj) {
+      const cName = String(courseObj['name'] || courseObj['title'] || '').trim().toLowerCase();
+      const cCode = String(courseObj['code'] || '').trim().toLowerCase();
+      const clsCourseName = String(cls['courseName'] || '').trim().toLowerCase();
+      const clsCourseCode = String(cls['courseCode'] || '').trim().toLowerCase();
+
+      if (clsCourseName && (clsCourseName === cName || clsCourseName === cCode)) return true;
+      if (cCode && clsCourseCode && clsCourseCode === cCode) return true;
+
+      const rawCourse = typeof cls['course'] === 'string' ? cls['course'].trim().toLowerCase() : '';
+      if (rawCourse && (rawCourse === cName || rawCourse === cCode)) return true;
+
+      // Fallback keyword heuristics only when class has no explicit courseId
+      if (!clsCId) {
+        const clsName = String(cls['name'] || cls['title'] || '').trim().toLowerCase();
+        const isHifzCourse = cName.includes('hifz') || cName.includes('hiflu') || cName.includes('tahfeez');
+        const isMaktabCourse = cName.includes('maktab') || cName.includes('makthab');
+
+        if (isHifzCourse && (clsName.includes('hifz') || clsName.includes('hiflu') || clsName.includes('tahfeez'))) {
+          return true;
+        }
+        if (isMaktabCourse && (clsName.includes('maktab') || clsName.includes('makthab'))) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  groupBelongsToCourse(grp: EntityRecord, targetCId: string): boolean {
+    if (!targetCId || !grp) return false;
+    const grpCId = this.extractId(grp['courseId'] || grp['course']);
+    if (grpCId && grpCId === targetCId) return true;
+
+    // Check parent class
+    const parentClassId = this.extractId(grp['classId'] || grp['class']);
+    if (parentClassId) {
+      const parentClass = this.classes.find(c => this.extractId(c.id) === parentClassId);
+      if (parentClass && this.classBelongsToCourse(parentClass, targetCId)) {
+        return true;
+      }
+    }
+
+    const courseObj = this.courses.find(c => this.extractId(c.id) === targetCId);
+    if (courseObj) {
+      const cName = String(courseObj['name'] || courseObj['title'] || '').trim().toLowerCase();
+      const grpCourseName = String(grp['courseName'] || grp['course'] || '').trim().toLowerCase();
+      if (grpCourseName && grpCourseName === cName) return true;
+    }
+
+    return false;
+  }
+
+  get availableCourses(): EntityRecord[] {
+    const targetMId = this.extractId(this.newMadrasaId);
+    if (!targetMId) return [];
+
+    // 1. Identify which classes actually belong to this madrasa
+    const madrasaClasses = this.classes.filter(cls => this.classBelongsToMadrasa(cls, targetMId));
+
+    // 2. Identify which groups actually belong to this madrasa
+    const madrasaGroups = this.groups.filter(grp => this.groupBelongsToMadrasa(grp, targetMId));
+
+    // If this madrasa has classes or groups configured, ONLY show courses that have active classes/groups in this madrasa!
+    if (madrasaClasses.length > 0 || madrasaGroups.length > 0) {
+      return this.courses.filter(course => {
+        const cId = this.extractId(course.id);
+        const hasMatchingClass = madrasaClasses.some(cls => this.classBelongsToCourse(cls, cId));
+        if (hasMatchingClass) return true;
+        const hasMatchingGroup = madrasaGroups.some(grp => this.groupBelongsToCourse(grp, cId));
+        if (hasMatchingGroup) return true;
+        return false;
+      });
+    }
+
+    // Fallback: If this madrasa has zero classes and zero groups configured yet, check direct madrasa linkage on the course
+    return this.courses.filter(c => {
+      const directMId = this.extractId(c['madrasaId'] || c['parentMadrasaId']);
+      if (directMId && directMId === targetMId) return true;
+
+      const cMIds = Array.isArray(c['madrasaIds'])
+        ? c['madrasaIds'].map((x: any) => this.extractId(x)).filter(Boolean)
+        : [];
+      return cMIds.includes(targetMId);
+    });
+  }
+
+  get availableClasses(): EntityRecord[] {
+    const targetMId = this.extractId(this.newMadrasaId);
+    const targetCId = this.extractId(this.newCourseId);
+    if (!targetMId) return [];
+
+    return this.classes.filter(cls => {
+      // 1. Madrasa Match: Must strictly belong to the selected madrasa
+      if (!this.classBelongsToMadrasa(cls, targetMId)) return false;
+
+      // 2. Course Match: Must belong to selected course if selected
+      if (targetCId) {
+        if (!this.classBelongsToCourse(cls, targetCId)) return false;
+      }
+
+      return true;
+    });
+  }
+
+  get availableGroups(): EntityRecord[] {
+    const targetMId = this.extractId(this.newMadrasaId);
+    const targetClassId = this.extractId(this.newClassId);
+    const targetCId = this.extractId(this.newCourseId);
+    if (!targetMId) return [];
+
+    return this.groups.filter(grp => {
+      // 1. Class Match: Group must belong to selected class if selected
+      if (targetClassId) {
+        const grpClassId = this.extractId(grp['classId'] || grp['class']);
+        if (grpClassId !== targetClassId) return false;
+      }
+
+      // 2. Madrasa Match: Group must strictly belong to the selected madrasa
+      if (!this.groupBelongsToMadrasa(grp, targetMId)) return false;
+
+      // 3. Course Match: If course is selected and group has courseId, it must match
+      if (targetCId) {
+        if (!this.groupBelongsToCourse(grp, targetCId)) return false;
+      }
+
+      return true;
+    });
   }
 
   filterMadrasas(): void {
@@ -342,6 +514,24 @@ export class StudentTransferDialogComponent implements OnInit {
     this.filterCourses();
     this.filterClasses();
     this.filterGroups();
+
+    if (this.availableCourses.length === 1) {
+      const singleCourse = this.availableCourses[0];
+      this.newCourseId = singleCourse.id || '';
+      this.courseSearchText = singleCourse['name'] || singleCourse['title'] || '';
+      this.filterClasses();
+      if (this.availableClasses.length === 1) {
+        const singleClass = this.availableClasses[0];
+        this.newClassId = singleClass.id || '';
+        this.classSearchText = singleClass['name'] || singleClass['title'] || '';
+        this.filterGroups();
+        if (this.availableGroups.length === 1) {
+          const singleGroup = this.availableGroups[0];
+          this.newGroupId = singleGroup.id || '';
+          this.groupSearchText = singleGroup['name'] || singleGroup['title'] || '';
+        }
+      }
+    }
   }
 
   onCourseChange() {
@@ -351,12 +541,30 @@ export class StudentTransferDialogComponent implements OnInit {
     this.groupSearchText = '';
     this.filterClasses();
     this.filterGroups();
+
+    if (this.availableClasses.length === 1) {
+      const singleClass = this.availableClasses[0];
+      this.newClassId = singleClass.id || '';
+      this.classSearchText = singleClass['name'] || singleClass['title'] || '';
+      this.filterGroups();
+      if (this.availableGroups.length === 1) {
+        const singleGroup = this.availableGroups[0];
+        this.newGroupId = singleGroup.id || '';
+        this.groupSearchText = singleGroup['name'] || singleGroup['title'] || '';
+      }
+    }
   }
 
   onClassChange() {
     this.newGroupId = '';
     this.groupSearchText = '';
     this.filterGroups();
+
+    if (this.availableGroups.length === 1) {
+      const singleGroup = this.availableGroups[0];
+      this.newGroupId = singleGroup.id || '';
+      this.groupSearchText = singleGroup['name'] || singleGroup['title'] || '';
+    }
   }
 
   close() {
@@ -385,10 +593,18 @@ export class StudentTransferDialogComponent implements OnInit {
       const studentUpdates = {
         madrasaId: this.newMadrasaId,
         madrasaName: targetMadrasaName,
+        madrasaIds: [this.newMadrasaId],
+        assignedMadrasaId: this.newMadrasaId,
+        assignedMadrasaIds: [this.newMadrasaId],
+        primaryMadrasaId: this.newMadrasaId,
         courseId: this.newCourseId,
         courseName: targetCourseName,
+        courseIds: [this.newCourseId],
         classId: this.newClassId,
         className: targetClassName,
+        classIds: [this.newClassId],
+        assignedClassId: this.newClassId,
+        assignedClassIds: [this.newClassId],
         groupId: this.newGroupId,
         groupName: targetGroupName,
         classGroupId: this.newGroupId,
@@ -396,18 +612,23 @@ export class StudentTransferDialogComponent implements OnInit {
         groupIds: [this.newGroupId],
         classGroupIds: [this.newGroupId],
         assignedGroupIds: [this.newGroupId],
+        assignedClassGroup: targetGroupName,
+        assignedClassGroups: [this.newGroupId],
         sectionId: this.newGroupId,
         section: this.newGroupId,
         sectionName: targetGroupName,
         movementStatus: 'Transferred',
         movementType: 'TRANSFER',
         movementTag: 'Transferred',
+        status: 'active',
+        academicStatus: 'active',
         lastTransferDate: this.actionDate,
         updatedAt: new Date().toISOString(),
       };
 
       const transferredStudentIds = new Set<string>();
       const previousGroupIds = new Set<string>();
+      const firestore = getDeenDeskFirestore();
 
       for (const std of this.targetStudents) {
         const studentId = String(std.id || std['uid'] || std['docId']);
@@ -418,13 +639,49 @@ export class StudentTransferDialogComponent implements OnInit {
         const prevClId = String(std['classId'] || '');
         const prevGId = String(std['groupId'] || std['classGroupId'] || std['assignedGroupId'] || '');
 
-        if (prevGId && prevGId !== this.newGroupId) {
-          previousGroupIds.add(prevGId);
-        }
+        const prevGroupTokens = [
+          prevGId,
+          ...(Array.isArray(std['groupIds']) ? std['groupIds'] : []),
+          ...(Array.isArray(std['classGroupIds']) ? std['classGroupIds'] : []),
+          ...(Array.isArray(std['assignedGroupIds']) ? std['assignedGroupIds'] : []),
+          ...(Array.isArray(std['assignedClassGroups']) ? std['assignedClassGroups'] : [])
+        ].map(v => String(v || '').trim()).filter(Boolean);
+
+        prevGroupTokens.forEach(gId => {
+          if (gId && gId !== this.newGroupId) {
+            previousGroupIds.add(gId);
+          }
+        });
 
         const candidateIds = [std.id, std['uid'], std['docId'], std['userId'], std['entityId']]
           .map(v => String(v || '').trim())
           .filter(Boolean);
+
+        // Find linked user document ID in users collection if not explicitly on std
+        let linkedUserUid = String(std['userId'] || std['uid'] || '').trim();
+        if (!linkedUserUid) {
+          try {
+            if (std.id) {
+              const qEntity = query(collection(firestore, 'users'), where('entityId', '==', std.id), limit(1));
+              const snapEntity = await getDocs(qEntity);
+              if (!snapEntity.empty) {
+                linkedUserUid = snapEntity.docs[0].id;
+              }
+            }
+            if (!linkedUserUid && std['email']) {
+              const qEmail = query(collection(firestore, 'users'), where('email', '==', std['email']), limit(1));
+              const snapEmail = await getDocs(qEmail);
+              if (!snapEmail.empty) {
+                linkedUserUid = snapEmail.docs[0].id;
+              }
+            }
+          } catch (lookupErr) {
+            console.warn('Could not query linked user for student transfer:', lookupErr);
+          }
+        }
+        if (linkedUserUid && !candidateIds.includes(linkedUserUid)) {
+          candidateIds.push(linkedUserUid);
+        }
         candidateIds.forEach(id => transferredStudentIds.add(id.toLowerCase()));
 
         const prevMadrasaName = this.getMadrasaName(prevMId) || '';
@@ -501,43 +758,96 @@ export class StudentTransferDialogComponent implements OnInit {
 
         for (const sId of candidateIds) {
           await this.repo.update('students', sId, studentUpdates, profile).catch(() => {});
-          await this.repo.update('users', sId, {
-            ...studentUpdates,
-            madrasaIds: [this.newMadrasaId]
-          }, profile).catch(() => {});
+          await this.repo.update('users', sId, studentUpdates, profile).catch(() => {});
         }
       }
 
-      // Update classGroups rosters in Firestore (remove from old groups, add to new group)
-      try {
-        for (const oldGId of Array.from(previousGroupIds)) {
-          const oldGroupDoc = this.groups.find(g => g.id === oldGId);
-          if (oldGroupDoc) {
-            const rawAssigned = Array.isArray(oldGroupDoc['assignedStudentIds']) ? oldGroupDoc['assignedStudentIds'] : [];
-            const updatedAssigned = rawAssigned.filter((id: any) => !transferredStudentIds.has(String(id).toLowerCase().trim()));
-            const nextCount = Math.max(0, (Number(oldGroupDoc['studentCount']) || rawAssigned.length) - this.targetStudents.length);
-            await this.repo.update('classGroups', oldGId, {
-              assignedStudentIds: updatedAssigned,
-              studentCount: nextCount
-            }, profile).catch(() => {});
+      // Also scan this.groups for any group holding the transferred student in any roster field
+      this.groups.forEach(g => {
+        const gId = String(g.id || '').trim();
+        if (gId && gId !== this.newGroupId) {
+          const rawTokens = [
+            ...(Array.isArray(g['assignedStudentIds']) ? g['assignedStudentIds'] : []),
+            ...(Array.isArray(g['assignedStudents']) ? g['assignedStudents'] : []),
+            ...(Array.isArray(g['studentIds']) ? g['studentIds'] : []),
+            ...(Array.isArray(g['students']) ? g['students'] : []),
+          ].map(v => typeof v === 'object' && v !== null ? String(v.id || v.uid || v.userId || '') : String(v || '')).filter(Boolean);
+
+          if (rawTokens.some(tok => transferredStudentIds.has(tok.toLowerCase().trim()))) {
+            previousGroupIds.add(gId);
           }
         }
+      });
 
-        const newGroupDoc = this.groups.find(g => g.id === this.newGroupId);
-        if (newGroupDoc) {
-          const rawAssigned = Array.isArray(newGroupDoc['assignedStudentIds']) ? [...newGroupDoc['assignedStudentIds']] : [];
-          this.targetStudents.forEach(st => {
-            const sId = String(st.id || st['uid'] || st['docId'] || '');
-            if (sId && !rawAssigned.some(existing => String(existing).toLowerCase().trim() === sId.toLowerCase())) {
-              rawAssigned.push(sId);
-            }
+      // Update classGroups rosters in Firestore (thoroughly clean from old groups, add to new group)
+      try {
+        for (const oldGId of Array.from(previousGroupIds)) {
+          let oldGroupDoc = this.groups.find(g => g.id === oldGId);
+          let currentData: any = oldGroupDoc;
+          if (!currentData) {
+            try {
+              const snap = await getDoc(doc(firestore, 'classGroups', oldGId));
+              if (snap.exists()) currentData = snap.data();
+            } catch { /* ignore */ }
+          }
+
+          const rawAssigned = Array.isArray(currentData?.['assignedStudentIds']) ? currentData['assignedStudentIds'] : [];
+          const updatedAssigned = rawAssigned.filter((id: any) => !transferredStudentIds.has(String(id).toLowerCase().trim()));
+
+          const rawStudentIds = Array.isArray(currentData?.['studentIds']) ? currentData['studentIds'] : [];
+          const updatedStudentIds = rawStudentIds.filter((id: any) => !transferredStudentIds.has(String(id).toLowerCase().trim()));
+
+          const rawStudents = Array.isArray(currentData?.['students']) ? currentData['students'] : [];
+          const updatedStudents = rawStudents.filter((st: any) => {
+            const stId = typeof st === 'object' && st !== null ? String(st.id || st.uid || st.userId || '') : String(st || '');
+            return !transferredStudentIds.has(stId.toLowerCase().trim());
           });
-          const nextCount = (Number(newGroupDoc['studentCount']) || 0) + this.targetStudents.length;
-          await this.repo.update('classGroups', this.newGroupId, {
-            assignedStudentIds: rawAssigned,
+
+          const rawAssignedStudents = Array.isArray(currentData?.['assignedStudents']) ? currentData['assignedStudents'] : [];
+          const updatedAssignedStudents = rawAssignedStudents.filter((st: any) => {
+            const stId = typeof st === 'object' && st !== null ? String(st.id || st.uid || st.userId || '') : String(st || '');
+            return !transferredStudentIds.has(stId.toLowerCase().trim());
+          });
+
+          const nextCount = Math.max(0, updatedAssigned.length);
+          await this.repo.update('classGroups', oldGId, {
+            assignedStudentIds: updatedAssigned,
+            studentIds: updatedStudentIds,
+            students: updatedStudents,
+            assignedStudents: updatedAssignedStudents,
             studentCount: nextCount
           }, profile).catch(() => {});
         }
+
+        let newGroupDoc = this.groups.find(g => g.id === this.newGroupId);
+        let rawAssigned: any[] = [];
+        let currentCount = 0;
+        if (newGroupDoc) {
+          rawAssigned = Array.isArray(newGroupDoc['assignedStudentIds']) ? [...newGroupDoc['assignedStudentIds']] : [];
+          currentCount = Number(newGroupDoc['studentCount']) || 0;
+        } else {
+          try {
+            const snap = await getDoc(doc(firestore, 'classGroups', this.newGroupId));
+            if (snap.exists()) {
+              const data = snap.data();
+              rawAssigned = Array.isArray(data['assignedStudentIds']) ? [...data['assignedStudentIds']] : [];
+              currentCount = Number(data['studentCount']) || 0;
+            }
+          } catch { /* ignore */ }
+        }
+        this.targetStudents.forEach(st => {
+          const sIds = [st.id, st['uid'], st['docId'], st['userId']].map(v => String(v || '').trim()).filter(Boolean);
+          sIds.forEach(sid => {
+            if (!rawAssigned.some(existing => String(existing).toLowerCase().trim() === sid.toLowerCase())) {
+              rawAssigned.push(sid);
+            }
+          });
+        });
+        const nextCount = Math.max(rawAssigned.length, currentCount + this.targetStudents.length);
+        await this.repo.update('classGroups', this.newGroupId, {
+          assignedStudentIds: rawAssigned,
+          studentCount: nextCount
+        }, profile).catch(() => {});
       } catch (grpErr) {
         console.warn('Non-fatal: could not update group rosters during transfer:', grpErr);
       }
@@ -545,6 +855,7 @@ export class StudentTransferDialogComponent implements OnInit {
       this.repo.clearCache('students');
       this.repo.clearCache('users');
       this.repo.clearCache('classGroups');
+      this.repo.clearCache('classes');
       this.repo.clearCache('studentTransfers');
       this.repo.clearCache('userLifecycleHistory');
 

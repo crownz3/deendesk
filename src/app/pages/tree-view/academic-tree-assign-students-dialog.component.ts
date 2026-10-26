@@ -553,6 +553,18 @@ export class AcademicTreeAssignStudentsDialogComponent implements OnInit {
         madrasaId: patch.madrasaId || student['madrasaId'] || undefined,
       }, userProfile).catch(e => console.warn('Failed to log studentTransfers', e));
 
+      if (patch.groupId && patch.groupId !== student['groupId']) {
+        const studentTokens = [studentId, student.id, student.uid].filter(Boolean);
+        if (student['groupId']) {
+          await this.repo.update('classGroups', student['groupId'], {
+            assignedStudentIds: arrayRemove(...studentTokens)
+          }, userProfile).catch(() => {});
+        }
+        await this.repo.update('classGroups', patch.groupId, {
+          assignedStudentIds: arrayUnion(...studentTokens)
+        }, userProfile).catch(() => {});
+      }
+
       this.repo.clearCache('students');
       this.repo.clearCache('users');
       this.repo.clearCache('classGroups');

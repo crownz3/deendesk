@@ -1723,12 +1723,12 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     return [];
   }
 
-  private async fetchUnifiedStudentsList(): Promise<EntityRecord[]> {
+  private async fetchUnifiedStudentsList(forceRefresh = false): Promise<EntityRecord[]> {
     if (!this.currentUser) return [];
 
     const [directStudents, userStudents] = await Promise.all([
-      this.repo.getAllOnce<EntityRecord>('students', this.currentUser).catch(() => []),
-      this.repo.getAllOnce<EntityRecord>('users', this.currentUser, { roles: ['student'] }).catch(() => [])
+      this.repo.getAllOnce<EntityRecord>('students', this.currentUser, { forceRefresh }).catch(() => []),
+      this.repo.getAllOnce<EntityRecord>('users', this.currentUser, { roles: ['student'], forceRefresh }).catch(() => [])
     ]);
 
     const isStudentUser = (u: any): boolean => {
@@ -1767,60 +1767,90 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     };
 
     const mergeRecords = (existing: EntityRecord, incoming: EntityRecord): EntityRecord => {
-      // Prioritize explicit academic assignment fields
-      const incomingGId = this.extractId(incoming['groupId'] || incoming['classGroupId'] || incoming['assignedGroupId']);
-      const existingGId = this.extractId(existing['groupId'] || existing['classGroupId'] || existing['assignedGroupId']);
+      // Direct student documents are the authoritative source for academic enrollment and transfers
+      const existingIsStudentDoc = existing['_isDirectStudent'] === true || (!existing['role'] && !!existing['admissionNo']);
+      const incomingIsStudentDoc = incoming['_isDirectStudent'] === true || (!incoming['role'] && !!incoming['admissionNo']);
 
-      const primaryGroupId = incomingGId || existingGId || '';
-      const primaryGroupName = (incomingGId ? incoming['groupName'] : '') || (existingGId ? existing['groupName'] : '') || incoming['groupName'] || existing['groupName'] || '';
+      const studentDoc = existingIsStudentDoc ? existing : (incomingIsStudentDoc ? incoming : existing);
+      const userDoc = existingIsStudentDoc ? incoming : (incomingIsStudentDoc ? existing : incoming);
 
-      const primaryClassId = this.extractId(incoming['classId']) || this.extractId(existing['classId']) || '';
-      const primaryClassName = incoming['className'] || existing['className'] || '';
-      const primaryCourseId = this.extractId(incoming['courseId']) || this.extractId(existing['courseId']) || '';
-      const primaryCourseName = incoming['courseName'] || existing['courseName'] || '';
-      const primaryMadrasaId = this.extractId(incoming['madrasaId']) || this.extractId(existing['madrasaId']) || '';
-      const primaryMadrasaName = incoming['madrasaName'] || existing['madrasaName'] || '';
+      const studentGId = this.extractId(studentDoc['groupId'] || studentDoc['classGroupId'] || studentDoc['assignedGroupId']);
+      const userGId = this.extractId(userDoc['groupId'] || userDoc['classGroupId'] || userDoc['assignedGroupId']);
+      const primaryGroupId = studentGId || userGId || '';
+
+      const primaryGroupName = (studentGId ? studentDoc['groupName'] : '') || (userGId ? userDoc['groupName'] : '') || studentDoc['groupName'] || userDoc['groupName'] || '';
+
+      const primaryClassId = this.extractId(studentDoc['classId']) || this.extractId(userDoc['classId']) || '';
+      const primaryClassName = studentDoc['className'] || userDoc['className'] || '';
+      const primaryCourseId = this.extractId(studentDoc['courseId']) || this.extractId(userDoc['courseId']) || '';
+      const primaryCourseName = studentDoc['courseName'] || userDoc['courseName'] || '';
+      const primaryMadrasaId = this.extractId(studentDoc['madrasaId']) || this.extractId(userDoc['madrasaId']) || '';
+      const primaryMadrasaName = studentDoc['madrasaName'] || userDoc['madrasaName'] || '';
+
+      const combinedMadrasaIds = primaryMadrasaId
+        ? [primaryMadrasaId]
+        : Array.from(new Set([
+            ...(Array.isArray(studentDoc['madrasaIds']) ? studentDoc['madrasaIds'] : []),
+            ...(Array.isArray(userDoc['madrasaIds']) ? userDoc['madrasaIds'] : [])
+          ].map(x => this.extractId(x)).filter(Boolean)));
+
+      const combinedGroupIds = primaryGroupId
+        ? [primaryGroupId]
+        : Array.from(new Set([
+            ...(Array.isArray(studentDoc['groupIds']) ? studentDoc['groupIds'] : []),
+            ...(Array.isArray(studentDoc['classGroupIds']) ? studentDoc['classGroupIds'] : []),
+            ...(Array.isArray(userDoc['groupIds']) ? userDoc['groupIds'] : []),
+            ...(Array.isArray(userDoc['classGroupIds']) ? userDoc['classGroupIds'] : [])
+          ].map(x => this.extractId(x)).filter(Boolean)));
 
       return {
-        ...existing,
-        ...incoming,
-        id: existing.id || incoming.id,
-        uid: existing['uid'] || incoming['uid'] || incoming.id || existing.id,
-        userId: existing['userId'] || incoming['userId'] || incoming.id || existing.id,
-        studentId: existing['studentId'] || incoming['studentId'] || existing.id || incoming.id,
-        name: existing['name'] || incoming['name'] || existing['displayName'] || incoming['displayName'] || existing['fullName'] || incoming['fullName'] || '',
-        fullName: existing['fullName'] || incoming['fullName'] || existing['name'] || incoming['name'] || '',
-        displayName: existing['displayName'] || incoming['displayName'] || existing['name'] || incoming['name'] || '',
-        email: existing['email'] || incoming['email'] || '',
+        ...userDoc,
+        ...studentDoc,
+        _isDirectStudent: true,
+        id: studentDoc.id || userDoc.id,
+        uid: studentDoc['uid'] || userDoc['uid'] || userDoc.id || studentDoc.id,
+        userId: studentDoc['userId'] || userDoc['userId'] || userDoc.id || studentDoc.id,
+        studentId: studentDoc['studentId'] || userDoc['studentId'] || studentDoc.id || userDoc.id,
+        name: studentDoc['name'] || studentDoc['displayName'] || userDoc['name'] || userDoc['displayName'] || '',
+        fullName: studentDoc['fullName'] || studentDoc['name'] || userDoc['fullName'] || userDoc['name'] || '',
+        displayName: studentDoc['displayName'] || studentDoc['name'] || userDoc['displayName'] || userDoc['name'] || '',
+        email: studentDoc['email'] || userDoc['email'] || '',
         groupId: primaryGroupId,
         classGroupId: primaryGroupId,
         assignedGroupId: primaryGroupId,
         groupName: primaryGroupName,
+        groupIds: combinedGroupIds,
+        classGroupIds: combinedGroupIds,
+        assignedGroupIds: combinedGroupIds,
         classId: primaryClassId,
         className: primaryClassName,
         courseId: primaryCourseId,
         courseName: primaryCourseName,
         madrasaId: primaryMadrasaId,
         madrasaName: primaryMadrasaName,
-        organizationId: incoming['organizationId'] || existing['organizationId'] || '',
-        status: incoming['status'] || existing['status'] || 'active',
-        progress: incoming['progress'] || existing['progress'] || undefined,
-        stage: incoming['stage'] || existing['stage'] || undefined,
-        rollNumber: incoming['rollNumber'] || existing['rollNumber'] || incoming['rollNo'] || existing['rollNo'] || undefined
+        madrasaIds: combinedMadrasaIds,
+        organizationId: studentDoc['organizationId'] || userDoc['organizationId'] || '',
+        status: studentDoc['status'] || userDoc['status'] || 'active',
+        academicStatus: studentDoc['academicStatus'] || userDoc['academicStatus'] || studentDoc['status'] || 'active',
+        movementStatus: studentDoc['movementStatus'] || userDoc['movementStatus'] || '',
+        progress: studentDoc['progress'] || userDoc['progress'] || undefined,
+        stage: studentDoc['stage'] || userDoc['stage'] || undefined,
+        rollNumber: studentDoc['rollNumber'] || studentDoc['rollNo'] || userDoc['rollNumber'] || userDoc['rollNo'] || undefined
       };
     };
 
     (directStudents || []).forEach(st => {
-      const tokens = getTokensForRecord(st);
-      const nameStr = String(st['displayName'] || st['fullName'] || st['name'] || '').trim().toLowerCase();
+      const markedSt: EntityRecord = { ...st, _isDirectStudent: true };
+      const tokens = getTokensForRecord(markedSt);
+      const nameStr = String(markedSt['displayName'] || markedSt['fullName'] || markedSt['name'] || '').trim().toLowerCase();
 
       let existingIdx = tokens.map(t => tokenToIndex.get(t)).find(idx => idx !== undefined);
       if (existingIdx !== undefined) {
-        unifiedList[existingIdx] = mergeRecords(unifiedList[existingIdx], st);
+        unifiedList[existingIdx] = mergeRecords(unifiedList[existingIdx], markedSt);
         tokens.forEach(t => tokenToIndex.set(t, existingIdx!));
       } else {
         const newIdx = unifiedList.length;
-        unifiedList.push({ ...st });
+        unifiedList.push(markedSt);
         tokens.forEach(t => tokenToIndex.set(t, newIdx));
         if (nameStr && nameStr.length > 2) {
           tokenToIndex.set(`name_${nameStr}`, newIdx);
@@ -1863,8 +1893,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     if (!group) return [];
 
     const grpIdStr = this.extractId(group.id || group['docId'] || group['groupId']);
-    const targetMadrasaId = this.extractId(group['madrasaId']);
-    const targetClassId = this.extractId(group['classId']);
+    const targetMadrasaId = this.extractId(group['madrasaId']) || this.extractId(this.selectedMadrasaId);
+    const targetClassId = this.extractId(group['classId']) || this.extractId(this.selectedClassId);
 
     // Extract all student IDs assigned to this group from the group document itself
     const rosterTokens = new Set<string>([
@@ -1931,17 +1961,28 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       if (['inactive', 'disabled', 'suspended', 'archived', 'deleted', 'left', 'graduated'].includes(status)) return false;
       if (s['isArchived'] === true || s['isDeleted'] === true || s['inactive'] === true) return false;
 
-      // Madrasa check if both specified
-      const sMadrasaId = this.extractId(s['madrasaId'] || s['assignedMadrasaId']);
-      if (targetMadrasaId && sMadrasaId && targetMadrasaId !== sMadrasaId) {
-        return false;
-      }
-
       // Check student's explicit primary group assignment
       const sDirectGroupId = this.extractId(s['groupId']);
       const sClassGroupId = this.extractId(s['classGroupId']);
       const sAssignedGroupId = this.extractId(s['assignedGroupId']);
       const sPrimaryGroupId = sDirectGroupId || sClassGroupId || sAssignedGroupId;
+
+      const sIdentities = [
+        s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
+      ].filter(Boolean).map(v => String(v).trim().toLowerCase());
+
+      const isInRoster = sIdentities.some(id => rosterTokens.has(id));
+
+      // Madrasa check if both specified
+      const sMadrasaId = this.extractId(s['madrasaId'] || s['assignedMadrasaId']);
+      const sMadrasaIds = Array.isArray(s['madrasaIds'])
+        ? s['madrasaIds'].map((x: any) => this.extractId(x)).filter(Boolean)
+        : [];
+
+      if (targetMadrasaId && sMadrasaId && targetMadrasaId !== sMadrasaId) {
+        // Student's primary madrasa differs from this group's madrasa. They must NOT show in old madrasas!
+        return false;
+      }
 
       // CASE 1: Student has an explicit primary group assigned
       if (sPrimaryGroupId) {
@@ -1955,11 +1996,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
 
       // CASE 2: Student has NO explicit primary group assigned on their record. Fallback heuristics:
       // 1. Direct group roster matching (group.assignedStudentIds, group.students, etc.)
-      const sIdentities = [
-        s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId'], s['email']
-      ].filter(Boolean).map(v => String(v).trim().toLowerCase());
-
-      if (sIdentities.some(id => rosterTokens.has(id))) {
+      if (isInRoster) {
         return true;
       }
 
@@ -2042,7 +2079,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
       }
 
       // 1. Fetch Students in Class Group (unified across students & users collections with multi-token roster matching)
-      const allStudents = await this.fetchUnifiedStudentsList();
+      const allStudents = await this.fetchUnifiedStudentsList(shouldShowLoader);
       const currGroup = this.classGroups.find(g => g.id === this.selectedGroupId) || { 
         id: this.selectedGroupId, 
         madrasaId: this.selectedMadrasaId, 
@@ -2076,6 +2113,29 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
                 status: st.status || 'present',
                 note: st.note || st.remarks || ''
               };
+            }
+          });
+        }
+
+        // If attendance was already recorded for this session, also preserve any student who was marked in this session
+        const savedKeys = Object.keys(savedAttendanceMap).map(k => k.toLowerCase().trim());
+        if (savedKeys.length > 0) {
+          const groupStudentTokens = new Set(
+            groupStudents.flatMap(s => [s.id, s['uid'], s['userId'], s['entityId'], s['docId'], s['studentId']].filter(Boolean).map(x => String(x).toLowerCase().trim()))
+          );
+          allStudents.forEach(st => {
+            const stTokens = [st.id, st['uid'], st['userId'], st['entityId'], st['docId'], st['studentId']].filter(Boolean).map(x => String(x).toLowerCase().trim());
+            const wasMarkedInThisSession = stTokens.some(tok => savedKeys.includes(tok));
+            const alreadyInGroup = stTokens.some(tok => groupStudentTokens.has(tok));
+            const sCurrentGroupId = this.extractId(st['groupId'] || st['classGroupId'] || st['assignedGroupId']);
+            const sCurrentMadrasaId = this.extractId(st['madrasaId'] || st['assignedMadrasaId']);
+            const currGroupId = this.extractId(this.selectedGroupId);
+            const currMadrasaId = this.extractId(this.selectedMadrasaId);
+            const isTransferredAway = (sCurrentGroupId && currGroupId && sCurrentGroupId !== currGroupId) ||
+                                     (sCurrentMadrasaId && currMadrasaId && sCurrentMadrasaId !== currMadrasaId);
+            if (wasMarkedInThisSession && !alreadyInGroup && !isTransferredAway) {
+              groupStudents.push(st);
+              stTokens.forEach(tok => groupStudentTokens.add(tok));
             }
           });
         }

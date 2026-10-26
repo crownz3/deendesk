@@ -46,10 +46,22 @@ export class ClassPlanAttendanceService {
       ]);
 
       const studentMap = new Map<string, EntityRecord>();
-      [...studentsCol, ...usersCol].forEach(s => { if (s.id) studentMap.set(String(s.id), s); });
-      const allStudents = Array.from(studentMap.values());
+      usersCol.forEach(u => {
+        if (u.id) studentMap.set(String(u.id), u);
+        if (u['uid']) studentMap.set(String(u['uid']), u);
+      });
+      studentsCol.forEach(s => {
+        const sIds = [s.id, s['uid'], s['userId'], s['studentId'], s['entityId']].filter(Boolean).map(x => String(x));
+        const existingKey = sIds.find(id => studentMap.has(id));
+        const merged = existingKey ? { ...studentMap.get(existingKey)!, ...s } : s;
+        sIds.forEach(id => studentMap.set(id, merged));
+      });
+      const allStudents = Array.from(new Set(studentMap.values()));
 
       const classStudents = allStudents.filter(s => {
+        if (classPlan.madrasaId && s["madrasaId"] && s["madrasaId"] !== classPlan.madrasaId) {
+          return false;
+        }
         const matchesClass = s["classId"] === classPlan.classId || (s["classIds"] as string[])?.includes(classPlan.classId);
         if (!matchesClass) return false;
         if (classPlan.groupId) {

@@ -3,7 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { ActivatedRoute } from '@angular/router';
 import { catchError, combineLatest, firstValueFrom, map, Observable, of, startWith, switchMap, Subject, BehaviorSubject, take, tap, scan, debounceTime, distinctUntilChanged } from 'rxjs';
-import { CollectionReference, DocumentData, collection, getFirestore, query, where, QueryConstraint, getDocs, limit, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { CollectionReference, DocumentData, collection, getFirestore, query, where, QueryConstraint, getDocs, limit, updateDoc, doc, serverTimestamp, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getDeenDeskFirebaseApp, getDeenDeskFirestore } from '../../core/services/firebase-app';
 import { DEFAULT_STAGES_BY_COURSE_TYPE, PERMISSION_LABELS, ROLE_LABELS, ROLE_ORDER } from '../../core/constants/defaults';
@@ -1555,7 +1555,11 @@ export class ManagementPage {
                      const madrasaClasses = displayClasses.filter(cls => extractId(cls['madrasaId']) === madrasaFilter || (Array.isArray(cls['madrasaIds']) && cls['madrasaIds'].map(extractId).includes(madrasaFilter)));
                      const madrasaClassCourseIds = new Set(madrasaClasses.map(cls => String(cls['courseId'] || '')).filter(Boolean));
 
-                     const madrasaStudents = students.filter(s => extractId(s['madrasaId']) === madrasaFilter || (Array.isArray(s['madrasaIds']) && s['madrasaIds'].map(extractId).includes(madrasaFilter)));
+                     const madrasaStudents = students.filter(s => {
+                       const sMId = extractId(s['madrasaId']);
+                       if (sMId) return sMId === madrasaFilter;
+                       return Array.isArray(s['madrasaIds']) && s['madrasaIds'].map(extractId).includes(madrasaFilter);
+                     });
                      const madrasaStudentCourseIds = new Set(madrasaStudents.map(s => String(s['courseId'] || '')).filter(Boolean));
 
                      displayCourses = displayCourses.filter(c => {
@@ -1635,8 +1639,11 @@ export class ManagementPage {
                       const userId = String(r['uid'] || r.id || '');
                       const rowMId = extractId(r['madrasaId']);
                       const rowMIds = Array.isArray(r['madrasaIds']) ? r['madrasaIds'].map(extractId) : [];
-                      const ownLink = rowMId === madrasaFilter || rowMIds.includes(madrasaFilter);
-                      const madrasaLink = (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
+                      const isStudent = config.resource === 'students';
+                      const ownLink = isStudent
+                        ? (rowMId ? rowMId === madrasaFilter : rowMIds.includes(madrasaFilter))
+                        : (rowMId === madrasaFilter || rowMIds.includes(madrasaFilter));
+                      const madrasaLink = !isStudent && (userId && (madrasaInchargeIds.includes(userId) || madrasaCoordinatorIds.includes(userId)));
                       return ownLink || madrasaLink;
                     });
                   }
@@ -4502,15 +4509,51 @@ export class ManagementPage {
                     createdBy: profile?.displayName || profile?.email || 'System'
                   }, profile).catch(e => console.warn('Failed to log studentTransfers for edit academic change:', e));
 
+                  if (newGroupId && oldGroupId && newGroupId !== oldGroupId) {
+                    const studentTokens = [studentId, initial.id, initial['uid'], initial['userId']].filter(Boolean);
+                    await this.repo.update('classGroups', oldGroupId, {
+                      assignedStudentIds: arrayRemove(...studentTokens)
+                    }, profile).catch(() => {});
+                    await this.repo.update('classGroups', newGroupId, {
+                      assignedStudentIds: arrayUnion(...studentTokens)
+                    }, profile).catch(() => {});
+                  }
+
                   this.repo.clearCache('userLifecycleHistory');
                   this.repo.clearCache('studentTransfers');
                   this.repo.clearCache('classGroups');
                 }
 
                 // Also shadow sync to users/{uid} document
-                const candidateIds = [initial.id, initial['uid'], initial['userId']]
+                const candidateIds = [initial.id, initial['uid'], initial['userId'], initial['entityId']]
                   .map(v => String(v || '').trim())
                   .filter(Boolean);
+
+                let linkedUserUid = String(initial['userId'] || initial['uid'] || '').trim();
+                if (!linkedUserUid) {
+                  try {
+                    const firestore = getDeenDeskFirestore();
+                    if (initial.id) {
+                      const qEntity = query(collection(firestore, 'users'), where('entityId', '==', initial.id), limit(1));
+                      const snapEntity = await getDocs(qEntity);
+                      if (!snapEntity.empty) {
+                        linkedUserUid = snapEntity.docs[0].id;
+                      }
+                    }
+                    if (!linkedUserUid && initial['email']) {
+                      const qEmail = query(collection(firestore, 'users'), where('email', '==', initial['email']), limit(1));
+                      const snapEmail = await getDocs(qEmail);
+                      if (!snapEmail.empty) {
+                        linkedUserUid = snapEmail.docs[0].id;
+                      }
+                    }
+                  } catch (lookupErr) {
+                    console.warn('Could not query linked user for edit student sync:', lookupErr);
+                  }
+                }
+                if (linkedUserUid && !candidateIds.includes(linkedUserUid)) {
+                  candidateIds.push(linkedUserUid);
+                }
 
                 for (const sId of candidateIds) {
                   await this.repo.update('users', sId, processedPayload, profile, true).catch(() => {});
