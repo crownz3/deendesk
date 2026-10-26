@@ -25,3 +25,13 @@
 - Component dialogs (e.g., `UserDetailsDialogComponent`) must consume `RepositoryService.getAllOnce()` rather than issuing raw `getDocs(collection(...))` calls across multiple collections.
 - Text search inputs on high-traffic management pages must be debounced by 500–600ms to avoid re-evaluating queries on every keystroke.
 
+## 7. Fast Iteration, Build & Execution Speed Rules
+- **NEVER Run Full `ng build` / `ionic build` for Routine Verification**:
+  - Full Angular bundling takes 45–75+ seconds on this workspace due to monolithic modules (`management.page.ts`, `classroom-suite.page.ts`).
+  - **MANDATORY**: For fast syntax/type verification, run `npx tsc --noEmit` (5–8 seconds) or rely on the user's running dev server.
+  - Only run full `npm run build:prod` and `firebase deploy` when the user explicitly commands: *"build"*, *"push"*, or *"deploy"*.
+- **Targeted File Navigation**:
+  - Focus inspections and edits directly on the relevant dialog, component, or service without scanning unrelated 5,000+ line files.
+- **Strict Deploy & Commit Guard**:
+  - Never commit, push, or deploy without explicit user permission.
+
