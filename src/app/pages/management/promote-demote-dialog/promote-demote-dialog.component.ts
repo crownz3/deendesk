@@ -547,6 +547,8 @@ export class PromoteDemoteDialogComponent implements OnInit {
           updatePayload.courseId = this.targetCourseId;
           updatePayload.lastCourseSwitchDate = actionDate;
           updatePayload.prevCourseId = String(std['courseId'] ?? '');
+          updatePayload.needsTransfer = true;
+          updatePayload.movementTag = 'Need to Transfer';
         }
 
         await this.repo.update('students', studentId, updatePayload, profile);

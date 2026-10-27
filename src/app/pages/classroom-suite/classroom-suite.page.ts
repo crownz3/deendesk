@@ -1723,6 +1723,24 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     return [];
   }
 
+  private isInactiveStudent(s: EntityRecord | null | undefined): boolean {
+    if (!s) return true;
+    if (s['isActive'] === false || s['active'] === false) return true;
+    if (s['inactive'] === true || s['isArchived'] === true || s['isDeleted'] === true) return true;
+
+    const statusValues = [
+      s['status'],
+      s['state'],
+      s['academicStatus'],
+      s['userStatus'],
+      s['accountStatus'],
+      s['studentStatus']
+    ].map(v => String(v || '').trim().toLowerCase()).filter(Boolean);
+
+    const inactiveKeywords = ['inactive', 'disabled', 'suspended', 'archived', 'deleted', 'left', 'graduated', 'deactivated'];
+    return statusValues.some(val => inactiveKeywords.includes(val));
+  }
+
   private async fetchUnifiedStudentsList(forceRefresh = false): Promise<EntityRecord[]> {
     if (!this.currentUser) return [];
 
@@ -1830,8 +1848,10 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
         madrasaName: primaryMadrasaName,
         madrasaIds: combinedMadrasaIds,
         organizationId: studentDoc['organizationId'] || userDoc['organizationId'] || '',
-        status: studentDoc['status'] || userDoc['status'] || 'active',
-        academicStatus: studentDoc['academicStatus'] || userDoc['academicStatus'] || studentDoc['status'] || 'active',
+        status: (this.isInactiveStudent(studentDoc) || this.isInactiveStudent(userDoc)) ? 'inactive' : (studentDoc['status'] || userDoc['status'] || 'active'),
+        academicStatus: (this.isInactiveStudent(studentDoc) || this.isInactiveStudent(userDoc)) ? 'inactive' : (studentDoc['academicStatus'] || userDoc['academicStatus'] || studentDoc['status'] || 'active'),
+        isActive: !(this.isInactiveStudent(studentDoc) || this.isInactiveStudent(userDoc)),
+        active: !(this.isInactiveStudent(studentDoc) || this.isInactiveStudent(userDoc)),
         movementStatus: studentDoc['movementStatus'] || userDoc['movementStatus'] || '',
         progress: studentDoc['progress'] || userDoc['progress'] || undefined,
         stage: studentDoc['stage'] || userDoc['stage'] || undefined,
@@ -1931,7 +1951,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     const embeddedStudents = [
       ...(Array.isArray(group['students']) ? group['students'] : []),
       ...(Array.isArray(group['assignedStudents']) ? group['assignedStudents'] : [])
-    ].filter(s => typeof s === 'object' && s !== null && (s.id || s.name || s.fullName || s.displayName));
+    ].filter(s => typeof s === 'object' && s !== null && (s.id || s.name || s.fullName || s.displayName) && !this.isInactiveStudent(s));
 
     const workingStudents = [...allStudents];
     embeddedStudents.forEach(emb => {
@@ -1956,10 +1976,8 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
     });
 
     return workingStudents.filter(s => {
-      // Status filter: ignore inactive, disabled, suspended, archived, deleted, left, graduated
-      const status = String(s['status'] || s['state'] || s['academicStatus'] || '').toLowerCase();
-      if (['inactive', 'disabled', 'suspended', 'archived', 'deleted', 'left', 'graduated'].includes(status)) return false;
-      if (s['isArchived'] === true || s['isDeleted'] === true || s['inactive'] === true) return false;
+      // Status filter: strictly ignore inactive, disabled, suspended, archived, deleted, left, graduated
+      if (this.isInactiveStudent(s)) return false;
 
       // Check student's explicit primary group assignment
       const sDirectGroupId = this.extractId(s['groupId']);
@@ -2133,7 +2151,7 @@ export class ClassroomSuitePage implements OnInit, OnDestroy {
             const currMadrasaId = this.extractId(this.selectedMadrasaId);
             const isTransferredAway = (sCurrentGroupId && currGroupId && sCurrentGroupId !== currGroupId) ||
                                      (sCurrentMadrasaId && currMadrasaId && sCurrentMadrasaId !== currMadrasaId);
-            if (wasMarkedInThisSession && !alreadyInGroup && !isTransferredAway) {
+            if (wasMarkedInThisSession && !alreadyInGroup && !isTransferredAway && !this.isInactiveStudent(st)) {
               groupStudents.push(st);
               stTokens.forEach(tok => groupStudentTokens.add(tok));
             }

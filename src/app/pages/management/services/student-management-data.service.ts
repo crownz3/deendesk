@@ -373,8 +373,6 @@ export class StudentManagementDataService {
 
               if (Array.from(sGroupTokens).some(gId => assignedGroupIds.has(gId))) return true;
 
-              if (assignedGroupIds.size > 0) return false;
-
               const sClassTokens = new Set<string>([
                 ...this.extractAllStrings([
                   s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds'], s['className']
@@ -485,6 +483,13 @@ export class StudentManagementDataService {
           madrasaIds: (Array.isArray(userRow['madrasaIds']) && userRow['madrasaIds'].length > 0) ? userRow['madrasaIds'] : row['madrasaIds'],
           credentialStatus: creds.status,
           temporaryPasswordDisplay: creds.display,
+          needsTransfer: Boolean(
+            row['needsTransfer'] === true || userRow['needsTransfer'] === true ||
+            (effectiveCourseId && matchedClass?.['courseId'] && String(effectiveCourseId) !== String(matchedClass['courseId'])) ||
+            (effectiveCourseId && matchedGroup?.['courseId'] && String(effectiveCourseId) !== String(matchedGroup['courseId'])) ||
+            (Boolean(row['isCrossCourseSwitch'] || userRow['isCrossCourseSwitch'] || (row['prevCourseId'] && row['courseId'] && String(row['prevCourseId']) !== String(row['courseId']))) && (!effectiveGroupId || !effectiveClassId || String(effectiveCourseId) !== String(matchedClass?.['courseId'])))
+          ),
+          transferLabel: 'Need to Transfer',
         } as EntityRecord;
       });
       })

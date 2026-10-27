@@ -370,6 +370,13 @@ export class UserDetailsDialogComponent implements OnInit {
         ];
         if (stTeacherTokens.some(tok => userStaffIds.includes(tok))) return true;
 
+        const userCourseIds = [
+          ...this.extractAllStrings(this.user['courseId']),
+          ...this.extractAllStrings(this.user['courseIds']),
+          ...matchedGroups.map(g => String(g['courseId'] || '').trim()).filter(Boolean),
+          ...allClasses.filter(c => userClassIds.includes(String(c.id).trim())).map(c => String(c['courseId'] || '').trim()).filter(Boolean)
+        ];
+
         const stGroupTokens = [
           ...this.extractAllStrings(st['groupId']),
           ...this.extractAllStrings(st['classGroupId']),
@@ -380,14 +387,19 @@ export class UserDetailsDialogComponent implements OnInit {
         ];
         if (stGroupTokens.some(gid => groupIdsSet.has(gid))) return true;
 
-        if (groupIdsSet.size > 0) return false;
-
         const stClassTokens = [
           ...this.extractAllStrings(st['classId']),
           ...this.extractAllStrings(st['assignedClassId']),
           ...this.extractAllStrings(st['classIds']),
         ];
         if (stClassTokens.some(cid => classIdsSet.has(cid))) return true;
+
+        const stCourseTokens = [
+          ...this.extractAllStrings(st['courseId']),
+          ...this.extractAllStrings(st['assignedCourseId']),
+          ...this.extractAllStrings(st['courseIds'])
+        ];
+        if (stCourseTokens.some(cid => userCourseIds.includes(cid))) return true;
 
         return false;
       });

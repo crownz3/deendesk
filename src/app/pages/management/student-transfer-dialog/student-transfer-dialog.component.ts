@@ -622,6 +622,8 @@ export class StudentTransferDialogComponent implements OnInit {
         movementTag: 'Transferred',
         status: 'active',
         academicStatus: 'active',
+        needsTransfer: false,
+        pendingTransfer: false,
         lastTransferDate: this.actionDate,
         updatedAt: new Date().toISOString(),
       };

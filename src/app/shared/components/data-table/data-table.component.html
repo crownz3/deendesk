@@ -221,14 +221,27 @@
                     <span class="staff-chip-name">{{ text(row, column.key) }}</span>
                   </div>
                   <ng-template #checkGroupOrText>
-                    <div *ngIf="column.key === 'name' && resourceKey === 'classGroups'; else justText" style="display: inline-flex; align-items: center; gap: 6px;">
+                    <div *ngIf="column.key === 'name' && resourceKey === 'classGroups'; else checkStudentOrText" style="display: inline-flex; align-items: center; gap: 6px;">
                       <span>{{ getTableCellValue(row, column) }}</span>
                       <button mat-icon-button type="button" style="width: 24px; height: 24px; line-height: 24px;" (click)="openGroupInfo(row); $event.stopPropagation()" matTooltip="View Class Group Info">
                         <ion-icon name="information-circle-outline" style="font-size: 16px; color: var(--ion-color-primary, #3880ff);"></ion-icon>
                       </button>
                     </div>
-                    <ng-template #justText>
-                      <span>{{ getTableCellValue(row, column) }}</span>
+                    <ng-template #checkStudentOrText>
+                      <div *ngIf="column.key === 'name' && (resourceKey === 'students' || row['role'] === 'student'); else justText" style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span>{{ getTableCellValue(row, column) }}</span>
+                        <button *ngIf="row['needsTransfer']"
+                                type="button"
+                                class="transfer-needed-badge"
+                                (click)="transfer.emit(row); $event.stopPropagation()"
+                                matTooltip="Promoted across courses but not yet assigned to a class/group. Click to transfer!">
+                          <ion-icon name="swap-horizontal-outline"></ion-icon>
+                          <span>Need to Transfer</span>
+                        </button>
+                      </div>
+                      <ng-template #justText>
+                        <span>{{ getTableCellValue(row, column) }}</span>
+                      </ng-template>
                     </ng-template>
                   </ng-template>
                 </ng-template>

@@ -1393,6 +1393,16 @@ export class ManagementPage {
                 ]).map(v => v.trim())
               ].map(v => v.toLowerCase()).filter(Boolean));
 
+              const assignedCourseIds = new Set<string>([
+                ...classes.filter(c => assignedClassIds.has(extractId(c.id))).flatMap(c => [
+                  extractId(c['courseId'] || c['course']),
+                  String(c['courseId'] || c['course'] || '').trim()
+                ]),
+                ...this.extractAllStrings([
+                  profAny?.['courseId'], profAny?.['courseIds'], profAny?.['assignedCourseId'], profAny?.['assignedCourseIds']
+                ]).map(v => v.trim())
+              ].map(v => v.toLowerCase()).filter(Boolean));
+
               const staffGroupStudentTokens = new Set<string>();
               classGroups.filter(g => {
                 const gTokens = [
@@ -1434,8 +1444,6 @@ export class ManagementPage {
 
                 if (Array.from(sGroupTokens).some(gId => assignedGroupIds.has(gId))) return true;
 
-                if (assignedGroupIds.size > 0) return false;
-
                 const sClassTokens = new Set<string>([
                   ...this.extractAllStrings([
                     s['classId'], s['assignedClassId'], s['class'], s['classIds'], s['assignedClassIds'], s['className']
@@ -1444,13 +1452,25 @@ export class ManagementPage {
 
                 if (Array.from(sClassTokens).some(cId => assignedClassIds.has(cId))) return true;
 
+                const sCourseTokens = new Set<string>([
+                  ...this.extractAllStrings([
+                    s['courseId'], s['assignedCourseId'], s['course'], s['courseIds'], s['assignedCourseIds'], s['courseName']
+                  ]).map(v => v.toLowerCase().trim())
+                ].filter(Boolean));
+
+                if (Array.from(sCourseTokens).some(crsId => assignedCourseIds.has(crsId))) return true;
+
                 return false;
               });
             }
            
              if (['students', 'classGroups', 'classes'].includes(config.resource)) {
                  if (courseFilter !== 'all') {
-                   filteredRows = filteredRows.filter(r => r['courseId'] === courseFilter);
+                   filteredRows = filteredRows.filter(r => {
+                     if (r['courseId'] === courseFilter) return true;
+                     if (r['needsTransfer'] && r['prevCourseId'] === courseFilter) return true;
+                     return false;
+                   });
                    displayClasses = displayClasses.filter(c => c['courseId'] === courseFilter);
                    displayClassGroups = displayClassGroups.filter(g => g['courseId'] === courseFilter);
                  }
@@ -3014,6 +3034,16 @@ export class ManagementPage {
           ...matchedClassIds
         ]);
 
+        const directCourseIds = [
+          row['courseId'],
+          row['assignedCourseId'],
+          ...(Array.isArray(row['courseIds']) ? row['courseIds'] : []),
+          ...(Array.isArray(row['assignedCourseIds']) ? row['assignedCourseIds'] : [])
+        ].map(v => String(v || '').trim()).filter(Boolean);
+
+        const matchedCourseIds = allClasses.filter(c => assignedClassIds.has(String(c.id).trim())).map(c => String(c['courseId'] || c['course'] || '').trim()).filter(Boolean);
+        const assignedCourseIds = new Set<string>([...directCourseIds, ...matchedCourseIds]);
+
         const staffGroupStudentTokens = new Set<string>();
         classGroupDocs.filter(g => assignedGroupIds.has(String(g.id).trim())).forEach(g => {
           [
@@ -3058,9 +3088,14 @@ export class ManagementPage {
             ...(Array.isArray(s['classIds']) ? s['classIds'].map(extractId) : [])
           ].map(v => String(v || '').trim()).filter(Boolean);
 
-          if (sClassTokens.some(cId => explicitClassIds.has(cId))) return true;
+          if (sClassTokens.some(cId => explicitClassIds.has(cId) || assignedClassIds.has(cId))) return true;
 
-          if (assignedGroupIds.size === 0 && sClassTokens.some(cId => assignedClassIds.has(cId))) return true;
+          const sCourseTokens = [
+            s['courseId'], s['assignedCourseId'], s['course'],
+            ...(Array.isArray(s['courseIds']) ? s['courseIds'].map(extractId) : [])
+          ].map(v => String(v || '').trim()).filter(Boolean);
+
+          if (sCourseTokens.some(crsId => assignedCourseIds.has(crsId))) return true;
 
           return false;
         });
